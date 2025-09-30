@@ -3,12 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using Hl7.Fhir.Specification.Source;
-
-namespace Microsoft.Health.Fhir.Core.Features.Validation
+namespace Microsoft.Health.Fhir.Core.Features.Storage
 {
-    public interface IProvideProfilesForValidation : IAsyncResourceResolver, ISupportedProfilesStore
+    public enum FhirCacheLimitType
     {
+        Byte = 0,
+        Count = 1,
     }
 }

@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Operations;
@@ -51,13 +53,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public void GivenAConformanceBuilder_WhenCallingOperationsCapabilityForSelectableSearchParameters_ThenStatusOperationIsAddedWhenEnabled(bool added)
+        public async Task GivenAConformanceBuilder_WhenCallingOperationsCapabilityForSelectableSearchParameters_ThenStatusOperationIsAddedWhenEnabled(bool added)
         {
             _coreFeatureConfiguration.SupportsSelectableSearchParameters = added;
 
             var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _urlResolver, _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
-            provider.Build(builder);
+            await provider.BuildAsync(builder, CancellationToken.None);
 
             builder.Received(added ? 1 : 0)
                 .Apply(Arg.Is<Action<ListedCapabilityStatement>>(x => x.Method.Name == nameof(OperationsCapabilityProvider.AddSelectableSearchParameterDetails)));
@@ -68,14 +70,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         [InlineData(KnownDataStores.SqlServer, false)]
         [InlineData(KnownDataStores.CosmosDb, true)]
         [InlineData(KnownDataStores.CosmosDb, false)]
-        public void GivenAConformanceBuilder_WhenCallingOperationsCapabilityForIncludes_ThenIncludesDetailsIsAddedWhenSqlServerAndSupported(string dataStore, bool support)
+        public async Task GivenAConformanceBuilder_WhenCallingOperationsCapabilityForIncludes_ThenIncludesDetailsIsAddedWhenSqlServerAndSupported(string dataStore, bool support)
         {
             _fhirRuntimeConfiguration.DataStore.Returns(dataStore);
             _coreFeatureConfiguration.SupportsIncludes = support;
 
             var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _implementationGuidesOptions, _urlResolver, _fhirRuntimeConfiguration);
             ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
-            provider.Build(builder);
+            await provider.BuildAsync(builder, CancellationToken.None);
 
             builder.Received(support && dataStore == KnownDataStores.SqlServer ? 1 : 0)
                 .Apply(Arg.Is<Action<ListedCapabilityStatement>>(x => x.Method.Name == nameof(OperationsCapabilityProvider.AddIncludesDetails)));
