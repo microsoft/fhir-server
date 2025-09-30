@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                                 try
                                 {
                                     _logger.LogInformation("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}'.", provider.ToString());
-                                    provider.Build(_builder);
+                                    await provider.BuildAsync(_builder, cancellationToken);
                                 }
                                 catch (Exception e)
                                 {
@@ -233,10 +233,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 if (_builder != null)
                 {
                     // Update search params;
-                    _builder.SyncSearchParametersAsync();
+                    _builder.SyncSearchParameters();
 
                     // Update supported profiles;
-                    _builder.SyncProfiles();
+                    await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
                 }
 
                 await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
@@ -322,12 +322,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     case RebuildPart.SearchParameter:
                         // Update search params;
-                        _builder.SyncSearchParametersAsync();
+                        _builder.SyncSearchParameters();
                         break;
 
                     case RebuildPart.Profiles:
                         // Update supported profiles;
-                        _builder.SyncProfiles(true);
+                        await _builder.SyncProfilesAsync(cancellationToken, true);
                         break;
                 }
             }
