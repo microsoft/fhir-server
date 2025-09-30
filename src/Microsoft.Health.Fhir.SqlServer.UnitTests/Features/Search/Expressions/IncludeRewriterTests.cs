@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.All, rewrittenExpressions[0].Kind);
             Assert.Equal(SearchParamTableExpressionKind.Top, rewrittenExpressions[1].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -356,7 +356,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -412,7 +412,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -468,7 +468,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -524,7 +524,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -580,7 +580,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -636,7 +636,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -692,7 +692,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -748,7 +748,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         // Queries with indirect dependencies
@@ -818,7 +818,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -885,7 +885,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -952,7 +952,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1019,7 +1019,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1086,7 +1086,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1153,7 +1153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         // Queries with multiple includes/revincludes
@@ -1222,7 +1222,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1289,7 +1289,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1356,7 +1356,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         // Queries with search parameters unrelated to the query
@@ -1436,7 +1436,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[10].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1514,7 +1514,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[10].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         // Wildcard Queries
@@ -1583,7 +1583,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1639,7 +1639,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         [Fact]
@@ -1684,7 +1684,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Throws<SearchOperationNotSupportedException>(() => ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(sqlExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(sqlExpression);
         }
 
         public class IncludeRewriterFixture

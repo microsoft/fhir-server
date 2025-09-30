@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 e => { Assert.NotNull(e.Predicate as MissingSearchParameterExpression); });
             Assert.Equal(tableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Equal(inputExpression, visitedExpression);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Equal(inputExpression, visitedExpression);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 e => { Assert.Equal(tableExpressions[0], e); },
                 e => { Assert.Equal(SearchParamTableExpressionKind.NotExists, e.Kind); });
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
     }
 }

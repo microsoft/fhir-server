@@ -16,7 +16,6 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.Core.Features.Search.Hackathon;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -26,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -80,7 +80,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsImplementedInterfaces();
 
-            services.AddSingleton<IQueryPlanSelector<bool>, QueryPlanSelector>();
+            services.AddSingleton<IQueryPlanCacheLoader, QueryPlanCacheLoader>();
+
+            services.AddSingleton<IQueryPlanCacheDynamicSelector, QueryPlanCacheDynamicSelector>();
 
             services.Add<SqlServerSearchService>()
                 .Scoped()

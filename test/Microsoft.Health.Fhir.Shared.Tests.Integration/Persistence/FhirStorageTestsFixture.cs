@@ -50,8 +50,8 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -114,6 +114,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public ISearchParameterStatusDataStore SearchParameterStatusDataStore => _fixture.GetRequiredService<ISearchParameterStatusDataStore>();
 
         public FilebasedSearchParameterStatusDataStore FilebasedSearchParameterStatusDataStore => _fixture.GetRequiredService<FilebasedSearchParameterStatusDataStore>();
+
+        public IQueryPlanCacheLoader QueryPlanCacheRuntime => _fixture.GetRequiredService<IQueryPlanCacheLoader>();
+
+        public IQueryPlanCacheDynamicSelector QueryPlanSelector => _fixture.GetRequiredService<IQueryPlanCacheDynamicSelector>();
 
         public ISearchService SearchService => _fixture.GetRequiredService<ISearchService>();
 

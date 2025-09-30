@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
-    public sealed class ExpressionTests
+    public sealed class ExpressionTestUtilities
     {
         internal static void ValidateUniqueExpressionIdentifier(Expression expression)
         {

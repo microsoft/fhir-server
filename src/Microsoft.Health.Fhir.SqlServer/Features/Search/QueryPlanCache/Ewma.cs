@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache
 {
     public class Ewma
     {
@@ -64,29 +64,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
 
         public string GetBestMetric()
         {
-            lock (_lock)
+            string metricName;
+
+            if (_iterations < _minIterationsForDecision)
             {
-                string metricName;
-
-                // To make an informed decision, we need to have at least one score for each metric.
-                // With the current logic, we will execute each metric in a round-robin fashion until we reach the minimum number of iterations.
-                if (_iterations < _minIterationsForDecision)
+                lock (_lock)
                 {
-                    metricName = _metricNames[_iterations % _metricNames.Length];
+                    // To make an informed decision, we need to have at least one score for each metric.
+                    // With the current logic, we will execute each metric in a round-robin fashion until we reach the minimum number of iterations.
+                    if (_iterations < _minIterationsForDecision)
+                    {
+                        metricName = _metricNames[_iterations % _metricNames.Length];
+                        _iterations++;
+                        return metricName;
+                    }
                 }
-                else
-                {
-                    metricName = _ewmaScores
-                        .Where(score => score.Value != null)
-                        .OrderBy(score => score.Value)
-                        .Select(score => score.Key)
-                        .FirstOrDefault();
-                }
-
-                _iterations++;
-
-                return metricName;
             }
+
+            metricName = _ewmaScores
+                .Where(score => score.Value != null)
+                .OrderBy(score => score.Value)
+                .Select(score => score.Key)
+                .FirstOrDefault();
+
+            Interlocked.Increment(ref _iterations);
+
+            return metricName;
         }
     }
 }

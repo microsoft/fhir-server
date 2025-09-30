@@ -4,13 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache
 {
-    public sealed class QueryPlanSelector : IQueryPlanSelector<bool>
+    public sealed class QueryPlanCacheDynamicSelector : IQueryPlanCacheDynamicSelector
     {
         private const int MaxEwmaEntries = 500;
         private const int MinIterationsForDecision = 6;
@@ -20,27 +21,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
         // 'False' is the first element to ensure it is the default when EWMA scores are equal.
         private readonly string[] _settings = new[] { "False", "True" };
 
-        private readonly object _lock;
-        private readonly Dictionary<string, Ewma> _ewmaByHash;
-        private readonly ILogger<QueryPlanSelector> _logger;
+        private readonly ConcurrentDictionary<string, Ewma> _ewmaByHash;
+        private readonly IQueryPlanCacheLoader _queryPlanCacheRuntime;
+        private readonly ILogger<QueryPlanCacheDynamicSelector> _logger;
 
-        public QueryPlanSelector(ILogger<QueryPlanSelector> logger)
+        public QueryPlanCacheDynamicSelector(IQueryPlanCacheLoader queryPlanCacheRuntime, ILogger<QueryPlanCacheDynamicSelector> logger)
         {
+            _queryPlanCacheRuntime = EnsureArg.IsNotNull(queryPlanCacheRuntime, nameof(queryPlanCacheRuntime));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _lock = new object();
-            _ewmaByHash = new Dictionary<string, Ewma>();
+            _ewmaByHash = new ConcurrentDictionary<string, Ewma>();
         }
 
-        public bool GetQueryPlanCachingSetting(string hash)
+        public bool GetDefaultQueryPlanCacheSetting()
+        {
+            return _queryPlanCacheRuntime.IsEnabled();
+        }
+
+        public bool GetRecommendedQueryPlanCacheSetting(string hash)
         {
             EnsureArg.IsNotNullOrEmpty(hash, nameof(hash));
 
             Ewma ewma;
-            lock (_lock)
-            {
-                ewma = GetEwma(hash);
-            }
+            ewma = GetEwma(hash);
 
             // Hard max limit to avoid memory leaks while using dictionaries.
             // TODO: use dotnet memory cache with expiration instead of limiting the size of the dictionary.
@@ -48,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
             {
                 if (IsMaxLimitReached())
                 {
-                    return false;
+                    return GetDefaultQueryPlanCacheSetting();
                 }
                 else
                 {
@@ -91,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
                 }
 
                 var newEwma = new Ewma(_settings, MinIterationsForDecision, EwmaAlpha);
-                _ewmaByHash.Add(hash, newEwma);
+                _ewmaByHash.TryAdd(hash, newEwma);
 
                 if (IsMaxLimitReached())
                 {

@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Hackathon
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache
 {
-    public interface IQueryPlanSelector<T>
+    public interface IQueryPlanCacheLoader
     {
-        T GetQueryPlanCachingSetting(string hash);
+        bool IsEnabled();
 
-        void ReportExecutionTime(string hash, T metricName, double executionTimeMs);
+        void Reset();
     }
 }

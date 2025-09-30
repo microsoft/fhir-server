@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(expectedOperator, binaryOutput.BinaryOperator);
             Assert.Equal(DateTimeOffset.Parse(expectedDateTimeOffset), ((long)binaryOutput.Value).ToLastUpdated());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(output);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(output);
         }
     }
 }

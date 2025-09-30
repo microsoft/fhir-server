@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 e => { ValidateNotExpression(subExpression, e); });
             Assert.Equal(searchParamTableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NotExpressionRewriter.Instance);
             Assert.Equal(inputExpression, visitedExpression);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 e => { Assert.Equal(searchParamTableExpressions[0], e); },
                 e => { ValidateNotExpression(subExpression, e); });
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         private static void ValidateNotExpression(Expression subExpression, SearchParamTableExpression expressionToValidate)

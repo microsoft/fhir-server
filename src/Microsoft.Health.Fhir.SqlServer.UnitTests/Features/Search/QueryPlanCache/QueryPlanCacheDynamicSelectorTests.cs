@@ -6,25 +6,26 @@
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Features.Search.Hackathon;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
+namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.QueryPlanCache
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public sealed class QueryPlanSelectorTests
+    public sealed class QueryPlanCacheDynamicSelectorTests
     {
-        private readonly Microsoft.Extensions.Logging.ILogger<QueryPlanSelector> _logger = NullLogger<QueryPlanSelector>.Instance;
+        private readonly Microsoft.Extensions.Logging.ILogger<QueryPlanCacheDynamicSelector> _logger = NullLogger<QueryPlanCacheDynamicSelector>.Instance;
+        private readonly IQueryPlanCacheLoader _queryPlanCacheLoader = new FakeQueryPlanCacheLoader(isEnabled: false);
 
         [Fact]
         public void GivenExecutionTimes_WhereSettingsTRUEHasABetterPerformance_ThenSelectorShouldPreferTrue()
         {
             // This test simulates the case then SQL Query Plan Caching is beneficial.
 
-            QueryPlanSelector selector = new QueryPlanSelector(_logger);
+            QueryPlanCacheDynamicSelector selector = new QueryPlanCacheDynamicSelector(_queryPlanCacheLoader, _logger);
 
             string hash = "hash1";
 
@@ -36,12 +37,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
 
             for (int i = 0; i < 20; i++)
             {
-                bool setting = selector.GetQueryPlanCachingSetting(hash);
+                bool setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
 
                 selector.ReportExecutionTime(hash, setting, getValue(i));
             }
 
-            Assert.True(selector.GetQueryPlanCachingSetting(hash), "Based on the logic of this test, the selector should have settled on setting=true.");
+            Assert.True(selector.GetRecommendedQueryPlanCacheSetting(hash), "Based on the logic of this test, the selector should have settled on setting=true.");
         }
 
         [Fact]
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
         {
             // This test simulates the case then SQL Query Plan Caching is not beneficial.
 
-            QueryPlanSelector selector = new QueryPlanSelector(_logger);
+            QueryPlanCacheDynamicSelector selector = new QueryPlanCacheDynamicSelector(_queryPlanCacheLoader, _logger);
 
             string hash = "hash1";
 
@@ -61,18 +62,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
 
             for (int i = 0; i < 20; i++)
             {
-                bool setting = selector.GetQueryPlanCachingSetting(hash);
+                bool setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
 
                 selector.ReportExecutionTime(hash, setting, getValue(i));
             }
 
-            Assert.False(selector.GetQueryPlanCachingSetting(hash), "Based on the logic of this test, the selector should have settled on setting=false.");
+            Assert.False(selector.GetRecommendedQueryPlanCacheSetting(hash), "Based on the logic of this test, the selector should have settled on setting=false.");
         }
 
         [Fact]
         public void GivenMultipleSequentialRequests_WithMultipleHashes_ThenTheSelectorShouldHandleIt()
         {
-            QueryPlanSelector selector = new QueryPlanSelector(_logger);
+            QueryPlanCacheDynamicSelector selector = new QueryPlanCacheDynamicSelector(_queryPlanCacheLoader, _logger);
 
             string hash1 = "hash1";
             string hash2 = "hash2";
@@ -81,10 +82,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
 
             for (int i = 0; i < 10; i++)
             {
-                bool setting1 = selector.GetQueryPlanCachingSetting(hash1);
-                bool setting2 = selector.GetQueryPlanCachingSetting(hash2);
-                bool setting3 = selector.GetQueryPlanCachingSetting(hash3);
-                bool setting4 = selector.GetQueryPlanCachingSetting(hash4);
+                bool setting1 = selector.GetRecommendedQueryPlanCacheSetting(hash1);
+                bool setting2 = selector.GetRecommendedQueryPlanCacheSetting(hash2);
+                bool setting3 = selector.GetRecommendedQueryPlanCacheSetting(hash3);
+                bool setting4 = selector.GetRecommendedQueryPlanCacheSetting(hash4);
 
                 selector.ReportExecutionTime(hash1, setting1, setting1 ? 50 : 100);
                 selector.ReportExecutionTime(hash2, setting2, setting2 ? 100 : 50);
@@ -92,16 +93,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
                 selector.ReportExecutionTime(hash4, setting4, setting4 ? 30 : 20);
             }
 
-            Assert.True(selector.GetQueryPlanCachingSetting(hash1));
-            Assert.False(selector.GetQueryPlanCachingSetting(hash2));
-            Assert.True(selector.GetQueryPlanCachingSetting(hash3));
-            Assert.False(selector.GetQueryPlanCachingSetting(hash4));
+            Assert.True(selector.GetRecommendedQueryPlanCacheSetting(hash1));
+            Assert.False(selector.GetRecommendedQueryPlanCacheSetting(hash2));
+            Assert.True(selector.GetRecommendedQueryPlanCacheSetting(hash3));
+            Assert.False(selector.GetRecommendedQueryPlanCacheSetting(hash4));
         }
 
         [Fact]
         public async Task GivenMultipleParallelRequests_WithTwoDifferentHashes_ThenTheSelectorShouldHandleIt()
         {
-            QueryPlanSelector selector = new QueryPlanSelector(_logger);
+            QueryPlanCacheDynamicSelector selector = new QueryPlanCacheDynamicSelector(_queryPlanCacheLoader, _logger);
 
             string hash1 = "hash1";
             string hash2 = "hash2";
@@ -112,17 +113,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
 
             var result = Parallel.For(0, 100, (i) =>
             {
-                bool setting1 = selector.GetQueryPlanCachingSetting(hash1);
+                bool setting1 = selector.GetRecommendedQueryPlanCacheSetting(hash1);
                 selector.ReportExecutionTime(hash1, setting1, setting1 ? 50 : 100);
                 log.AppendLine($"Hash1: Iteration {i}, Setting={setting1}");
 
-                bool setting2 = selector.GetQueryPlanCachingSetting(hash2);
+                bool setting2 = selector.GetRecommendedQueryPlanCacheSetting(hash2);
                 selector.ReportExecutionTime(hash2, setting2, setting2 ? 100 : 50);
 
-                bool setting3 = selector.GetQueryPlanCachingSetting(hash3);
+                bool setting3 = selector.GetRecommendedQueryPlanCacheSetting(hash3);
                 selector.ReportExecutionTime(hash3, setting3, setting3 ? 110 : 120);
 
-                bool setting4 = selector.GetQueryPlanCachingSetting(hash4);
+                bool setting4 = selector.GetRecommendedQueryPlanCacheSetting(hash4);
                 selector.ReportExecutionTime(hash4, setting4, setting4 ? 30 : 20);
             });
 
@@ -131,10 +132,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
                 await Task.Delay(10);
             }
 
-            Assert.True(selector.GetQueryPlanCachingSetting(hash1));
-            Assert.False(selector.GetQueryPlanCachingSetting(hash2));
-            Assert.True(selector.GetQueryPlanCachingSetting(hash3));
-            Assert.False(selector.GetQueryPlanCachingSetting(hash4));
+            Assert.True(selector.GetRecommendedQueryPlanCacheSetting(hash1));
+            Assert.False(selector.GetRecommendedQueryPlanCacheSetting(hash2));
+            Assert.True(selector.GetRecommendedQueryPlanCacheSetting(hash3));
+            Assert.False(selector.GetRecommendedQueryPlanCacheSetting(hash4));
         }
 
         [Fact]
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
         {
             const int maxNumberOfEntries = 500;
 
-            QueryPlanSelector selector = new QueryPlanSelector(_logger);
+            QueryPlanCacheDynamicSelector selector = new QueryPlanCacheDynamicSelector(_queryPlanCacheLoader, _logger);
 
             string hash = string.Empty;
             bool setting = false;
@@ -152,35 +153,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
                 hash = $"hash{i}";
 
                 // Learning phase.
-                setting = selector.GetQueryPlanCachingSetting(hash);
+                setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
                 Assert.False(setting);
                 selector.ReportExecutionTime(hash, setting, 1);
 
-                setting = selector.GetQueryPlanCachingSetting(hash);
+                setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
                 Assert.True(setting);
                 selector.ReportExecutionTime(hash, setting, 1);
             }
 
             // After limit is reached, new entries are not allowed.
             hash = $"hash{maxNumberOfEntries + 1}";
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
 
             // After limit is reached, new entries are not allowed.
             hash = $"hash{maxNumberOfEntries + 2}";
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
-            setting = selector.GetQueryPlanCachingSetting(hash);
+            setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
             Assert.False(setting);
 
             // While older entries are still allowed.
@@ -189,11 +190,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Hackathon
                 hash = $"hash{i}";
 
                 // Learning phase.
-                setting = selector.GetQueryPlanCachingSetting(hash);
+                setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
                 Assert.False(setting);
                 selector.ReportExecutionTime(hash, setting, 1);
 
-                setting = selector.GetQueryPlanCachingSetting(hash);
+                setting = selector.GetRecommendedQueryPlanCacheSetting(hash);
                 Assert.True(setting);
                 selector.ReportExecutionTime(hash, setting, 1);
             }

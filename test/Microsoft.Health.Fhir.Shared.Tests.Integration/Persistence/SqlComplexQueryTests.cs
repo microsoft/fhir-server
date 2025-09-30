@@ -4,25 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.ElementModel.Types;
-using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Management.Sdk.Sfc;
-using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
-using Xunit.Sdk;
-using static Antlr4.Runtime.Atn.SemanticContext;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -60,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     await DisableResuseQueryPlans();
                     await ResetQueryStore();
-                    SqlServerSearchService.ResetReuseQueryPlans();
+                    _fixture.QueryPlanCacheRuntime.Reset();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
                     //// values are different and plans are NOT reused
@@ -74,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                     await EnableResuseQueryPlans(); //// new behavior
                     await ResetQueryStore();
-                    SqlServerSearchService.ResetReuseQueryPlans();
+                    _fixture.QueryPlanCacheRuntime.Reset();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
@@ -137,7 +130,7 @@ END CATCH
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             using var cmd = new SqlCommand("DELETE FROM dbo.Parameters WHERE Id = @Id", conn);
-            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
+            cmd.Parameters.AddWithValue("@Id", QueryPlanCacheLoader.ReuseQueryPlansParameterId);
             conn.Open();
             cmd.ExecuteNonQuery();
         }
@@ -146,7 +139,7 @@ END CATCH
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id,Number) SELECT @Id, 1", conn);
-            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
+            cmd.Parameters.AddWithValue("@Id", QueryPlanCacheLoader.ReuseQueryPlansParameterId);
             conn.Open();
             cmd.ExecuteNonQuery();
         }

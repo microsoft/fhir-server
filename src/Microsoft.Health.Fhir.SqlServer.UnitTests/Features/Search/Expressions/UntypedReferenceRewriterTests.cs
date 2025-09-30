@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal("(Param p (And (StringEquals ReferenceResourceId 'myId') (StringEquals ReferenceResourceType 'Organization')))", outputExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(outputExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(outputExpression);
         }
 
         [Fact]
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 "(Param p (Or (And (StringEquals ReferenceResourceId 'myId1') (StringEquals ReferenceResourceType 'Organization')) (And (StringEquals ReferenceResourceId 'myId2') (StringEquals ReferenceResourceType 'Organization'))))",
                 outputExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(outputExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(outputExpression);
         }
 
         [Fact]
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Same(inputExpression, outputExpression);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(outputExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(outputExpression);
         }
 
         [Fact]
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Same(inputExpression, outputExpression);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(outputExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(outputExpression);
         }
 
         [Fact]
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization')))", outputExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(outputExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(outputExpression);
         }
 
         [Fact]
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Same(inputExpression, outputExpression);
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(outputExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(outputExpression);
         }
 
         [Fact]
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal("(Param c (Or (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId1') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId2') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId3') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization'))))", outputExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(outputExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(outputExpression);
         }
     }
 }

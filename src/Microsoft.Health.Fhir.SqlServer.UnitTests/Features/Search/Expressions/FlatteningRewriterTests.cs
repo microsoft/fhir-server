@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal("(FieldEqual Number 1)", visitedExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression visitedExpression = inputExpression.AcceptVisitor(FlatteningRewriter.Instance);
             Assert.Equal("(And (FieldGreaterThan Number 1) (FieldLessThan Number 5) (FieldGreaterThan Quantity 1) (FieldLessThan Quantity 5))", visitedExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression visitedExpression = inputExpression.AcceptVisitor(FlatteningRewriter.Instance);
             Assert.Equal("(Or (FieldGreaterThan Number 1) (FieldLessThan Number 5) (FieldGreaterThan Quantity 1) (FieldLessThan Quantity 5))", visitedExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
 
         [Fact]
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression visitedExpression = inputExpression.AcceptVisitor(FlatteningRewriter.Instance);
             Assert.Equal("(Or (And (FieldGreaterThan Number 1) (FieldLessThan Number 5)) (And (FieldGreaterThan Quantity 1) (FieldLessThan Quantity 5)))", visitedExpression.ToString());
 
-            ExpressionTests.ValidateUniqueExpressionIdentifier(visitedExpression);
+            ExpressionTestUtilities.ValidateUniqueExpressionIdentifier(visitedExpression);
         }
     }
 }
