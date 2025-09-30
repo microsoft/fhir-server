@@ -660,7 +660,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 {
                     // construct the expression resourceType = <SourceResourceType> AND (referenceSearchParameter = <MatchResourceType1, MatchResourceId1> OR referenceSearchParameter = <MatchResourceType2, MatchResourceId2> OR ...)
 
+                    // Check SMART scopes
                     SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
+                    if (revIncludeExpression.AllowedResourceTypesByScope != null && revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*")
+                    {
+                        sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, revIncludeExpression.AllowedResourceTypesByScope));
+                    }
+
                     SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
 
                     List<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName).ToList();
@@ -683,7 +689,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     Expression expression = referenceExpression;
 
                     // If source type is a not a wildcard, include the sourceTypeExpression in the subquery
-                    if (revIncludeExpression.SourceResourceType != "*")
+                    if ((revIncludeExpression.AllowedResourceTypesByScope != null && revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*") || revIncludeExpression.SourceResourceType != "*")
                     {
                         expression = Expression.And(sourceTypeExpression, referenceExpression);
                     }
