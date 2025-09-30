@@ -1,0 +1,244 @@
+# SEarch Queries for EWMA
+
+@hostname = localhost:44348
+
+### Test rest client - verify server is running
+https://{{hostname}}/metadata
+
+### Get the globalAdminServicePrincipal to verify scopes not enforced, and to be able to POST test data
+# @name adminBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### POST test data for EWMA testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+< ./Data/EWMA.json
+
+### GET
+GET https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}?_page=1&_pageSize=100
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}?_startRow=3&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+##################################################################
+### GET
+GET https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_startRow=3&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+##################################################################
+### GET
+GET https://{{hostname}}/Patient?_id=123
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET - what should happen here?
+GET https://{{hostname}}/Patient?_id=123&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET - what should happen here?
+GET https://{{hostname}}/Patient?_id=123&_startRow=3&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+##################################################################
+### GET
+GET https://{{hostname}}/Patient?gender=female
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET - what should happen here?
+GET https://{{hostname}}/Patient?gender=female&_page=0&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET - what should happen here?
+GET https://{{hostname}}/Patient?gender=female&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET - what should happen here?
+GET https://{{hostname}}/Patient?gender=female&_startRow=3&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+##################################################################
+### GET
+GET https://{{hostname}}/Observation?subject:Patient.name=Smith
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET - what should happen here?
+GET https://{{hostname}}/Observation?subject:Patient.name=Smith&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET - what should happen here?
+GET https://{{hostname}}/Observation?subject:Patient.name=Smith&_startRow=1&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+##################################################################
+### GET
+GET https://{{hostname}}/Patient?name:contains=Smith
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?name:contains=Smith&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?name:contains=Smith&_startRow=1&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+##################################################################
+### GET
+GET https://{{hostname}}/Observation?subject=Patient/123&code=78910-1
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Observation?subject=Patient/123&code=78910-1&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Observation?subject=Patient/123&code=78910-1&_startRow=1&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+##################################################################
+### GET
+GET https://{{hostname}}/Encounter?patient=Patient/123
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Encounter?patient=Patient/123&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Encounter?patient=Patient/123&_startRow=1&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+##################################################################
+### GET
+GET https://{{hostname}}/Patient?address:missing=true
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?address:missing=true&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?address:missing=true&_startRow=1&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+##################################################################
+### GET
+GET https://{{hostname}}/Patient/123/*
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient/123/*?_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient/123/*?_startRow=1&_endRow=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+##################################################################
+### GET
+GET https://{{hostname}}/Patient?_id=123&_include=*
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_id=123&_include=*&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_id=123&_include=*&_startRow=2&_endRow=20
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_id=123&_include=*&_startRow=1&_endRow=20
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+##################################################################
+### GET
+GET https://{{hostname}}/Patient?_include=*
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_include=*&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_include=*&_startRow=2&_endRow=20
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_include=*&_startRow=1&_endRow=20
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+##################################################################
+### GET
+GET https://{{hostname}}/Patient?_revinclude=*
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_revinclude=*&_page=3&_pageSize=5
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_revinclude=*&_startRow=2&_endRow=20
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+### GET
+GET https://{{hostname}}/Patient?_revinclude=*&_startRow=1&_endRow=20
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+

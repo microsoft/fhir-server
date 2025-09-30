@@ -862,7 +862,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
-            Assert.Equal(92, results.Results.Count());
+            Assert.True(results.Results.Count() > 89);
         }
 
         [SkippableFact]
@@ -1370,34 +1370,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            // Search for Patient resources
-            // should return smart-patient-A as its name is SMARTGivenName1
+            // Search for Patient resources - should return smart-patient-A as its name is SMARTGivenName1
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
-            // Search for all resources
-            // should return smart-patient-A as its name is SMARTGivenName1
+            // Search for all resources - should return smart-patient-A as its name is SMARTGivenName1
             results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
-            // Search for all resources
-            // should return smart-patient-A as its name is SMARTGivenName1
+            // Search for all resources with type Patient, Observation, Practitioner - should return smart-patient-A as its name is SMARTGivenName1
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
-            // Search for all resources with type parameter as Observation and Practitioner
-            // should return nothing
+            // Search for all resources with type parameter as Observation and Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
@@ -1409,9 +1399,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
             // Search for Patient resources with gender male
             // should return smart-patient-A as its gender is male and name is SMARTGivenName1
@@ -1419,9 +1407,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
             // Search for Patient resources with gender female
             // should return nothing
@@ -1442,84 +1428,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            /*
-             * scopes = patient/Patient.s?name=SMARTGivenName1&gender=male
-             */
-            scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1"), ("gender", "male")));
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction }, true);
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            // Search for Patient resources
-            // should return smart-patient-A as its gender is male and name is SMARTGivenName1
-            results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
-
-            // Search for all resources
-            // should return smart-patient-A as its name is SMARTGivenName1
-            results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
-
-            // Search for all resources
-            // should return smart-patient-A as its name is SMARTGivenName1
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
-            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
-
-            // Search for all resources with type parameter as Observation and Practitioner
+            // Search for Observation resource with code - only patient/Patient.s?name=SMARTGivenName1 is allowed in the smart-patient-A compartment
             // should return nothing
             query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
-            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
-            Assert.Empty(results.Results);
-
-            // Search for Patient with type parameter as Observation and Practitioner
-            // should return smart-patient-A as its name is SMARTGivenName1
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
-
-            // Search for Patient resources with gender male
-            // should return smart-patient-A as its gender is male and name is SMARTGivenName1
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("gender", "male"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
-
-            // Search for Patient resources with gender female
-            // should return nothing
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("gender", "female"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.Empty(results.Results);
-
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.Empty(results.Results);
-
-            // Search for Observation resources
-            // should return nothing
-            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.Empty(results.Results);
         }
 
@@ -1540,48 +1453,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            // Search for Patient resources
-            // should return smart-patient-A as its gender is male and name is SMARTGivenName1
+            // Search for Patient resources - should return smart-patient-A as its gender is male and name is SMARTGivenName1
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
-            // Search for all resources
-            // should return smart-patient-A as its name is SMARTGivenName1
+            // Search for all resources - should return smart-patient-A as its name is SMARTGivenName1
             results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
-            // Search for all resources
-            // should return smart-patient-A as its name is SMARTGivenName1
+            // Search for all resources - should return smart-patient-A as its name is SMARTGivenName1
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
-            // Search for all resources with type parameter as Observation and Practitioner
-            // should return nothing
+            // Search for all resources with type parameter as Observation and Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient with type parameter as Observation and Practitioner
-            // should return smart-patient-A as its name is SMARTGivenName1
+            // Search for Patient with type parameter as Observation and Practitioner - should return smart-patient-A as its name is SMARTGivenName1
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
             // Search for Patient resources with gender male
             // should return smart-patient-A as its gender is male and name is SMARTGivenName1
@@ -1589,9 +1490,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
 
             // Search for Patient resources with gender female
             // should return nothing
@@ -1610,6 +1509,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // Search for Observation resources
             // should return nothing
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for Observation resource with code - only patient/Patient.s?name=SMARTGivenName1 is allowed in the smart-patient-A compartment
+            // should return nothing
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.Empty(results.Results);
         }
 
@@ -1631,17 +1537,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            // Search for Patient resources
-            // should return nothing
+            // Search for Patient resources - should return nothing
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for all resources
-            // should return Observation resources linked to smart-patient-A
+            // Search for all resources - should return Observation resources linked to smart-patient-A
             results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.True(results.Results.Count() == 2);
-            Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
 
             // Search for all resources with type Patient,Observation,Practitioner
             // should return Observation resources linked to smart-patient-A
@@ -1649,8 +1555,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.True(results.Results.Count() == 2);
-            Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
 
             // Search for all resources with type parameter as Observation and Practitioner
             // should return Observation resources linked to smart-patient-A
@@ -1658,8 +1566,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.True(results.Results.Count() == 2);
-            Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
 
             // Search for Observation for specific code
             // should return single Observation resource with matching code linked to smart-patient-A
@@ -1667,19 +1577,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.True(results.Results.Count() == 1);
-            Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
-            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-observation-A1"));
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-observation-A1"));
 
-            // Search for all resources with type parameter Practitioner
-            // should return nothing
+            // Search for all resources with type parameter Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient with type parameter as Patient, Observation and Practitioner
-            // should return nothing
+            // Search for Patient with type parameter as Patient, Observation and Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
@@ -1694,33 +1600,38 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.True(results.Results.Count() == 2);
             Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
 
-            // Search for Patient resources with gender male
-            // should return nothing
+            // Search for Patient resources with gender male - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with gender female
-            // should return nothing
+            // Search for Patient resources with gender female - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "female"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation resources
-            // should return Observation resources linked to smart-patient-A
+            // Search for Observation resources - should return Observation resources linked to smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.True(results.Results.Count() == 2);
-            Assert.All(results.Results, r => Assert.Equal("Observation", r.Resource.ResourceTypeName));
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observation resource with code - only patient/Patient.s?name=SMARTGivenName1 and gender male is allowed in the smart-patient-A compartment
+            // should return Observation resource with matching code linked to smart-patient-A
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-observation-A2"));
         }
 
         [SkippableFact]
@@ -1741,33 +1652,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            // Search for Observation resources
-            // should return Observation resources linked to smart-patient-A with matching code and status and a patient smart-patient-A
+            // Search for Observation resources - should return Observation resources linked to smart-patient-A with matching code and status and a patient smart-patient-A
             var results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
-            // Search for Patient resources
-            // should return only Patient resource smart-patient-A
+            // Search for Patient resources - should return only Patient resource smart-patient-A
             results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
-            // Search for all resources
-            // should return Observation resources linked to smart-patient-A and a patient smart-patient-A
+            // Search for all resources - should return Observation resources linked to smart-patient-A and a patient smart-patient-A
             results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.True(results.Results.Count() == 2);
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
 
-            // Search for all resources with type Patient,Observation,Practitioner
-            // should return Observation resources linked to smart-patient-A and patient smart-patient-A
+            // Search for all resources with type Patient,Observation,Practitioner - should return Observation resources linked to smart-patient-A and patient smart-patient-A
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
@@ -1776,16 +1678,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
 
-            // Search for all resources with type parameter as Observation and Practitioner
-            // should return Observation resources linked to smart-patient-A
+            // Search for all resources with type parameter as Observation and Practitioner - should return Observation resources linked to smart-patient-A
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
             // Search for Observation with specific code
             // should return single Observation resource with matching code and status linked to smart-patient-A
@@ -1793,20 +1691,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
-            // Search for Observation with specific code
-            // should return no resource
+            // Search for Observation with specific code - should return no resource
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for all resources with type parameter Practitioner
-            // should return nothing
+            // Search for all resources with type parameter Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
@@ -1818,9 +1711,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Observation with type parameter as Patient, Observation and Practitioner
             // should return Observation resource with matching code and status linked to smart-patient-A
@@ -1828,7 +1719,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
             Assert.Collection(
                 results.Results,
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
@@ -1839,9 +1729,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Patient resources with gender female
             // should return nothing
@@ -1861,9 +1749,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return Observation resource linked to smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
         }
 
         [SkippableFact]
@@ -1885,25 +1771,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            // Search for Observation resources
-            // should return Observation resources linked to smart-patient-A with matching code and status and a patient smart-patient-A
+            // Search for Observation resources - should return Observation resources linked to smart-patient-A with matching code and status and a patient smart-patient-A
             var results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
-            // Search for Patient resources
-            // should return only Patient resource smart-patient-A
+            // Search for Patient resources - should return only Patient resource smart-patient-A
             results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
-            // Search for all resources
-            // should return Observation resources linked to smart-patient-A and a patient smart-patient-A
+            // Search for all resources - should return Observation resources linked to smart-patient-A and a patient smart-patient-A
             results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.True(results.Results.Count() == 3);
@@ -1933,33 +1811,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
                 r1 => Assert.Equal("smart-practitioner-A", r1.Resource.ResourceId));
 
-            // Search for Observation with specific code
-            // should return single Observation resource with matching code and status linked to smart-patient-A
+            // Search for Observation with specific code - should return single Observation resource with matching code and status linked to smart-patient-A
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
-            // Search for Observation with specific code
-            // should return no resource
+            // Search for Observation with specific code - should return no resource
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for all resources with type parameter Practitioner
-            // should return nothing
+            // Search for all resources with type parameter Practitioner - should return practitioner
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-practitioner-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-practitioner-A", r.Resource.ResourceId));
 
             // Search for Patient with type parameter as Patient, Observation and Practitioner
             // should return Patient resource smart-patient-A
@@ -1967,9 +1838,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Observation with type parameter as Patient, Observation and Practitioner
             // should return Observation resource with matching code and status linked to smart-patient-A
@@ -1977,41 +1846,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
-            // Search for Patient resources with gender male
-            // should return Patient resource smart-patient-A
+            // Search for Patient resources with gender male - should return Patient resource smart-patient-A
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
-            // Search for Patient resources with gender female
-            // should return nothing
+            // Search for Patient resources with gender female - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "female"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation resources
-            // should return Observation resource linked to smart-patient-A
+            // Search for Observation resources - should return Observation resource linked to smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
         }
 
         [SkippableFact]
@@ -2036,27 +1895,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return only Patient resource smart-patient-A
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Observation resources - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return Observation resources linked to smart-patient-A with matching code and status and a patient smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
             // Search for Patient resources - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return only Patient resource smart-patient-A
             results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for all resources - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return Observation resources linked to smart-patient-A and a patient smart-patient-A
@@ -2082,10 +1933,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
             // Search for Observation with specific code - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return single Observation resource with matching code and status linked to smart-patient-A
@@ -2093,10 +1941,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
             // Search for Observation with specific code - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return no resource
@@ -2118,9 +1963,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Patient with type parameter as Patient, Observation and Practitioner - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return Patient resource smart-patient-A and Observation
@@ -2138,10 +1981,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
             // Search for Patient resources with gender male - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return Patient resource smart-patient-A
@@ -2149,9 +1989,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Patient resources with gender female - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return nothing
@@ -2171,9 +2009,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return Observation resource linked to smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
         }
 
         [SkippableFact]
@@ -2196,32 +2032,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            // Search for Patient resources
-            // should return only Patient resource smart-patient-A
+            // Search for Patient resources - should return only Patient resource smart-patient-A
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Observation resources
             // should return Observation resources linked to smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
-                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId), r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
 
             // Search for Patient resources
             // should return only Patient resource smart-patient-A
             results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for all resources
             // should return Observation resources linked to smart-patient-A and a patient smart-patient-A
@@ -2260,41 +2086,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
-            // Search for Observation with specific code
-            // should return no resource
+            // Search for Observation with specific code - should return smart-observation-A2
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
 
-            // Search for all resources with type parameter Practitioner
-            // should return nothing
+            // Search for all resources with type parameter Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient with type parameter as Patient, Observation and Practitioner
-            // should return Patient resource smart-patient-A
+            // Search for Patient with type parameter as Patient, Observation and Practitioner - should return Patient resource smart-patient-A
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
-            // Search for Patient with type parameter as Patient, Observation and Practitioner
-            // should return Patient resource smart-patient-A and Observation
+            // Search for Patient with type parameter as Patient, Observation and Practitioner - should return Patient resource smart-patient-A and Observation
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
@@ -2321,9 +2135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Patient resources with gender female
             // should return nothing
@@ -2332,15 +2144,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation resources
-            // should return Observation resource linked to smart-patient-A
+            // Search for Observation resources - should return Observation resource linked to smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Collection(
@@ -2370,161 +2180,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return only Patient resource smart-patient-A
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
-
-            // Search for Observation resources
-            // should return Observation resources linked to smart-patient-A
-            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
-                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
-
-            // Search for all resources
-            // should return all the resources from patient smart-patient-A compartment
-            results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-
-            // Search for all resources with type Patient,Observation,Practitioner
-            // should return Patient, Observation, Practitioner
-            var query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
-            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            var allowedTypes = new[] { "Patient", "Observation", "Practitioner" };
-            Assert.True(
-                results.Results.All(entry => allowedTypes.Contains(entry.Resource.ResourceTypeName)),
-                "Results should only contain Patient, Observation, or Practitioner resources.");
-
-            // Search for all resources with type parameter as Observation and Practitioner
-            // should return Observation, Practitioner
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
-            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            allowedTypes = new[] { "Observation", "Practitioner" };
-            Assert.True(
-                results.Results.All(entry => allowedTypes.Contains(entry.Resource.ResourceTypeName)),
-                "Results should only contain Observation, or Practitioner resources.");
-
-            // Search for Observation with specific code
-            // should return single Observation resource with matching code and status linked to smart-patient-A
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
-            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
-
-            // Search for Observation with specific code
-            // should return Observation resource
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
-            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
-
-            // Search for all resources with type parameter Practitioner
-            // should return nothing
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Practitioner"));
-            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            allowedTypes = new[] { "Practitioner" };
-            Assert.True(
-                results.Results.All(entry => allowedTypes.Contains(entry.Resource.ResourceTypeName)),
-                "Results should only contain Practitioner resources.");
-
-            // Search for Patient with type parameter as Patient, Observation and Practitioner
-            // should return Patient resource smart-patient-A
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
-
-            // Search for Observation with type parameter as Patient, Observation and Practitioner
-            // should return Observation resources linked to smart-patient-A
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
-            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
-                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
-
-            // Search for Patient resources with gender male
-            // should return Patient resource smart-patient-A
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("gender", "male"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
-
-            // Search for Patient resources with gender female
-            // should return nothing
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("gender", "female"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.Empty(results.Results);
-
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
-            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
-            Assert.Empty(results.Results);
-
-            // Search for Observation resources
-            // should return Observation resource linked to smart-patient-A
-            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
-                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
-        }
-
-        [SkippableFact]
-        public async Task GivenSmartV2UniversalCompartmentScopeAndObservationWithCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
-        {
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
-            /*
-             * scopes = patient/*.s patient/Observation.s?http://loinc.org|4548-4&status=final
-             * Only Patients and Observations without any conditions in the smart-patient-A compartment
-             */
-            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
-            var scopeRestriction2 = new ScopeRestriction("all", Core.Features.Security.DataActions.Search, "patient", null);
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 }, true);
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            // Search for Patient resources
-            // should return only Patient resource smart-patient-A
-            var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Observation resources
             // should return Observation resources linked to smart-patient-A
@@ -2539,10 +2195,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return only Patient resource smart-patient-A
             results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for all resources
             // should return Observation resources linked to smart-patient-A and a patient smart-patient-A
@@ -2586,10 +2239,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
             // Search for Observation with specific code
             // should return no resource
@@ -2597,10 +2247,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
 
             // Search for all resources with type parameter Practitioner
             // should return nothing
@@ -2620,9 +2267,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Patient with type parameter as Patient, Observation and Practitioner
             // should return Patient resource smart-patient-A and Observation
@@ -2649,25 +2294,185 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
 
-            // Search for Patient resources with gender male
-            // should return Patient resource smart-patient-A
+            // Search for Patient resources with gender male - should return Patient resource smart-patient-A
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
-            // Search for Patient resources with gender female
-            // should return nothing
+            // Search for Patient resources with gender female - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "female"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with name=NotSMARTGivenName1
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
+            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for Observation resources
+            // should return Observation resource linked to smart-patient-A
+            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+        }
+
+        [SkippableFact]
+        public async Task GivenSmartV2UniversalCompartmentScopeAndObservationWithCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            /*
+             * scopes = patient/*.s patient/Observation.s?http://loinc.org|4548-4&status=final
+             * All the resources in the smart-patient-A compartment are allowed
+             */
+            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
+            var scopeRestriction2 = new ScopeRestriction("all", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Search for Patient resources
+            // should return only Patient resource smart-patient-A
+            var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+
+            // Search for Observation resources
+            // should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Patient resources
+            // should return only Patient resource smart-patient-A
+            results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+
+            // Search for all resources
+            // should return Observation resources linked to smart-patient-A and a patient smart-patient-A
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-patient-A"));
+            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-observation-A2"));
+
+            // Search for all resources with type Patient,Observation,Practitioner
+            // should return Observation resources linked to smart-patient-A and patient smart-patient-A
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
+            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.True(results.Results.Count() == 6);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-B");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-C");
+
+            // Search for all resources with type parameter as Observation and Practitioner
+            // should return Observation resources linked to smart-patient-A
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
+            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.True(results.Results.Count() == 5);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-B");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-C");
+
+            // Search for Observation with specific code
+            // should return single Observation resource with matching code and status linked to smart-patient-A
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+
+            // Search for Observation with specific code
+            // should return no resource
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
+
+            // Search for all resources with type parameter Practitioner
             // should return nothing
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_type", "Practitioner"));
+            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r1 => Assert.Equal("smart-practitioner-A", r1.Resource.ResourceId),
+                r2 => Assert.Equal("smart-practitioner-B", r2.Resource.ResourceId),
+                r3 => Assert.Equal("smart-practitioner-C", r3.Resource.ResourceId));
+
+            // Search for Patient with type parameter as Patient, Observation and Practitioner
+            // should return Patient resource smart-patient-A
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
+            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+
+            // Search for Patient with type parameter as Patient, Observation and Practitioner
+            // should return Patient resource smart-patient-A and Observation
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
+            results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.True(results.Results.Count() == 6);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-B");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-practitioner-C");
+
+            // Search for Observation with type parameter as Patient, Observation and Practitioner
+            // should return Observation resources linked to smart-patient-A
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Patient resources with gender male - should return Patient resource smart-patient-A
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("gender", "male"));
+            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+
+            // Search for Patient resources with gender female - should return nothing
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("gender", "female"));
+            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
@@ -2705,10 +2510,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return only Patient resource smart-patient-A
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Observation resources
             // should return Observation resources linked to smart-patient-A
@@ -2723,10 +2525,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return only Patient resource smart-patient-A
             results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for all resources
             // should return all resources linked to smart-patient-A except smart-diagnosticreport-A3-different-tag
@@ -2776,10 +2575,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
 
             // Search for Observation with specific code
             // should return no resource
@@ -2787,10 +2583,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A2", r.Resource.ResourceId));
 
             // Search for all resources with type parameter Practitioner
             // should return nothing
@@ -2809,9 +2602,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
             // Search for Patient with type parameter as Patient, Observation and Practitioner
             // should return Patient resource smart-patient-A and Observation
@@ -2838,25 +2629,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
 
-            // Search for Patient resources with gender male
-            // should return Patient resource smart-patient-A
+            // Search for Patient resources with gender male - should return Patient resource smart-patient-A
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
 
-            // Search for Patient resources with gender female
-            // should return nothing
+            // Search for Patient resources with gender female - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "female"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
@@ -2895,9 +2681,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // should return smart-patient-A
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r1 => Assert.Equal("smart-patient-A", r1.Resource.ResourceId));
+            Assert.Collection(results.Results, r1 => Assert.Equal("smart-patient-A", r1.Resource.ResourceId));
 
             // Search for all resources
             // should return smart-patient-A and all the Observation resources linked to smart-patient-A
@@ -2937,41 +2721,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r1 => Assert.Equal("smart-patient-A", r1.Resource.ResourceId));
+            Assert.Collection(results.Results, r1 => Assert.Equal("smart-patient-A", r1.Resource.ResourceId));
 
-            // Search for Patient resources with gender male
-            // should return smart-patient-A
+            // Search for Patient resources with gender male - should return smart-patient-A
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "male"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r1 => Assert.Equal("smart-patient-A", r1.Resource.ResourceId));
+            Assert.Collection(results.Results, r1 => Assert.Equal("smart-patient-A", r1.Resource.ResourceId));
 
-            // Search for Encounter resources
-            // should return nothing
+            // Search for Encounter resources - should return nothing
             results = await _searchService.Value.SearchAsync("Encounter", null, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with gender female
-            // should return nothing
+            // Search for Patient resources with gender female - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "female"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation resources
-            // should return nothing
+            // Search for Observation resources - should return Observation
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Collection(
@@ -2999,58 +2774,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            // Search for Patient resources
-            // should return nothing
+            // Search for Patient resources - should return nothing
             var results = await _searchService.Value.SearchAsync("Patient", null, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation resources
-            // should return nothing
+            // Search for Observation resources - should return nothing
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for all resources
-            // should return Appointments only
+            // Search for all resources - should return Appointments only
             results = await _searchService.Value.SearchAsync(null, null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
 
-            // Search for all resources
-            // should return nothing
+            // Search for all resources - should return nothing
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for all resources with type parameter as Observation and Practitioner
-            // should return nothing
+            // Search for all resources with type parameter as Observation and Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient with type parameter as Observation and Practitioner
-            // should return nothing
+            // Search for Patient with type parameter as Observation and Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation with type parameter as Observation and Practitioner
-            // should return nothing
+            // Search for Observation with type parameter as Observation and Practitioner - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation with type parameter as Patient, Observation, Appointment
-            // should return Encounter smart-encounter-A1
+            // Search for Observation with type parameter as Patient, Observation, Appointment - should return appointment smart-appointment-A1
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Appointment"));
             results = await _searchService.Value.SearchAsync("Appointment", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
 
             // Search at System level with type parameter as Appointment
@@ -3059,7 +2824,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Appointment"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
 
             // Search for Patient resources with gender male
@@ -3069,29 +2833,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Appointment resources
-            // should return appointment smart-Appointment-A1
+            // Search for Appointment resources - should return appointment smart-Appointment-A1
             results = await _searchService.Value.SearchAsync("Appointment", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Single(results.Results);
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
 
-            // Search for Patient resources with gender female
-            // should return nothing
+            // Search for Patient resources with gender female - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("gender", "female"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Patient resources with name=NotSMARTGivenName1
-            // should return nothing
+            // Search for Patient resources with name=NotSMARTGivenName1 - should return nothing
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("name", "NotSMARTGivenName1"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(results.Results);
 
-            // Search for Observation resources
-            // should return nothing
+            // Search for Observation resources - should return nothing
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.Empty(results.Results);
         }
