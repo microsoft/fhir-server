@@ -3,12 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
-using Hl7.Fhir.Specification.Source;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Validation
+namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 {
-    public interface IProvideProfilesForValidation : IAsyncResourceResolver, ISupportedProfilesStore
+    public interface IDocRefRequestConverter
     {
+        Task<ResourceElement> ConvertAsync(
+            IReadOnlyList<Tuple<string, string>> parameters,
+            CancellationToken cancellationToken);
     }
 }
