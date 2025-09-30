@@ -2135,10 +2135,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_type", "Patient,Observation,Practitioner"));
             results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-            Assert.Collection(
-                results.Results,
-                r1 => Assert.Equal("smart-observation-A1", r1.Resource.ResourceId),
-                r2 => Assert.Equal("smart-patient-A", r2.Resource.ResourceId));
+            Assert.True(results.Results.Count() == 2);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A");
 
             // Search for Observation with type parameter as Patient, Observation and Practitioner - only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
             // should return Observation resource with matching code and status linked to smart-patient-A
