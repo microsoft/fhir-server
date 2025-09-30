@@ -3,12 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+namespace Microsoft.Health.Fhir.Core.Features.Storage
 {
-    public sealed class USCoreConfiguration
+    public enum FhirCacheLimitType
     {
-        public bool MissingData { get; set; } = false;
-
-        public bool EnableDocRef { get; set; } = false;
+        Byte = 0,
+        Count = 1,
     }
 }
