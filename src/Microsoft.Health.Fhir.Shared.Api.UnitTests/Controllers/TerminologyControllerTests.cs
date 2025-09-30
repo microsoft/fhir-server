@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, false)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, false)]
         [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category&url=http://acme.com/fhir/ValueSet/23&offset=10&date=2014-02-23", true, false)]
+        [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category", true, false)]
         [InlineData("?offset=10", false, false)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&unknown=10", false, false)]
         [InlineData("", false, false)]
@@ -370,6 +371,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         },
                     },
                     false,
+                },
+                new object[]
+                {
+                    new Parameters()
+                    {
+                        Parameter = new List<Parameters.ParameterComponent>()
+                        {
+                            new Parameters.ParameterComponent()
+                            {
+                                Name = TerminologyOperationParameterNames.Expand.Context,
+                                Value = new FhirUri("http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.category#DiagnosticReport.code"),
+                            },
+                        },
+                    },
+                    true,
                 },
             };
 

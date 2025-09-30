@@ -168,13 +168,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             // Note: this validation is based on: https://hl7.org/fhir/R4/valueset-operation-expand.html
             // One of these parameters "url", "valueSet", or "context" must be provided for a non-instance level operation.
-            // Note: Checking presence of "url" or "valueSet" only for now since we are using Firely SDK's LocalTerminologyService
-            // that requires either "url" or "valueSet" only.
-            // LocalTerminologyService: https://docs.fire.ly/projects/Firely-NET-SDK/en/latest/validation/terminology-service.html#localterminologyservice
             if (string.IsNullOrEmpty(resourceId)
                 && (parameters == null
                 || (!parameters.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Url, StringComparison.OrdinalIgnoreCase))
-                && !parameters.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)))))
+                && !parameters.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase))
+                && !parameters.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Context, StringComparison.OrdinalIgnoreCase)))))
             {
                 throw new RequestNotValidException(Resources.ExpandMissingRequiredParameter);
             }
