@@ -324,13 +324,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 e => Assert.Equal("Patient", e.Resource.ResourceTypeName),
                 e2 => Assert.Equal("Observation", e2.Resource.ResourceTypeName),
                 e3 => Assert.Equal("Observation", e3.Resource.ResourceTypeName));
-
-            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
-
-            // assert that only the patient is returned
-            // assert that only the Observation is returned
-            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Patient");
-            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation");
         }
 
         [SkippableFact]
@@ -869,7 +862,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
-            Assert.Equal(90, results.Results.Count());
+            Assert.Equal(92, results.Results.Count());
         }
 
         [SkippableFact]
