@@ -5,12 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 using System.Threading;
 using Azure.Identity;
 using MediatR;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -36,6 +33,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -100,6 +98,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 CommandTimeout = TimeSpan.FromMinutes(3),
             });
 
+            QueryConfiguration = Options.Create(new QueryConfiguration());
+
             SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
 
             _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
@@ -114,6 +114,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlServerFhirDataStore SqlServerFhirDataStore => _fhirDataStore;
 
         internal IOptions<SqlServerDataStoreConfiguration> SqlServerDataStoreConfiguration { get; private set; }
+
+        internal IOptions<QueryConfiguration> QueryConfiguration { get; private set; }
 
         internal ISqlConnectionBuilder SqlConnectionBuilder { get; private set; }
 
@@ -281,6 +283,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
+            var queryCachePlanLoader = new QueryPlanCacheLoader(SqlRetryService, NullLogger<QueryPlanCacheLoader>.Instance);
+            var queryPlanSelector = new QueryPlanCacheDynamicSelector(queryCachePlanLoader, NullLogger<QueryPlanCacheDynamicSelector>.Instance);
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
@@ -297,10 +301,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 smartCompartmentSearchRewriter,
                 SqlRetryService,
                 SqlServerDataStoreConfiguration,
+                QueryConfiguration,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
+                queryPlanSelector,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();

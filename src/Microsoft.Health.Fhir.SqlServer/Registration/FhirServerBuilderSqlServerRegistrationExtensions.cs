@@ -10,19 +10,14 @@ using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Health;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
@@ -30,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -83,6 +79,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlQueryHashCalculator>()
                 .Singleton()
                 .AsImplementedInterfaces();
+
+            services.AddSingleton<IQueryPlanCacheLoader, QueryPlanCacheLoader>();
+
+            services.AddSingleton<IQueryPlanCacheDynamicSelector, QueryPlanCacheDynamicSelector>();
 
             services.Add<SqlServerSearchService>()
                 .Scoped()

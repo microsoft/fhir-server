@@ -30,6 +30,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Sort Param: {Parameter.Code})";
         }
 
+        public override string GetUniqueExpressionIdentifier()
+        {
+            return ToString();
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(SortExpression));

@@ -12,7 +12,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,11 +21,10 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -36,6 +34,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.QueryPlanCache;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
@@ -65,16 +64,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
+        private readonly QueryConfiguration _queryConfiguration;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
+        private readonly IQueryPlanCacheDynamicSelector _queryPlanSelector;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
-        private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
-        internal const string ReuseQueryPlansParameterId = "Search.ReuseQueryPlans.IsEnabled";
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -88,10 +87,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
+            IOptions<QueryConfiguration> queryConfiguration,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
+            IQueryPlanCacheDynamicSelector queryPlanSelector,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -103,9 +104,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(queryPlanSelector, nameof(queryPlanSelector));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _queryConfiguration = EnsureArg.IsNotNull(queryConfiguration?.Value, nameof(queryConfiguration));
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
@@ -120,22 +123,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
-
-            if (_reuseQueryPlans == null)
-            {
-                lock (_locker)
-                {
-                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, _logger);
-                }
-            }
+            _queryPlanSelector = queryPlanSelector;
         }
 
         internal ISqlServerFhirModel Model => _model;
-
-        internal static void ResetReuseQueryPlans()
-        {
-            _reuseQueryPlans.Reset();
-        }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
@@ -261,12 +252,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
                 else // equals default or an invalid value
                 {
-                    return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                    return await SearchImpl(sqlSearchOptions, _queryPlanSelector.GetDefaultQueryPlanCacheSetting(), cancellationToken);
                 }
+            }
+            else if (_queryConfiguration.DynamicSqlQueryPlanSelectionEnabled)
+            {
+                string hash = string.Empty;
+                bool reuseQueryCachingPlan = _queryPlanSelector.GetDefaultQueryPlanCacheSetting();
+
+                try
+                {
+                    hash = sqlSearchOptions.Expression.GetHashedUniqueExpressionIdentifier();
+                    if (string.IsNullOrEmpty(hash))
+                    {
+                        _logger.LogWarning("Got empty hash, running with default Query Plan Caching Setting.");
+                    }
+                    else
+                    {
+                        reuseQueryCachingPlan = _queryPlanSelector.GetRecommendedQueryPlanCacheSetting(hash);
+                        _logger.LogInformation("Got Query Plan Caching Setting {ReuseQueryCachingPlan} for hash {Hash}.", reuseQueryCachingPlan, hash);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    // Swallow any exceptions and just run the query with the default setting.
+                    _logger.LogWarning(exception, "Failed to get Query Plan Caching Setting, running with default.");
+                }
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                SearchResult searchResult = await SearchImpl(sqlSearchOptions, reuseQueryCachingPlan, cancellationToken);
+                stopwatch.Stop();
+
+                if (!string.IsNullOrEmpty(hash))
+                {
+                    _queryPlanSelector.ReportExecutionTime(hash, reuseQueryCachingPlan, stopwatch.Elapsed.TotalMilliseconds);
+
+                    if (_requestContextAccessor?.RequestContext?.ResponseHeaders != null)
+                    {
+                        // Send back to client which plan was used for telemetry purposes.
+                        _requestContextAccessor.RequestContext.ResponseHeaders[KnownHeaders.QueryCacheSetting] = reuseQueryCachingPlan.ToString();
+                    }
+                }
+
+                return searchResult;
             }
             else
             {
-                return await SearchImpl(sqlSearchOptions, _reuseQueryPlans.IsEnabled(_sqlRetryService), cancellationToken);
+                return await SearchImpl(sqlSearchOptions, _queryPlanSelector.GetDefaultQueryPlanCacheSetting(), cancellationToken);
             }
         }
 
@@ -1347,7 +1379,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
-                                _reuseQueryPlans.IsEnabled(_sqlRetryService),
+                                _queryPlanSelector.GetDefaultQueryPlanCacheSetting(),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
 

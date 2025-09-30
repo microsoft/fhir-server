@@ -52,6 +52,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"({MultiaryOperation} {string.Join(' ', Expressions)})";
         }
 
+        public override string GetUniqueExpressionIdentifier()
+        {
+            return $"({MultiaryOperation} {string.Join(' ', Expressions.Select(e => e.GetUniqueExpressionIdentifier()))})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(MultiaryExpression));

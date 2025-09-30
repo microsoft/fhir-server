@@ -63,6 +63,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(String{StringOperator}{(IgnoreCase ? "IgnoreCase" : null)} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} '{Value}')";
         }
 
+        public override string GetUniqueExpressionIdentifier()
+        {
+            // ReferenceResourceType is a special case where the expression requires the value to be included.
+            if (FieldName == FieldName.ReferenceResourceType)
+            {
+                return $"(String{StringOperator}{(IgnoreCase ? "IgnoreCase" : null)} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} '{Value}')";
+            }
+            else
+            {
+                return $"(String{StringOperator}{(IgnoreCase ? "IgnoreCase" : null)} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
+            }
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(StringExpression));

@@ -43,6 +43,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions)})";
         }
 
+        public override string GetUniqueExpressionIdentifier()
+        {
+            return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions.Select(e => e.GetUniqueExpressionIdentifier()))})";
+        }
+
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
             hashCode.Add(typeof(UnionExpression));
