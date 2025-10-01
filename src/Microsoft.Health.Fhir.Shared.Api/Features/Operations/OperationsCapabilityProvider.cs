@@ -108,6 +108,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddDocRefDetails);
             }
 
+            if (_operationConfiguration.Terminology?.EnableExpand ?? false)
+            {
+                builder.Apply(AddExpandDetails);
+            }
+
             return Task.CompletedTask;
         }
 
@@ -192,6 +197,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddDocRefDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.DocRef);
+        }
+
+        public void AddExpandDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ValueSetExpand);
         }
     }
 }
