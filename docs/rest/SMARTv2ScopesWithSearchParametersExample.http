@@ -305,7 +305,7 @@ GET https://{{hostname}}?_type=Observation,Patient,Practitioner
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ########################################################################################################################################
-### Get token with SMART v2 Search permission for Observation with status=final
+### Get token with SMART v2 Search permission
 # @name searchBearer
 POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
@@ -340,7 +340,7 @@ GET https://{{hostname}}?_type=Observation,Patient,Practitioner
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ########################################################################################################################################
-### Get token with SMART v2 Search permission for Observation with status=final
+### Get token with SMART v2 Search permission
 # @name searchBearer
 POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
@@ -355,7 +355,7 @@ GET https://{{hostname}}?_count=100
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ########################################################################################################################################
-### Get token with SMART v2 Search permission for Observation with status=final
+### Get token with SMART v2 Search permission
 # @name searchBearer
 POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
@@ -370,7 +370,7 @@ GET https://{{hostname}}?_count=100
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ########################################################################################################################################
-### Get token with SMART v2 Search permission for Observation with status=final
+### Get token with SMART v2 Search permission Chained searches
 # @name searchBearer
 POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
@@ -383,6 +383,11 @@ grant_type=client_credentials
 ### Test Search permission with chained search - should succeed and return Observations for smartUserClient with status=final
 GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient
 Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Test Search permission with chained search - should succeed and return Observations for smartUserClient with status=final
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient&code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
 
 ########################################################################################################################################
 ### Get token with SMART v2 Search permission for Observation with status=registered

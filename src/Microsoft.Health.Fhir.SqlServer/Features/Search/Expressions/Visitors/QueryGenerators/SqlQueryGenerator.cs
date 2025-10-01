@@ -141,7 +141,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         if (ContainsSmartV2UnionFlag(unionExpression))
                         {
-                            AppendSMARTNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
+                            // Union expressions for smart v2 scopes with search parameters needs to be handled differently
+                            AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
                         }
                         else
                         {
@@ -1311,7 +1312,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _firstChainAfterUnionVisited = false;
         }
 
-        private void AppendSMARTNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {

@@ -818,12 +818,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                     }
                                 })
                                 .Where(item => item != null));
-                            andedSmartSmartSearchExpressions.Add(Expression.And(fineGrainedSmartSearchExpressions.ToArray()));
-                            andedSmartSmartSearchExpressions.Last().IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                            var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
+                            individualAndExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                            andedSmartSmartSearchExpressions.Add(individualAndExp);
                         }
 
-                        finalSmartSearchExpressions.Add(Expression.And(andedSmartSmartSearchExpressions.ToArray()));
-                        finalSmartSearchExpressions.Last().IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                        var andExp = Expression.And(andedSmartSmartSearchExpressions.ToArray());
+                        andExp.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                        finalSmartSearchExpressions.Add(andExp);
                     }
                     else
                     {
@@ -836,13 +838,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (!allowAllResourceTypes)
                 {
-                    // Builds the search expression like ((ResourceType = A AND <search params 1 for A>) OR (ResourceType = A AND <search params 2 for A>) OR (ResourceType = B AND <search params 1 for B>) OR (ResourceType = B AND <search params 2 for B>))
+                    // Builds the search expression like (((ResourceType = A AND <search params 1 for A>) AND (ResourceType = A AND <search params 2 for A>)) OR ((ResourceType = B AND <search params 1 for B>) AND (ResourceType = B AND <search params 2 for B>)))
                     if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true && finalSmartSearchExpressions.Any())
                     {
-                        searchExpressions.Add(Expression.Union(UnionOperator.All, finalSmartSearchExpressions));
-
-                        // Set the last added expressions flag to be true
-                        searchExpressions.Last().IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                        var unionExpr = Expression.Union(UnionOperator.All, finalSmartSearchExpressions);
+                        unionExpr.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                        searchExpressions.Add(unionExpr);
                     }
                     else
                     {
