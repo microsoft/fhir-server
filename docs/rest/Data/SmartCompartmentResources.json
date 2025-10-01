@@ -1219,6 +1219,43 @@
         },
 		{
             "resource": {
+				"resourceType": "DiagnosticReport",
+				"id": "smart-diagnosticreport-A3",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.947+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "75245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "final",
+				"code": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "429858000"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"result": [
+					{
+						"reference": "Observation/smart-Observation-A2"
+					}
+				]
+			},
+			"request": {
+				"method": "PUT",
+				"url": "DiagnosticReport/smart-diagnosticreport-A3"
+            }
+        },
+		{
+            "resource": {
 				"resourceType": "MedicationRequest",
 				"id": "smart-medicationrequest-A1",
 				"meta": {
