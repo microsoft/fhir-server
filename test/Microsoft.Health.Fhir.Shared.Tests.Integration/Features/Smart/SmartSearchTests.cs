@@ -1434,6 +1434,33 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
             Assert.Empty(results.Results);
+
+            // Search for Observations in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
         }
 
         [SkippableFact]
@@ -1516,6 +1543,33 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for Observations in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
             Assert.Empty(results.Results);
         }
 
@@ -1631,7 +1685,43 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("code", "http://snomed.info/sct|429858000"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
             Assert.Collection(results.Results, r => Assert.True(r.Resource.ResourceId == "smart-observation-A2"));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Observation smart-patient-A as its name is SMARTGivenName1
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
         }
 
         [SkippableFact]
@@ -1750,6 +1840,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
         }
 
         [SkippableFact]
@@ -1871,6 +1990,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Observation smart-patient-A as its name is SMARTGivenName1
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
         }
 
         [SkippableFact]
@@ -2010,6 +2162,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Collection(results.Results, r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Observation smart-patient-A as its name is SMARTGivenName1
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
         }
 
         [SkippableFact]
@@ -2152,6 +2337,41 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Search for Observation resources - should return Observation resource linked to smart-patient-A
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r2 => Assert.Equal("smart-observation-A2", r2.Resource.ResourceId));
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Observation smart-patient-A as its name is SMARTGivenName1
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Collection(
                 results.Results,
@@ -2321,6 +2541,42 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 results.Results,
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r2 => Assert.Equal("smart-observation-A2", r2.Resource.ResourceId));
+
+            // Search for Patient in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Observation smart-patient-A as its name is SMARTGivenName1
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                query,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "MedicationRequest");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Appointment");
         }
 
         [SkippableFact]
@@ -2486,6 +2742,51 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 results.Results,
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observation resources
+            // should return Observation resource linked to smart-patient-A
+            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r2 => Assert.Equal("smart-observation-A2", r2.Resource.ResourceId));
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Observation smart-patient-A as its name is SMARTGivenName1
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                query,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "MedicationRequest");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Appointment");
         }
 
         [SkippableFact]
@@ -2656,6 +2957,62 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 results.Results,
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observation resources
+            // should return Observation resource linked to smart-patient-A
+            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r2 => Assert.Equal("smart-observation-A2", r2.Resource.ResourceId));
+
+            // Search for Patient in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for DiagnosticReport in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "DiagnosticReport", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-diagnosticreport-A3-different-tag");
+
+            // Search for all in the patient's own compartment - should return different resources except smart-diagnosticreport-A3-different-tag
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                query,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "MedicationRequest");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Group");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-diagnosticreport-A3-different-tag");
         }
 
         [SkippableFact]
@@ -2748,6 +3105,50 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Search for Observation resources - should return Observation
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observation resources
+            // should return Observation resource linked to smart-patient-A
+            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
+
+            // Search for Observations in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Collection(
+                results.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r2 => Assert.Equal("smart-observation-A2", r2.Resource.ResourceId));
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Observation resources linked to smart-patient-A
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
             Assert.NotEmpty(results.Results);
             Assert.Collection(
                 results.Results,
@@ -2853,6 +3254,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             // Search for Observation resources - should return nothing
             results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
             Assert.Empty(results.Results);
+
+            // Search for Observation resources
+            // should return Observation resource linked to smart-patient-A
+            results = await _searchService.Value.SearchAsync("Observation", null, CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for Observations in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Observation", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for  in the patient's own compartment - should return nothing
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                "Patient", // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.Empty(results.Results);
+
+            // Search for all in the patient's own compartment - should return Appointment smart-appointment-A1
+            results = await _searchService.Value.SearchCompartmentAsync(
+                "Patient",
+                "smart-patient-A",
+                null, // specific resource type
+                null,
+                CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
         }
     }
 }
