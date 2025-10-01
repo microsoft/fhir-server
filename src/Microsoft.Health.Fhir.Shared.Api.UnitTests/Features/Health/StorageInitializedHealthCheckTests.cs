@@ -48,7 +48,6 @@ public class StorageInitializedHealthCheckTests
         Assert.Equal(HealthStatus.Degraded, result.Status);
     }
 
-#if NET8_0_OR_GREATER
     [Fact]
     public async Task GivenStorageInitializedHealthCheck_WhenCheckHealthAsync_ThenChangedToUnhealthyAfter5Minutes()
     {
@@ -74,5 +73,4 @@ public class StorageInitializedHealthCheckTests
             Assert.Contains("The health of the store has degraded. Customer-managed key is not properly set.", result.Description);
         }
     }
-#endif
 }

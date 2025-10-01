@@ -26,14 +26,7 @@ internal sealed class ScopedComponent<T> : IScoped<T>
     {
         get
         {
-#if NET8_0_OR_GREATER
             ObjectDisposedException.ThrowIf(_isDisposed, _value);
-#else
-            if (_isDisposed)
-            {
-                throw new ObjectDisposedException($"Service scope for {typeof(T)} has been disposed.");
-            }
-#endif
             return _value;
         }
     }

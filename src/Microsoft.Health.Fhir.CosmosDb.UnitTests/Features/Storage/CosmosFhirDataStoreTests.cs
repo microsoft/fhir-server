@@ -121,7 +121,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal("token", continuationToken);
         }
 
-#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAQuery_WhenFetchingSubsequentPagesTimesOut_ReturnsExistingResults()
         {
@@ -148,7 +147,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 Assert.Equal("token", continuationToken);
             }
         }
-#endif
 
         [Fact]
         public async Task GivenAQueryWhereItemCountCanBeExceeded_WhenExecuted_FetchesSubsequentPages()

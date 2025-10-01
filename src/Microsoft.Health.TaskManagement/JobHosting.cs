@@ -112,11 +112,7 @@ namespace Microsoft.Health.JobManagement
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Queue={QueueType}: job hosting task failed.", queueType);
-#if NET6_0
-                    cancellationTokenSource.Cancel();
-#else
                     await cancellationTokenSource.CancelAsync();
-#endif
                 }
 
                 if (dequeueTimeoutJobsStopwatch.Elapsed.TotalSeconds > 600)
@@ -196,11 +192,7 @@ namespace Microsoft.Health.JobManagement
                 if (jobInfo.CancelRequested)
                 {
                     // For cancelled job, try to execute it for potential cleanup.
-#if NET6_0
-                    jobCancellationToken.Cancel();
-#else
                     await jobCancellationToken.CancelAsync();
-#endif
                 }
 
                 Task<string> runningJob = ExecuteJobWithHeartbeatsAsync(
@@ -333,11 +325,7 @@ namespace Microsoft.Health.JobManagement
                 var cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
                 if (cancel)
                 {
-#if NET6_0
-                    cancellationTokenSource.Cancel();
-#else
                     await cancellationTokenSource.CancelAsync();
-#endif
                 }
             }
             catch

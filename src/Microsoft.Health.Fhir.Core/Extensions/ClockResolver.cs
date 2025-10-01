@@ -7,11 +7,7 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Extensions;
 
-#if NET8_0_OR_GREATER
-
 public static class ClockResolver
 {
     public static TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 }
-
-#endif
