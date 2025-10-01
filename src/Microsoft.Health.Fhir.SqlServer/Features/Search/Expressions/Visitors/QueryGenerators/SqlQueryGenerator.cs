@@ -1322,7 +1322,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             List<int> lastAndedCTEs = new List<int>();
 
             // Iterate through all expressions and create a unique CTE for each one.
-            int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionExpression.Expressions)
             {
                 context.SkipAppendIntersectionWithPredecessor = false;
