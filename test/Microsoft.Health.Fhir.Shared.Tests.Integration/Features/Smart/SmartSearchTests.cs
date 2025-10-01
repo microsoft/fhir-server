@@ -2034,7 +2034,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 "This test is only valid for R4 and R4B");
 
             /*
-             * scopes = patient/patient.s?name=SMARTGivenName1 patient/Observation.s?http://loinc.org|4548-4&status=final
+             * scopes = patient/patient.s?name=SMARTGivenName1 patient/Observation.s?http://loinc.org|4548-4
              * Only Patients with name and Observations with code and status are allowed in the smart-patient-A compartment
              */
             var scopeRestriction1 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1")));

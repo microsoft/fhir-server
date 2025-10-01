@@ -750,6 +750,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
+                // Throw 400 if chained, include or revinclude request with ApplyFineGrainedAccessControlWithSearchParameters
+                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
+                {
+                    bool containsChainParam = searchParams.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
+                    if (containsChainParam || searchParams.Include.Any() || searchParams.RevInclude.Any())
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
+                    }
+                }
+
                 bool allowAllResourceTypes = false;
                 var clinicalScopeResources = new List<ResourceType>();
                 var finalSmartSearchExpressions = new List<Expression>();
@@ -789,7 +799,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         var andedSmartSmartSearchExpressions = new List<Expression>();
                         foreach (var param in restriction.SearchParameters.Parameters)
                         {
-                            // TODO : Can we call searchOptionsFactory here????
                             var fineGrainedSmartSearchExpressions = new List<Expression>();
                             fineGrainedSmartSearchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResourceType.ToString(), false)));
 
