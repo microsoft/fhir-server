@@ -145,6 +145,131 @@ To create a new async operation, use the generator:
 
 When creating ADRs, thoroughly analyze states, behaviors, outcomes, and edge cases. Reference existing ADRs and the FHIR specification.
 
+## SQL Server Data Provider Architecture
+
+The SQL Server data provider translates FHIR search queries into optimized T-SQL using a sophisticated multi-layer architecture.
+
+### 🤖 Using the SQL Provider Agent
+
+**For detailed guidance on SQL provider work, use the specialized agent:**
+
+```
+@sql-provider-agent <your question or task>
+```
+
+The agent has deep expertise in:
+- Expression tree analysis and transformations
+- Rewriter pipeline optimization
+- Query generation strategies
+- Schema version management
+- Performance optimization
+- Debugging SQL-related issues
+
+### Architecture Overview
+
+The SQL provider has **5 key layers**:
+
+1. **Core Expression System** (`Microsoft.Health.Fhir.Core/Features/Search/Expressions/`)
+   - Abstract expression tree representing FHIR queries (data store independent)
+   - Visitor pattern for traversal: `IExpressionVisitor<TContext, TOutput>`
+   - Expression types: SearchParameter, Binary, String, Multiary, Chained, Include, etc.
+
+2. **SQL-Specific Extensions** (`Microsoft.Health.Fhir.SqlServer/Features/Search/Expressions/`)
+   - `SqlRootExpression` - Root of SQL expression tree
+   - `SearchParamTableExpression` - Queries over search parameter tables
+   - `ISqlExpressionVisitor` - SQL-specific visitor interface
+
+3. **Rewriter Pipeline** (`Microsoft.Health.Fhir.SqlServer/Features/Search/Expressions/Visitors/`)
+   - Transforms and optimizes expression trees
+   - **Order matters!** Defined in `SqlServerSearchService.cs`
+   - Key rewriters: ChainFlattening, Sort, PartitionElimination, PredicatePushdown
+
+4. **Query Generators** (`Microsoft.Health.Fhir.SqlServer/Features/Search/Expressions/Visitors/QueryGenerators/`)
+   - `SqlQueryGenerator` - Master orchestrator
+   - Type-specific generators for each search parameter type
+   - Factory pattern for generator selection
+
+5. **Schema Management** (`Microsoft.Health.Fhir.SqlServer/Features/Schema/`)
+   - Schema versioning with feature flags (`SchemaVersionConstants`)
+   - Tables, stored procedures, user-defined types
+   - Migration files for incremental changes
+
+### Search Query Flow
+
+```
+HTTP FHIR Request
+  → FhirController (MediatR)
+  → ExpressionParser (creates Core Expression tree)
+  → SqlServerSearchService (applies rewriter pipeline)
+  → SqlQueryGenerator (generates T-SQL)
+  → SqlServerFhirDataStore (executes)
+  → SearchResult
+```
+
+### Working with SQL Provider
+
+#### Quick Tips
+
+**Adding new search parameter:**
+```
+@sql-provider-agent How do I add support for composite search parameter X?
+```
+
+**Debugging slow queries:**
+```
+@sql-provider-agent Why is this chained search slow: Patient?organization.name=Acme
+Analyze expression tree, rewriters, and generated SQL.
+```
+
+**Performance optimization:**
+```
+@sql-provider-agent Optimize: Patient?_lastUpdated=gt2024&gender=male
+Show predicate pushdown opportunities and ideal SQL.
+```
+
+**Schema changes:**
+```
+@sql-provider-agent I need schema V97 for feature X. What's the process?
+```
+
+#### Critical Patterns
+
+**Rewriter Order** - Never change without analysis:
+1. ChainFlatteningRewriter
+2. SortRewriter
+3. PartitionEliminationRewriter
+4. TopRewriter
+5. ResourceColumnPredicatePushdownRewriter (major performance!)
+6. (Others as needed)
+
+**Schema Version Checks** - Always verify compatibility:
+```csharp
+if (_schemaInformation.Current >= SchemaVersionConstants.FeatureName)
+{
+    // Use new feature
+}
+```
+
+**Expression Immutability** - Rewriters return new expressions (never modify in place)
+
+**Query Plan Reuse** - `HashingSqlQueryParameterManager` caches plans based on structure hash
+
+#### Key Files
+
+- **Expression Base**: `Core/Features/Search/Expressions/Expression.cs`
+- **SQL Root**: `SqlServer/Features/Search/Expressions/SqlRootExpression.cs`
+- **Rewriter Base**: `SqlServer/.../Visitors/SqlExpressionRewriter.cs`
+- **Query Generator**: `SqlServer/.../QueryGenerators/SqlQueryGenerator.cs`
+- **Schema Versions**: `SqlServer/Features/Schema/SchemaVersionConstants.cs`
+- **Orchestration**: `SqlServer/Features/Search/SqlServerSearchService.cs`
+
+### Documentation
+
+- **Agent Guide**: `.claude/SQL-PROVIDER-GUIDE.md` - Usage examples
+- **Architecture**: `.claude/SQL-PROVIDER-ARCHITECTURE.md` - Visual diagrams
+
+**Remember**: Use `@sql-provider-agent` for deep architectural guidance!
+
 ## Important Project Context
 
 - This is the **Microsoft FHIR Server for Azure** - an open-source HL7 FHIR implementation
