@@ -111,6 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
+            _queryGeneratorFactory = queryGeneratorFactory;
             _sortRewriter = sortRewriter;
             _queryGeneratorFactory = queryGeneratorFactory;
             _partitionEliminationRewriter = partitionEliminationRewriter;
