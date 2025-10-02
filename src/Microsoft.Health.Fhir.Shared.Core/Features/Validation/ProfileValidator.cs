@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
-                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
+                _resolver = new SnapshotSource(new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver));
             }
             catch (Exception)
             {
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             var ctx = new ValidationSettings()
             {
                 ResourceResolver = _resolver,
-                GenerateSnapshot = true,
+                GenerateSnapshot = false,
                 Trace = false,
                 ResolveExternalReferences = false,
                 TerminologyService = terminologyService,
