@@ -84,5 +84,7 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string BulkDelete = "bulk-delete";
 
         public const string BulkUpdate = "bulk-update";
+
+        public const string Expand = "expand";
     }
 }

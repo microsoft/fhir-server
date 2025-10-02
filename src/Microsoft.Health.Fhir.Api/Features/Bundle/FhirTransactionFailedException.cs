@@ -4,14 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Bundle
 {
-    public class FhirTransactionFailedException : FhirException
+    public sealed class FhirTransactionFailedException : BaseFhirTransactionException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirTransactionFailedException"/> class.
@@ -20,28 +18,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
         /// <param name="message">The exception message.</param>
         /// <param name="httpStatusCode">The status code to report to the user.</param>
         /// <param name="operationOutcomeIssues">A list of issues to include in the operation outcome.</param>
-        public FhirTransactionFailedException(string message, HttpStatusCode httpStatusCode, IReadOnlyList<OperationOutcomeIssue> operationOutcomeIssues = null)
-            : base(message)
+        public FhirTransactionFailedException(
+            string message,
+            HttpStatusCode httpStatusCode,
+            IReadOnlyList<OperationOutcomeIssue> operationOutcomeIssues = null)
+            : base(message, httpStatusCode, operationOutcomeIssues)
         {
-            Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
-
-            ResponseStatusCode = httpStatusCode;
-
-            Issues.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.Processing,
-                message));
-
-            if (operationOutcomeIssues != null)
-            {
-                foreach (var issue in operationOutcomeIssues)
-                {
-                    Issues.Add(issue);
-                }
-            }
         }
-
-        public HttpStatusCode ResponseStatusCode { get; }
 
         public bool IsErrorCausedDueClientFailure()
         {

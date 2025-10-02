@@ -235,13 +235,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
-                        INSERT INTO dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
-                        SELECT sp.Uri, 'Disabled', SYSDATETIMEOFFSET(), sp.IsPartiallySupported
-                        FROM (
-                            SELECT * FROM  OPENJSON (@searchParams)
-                            WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported')
-                        ) AS sp
-                        WHERE NOT EXISTS (SELECT 1 FROM dbo.SearchParam WHERE Uri = sp.Uri);
+                        ;WITH Input AS (
+                          SELECT DISTINCT
+                                 j.Uri,
+                                 CAST(j.IsPartiallySupported AS bit) AS IsPartiallySupported
+                          FROM OPENJSON(@searchParams)
+                          WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported') AS j
+                        )
+                        INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
+                        SELECT i.Uri, 'Initialized', SYSDATETIMEOFFSET(), i.IsPartiallySupported
+                        FROM Input AS i
+                        WHERE NOT EXISTS (SELECT 1 FROM dbo.SearchParam AS sp WHERE sp.Uri = i.Uri);
 
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
@@ -391,7 +395,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         UPDATE dbo.SearchParam
                         SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
-                        ON dbo.SearchParam.Uri = sps.Uri;
+                        ON dbo.SearchParam.Uri = sps.Uri
+                        WHERE dbo.SearchParam.Status = 'Initialized' OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
 
                         SELECT @RowsAffected = @@ROWCOUNT;
                         COMMIT TRANSACTION;";

@@ -29,6 +29,8 @@
     <EmbeddedResource Include="Data\OperationDefinition\bulk-update.json" />
     <EmbeddedResource Include="Data\OperationDefinition\bulk-delete-soft-deleted.json" />
     <EmbeddedResource Include="Data\OperationDefinition\includes.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\docref.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\valueset-expand.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />

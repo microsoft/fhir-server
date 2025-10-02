@@ -51,5 +51,15 @@ namespace Microsoft.Health.Internal.Fhir.Sql
 
             return await Task.FromResult(new SqlConnection(builder.ToString()));
         }
+
+        public SqlConnection CreateConnection(Action<SqlConnectionStringBuilder> configure = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask<SqlConnection> CreateConnectionAsync(Action<SqlConnectionStringBuilder> configure = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

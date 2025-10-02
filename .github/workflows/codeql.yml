@@ -35,12 +35,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Fetch all history for all tags and branches
       run: |
         git fetch --prune --unshallow
 
-    - uses: actions/setup-dotnet@v4
+    - uses: actions/setup-dotnet@v5
       with:
         global-json-file: ./global.json
 
