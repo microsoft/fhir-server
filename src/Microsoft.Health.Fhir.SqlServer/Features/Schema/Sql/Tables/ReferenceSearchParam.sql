@@ -21,8 +21,8 @@ ON dbo.ReferenceSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId ON dbo.ReferenceSearchParam 
-  ( 
+CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId ON dbo.ReferenceSearchParam
+  (
     ReferenceResourceId
    ,ReferenceResourceTypeId
    ,SearchParamId
@@ -32,4 +32,25 @@ CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamI
   )
   WITH (DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+
+-- Schema Version 97: Compartment Search Performance Optimization
+-- Covering index for compartment queries (e.g., /Patient/123/*)
+-- Related: ADR 2510
+CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_Compartment
+ON dbo.ReferenceSearchParam
+(
+    ReferenceResourceId,
+    ReferenceResourceTypeId,
+    SearchParamId
+)
+INCLUDE (ResourceTypeId, ResourceSurrogateId)
+WITH (
+    DATA_COMPRESSION = PAGE,
+    ONLINE = ON,
+    SORT_IN_TEMPDB = ON,
+    MAXDOP = 0,
+    RESUMABLE = ON,
+    MAX_DURATION = 0
+)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

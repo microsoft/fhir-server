@@ -57,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _reuseQueryPlans;
         private bool _isAsyncOperation;
         private readonly HashSet<short> _searchParamIds = new();
+        private readonly int? _unionQueryMaxDop;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SchemaInformation schemaInfo,
             bool reuseQueryPlans,
             bool isAsyncOperation,
+            int? unionQueryMaxDop = null,
             SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
@@ -78,6 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _schemaInfo = schemaInfo;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
+            _unionQueryMaxDop = unionQueryMaxDop;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -317,12 +320,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         // TODO: Remove when code starts using TokenSearchParamHighCard table
         private void AddOptionClause()
         {
+            var optionClauses = new List<string>();
+
             // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
             // then we will tell SQL to ignore the parameter values and base the query plan one the
             // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
             if (AddOptimizeForUnknownClause())
             {
-                StringBuilder.AppendLine("OPTION (OPTIMIZE FOR UNKNOWN)");
+                optionClauses.Add("OPTIMIZE FOR UNKNOWN");
+            }
+
+            // Phase 3: Parallel Execution - Enable parallelism for UNION queries
+            // ADR 2510 - Leverage multi-core servers for UNION ALL operations
+            // Configure via appsettings.json: "SqlServer": { "Features": { "UnionQueryMaxDop": 0 } }
+            if (_unionVisited && _unionQueryMaxDop.HasValue)
+            {
+                optionClauses.Add($"MAXDOP {_unionQueryMaxDop.Value}");
+            }
+
+            if (optionClauses.Count > 0)
+            {
+                StringBuilder.Append("OPTION (").Append(string.Join(", ", optionClauses)).AppendLine(")");
             }
         }
 
@@ -1201,17 +1219,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int lastInclusiveTableExpressionId = _tableExpressionCounter;
 
             // Create a final CTE aggregating results from all previous CTEs.
+            // Phase 2: Lazy UNION Evaluation - Wrap UNION ALL in TOP subquery for early termination
+            // ADR 2510 - Enables SQL Server to short-circuit UNION branches when enough results found
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-            for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
-            {
-                StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
 
-                if (tableExpressionId < lastInclusiveTableExpressionId)
+            using (StringBuilder.Indent())
+            {
+                // Add TOP clause to enable lazy evaluation
+                StringBuilder.Append("SELECT TOP (")
+                    .Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false))
+                    .AppendLine(") *");
+
+                StringBuilder.AppendLine("FROM (");
+
+                using (StringBuilder.Indent())
                 {
-                    StringBuilder.AppendLine(" UNION ALL");
+                    for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
+                    {
+                        StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
+
+                        if (tableExpressionId < lastInclusiveTableExpressionId)
+                        {
+                            StringBuilder.AppendLine(" UNION ALL");
+                        }
+                    }
                 }
+
+                StringBuilder.AppendLine();
+                StringBuilder.Append(") AS union_results");
             }
 
+            StringBuilder.AppendLine();
             StringBuilder.Append(")");
 
             // check for a previous union all, and if so, join the new union all with the previous one

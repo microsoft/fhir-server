@@ -19,6 +19,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -71,6 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
+        private readonly int? _unionQueryMaxDop;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
         private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
@@ -92,6 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
+            IConfiguration configuration,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -120,6 +123,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
+
+            // ADR 2510 - Phase 3: Read UNION query MAXDOP configuration
+            // Configure via appsettings.json: "SqlServer": { "Features": { "UnionQueryMaxDop": 0 } }
+            _unionQueryMaxDop = configuration?.GetValue<int?>("SqlServer:Features:UnionQueryMaxDop");
 
             if (_reuseQueryPlans == null)
             {
@@ -389,6 +396,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _schemaInformation,
                                 reuseQueryPlans,
                                 sqlSearchOptions.IsAsyncOperation,
+                                _unionQueryMaxDop,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
@@ -1349,6 +1357,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 _schemaInformation,
                                 _reuseQueryPlans.IsEnabled(_sqlRetryService),
                                 sqlSearchOptions.IsAsyncOperation,
+                                _unionQueryMaxDop,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);

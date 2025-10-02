@@ -110,19 +110,88 @@ Each version has dedicated projects:
 
 Only needed for database structure changes (not for Core/API/Web logic changes).
 
-**When adding a new SQL schema version:**
+**When adding a new SQL schema version, follow this checklist in order:**
 
-1. Increment version in `SchemaVersion.cs`
-2. Update max version in `SchemaVersionConstants.cs`
-3. Define SQL in schema files under `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/`:
+### Required Steps (Do NOT skip any!)
+
+1. ✅ **Add enum value** in `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/SchemaVersion.cs`
+   ```csharp
+   V97 = 97,  // Add your new version
+   ```
+
+2. ✅ **Update Max version** in `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/SchemaVersionConstants.cs`
+   ```csharp
+   public const int Max = (int)SchemaVersion.V97;  // Update to new version
+   ```
+
+3. ✅ **Add feature constant** in `SchemaVersionConstants.cs` (if applicable)
+   ```csharp
+   public const int YourFeatureName = (int)SchemaVersion.V97;
+   ```
+
+4. ✅ **Update LatestSchemaVersion** in `src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj`
+   ```xml
+   <LatestSchemaVersion>97</LatestSchemaVersion>  <!-- CRITICAL: Update this! -->
+   ```
+   **⚠️ Claude: This step is commonly missed - always verify!**
+
+5. ✅ **Create migration file**: `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations/{Version}.diff.sql`
+   - Contains ONLY the incremental changes (ALTER, CREATE INDEX, etc.)
+   - Use `ONLINE = ON` for index creation to avoid blocking
+   - Example: `97.diff.sql`
+
+6. ✅ **Build project** to auto-generate full snapshot
+   ```bash
+   dotnet build src/Microsoft.Health.Fhir.SqlServer --configuration Release
+   ```
+   - This generates `{Version}.sql` (full snapshot) from your `.diff.sql`
+   - Check for build errors before proceeding
+
+7. ✅ **Define SQL schema** (if creating new tables/sprocs) under `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/`:
    - Tables: `./Tables/*.sql`
    - Stored procedures: `./Sprocs/*.sql`
-4. Create migration file: `./src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations/{Version}.diff.sql`
-   - The full snapshot `{Version}.sql` is auto-generated during build
-5. Update `Microsoft.Health.Fhir.SqlServer.csproj` with new `LatestSchemaVersion` property
-6. Add new SQL data store for the functionality specifying the new version
-7. Add integration tests for SQL changes
-8. Follow guidelines in `docs/SchemaVersioning.md`
+   - Types: `./Types/*.sql`
+
+8. ✅ **Add feature constant usage** in code where schema version is checked
+   ```csharp
+   if (_schemaInformation.Current >= SchemaVersionConstants.YourFeatureName)
+   {
+       // Use new schema feature
+   }
+   ```
+
+9. ✅ **Add integration tests** for SQL changes in `test/Microsoft.Health.Fhir.Shared.Tests.Integration/`
+
+10. ✅ **Follow guidelines** in `docs/SchemaVersioning.md`
+
+### Best Practices for Index Creation
+
+When creating indexes in migration scripts, use these options for production safety:
+
+```sql
+CREATE NONCLUSTERED INDEX IX_YourIndex
+ON dbo.YourTable (Column1, Column2)
+INCLUDE (Column3)
+WITH (
+    DATA_COMPRESSION = PAGE,       -- Save storage
+    ONLINE = ON,                   -- Non-blocking
+    SORT_IN_TEMPDB = ON,           -- Less log impact
+    MAXDOP = 0,                    -- Use all processors
+    RESUMABLE = ON,                -- Can pause/resume (SQL 2017+)
+    MAX_DURATION = 0               -- No time limit
+)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId);
+```
+
+### Verification Checklist
+
+Before committing, verify:
+- [ ] `SchemaVersion.cs` has new enum value
+- [ ] `SchemaVersionConstants.Max` is updated
+- [ ] `Microsoft.Health.Fhir.SqlServer.csproj` has updated `<LatestSchemaVersion>`
+- [ ] Migration `.diff.sql` file created
+- [ ] Project builds successfully (generates full snapshot)
+- [ ] No build warnings related to schema
 
 ## Async Operations & Background Jobs
 

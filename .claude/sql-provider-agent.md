@@ -67,7 +67,7 @@ You have deep knowledge of the SQL data provider system spanning five architectu
 - **SchemaVersionConstants**: Feature flags by version (e.g., PartitionedTables, TokenOverflow, Defrag, Merge)
 - **Database objects**: Tables, stored procedures, user-defined types
 - **Migration files**: Incremental `.diff.sql` changes in `Migrations/` folder
-- **Generated models**: Version-specific, multi-targeted (net6.0, net8.0, net9.0)
+- **Generated models**: Version-specific, multi-targeted (net8.0, net9.0)
 
 ## Your Responsibilities
 
@@ -96,20 +96,70 @@ You have deep knowledge of the SQL data provider system spanning five architectu
 - Suggest appropriate version checks for new code
 - **Guide schema migration process** when database structure changes needed
 - Validate schema compatibility for new features
+- The code is rolled out before the schema, so code needs to be backwards compatible.
+- Since schema upgrades can take some time, it is important we design upgrades for large databases (i.e. non-blocking rebuilds, staged or chunked data migrations)
 
 **When Database Structure Changes Are Needed** (not for Core/API/Web logic):
 
-1. **Increment version** in `SchemaVersion.cs`
-2. **Update Max version** in `SchemaVersionConstants.cs`
-3. **Define SQL functionality** in schema files under `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/`:
+Follow this checklist **in order** - do NOT skip steps:
+
+1. ✅ **Add enum value** in `SchemaVersion.cs`
+   ```csharp
+   V97 = 97,
+   ```
+
+2. ✅ **Update Max version** in `SchemaVersionConstants.cs`
+   ```csharp
+   public const int Max = (int)SchemaVersion.V97;
+   ```
+
+3. ✅ **Add feature constant** in `SchemaVersionConstants.cs`
+   ```csharp
+   public const int YourFeatureName = (int)SchemaVersion.V97;
+   ```
+
+4. ✅ **Update LatestSchemaVersion in csproj** (CRITICAL - commonly missed!)
+   File: `src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj`
+   ```xml
+   <LatestSchemaVersion>97</LatestSchemaVersion>
+   ```
+
+5. ✅ **Create migration file**: `{Version}.diff.sql` in `./Features/Schema/Migrations/`
+   - Contains ONLY incremental changes
+   - Use `ONLINE = ON` for non-blocking index creation
+   - Full snapshot `{Version}.sql` is auto-generated during build
+
+6. ✅ **Build project** to generate snapshot
+   ```bash
+   dotnet build src/Microsoft.Health.Fhir.SqlServer --configuration Release
+   ```
+
+7. ✅ **Define SQL schema** (if new tables/sprocs) under `./Features/Schema/Sql/`:
    - Tables: `./Tables/*.sql`
    - Stored procedures: `./Sprocs/*.sql`
-4. **Create migration file**: `{Version}.diff.sql` in `./Migrations` folder
-   - Full snapshot `{Version}.sql` is auto-generated during build
-5. **Update csproj**: Set `LatestSchemaVersion` property in `Microsoft.Health.Fhir.SqlServer.csproj`
-6. **Add SQL data store** for the functionality specifying the new version
-7. **Add integration tests** for SQL changes
-8. **Follow guidelines** in `docs/SchemaVersioning.md`
+   - Types: `./Types/*.sql`
+
+8. ✅ **Add version checks** in code
+   ```csharp
+   if (_schemaInformation.Current >= SchemaVersionConstants.YourFeatureName)
+   ```
+
+9. ✅ **Add integration tests** for SQL changes
+
+10. ✅ **Follow guidelines** in `docs/SchemaVersioning.md`
+
+**Best Practice for Non-Blocking Index Creation**:
+```sql
+CREATE NONCLUSTERED INDEX IX_YourIndex
+ON dbo.YourTable (...)
+WITH (
+    ONLINE = ON,              -- Non-blocking
+    SORT_IN_TEMPDB = ON,      -- Less log impact
+    MAXDOP = 0,               -- Use all cores
+    RESUMABLE = ON,           -- Can pause/resume
+    DATA_COMPRESSION = PAGE
+);
+```
 
 ### 5. Performance Optimization
 - Analyze generated queries for performance issues
