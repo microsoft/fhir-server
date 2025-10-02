@@ -6,15 +6,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
@@ -39,29 +41,42 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             { TypeParameterName, "type" },
         };
 
-        private readonly IMediator _mediator;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IScopeProvider<ISearchService> _searchServiceProvider;
+        private readonly IDataResourceFilter _dataResourceFilter;
         private readonly IBundleFactory _bundleFactory;
         private readonly ILogger<DocRefRequestConverter> _logger;
 
         public DocRefRequestConverter(
-            IMediator mediator,
+            IAuthorizationService<DataActions> authorizationService,
+            IScopeProvider<ISearchService> searchServiceProvider,
+            IDataResourceFilter dataResourceFilter,
             IBundleFactory bundleFactory,
             ILogger<DocRefRequestConverter> logger)
         {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(searchServiceProvider, nameof(searchServiceProvider));
+            EnsureArg.IsNotNull(dataResourceFilter, nameof(dataResourceFilter));
             EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _mediator = mediator;
+            _authorizationService = authorizationService;
+            _searchServiceProvider = searchServiceProvider;
+            _dataResourceFilter = dataResourceFilter;
             _bundleFactory = bundleFactory;
             _logger = logger;
         }
 
-        public Task<ResourceElement> ConvertAsync(
+        public async Task<ResourceElement> ConvertAsync(
             IReadOnlyList<Tuple<string, string>> parameters,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(parameters, nameof(parameters));
+
+            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             var parametersToValidate = parameters
                 .GroupBy(x => x.Item1)
@@ -70,15 +85,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 
             if (parametersToValidate.ContainsKey(OnDemandParameterName) || parametersToValidate.ContainsKey(ProfileParameterName))
             {
-                return Task.FromResult(
-                    CreateBundleForUnsupportedParameter(
-                        parametersToValidate.ContainsKey(OnDemandParameterName) ? OnDemandParameterName : ProfileParameterName));
+                return CreateBundleForUnsupportedParameter(
+                    parametersToValidate.ContainsKey(OnDemandParameterName) ? OnDemandParameterName : ProfileParameterName);
             }
 
-            return _mediator.SearchResourceAsync(
+            using var searchService = _searchServiceProvider.Invoke();
+            var result = await searchService.Value.SearchAsync(
                 KnownResourceTypes.DocumentReference,
                 ConvertParameters(parameters),
                 cancellationToken);
+            return _bundleFactory.CreateSearchBundle(_dataResourceFilter.Filter(result));
         }
 
         private ResourceElement CreateBundleForUnsupportedParameter(string parameterName)
@@ -101,32 +117,39 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             var parametersConverted = new List<Tuple<string, string>>();
             if (parameters != null && parameters.Any())
             {
-                foreach (var p in parameters)
+                var values = new StringBuilder();
+                foreach (var pg in parameters.GroupBy(x => x.Item1))
                 {
-                    if (ConvertParameterMap.TryGetValue(p.Item1, out var val))
+                    var name = pg.Key;
+                    if (ConvertParameterMap.TryGetValue(pg.Key, out var n))
                     {
-                        // NOTE: adding the prefix for the 1st value only for now. (e.g. we need to decide whether to allow multi-value like "start=<date1>,<date2>,...")
-                        if (string.Equals(p.Item1, StartParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            parametersConverted.Add(Tuple.Create(val, $"ge{p.Item2}"));
-                        }
-                        else if (string.Equals(p.Item1, EndParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            parametersConverted.Add(Tuple.Create(val, $"le{p.Item2}"));
-                        }
-                        else
-                        {
-                            parametersConverted.Add(Tuple.Create(val, p.Item2));
-                        }
+                        name = n;
                     }
                     else
                     {
-                        var sanitizedName = p.Item1?
+                        name = pg.Key?
                             .Replace("\r", string.Empty, StringComparison.Ordinal)?
                             .Replace("\n", string.Empty, StringComparison.Ordinal);
-                        _logger.LogWarning("Unknown parameter: {Name}", sanitizedName);
-                        parametersConverted.Add(p);
+                        _logger.LogWarning("Unknown parameter: {Name}", name);
                     }
+
+                    foreach (var p in pg)
+                    {
+                        values.AppendFormat("{0},", p.Item2);
+                    }
+
+                    var value = values.ToString().TrimEnd(',');
+                    if (string.Equals(pg.Key, StartParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = $"ge{value}";
+                    }
+                    else if (string.Equals(pg.Key, EndParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = $"le{value}";
+                    }
+
+                    parametersConverted.Add(Tuple.Create(name, value));
+                    values.Clear();
                 }
             }
 

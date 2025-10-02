@@ -8,12 +8,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -30,17 +32,42 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
     public class DocRefRequestConverterTests
     {
         private readonly DocRefRequestConverter _converter;
-        private readonly IMediator _mediator;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IScopeProvider<ISearchService> _searchServiceProvider;
+        private readonly ISearchService _searchService;
+        private readonly IDataResourceFilter _dataResourceFilter;
         private readonly IBundleFactory _bundleFactory;
         private readonly ILogger<DocRefRequestConverter> _logger;
 
         public DocRefRequestConverterTests()
         {
-            _mediator = Substitute.For<IMediator>();
-            _mediator.Send(
-                Arg.Any<SearchResourceRequest>(),
+            _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            _authorizationService.CheckAccess(
+                Arg.Any<DataActions>(),
                 Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(new SearchResourceResponse(new Bundle().ToResourceElement())));
+                .Returns(DataActions.Read);
+
+            _searchService = Substitute.For<ISearchService>();
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns(Task.FromResult(new SearchResult(0, new List<Tuple<string, string>>())));
+
+            var scopedService = Substitute.For<IScoped<ISearchService>>();
+            scopedService.Value.Returns(_searchService);
+
+            _searchServiceProvider = Substitute.For<IScopeProvider<ISearchService>>();
+            _searchServiceProvider.Invoke().Returns(scopedService);
+
+            _dataResourceFilter = Substitute.For<IDataResourceFilter>();
+            _dataResourceFilter.Filter(
+                Arg.Any<SearchResult>())
+                .Returns(new SearchResult(0, new List<Tuple<string, string>>()));
 
             _bundleFactory = Substitute.For<IBundleFactory>();
             _bundleFactory.CreateSearchBundle(
@@ -49,7 +76,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
 
             _logger = Substitute.For<ILogger<DocRefRequestConverter>>();
             _converter = new DocRefRequestConverter(
-                _mediator,
+                _authorizationService,
+                _searchServiceProvider,
+                _dataResourceFilter,
                 _bundleFactory,
                 _logger);
         }
@@ -69,7 +98,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     || (endParameters.Count == 1 && !(endParameters[0]?.Item2?.Contains(',', StringComparison.Ordinal) ?? true)));
             var unsupported = parametersToValidate.ContainsKey(DocRefRequestConverter.OnDemandParameterName)
                 || parametersToValidate.ContainsKey(DocRefRequestConverter.ProfileParameterName);
-
+#if false
             _mediator.Send(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>())
@@ -85,24 +114,47 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                         ValidateParameters(parameters, request.Queries);
                         return Task.FromResult(new SearchResourceResponse(new Bundle().ToResourceElement()));
                     });
+#endif
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>())
+                .Returns(
+                    x =>
+                    {
+                        Assert.True(valid);
+
+                        var resourceType = (string)x[0];
+                        var parametersConverted = (IReadOnlyList<Tuple<string, string>>)x[1];
+
+                        Assert.Equal(KnownResourceTypes.DocumentReference, resourceType, true);
+                        ValidateParameters(parameters, parametersConverted);
+                        return new SearchResult(0, new List<Tuple<string, string>>());
+                    });
+
             _bundleFactory.CreateSearchBundle(
                 Arg.Any<SearchResult>())
                 .Returns(
                     x =>
                     {
-                        Assert.True(unsupported);
+                        if (unsupported)
+                        {
+                            var p = parameters.Any(x => string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase))
+                                ? DocRefRequestConverter.OnDemandParameterName : DocRefRequestConverter.ProfileParameterName;
+                            var result = (SearchResult)x[0];
+                            Assert.NotNull(result);
+                            Assert.Equal(1, result.SearchIssues?.Count ?? 0);
 
-                        var p = parameters.Any(x => string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase))
-                            ? DocRefRequestConverter.OnDemandParameterName : DocRefRequestConverter.ProfileParameterName;
-                        var result = (SearchResult)x[0];
-                        Assert.NotNull(result);
-                        Assert.Equal(1, result.SearchIssues?.Count ?? 0);
-
-                        var issue = result.SearchIssues.FirstOrDefault();
-                        Assert.NotNull(issue);
-                        Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
-                        Assert.Equal(OperationOutcomeConstants.IssueType.NotSupported, issue.Code);
-                        Assert.Contains(p, issue.Diagnostics, StringComparison.OrdinalIgnoreCase);
+                            var issue = result.SearchIssues.FirstOrDefault();
+                            Assert.NotNull(issue);
+                            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
+                            Assert.Equal(OperationOutcomeConstants.IssueType.NotSupported, issue.Code);
+                            Assert.Contains(p, issue.Diagnostics, StringComparison.OrdinalIgnoreCase);
+                        }
 
                         return new Bundle().ToResourceElement();
                     });
@@ -119,10 +171,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid && !unsupported ? 1 : 0).Send(
-                Arg.Any<SearchResourceRequest>(),
+            await _authorizationService.Received(1).CheckAccess(
+                Arg.Any<DataActions>(),
                 Arg.Any<CancellationToken>());
-            _bundleFactory.Received(unsupported ? 1 : 0).CreateSearchBundle(
+            _searchServiceProvider.Received(valid && !unsupported ? 1 : 0).Invoke();
+            _dataResourceFilter.Received(valid && !unsupported ? 1 : 0).Filter(
+                Arg.Any<SearchResult>());
+            _bundleFactory.Received(valid ? 1 : 0).CreateSearchBundle(
                 Arg.Any<SearchResult>());
         }
 
@@ -135,34 +190,47 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             if (parameters != null)
             {
                 // Excluding unsupported parameters from validation.
-                var input = parameters
+                var count = parameters
                     .Where(x => !string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
                         && !string.Equals(x.Item1, DocRefRequestConverter.ProfileParameterName, StringComparison.OrdinalIgnoreCase))
-                    .ToDictionary(x => x.Item1, x => x.Item2);
-
-                Assert.Equal(input.Count, parametersConverted.Count);
-                foreach (var p in input)
+                    .GroupBy(x => DocRefRequestConverter.ConvertParameterMap.TryGetValue(x.Item1, out var n) ? n : x.Item1)
+                    .Count();
+                var source = parameters
+                    .Where(x => !string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(x.Item1, DocRefRequestConverter.ProfileParameterName, StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(x => x.Item1)
+                    .ToDictionary(x => x.Key, x => x.Select(y => y.Item2).ToList());
+                var converted = parametersConverted
+                    .GroupBy(x => x.Item1)
+                    .ToDictionary(x => x.Key, x => x.SelectMany(y => y.Item2?.Split(',')).ToList());
+                Assert.Equal(count, converted.Count);
+                foreach (var p in source)
                 {
                     var name = p.Key;
-                    var value = p.Value;
-                    if (DocRefRequestConverter.ConvertParameterMap.TryGetValue(name, out var nameConverted))
+                    if (DocRefRequestConverter.ConvertParameterMap.TryGetValue(p.Key, out var n))
                     {
-                        if (string.Equals(name, DocRefRequestConverter.StartParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            value = $"ge{value}";
-                        }
-                        else if (string.Equals(name, DocRefRequestConverter.EndParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            value = $"le{value}";
-                        }
-
-                        name = nameConverted;
+                        name = n;
                     }
 
-                    Assert.Contains(
-                        parametersConverted,
-                        y => string.Equals(name, y.Item1, StringComparison.OrdinalIgnoreCase)
-                            && string.Equals(value, y.Item2, StringComparison.OrdinalIgnoreCase));
+                    Assert.Contains(name, converted);
+                    if (string.Equals(p.Key, DocRefRequestConverter.StartParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Assert.Contains(
+                            converted[name],
+                            x => string.Equals(x, $"ge{p.Value[0]}", StringComparison.Ordinal));
+                    }
+                    else if (string.Equals(p.Key, DocRefRequestConverter.EndParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Assert.Contains(
+                            converted[name],
+                            x => string.Equals(x, $"le{p.Value[0]}", StringComparison.Ordinal));
+                    }
+                    else
+                    {
+                        Assert.All(
+                            p.Value,
+                            x => Assert.Contains(converted[name], y => string.Equals(x, y, StringComparison.Ordinal)));
+                    }
                 }
             }
         }
@@ -282,6 +350,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                         Tuple.Create(
                             DocRefRequestConverter.EndParameterName,
                             $"{DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")},{DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")}"),
+                    },
+                },
+                new object[]
+                {
+                    // Missing required parameter "patient".
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-7"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-8"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-9"),
                     },
                 },
             };
