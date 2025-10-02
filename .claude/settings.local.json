@@ -13,7 +13,9 @@
       "Bash(timeout:*)",
       "Bash(cat:*)",
       "Bash(rm:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(grep:*)",
+      "Read(//c/Src/**)"
     ],
     "deny": [],
     "ask": []

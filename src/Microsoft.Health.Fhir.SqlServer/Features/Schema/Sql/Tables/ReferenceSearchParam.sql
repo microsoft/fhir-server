@@ -47,10 +47,7 @@ INCLUDE (ResourceTypeId, ResourceSurrogateId)
 WITH (
     DATA_COMPRESSION = PAGE,
     ONLINE = ON,
-    SORT_IN_TEMPDB = ON,
-    MAXDOP = 0,
-    RESUMABLE = ON,
-    MAX_DURATION = 0
+    RESUMABLE = ON
 )
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

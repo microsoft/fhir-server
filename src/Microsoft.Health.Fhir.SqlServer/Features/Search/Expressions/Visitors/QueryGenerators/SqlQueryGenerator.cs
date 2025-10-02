@@ -1219,16 +1219,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int lastInclusiveTableExpressionId = _tableExpressionCounter;
 
             // Create a final CTE aggregating results from all previous CTEs.
-            // Phase 2: Lazy UNION Evaluation - Wrap UNION ALL in TOP subquery for early termination
-            // ADR 2510 - Enables SQL Server to short-circuit UNION branches when enough results found
+            // ADR 2510 Phase 2 (Lazy UNION Evaluation) NOTE:
+            // Phase 2 optimization (TOP on UNION aggregate) is NOT applied for compartment searches
+            // because they have subsequent filtering (Resource table join + IsHistory = 0) that occurs
+            // AFTER the UNION aggregate. Applying TOP too early would return incorrect results.
+            // Compartment searches benefit from Phase 1 (covering index) and Phase 3 (MAXDOP) only.
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
             using (StringBuilder.Indent())
             {
-                // Add TOP clause to enable lazy evaluation
-                StringBuilder.Append("SELECT TOP (")
-                    .Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false))
-                    .AppendLine(") *");
+                // SELECT without TOP - let subsequent CTEs and final SELECT handle result limiting
+                StringBuilder.AppendLine("SELECT *");
 
                 StringBuilder.AppendLine("FROM (");
 
