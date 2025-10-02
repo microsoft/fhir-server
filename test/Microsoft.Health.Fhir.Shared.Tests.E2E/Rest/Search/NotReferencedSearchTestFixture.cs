@@ -94,13 +94,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 },
             };
 
+#if R5
+            encounter.Class = new List<CodeableConcept>()
+            {
+                new CodeableConcept
+                {
+                    Coding = new List<Coding>
+                        {
+                            new Coding
+                            {
+                                Code = "test",
+                                System = "test",
+                            },
+                        },
+                },
+            };
+            encounter.Status = EncounterStatus.Completed;
+#else
             encounter.Class = new Coding
             {
                 Code = "test",
                 System = "test",
             };
-
             encounter.Status = Encounter.EncounterStatus.Arrived;
+#endif
 
             encounter.Subject = new ResourceReference(KnownResourceTypes.Patient + "/" + patient.Id);
 
