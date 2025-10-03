@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 expected.Add(operationOutcome);
 
-                ValidateBundle(bundle, expected.ToArray());
+                ValidateBundle(bundle, true, true, expected.ToArray());
             }
             catch (FhirClientException fce)
             {
