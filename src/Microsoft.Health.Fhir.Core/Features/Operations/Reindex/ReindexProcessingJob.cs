@@ -72,7 +72,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             await ProcessQueryAsync(cancellationToken);
 
-            _jobInfo.Data = _reindexProcessingJobResult.SucceededResourceCount += _reindexProcessingJobResult.FailedResourceCount;
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
 
@@ -148,20 +147,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 SearchResult result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken));
                 resourceCount += result?.TotalCount ?? 0;
                 _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
+                _jobInfo.Data = resourceCount;
+
+                // reindex has more work to do at this point
                 if (result?.MaxResourceSurrogateId > 0)
                 {
-                    // reindex has more work to do at this point
-                    if (result?.MaxResourceSurrogateId > 0)
+                    if (result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId)
                     {
-                        if (result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId)
-                        {
-                            // We need to create a child query to finish processing the reindex job
-                            _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
-                            _reindexProcessingJobDefinition.ResourceCount.ContinuationToken = result.ContinuationToken;
+                        // We need to create a child query to finish processing the reindex job
+                        _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
+                        _reindexProcessingJobDefinition.ResourceCount.ContinuationToken = result.ContinuationToken;
 
-                            var generatedJobId = await EnqueueChildQueryProcessingJobAsync(cancellationToken);
-                            _logger.LogInformation("Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}", _jobInfo.Id, _jobInfo.GroupId, generatedJobId[0]);
-                        }
+                        var generatedJobId = await EnqueueChildQueryProcessingJobAsync(cancellationToken);
+                        _logger.LogInformation("Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}", _jobInfo.Id, _jobInfo.GroupId, generatedJobId[0]);
                     }
                 }
 
@@ -174,18 +172,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    try
+                    if (result != null)
                     {
-                        if (result != null)
-                        {
-                            _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
-                            _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Reindex processing job error occurred recording progress. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
-                        throw;
+                        _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
+                        _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
                     }
                 }
             }
@@ -250,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
+                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _reindexProcessingJobDefinition.GroupId, false, cancellationToken))
                     .Select(_ => _.Id)
                     .OrderBy(_ => _)
                     .ToList();
@@ -267,7 +257,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     try
                     {
-                        var retryJobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
+                        var retryJobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _reindexProcessingJobDefinition.GroupId, false, cancellationToken))
                             .Select(_ => _.Id)
                             .OrderBy(_ => _)
                             .ToList();

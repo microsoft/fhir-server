@@ -1,6 +1,6 @@
-﻿--DROP PROCEDURE dbo.GetResourceSurrogateIdRanges
+--DROP PROCEDURE dbo.GetResourceSurrogateIdRanges
 GO
-CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @RangeSize int, @NumberOfRanges int = 100, @Up bit = 1, @ActiveOnly bit = 0
+CREATE OR ALTER PROCEDURE dbo.GetResourceSurrogateIdRanges @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @RangeSize int, @NumberOfRanges int = 100, @Up bit = 1, @ActiveOnly bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourceSurrogateIdRanges'
@@ -65,19 +65,3 @@ THROW -- Real error is before 1750, cannot trap in SQL.
   THROW
 END CATCH
 GO
---set nocount on
---DECLARE @Ranges TABLE (UnitId int, MinId bigint, MaxId bigint, Cnt int)
---DECLARE @MaxId bigint = 0
---       ,@msg varchar(1000)
---       ,@Loop int = 0
-
---WHILE @MaxId IS NOT NULL AND @Loop < 1000
---BEGIN
---  DELETE FROM @Ranges
---  INSERT INTO @Ranges
---    EXECUTE GetResourceSurrogateIdRanges 96, @MaxId, 9e18, 100000
---  SET @MaxId = (SELECT TOP 1 MaxId FROM @Ranges ORDER BY MaxId DESC) + 1
---  SET @msg = 'Loop='+convert(varchar,@Loop)+' MaxId='+convert(varchar,@MaxId)
---  RAISERROR(@msg,0,1) WITH NOWAIT
---  SET @Loop += 1
---END
