@@ -15,6 +15,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     public abstract class Expression
     {
         /// <summary>
+        /// Determines whether the given expression is for the SMART V2 request where scopes have search parameters and expression is built as an Union Expression of all the ANDed CTE's for Search Parameters
+        /// For example, (ResourceType = x and searchParam1 = foo) AND (ResourceType = x and searchParam2 = doo) UNION (ResourceType = y and searchParam3 = goo) AND (ResourceType = y and searchParam4 = woo)
+        /// </summary>
+        public bool IsSmartV2UnionExpressionForScopesSearchParameters { get; set; }
+
+        /// <summary>
         /// Creates a <see cref="SearchParameterExpression"/> that represents a set of ANDed expressions over a search parameter.
         /// </summary>
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>

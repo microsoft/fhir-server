@@ -592,6 +592,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. .
+        /// </summary>
+        public static string MixedSMARTV1AndV2ScopesAreNotAllowed {
+            get {
+                return ResourceManager.GetString("MixedSMARTV1AndV2ScopesAreNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {

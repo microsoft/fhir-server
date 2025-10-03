@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesContinuationToken = other.IncludesContinuationToken;
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
+            SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
         }
 
         /// <summary>
@@ -167,6 +168,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the value indicating whether or not $includes operation is supported.
         /// </summary>
         public bool IncludesOperationSupported { get; internal set; }
+
+        /// <summary>
+        /// Gets the value indicating whether or not to force Intersection With Predecessor clause in Table.Kind = normal
+        /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
+        /// </summary>
+        public bool SkipAppendIntersectionWithPredecessor { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 #if !Stu3 && !R4 && !R4B
@@ -91,6 +92,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             // Setup the search parameters.
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
+            _searchParameterExpressionParser
+                .Parse(Arg.Any<SearchParameterInfo>(), Arg.Any<SearchModifier>(), Arg.Any<string>())
+                .Returns(Substitute.For<Expression>());
 
             // Parse the expression.
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value));

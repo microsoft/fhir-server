@@ -23,6 +23,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitMultiary(MultiaryExpression expression, object context)
         {
+            // Flattens multiary expressions: (And (And a b) (And c d)) -> (And a b c d)
+            // Without checking if a and b are of different type of search parameters like token and string.
+            // It works fine for regular requests but in case of smart v2 scopes requests with search parameters, we have a special union expression where we want to avoid flattening
+            if (expression.IsSmartV2UnionExpressionForScopesSearchParameters)
+            {
+                return expression;
+            }
+
             expression = (MultiaryExpression)base.VisitMultiary(expression, context);
             if (expression.Expressions.Count == 1)
             {
