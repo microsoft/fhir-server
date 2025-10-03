@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
 
-            services.AddSingleton<IDocRefRequestConverter, DocRefRequestConverter>();
+            services.AddScoped<IDocRefRequestConverter, DocRefRequestConverter>();
         }
     }
 }
