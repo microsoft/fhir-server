@@ -1079,11 +1079,29 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Not referenced only supports the value *:*.
+        ///   Looks up a localized string similar to Not Referenced only allows one :.
         /// </summary>
-        internal static string NotReferencedParameterInvalidValue {
+        internal static string NotReferencedParameterMultipleSeperators {
             get {
-                return ResourceManager.GetString("NotReferencedParameterInvalidValue", resourceCulture);
+                return ResourceManager.GetString("NotReferencedParameterMultipleSeperators", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not referenced requires a resource type and search field separated by a :.
+        /// </summary>
+        internal static string NotReferencedParameterNoSeparator {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterNoSeparator", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not Referenced doesn&apos;t allow for a wildcard resource type with a specific search field.
+        /// </summary>
+        internal static string NotReferencedParameterWildcardType {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterWildcardType", resourceCulture);
             }
         }
         
