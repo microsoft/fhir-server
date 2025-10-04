@@ -1036,6 +1036,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (searchOptions.CountOnly)
             {
                 _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
+
+                // Check if we have surrogate ID range hints - if so, use the optimized range count
+                if (searchOptions.QueryHints != null &&
+                    searchOptions.QueryHints.Any(h => h.Param == KnownQueryParameterNames.StartSurrogateId) &&
+                    searchOptions.QueryHints.Any(h => h.Param == KnownQueryParameterNames.EndSurrogateId))
+                {
+                    long startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+                    long endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+
+                    int count = await GetResourceCountBySurrogateIdRangeAsync(
+                        resourceTypeId,
+                        startId,
+                        endId,
+                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
+                        cancellationToken);
+
+                    var searchResult = new SearchResult(count, Array.Empty<Tuple<string, string>>());
+                    searchResult.ReindexResult = new SearchResultReindex()
+                    {
+                        Count = count,
+                        StartResourceSurrogateId = startId,
+                        EndResourceSurrogateId = endId,
+                    };
+
+                    _logger.LogInformation("Count for reindex by range: Resource Type={ResourceType} StartId={StartId} EndId={EndId} Count={Count}", resourceType, startId, endId, count);
+
+                    return searchResult;
+                }
+
+                // Fall back to the original method if no range hints are provided
                 return await SearchForReindexSurrogateIdsBySearchParamHashAsync(resourceTypeId, searchOptions.MaxItemCount, cancellationToken, searchParameterHash);
             }
 
@@ -1199,6 +1229,76 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             };
 
             return searchResult;
+        }
+
+        /// <summary>
+        /// Gets the count of resources within a specific surrogate ID range.
+        /// </summary>
+        /// <param name="resourceTypeId">The resource type ID</param>
+        /// <param name="startId">The lower bound surrogate ID (inclusive)</param>
+        /// <param name="endId">The upper bound surrogate ID (inclusive)</param>
+        /// <param name="searchParamHash">Optional search parameter hash filter</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The count of resources within the specified range</returns>
+        private async Task<int> GetResourceCountBySurrogateIdRangeAsync(
+            short resourceTypeId,
+            long startId,
+            long endId,
+            string searchParamHash,
+            CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
+
+            if (!string.IsNullOrWhiteSpace(searchParamHash))
+            {
+                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+                sqlCommand.Parameters.AddWithValue("@StartId", startId);
+                sqlCommand.Parameters.AddWithValue("@EndId", endId);
+                sqlCommand.Parameters.AddWithValue("@SearchParamHash", searchParamHash);
+
+                sqlCommand.CommandText = @"
+            SELECT COUNT(*) 
+            FROM dbo.Resource 
+            WHERE ResourceTypeId = @ResourceTypeId 
+              AND ResourceSurrogateId >= @StartId 
+              AND ResourceSurrogateId <= @EndId
+              AND IsHistory = 0 
+              AND IsDeleted = 0
+              AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
+            }
+            else
+            {
+                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+                sqlCommand.Parameters.AddWithValue("@StartId", startId);
+                sqlCommand.Parameters.AddWithValue("@EndId", endId);
+
+                sqlCommand.CommandText = @"
+            SELECT COUNT(*) 
+            FROM dbo.Resource 
+            WHERE ResourceTypeId = @ResourceTypeId 
+              AND ResourceSurrogateId >= @StartId 
+              AND ResourceSurrogateId <= @EndId
+              AND IsHistory = 0 
+              AND IsDeleted = 0";
+            }
+
+            LogSqlCommand(sqlCommand);
+
+            int count = 0;
+            await _sqlRetryService.ExecuteSql(
+                sqlCommand,
+                async (cmd, cancel) =>
+                {
+                    var result = await cmd.ExecuteScalarAsync(cancel);
+                    count = Convert.ToInt32(result);
+                    return;
+                },
+                _logger,
+                null,
+                cancellationToken);
+
+            return count;
         }
 
         private int GetReindexCommandTimeout()

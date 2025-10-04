@@ -351,6 +351,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // Create job definitions from the ranges
                 foreach (var range in processingRanges)
                 {
+                    var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                    {
+                        LastModified = Clock.UtcNow,
+                        Status = OperationStatus.Queued,
+                        StartResourceSurrogateId = range.StartId,
+                        EndResourceSurrogateId = range.EndId,
+                    };
+
+                    SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, _cancellationToken);
+
                     var reindexJobPayload = new ReindexProcessingJobDefinition()
                     {
                         TypeId = (int)JobType.ReindexProcessing,
@@ -360,6 +370,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         {
                             StartResourceSurrogateId = range.StartId,
                             EndResourceSurrogateId = range.EndId,
+                            Count = countOnlyResults?.TotalCount ?? 0,
                         },
                         ResourceType = resourceType,
                         MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
@@ -465,10 +476,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // searching for the next block of results and will use that as the queryStatus starting point
 
                 var startId = queryStatus.StartResourceSurrogateId > 0 ? queryStatus.StartResourceSurrogateId.ToString() : searchResultReindex.StartResourceSurrogateId.ToString();
+                var endId = queryStatus.EndResourceSurrogateId > 0 ? queryStatus.EndResourceSurrogateId.ToString() : searchResultReindex.EndResourceSurrogateId.ToString();
 
                 queryParametersList.AddRange(new[]
                 {
-                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
+                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, endId),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, startId),
                     Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 });
@@ -644,20 +656,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }).ToList();
 
-            // Track job counts and timing
-            int lastActiveJobCount = activeJobs.Count;
-            int unchangedCount = 0;
-            int changeDetectedCount = 0;
-            DateTime lastPollTime = DateTime.UtcNow;
-            DateTime lastSearchParameterCheck = DateTime.MinValue;
-
-            const int MAX_UNCHANGED_CYCLES = 3;
-            const int MIN_POLL_INTERVAL_MS = 100;
-            const int MAX_POLL_INTERVAL_MS = 5000;
-            const int DEFAULT_POLL_INTERVAL_MS = 1000;
-
-            int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
-
             // If we have no active jobs, yet we got here, this means the orchestrator
             // crashed before completing its work and all processing jobs have since completed.
             if (!activeJobs.Any())
@@ -672,6 +670,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await ProcessCompletedJobs(true, readySearchParameters, cancellationToken);
                 }
             }
+
+            // Track job counts and timing
+            int lastActiveJobCount = activeJobs.Count;
+            int unchangedCount = 0;
+            int changeDetectedCount = 0;
+            DateTime lastPollTime = DateTime.UtcNow;
+            DateTime lastSearchParameterCheck = DateTime.MinValue;
+
+            const int MAX_UNCHANGED_CYCLES = 3;
+            const int MIN_POLL_INTERVAL_MS = 10000;
+            const int MAX_POLL_INTERVAL_MS = 30000;
+            const int DEFAULT_POLL_INTERVAL_MS = 10000;
+
+            int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
 
             while (activeJobs.Any())
             {
