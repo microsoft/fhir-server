@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     {
         public int TypeId { get; set; }
 
-        public long GroupId { get; internal set; }
+        public long GroupId { get; init; }
 
         public string ResourceType { get; set; }
 
