@@ -902,7 +902,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // Update the final completion count and status
                 _currentResult.CompletedJobs += _jobsToProcess.Count(j => j.Status == JobStatus.Completed);
                 _reindexJobRecord.Status = failedJobInfos.Any() ? OperationStatus.Failed : OperationStatus.Completed;
-                _logger.LogInformation("All reindex processing jobs completed for Id: {Id}. Total completed: {CompletedCount}", _jobInfo.Id, _currentResult.CompletedJobs);
+                _logger.LogInformation("All reindex processing jobs completed for Id: {Id}. Total completed: {CompletedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs);
             }
 
             _jobsToProcess.Clear();
