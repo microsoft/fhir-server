@@ -814,7 +814,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
-            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up, activeOnly);
+            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up, activeOnly, _schemaInformation);
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
             LogSqlCommand(sqlCommand);
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
@@ -1811,7 +1811,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
             }
 
-            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up, bool? activeOnly)
+            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up, bool? activeOnly, SchemaInformation schemaInformation)
             {
                 sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
                 sqlCommand.CommandText = "dbo.GetResourceSurrogateIdRanges";
@@ -1821,7 +1821,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
                 _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
                 _up.AddParameter(sqlCommand.Parameters, up);
-                _activeOnly.AddParameter(sqlCommand.Parameters, activeOnly);
+
+                if (schemaInformation.Current >= (int)SchemaVersion.V97)
+                {
+                    _activeOnly.AddParameter(sqlCommand.Parameters, activeOnly);
+                }
             }
         }
     }
