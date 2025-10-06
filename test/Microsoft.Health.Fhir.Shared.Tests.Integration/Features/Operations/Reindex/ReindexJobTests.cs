@@ -230,6 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             ModelInfoProvider.Instance,
                             _searchParameterStatusManager,
                             _searchParameterOperations,
+                            _fixture.FhirRuntimeConfiguration,
                             NullLoggerFactory.Instance);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)

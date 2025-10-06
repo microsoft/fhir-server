@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             while (resourceTypes.Count > 0)
             {
-                int numResources = (await searchService.SearchAsync(resourceTypes[0], searchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
+                long numResources = (await searchService.SearchAsync(resourceTypes[0], searchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
 
                 if (numResources == 0)
                 {

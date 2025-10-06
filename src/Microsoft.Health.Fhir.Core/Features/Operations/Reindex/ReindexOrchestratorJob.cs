@@ -7,14 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -23,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -37,13 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private CancellationToken _cancellationToken;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly bool _isSurrogateIdRangingSupported;
+
+        private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
         private JobInfo _jobInfo;
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
-        private bool? _isSurrogateIdRangingSupported = null;
         private IReadOnlyCollection<ResourceSearchParameterStatus> _initialSearchParamStatusCollection;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IModelInfoProvider modelInfoProvider,
             ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -80,21 +81,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
-            if (_isSurrogateIdRangingSupported == null)
-            {
-                using (IScoped<ISearchService> searchService = _searchServiceFactory())
-                {
-                    // Check if the implementation is SqlServerSearchService
-                    Type serviceType = searchService.Value.GetType();
+            _isSurrogateIdRangingSupported = fhirRuntimeConfiguration.IsSurrogateIdRangingSupported;
+            _logger.LogInformation(_isSurrogateIdRangingSupported ? "Using SQL Server search service with surrogate ID ranging support" : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
 
-                    _isSurrogateIdRangingSupported = serviceType.FullName.Contains("SqlServerSearchService", StringComparison.Ordinal);
-
-                    _logger.LogInformation(
-                        _isSurrogateIdRangingSupported.Value
-                            ? "Using SQL Server search service with surrogate ID ranging support"
-                            : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
-                }
-            }
+            _jobsToProcess = new List<JobInfo>();
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -469,11 +459,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // This should never be cosmos
             if (searchResultReindex != null)
             {
-                // Always use the queryStatus.StartResourceSurrogateId for the start of the range
-                // and the ResourceCount.EndResourceSurrogateId for the end. The sql will determine
-                // how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
-                // When this function returns, it knows what the next starting value to use in
-                // searching for the next block of results and will use that as the queryStatus starting point
+                // Use 'queryStatus.StartResourceSurrogateId' for the start of the range, unless it is ZERO: in that case use 'searchResultReindex.StartResourceSurrogateId'.
+                // The same applies to 'queryStatus.EndResourceSurrogateId' as the end of the range, unless it is ZERO: in that case use 'searchResultReindex.EndResourceSurrogateId'.
+                // The results of the SQL query will determine how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
+                // When this function returns, it knows what the next starting value to use in searching for the next block of results and will use that as the queryStatus starting point
 
                 var startId = queryStatus.StartResourceSurrogateId > 0 ? queryStatus.StartResourceSurrogateId.ToString() : searchResultReindex.StartResourceSurrogateId.ToString();
                 var endId = queryStatus.EndResourceSurrogateId > 0 ? queryStatus.EndResourceSurrogateId.ToString() : searchResultReindex.EndResourceSurrogateId.ToString();
@@ -848,7 +837,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _currentResult.SucceededResources += result.SucceededResourceCount;
                     }
 
-                    (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount(unprocessedJobs);
+                    (long totalCount, List<string> resourcesTypes) = await CalculateTotalCount(unprocessedJobs);
                     if (totalCount != 0)
                     {
                         string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." +
@@ -914,9 +903,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         /// <param name="succeededJobs">List of succeeded jobs.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains a tuple with the total count of failed resources and a list of resource types.</returns>
-        private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount(List<JobInfo> succeededJobs)
+        private async Task<(long totalCount, List<string> resourcesTypes)> CalculateTotalCount(List<JobInfo> succeededJobs)
         {
-            int totalCount = 0;
+            long totalCount = 0;
             var resourcesTypes = new HashSet<string>(); // Use HashSet to prevent duplicates
 
             // Extract unique resource types from jobs to avoid duplicate counting

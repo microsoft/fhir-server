@@ -19,9 +19,11 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
@@ -93,6 +95,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
 
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+
             _reindexOrchestratorJobTaskFactory = () =>
                  new ReindexOrchestratorJob(
                      _queueClient,
@@ -101,12 +105,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                      ModelInfoProvider.Instance,
                      _searchParameterStatusmanager,
                      _searchParameterOperations,
+                     fhirRuntimeConfiguration,
                      NullLoggerFactory.Instance);
         }
 
-        [Fact]
-        public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
+        [Theory]
+        [InlineData(DataStore.SqlServer)]
+        [InlineData(DataStore.CosmosDb)]
+        public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed(DataStore dataStore)
         {
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration = dataStore == DataStore.SqlServer ?
+                new AzureHealthDataServicesRuntimeConfiguration() :
+                new AzureApiForFhirRuntimeConfiguration();
+
             // Get one search parameter and configure it such that it needs to be reindexed
             var param = new SearchParameterInfo(
                 "Account",
@@ -162,6 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     ModelInfoProvider.Instance,
                     searchParameterStatusmanager,
                     _searchParameterOperations,
+                    fhirRuntimeConfiguration,
                     NullLoggerFactory.Instance);
 
             var expectedResourceType = "Account"; // Fix: Use the actual resource type

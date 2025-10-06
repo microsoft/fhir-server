@@ -145,7 +145,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             try
             {
                 SearchResult result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken));
-                resourceCount += result?.TotalCount ?? 0;
+                if (result == null)
+                {
+                    throw new OperationFailedException($"Search service returned null search result.", HttpStatusCode.InternalServerError);
+                }
+
+                resourceCount += result.TotalCount ?? 0;
                 _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
                 _jobInfo.Data = resourceCount;
 
@@ -164,11 +169,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    if (result != null)
-                    {
-                        _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
-                        _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
-                    }
+                    _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
+                    _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
                 }
             }
             catch (SqlException sqlEx)
@@ -329,7 +331,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <returns>True if a continuation job is needed, false otherwise</returns>
         private bool ShouldCreateContinuationJob(SearchResult result)
         {
-            return result?.MaxResourceSurrogateId > 0 &&
+            return result.MaxResourceSurrogateId > 0 &&
                    result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
         }
 
@@ -342,7 +344,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var originalEndId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
             var originalCount = _reindexProcessingJobDefinition.ResourceCount.Count;
-            var processedCount = result?.Results.Count() ?? 0;
+            var processedCount = result.Results?.Count() ?? 0;
 
             // Create a new ResourceCount for the child job
             var childResourceCount = new SearchResultReindex(Math.Max(0, originalCount - processedCount))
