@@ -665,7 +665,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             int unchangedCount = 0;
             int changeDetectedCount = 0;
             DateTime lastPollTime = DateTime.UtcNow;
-            DateTime lastSearchParameterCheck = DateTime.MinValue;
 
             const int MAX_UNCHANGED_CYCLES = 3;
             const int MIN_POLL_INTERVAL_MS = 10000;
@@ -936,49 +935,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return (totalCount, resourcesTypes.ToList());
         }
 
-        private async Task CheckForSearchParameterUpdates(CancellationToken cancellationToken)
-        {
-            try
-            {
-                _logger.LogDebug("Checking for search parameter updates for reindex job {JobId}", _jobInfo.Id);
-
-                // Sync the latest search parameters
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
-
-                // Get the current search parameter status collection
-                var currentSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-
-                // Compare current state with initial state to determine if there are actual changes
-                if (HasSearchParameterStatusChanged(_initialSearchParamStatusCollection, currentSearchParamStatusCollection))
-                {
-                    _logger.LogInformation("Search parameter status changes detected for reindex job {JobId}. Processing updates...", _jobInfo.Id);
-
-                    // Cancel any queued/created jobs that haven't started processing yet
-                    await CancelPendingJobsAsync(cancellationToken);
-
-                    // Update the global collection with the current state
-                    _initialSearchParamStatusCollection = currentSearchParamStatusCollection;
-
-                    // Re-evaluate and create new jobs with updated search parameters
-                    var newJobIds = await CreateReindexProcessingJobsAsync(cancellationToken);
-
-                    if (newJobIds?.Any() == true)
-                    {
-                        _logger.LogInformation("Created {Count} new processing jobs for updated search parameters in reindex job {JobId}", newJobIds.Count, _jobInfo.Id);
-                        _currentResult.CreatedJobs += newJobIds.Count;
-                    }
-                }
-                else
-                {
-                    _logger.LogDebug("No significant search parameter status changes detected for reindex job {JobId}", _jobInfo.Id);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking for search parameter updates for reindex job {JobId}", _jobInfo.Id);
-            }
-        }
-
         private bool HasSearchParameterStatusChanged(
             IReadOnlyCollection<ResourceSearchParameterStatus> initialCollection,
             IReadOnlyCollection<ResourceSearchParameterStatus> currentCollection)
@@ -1023,37 +979,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return false; // No relevant changes detected
-        }
-
-        private async Task CancelPendingJobsAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                // Get all jobs in the group
-                var allJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, false, cancellationToken);
-
-                // Find jobs that are Created but not yet Running (haven't been picked up by workers)
-                var pendingJobs = allJobs.Where(j =>
-                    j.Id != _jobInfo.Id &&
-                    j.Status == JobStatus.Created).ToList();
-
-                foreach (var pendingJob in pendingJobs)
-                {
-                    try
-                    {
-                        await _queueClient.CancelJobByIdAsync((byte)QueueType.Reindex, pendingJob.Id, cancellationToken);
-                        _logger.LogInformation("Cancelled pending job {JobId} due to search parameter updates", pendingJob.Id);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to cancel pending job {JobId}", pendingJob.Id);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error cancelling pending jobs for reindex job {JobId}", _jobInfo.Id);
-            }
         }
 
         /// <summary>
