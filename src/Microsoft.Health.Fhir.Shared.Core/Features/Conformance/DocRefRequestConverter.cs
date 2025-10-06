@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -101,32 +102,39 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             var parametersConverted = new List<Tuple<string, string>>();
             if (parameters != null && parameters.Any())
             {
-                foreach (var p in parameters)
+                var values = new StringBuilder();
+                foreach (var pg in parameters.GroupBy(x => x.Item1))
                 {
-                    if (ConvertParameterMap.TryGetValue(p.Item1, out var val))
+                    string name;
+                    if (ConvertParameterMap.TryGetValue(pg.Key, out var n))
                     {
-                        // NOTE: adding the prefix for the 1st value only for now. (e.g. we need to decide whether to allow multi-value like "start=<date1>,<date2>,...")
-                        if (string.Equals(p.Item1, StartParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            parametersConverted.Add(Tuple.Create(val, $"ge{p.Item2}"));
-                        }
-                        else if (string.Equals(p.Item1, EndParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            parametersConverted.Add(Tuple.Create(val, $"le{p.Item2}"));
-                        }
-                        else
-                        {
-                            parametersConverted.Add(Tuple.Create(val, p.Item2));
-                        }
+                        name = n;
                     }
                     else
                     {
-                        var sanitizedName = p.Item1?
+                        name = pg.Key?
                             .Replace("\r", string.Empty, StringComparison.Ordinal)?
                             .Replace("\n", string.Empty, StringComparison.Ordinal);
-                        _logger.LogWarning("Unknown parameter: {Name}", sanitizedName);
-                        parametersConverted.Add(p);
+                        _logger.LogWarning("Unknown parameter: {Name}", name);
                     }
+
+                    foreach (var p in pg)
+                    {
+                        values.AppendFormat("{0},", p.Item2);
+                    }
+
+                    var value = values.ToString().TrimEnd(',');
+                    if (string.Equals(pg.Key, StartParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = $"ge{value}";
+                    }
+                    else if (string.Equals(pg.Key, EndParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = $"le{value}";
+                    }
+
+                    parametersConverted.Add(Tuple.Create(name, value));
+                    values.Clear();
                 }
             }
 

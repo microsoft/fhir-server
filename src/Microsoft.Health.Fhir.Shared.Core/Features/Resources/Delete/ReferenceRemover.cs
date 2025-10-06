@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 if (childValue.TypeName == "Reference")
                 {
                     var reference = (ResourceReference)childValue;
-                    if (reference.Reference.Contains(target, StringComparison.OrdinalIgnoreCase))
+                    if (reference.Reference != null && reference.Reference.Equals(target, StringComparison.OrdinalIgnoreCase))
                     {
                         reference.Reference = null;
                         reference.Display = "Referenced resource deleted";
