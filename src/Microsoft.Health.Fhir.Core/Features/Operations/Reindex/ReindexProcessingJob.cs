@@ -10,7 +10,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Dom;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
@@ -67,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             _jobInfo = jobInfo;
-            _reindexProcessingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
+            _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
             await ProcessQueryAsync(cancellationToken);
@@ -155,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _jobInfo.Data = resourceCount;
 
                 // Check if we need to create a child job to continue processing
-                if (ShouldCreateContinuationJob(result))
+                if (await ShouldCreateContinuationJobAsync(result))
                 {
                     await CreateAndEnqueueContinuationJobAsync(result, cancellationToken);
                 }
@@ -325,14 +324,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         }
 
         /// <summary>
-        /// Determines whether a continuation job should be created based on the search results.
+        /// Determines whether a continuation job should be created.
+        /// If the current max resource surrogate ID is less than the end surrogate ID of the job definition, then a continuation job is needed to finish reindexing.
+        /// If there are other jobs in the same group with a start surrogate ID equal to the next surrogate ID to process, then a continuation job is not needed (as the continuation job was already created).
         /// </summary>
         /// <param name="result">The search result from the current processing batch</param>
         /// <returns>True if a continuation job is needed, false otherwise</returns>
-        private bool ShouldCreateContinuationJob(SearchResult result)
+        private async Task<bool> ShouldCreateContinuationJobAsync(SearchResult result)
         {
-            return result.MaxResourceSurrogateId > 0 &&
-                   result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
+            bool isContinuationJobRequired = result.MaxResourceSurrogateId > 0 || result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
+
+            // Check if there are more resources to process in the current range.
+            if (!isContinuationJobRequired)
+            {
+                return false;
+            }
+
+            // Get all jobs in this group.
+            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, false, CancellationToken.None);
+            if (jobs == null || jobs.Count == 0)
+            {
+                return false;
+            }
+
+            // Filter by jobs with higher ID than current job.
+            jobs = jobs.Where(j => j.Id > _jobInfo.Id).ToList();
+            if (jobs.Count == 0)
+            {
+                // If there are not jobs with higher ID, we should then create a continuation job.
+                return true;
+            }
+
+            // Given all jobs (in this group) with higher ID than current job, check if any of them has a job definition
+            // with a start surrogate ID equal to the next surrogate ID to process.
+            bool continuationJobExists = false;
+            long continuationJobStartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
+            foreach (JobInfo job in jobs)
+            {
+                ReindexProcessingJobDefinition jobDefition = DeserializeJobDefinition(job);
+
+                if (jobDefition.ResourceCount.StartResourceSurrogateId == continuationJobStartResourceSurrogateId)
+                {
+                    continuationJobExists = true;
+                    break;
+                }
+            }
+
+            return continuationJobExists;
         }
 
         /// <summary>
@@ -376,6 +414,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 generatedJobId[0],
                 childResourceCount.StartResourceSurrogateId,
                 childResourceCount.EndResourceSurrogateId);
+        }
+
+        private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)
+        {
+            return JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
         }
     }
 }
