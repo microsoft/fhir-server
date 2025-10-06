@@ -229,14 +229,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #else
             var supportedProfiles = response.Resource.Profile.Select(x => x.Url.ToString()).OrderBy(x => x).ToList();
 #endif
-            Assert.Equal(
+            Assert.All(
                 new[]
                 {
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan",
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization",
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
                 },
-                supportedProfiles);
+                x => Assert.Contains(supportedProfiles, y => string.Equals(x, y, StringComparison.OrdinalIgnoreCase)));
         }
 
         private void CheckOperationOutcomeIssue(

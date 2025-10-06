@@ -512,6 +512,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The value of &apos;{0}&apos; parameter is invalid..
+        /// </summary>
+        internal static string ExpandInvalidParameterValue {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The format &apos;{0}&apos; could not be found..
         /// </summary>
         internal static string ExportFormatNotFound {
@@ -1070,11 +1079,29 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Not referenced only supports the value *:*.
+        ///   Looks up a localized string similar to Not Referenced only allows one :.
         /// </summary>
-        internal static string NotReferencedParameterInvalidValue {
+        internal static string NotReferencedParameterMultipleSeperators {
             get {
-                return ResourceManager.GetString("NotReferencedParameterInvalidValue", resourceCulture);
+                return ResourceManager.GetString("NotReferencedParameterMultipleSeperators", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not referenced requires a resource type and search field separated by a :.
+        /// </summary>
+        internal static string NotReferencedParameterNoSeparator {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterNoSeparator", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not Referenced doesn&apos;t allow for a wildcard resource type with a specific search field.
+        /// </summary>
+        internal static string NotReferencedParameterWildcardType {
+            get {
+                return ResourceManager.GetString("NotReferencedParameterWildcardType", resourceCulture);
             }
         }
         

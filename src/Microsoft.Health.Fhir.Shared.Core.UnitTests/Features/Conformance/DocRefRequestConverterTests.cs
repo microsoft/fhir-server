@@ -135,34 +135,47 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             if (parameters != null)
             {
                 // Excluding unsupported parameters from validation.
-                var input = parameters
+                var count = parameters
                     .Where(x => !string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
                         && !string.Equals(x.Item1, DocRefRequestConverter.ProfileParameterName, StringComparison.OrdinalIgnoreCase))
-                    .ToDictionary(x => x.Item1, x => x.Item2);
-
-                Assert.Equal(input.Count, parametersConverted.Count);
-                foreach (var p in input)
+                    .GroupBy(x => DocRefRequestConverter.ConvertParameterMap.TryGetValue(x.Item1, out var n) ? n : x.Item1)
+                    .Count();
+                var source = parameters
+                    .Where(x => !string.Equals(x.Item1, DocRefRequestConverter.OnDemandParameterName, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(x.Item1, DocRefRequestConverter.ProfileParameterName, StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(x => x.Item1)
+                    .ToDictionary(x => x.Key, x => x.Select(y => y.Item2).ToList());
+                var converted = parametersConverted
+                    .GroupBy(x => x.Item1)
+                    .ToDictionary(x => x.Key, x => x.SelectMany(y => y.Item2?.Split(',')).ToList());
+                Assert.Equal(count, converted.Count);
+                foreach (var p in source)
                 {
                     var name = p.Key;
-                    var value = p.Value;
-                    if (DocRefRequestConverter.ConvertParameterMap.TryGetValue(name, out var nameConverted))
+                    if (DocRefRequestConverter.ConvertParameterMap.TryGetValue(p.Key, out var n))
                     {
-                        if (string.Equals(name, DocRefRequestConverter.StartParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            value = $"ge{value}";
-                        }
-                        else if (string.Equals(name, DocRefRequestConverter.EndParameterName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            value = $"le{value}";
-                        }
-
-                        name = nameConverted;
+                        name = n;
                     }
 
-                    Assert.Contains(
-                        parametersConverted,
-                        y => string.Equals(name, y.Item1, StringComparison.OrdinalIgnoreCase)
-                            && string.Equals(value, y.Item2, StringComparison.OrdinalIgnoreCase));
+                    Assert.Contains(name, converted);
+                    if (string.Equals(p.Key, DocRefRequestConverter.StartParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Assert.Contains(
+                            converted[name],
+                            x => string.Equals(x, $"ge{p.Value[0]}", StringComparison.Ordinal));
+                    }
+                    else if (string.Equals(p.Key, DocRefRequestConverter.EndParameterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Assert.Contains(
+                            converted[name],
+                            x => string.Equals(x, $"le{p.Value[0]}", StringComparison.Ordinal));
+                    }
+                    else
+                    {
+                        Assert.All(
+                            p.Value,
+                            x => Assert.Contains(converted[name], y => string.Equals(x, y, StringComparison.Ordinal)));
+                    }
                 }
             }
         }
@@ -282,6 +295,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                         Tuple.Create(
                             DocRefRequestConverter.EndParameterName,
                             $"{DateTime.UtcNow.Subtract(TimeSpan.FromDays(3)).ToString("o")},{DateTime.UtcNow.Subtract(TimeSpan.FromDays(7)).ToString("o")}"),
+                    },
+                },
+                new object[]
+                {
+                    // Missing required parameter "patient".
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(DocRefRequestConverter.PatientParameterName, "test-patient"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-7"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-8"),
+                        Tuple.Create(DocRefRequestConverter.TypeParameterName, "https://loinc.org|34133-9"),
                     },
                 },
             };
