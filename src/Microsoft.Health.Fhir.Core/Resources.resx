@@ -797,8 +797,8 @@
   <data name="TooManyParameters" xml:space="preserve">
     <value>The incoming request has too many parameters. Reduce the number of parameters and resend the request.</value>
   </data>
-  <data name="NotReferencedParameterInvalidValue" xml:space="preserve">
-    <value>Not referenced only supports the value *:*</value>
+  <data name="NotReferencedParameterNoSeparator" xml:space="preserve">
+    <value>Not referenced requires a resource type and search field separated by a :</value>
   </data>
   <data name="JobNotReindexOrchestratorJob" xml:space="preserve">
     <value>Found job id '{0}', but it is a child job and not the primary reindex job.</value>
@@ -837,5 +837,11 @@
   </data>
   <data name="ExpandInvalidParameterValue" xml:space="preserve">
     <value>The value of '{0}' parameter is invalid.</value>
+  </data>
+  <data name="NotReferencedParameterMultipleSeperators" xml:space="preserve">
+    <value>Not Referenced only allows one :</value>
+  </data>
+  <data name="NotReferencedParameterWildcardType" xml:space="preserve">
+    <value>Not Referenced doesn't allow for a wildcard resource type with a specific search field</value>
   </data>
 </root>

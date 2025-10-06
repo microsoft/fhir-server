@@ -317,11 +317,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new SmartCompartmentSearchExpression(compartmentType, compartmentId, filteredResourceTypes);
         }
 
-        public static NotReferencedExpression NotReferenced()
-        {
-            return new NotReferencedExpression();
-        }
-
         public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
 
         /// <inheritdoc />

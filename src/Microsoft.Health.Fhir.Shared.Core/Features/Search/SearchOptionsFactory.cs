@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -90,7 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds, isIncludesOperation: isIncludesOperation);
         }
 
-        [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
         public SearchOptions Create(
             string compartmentType,
             string compartmentId,
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
-            bool notReferencedSearch = false;
+            var notReferencedSearches = new List<string>();
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
@@ -226,20 +226,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.NotReferenced, StringComparison.OrdinalIgnoreCase))
                 {
-                    // Currently the only supported value for _not-referenced is "*:*".
-                    // If this feature is enhanced in the future to allow for checking if specific references are not present, this will need to be updated.
-                    if (string.Equals(query.Item2, "*:*", StringComparison.OrdinalIgnoreCase))
-                    {
-                        notReferencedSearch = true;
-                    }
-                    else
-                    {
-                        _contextAccessor.RequestContext?.BundleIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Warning,
-                                OperationOutcomeConstants.IssueType.NotSupported,
-                                Core.Resources.NotReferencedParameterInvalidValue));
-                    }
+                    notReferencedSearches.Add(query.Item2);
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludesContinuationToken, StringComparison.OrdinalIgnoreCase))
                 {
@@ -478,9 +465,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            if (notReferencedSearch)
+            var otherSearchErrors = new List<string>();
+            var invalidSearchParameters = new List<Tuple<string, string>>();
+
+            foreach (var notReferencedSearch in notReferencedSearches)
             {
-                searchExpressions.Add(Expression.NotReferenced());
+                try
+                {
+                    var expression = _expressionParser.ParseNotReferenced(notReferencedSearch);
+
+                    if (expression != null)
+                    {
+                        searchExpressions.Add(expression);
+                    }
+                }
+                catch (FhirException e)
+                {
+                    otherSearchErrors.Add(e.Issues.First().Diagnostics);
+                    invalidSearchParameters.Add(Tuple.Create(KnownQueryParameterNames.NotReferenced, notReferencedSearch));
+                }
             }
 
             if (searchExpressions.Count == 1)
@@ -492,11 +495,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.Expression = Expression.And(searchExpressions.ToArray());
             }
 
-            searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
+            invalidSearchParameters.AddRange(unsupportedSearchParameters);
+            searchOptions.UnsupportedSearchParams = invalidSearchParameters;
 
-            var searchSortErrors = new List<string>();
-
-            // Sort is unneded for summary count
+            // Sort is not needed for summary count
             if (searchParams.Sort?.Count > 0 && searchParams.Summary != SummaryType.Count)
             {
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
@@ -513,7 +515,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        searchSortErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, sorting.Item1, string.Join(", ", resourceTypesString)));
+                        otherSearchErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, sorting.Item1, string.Join(", ", resourceTypesString)));
                     }
                 }
 
@@ -532,7 +534,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         foreach (var errorMessage in errorMessages)
                         {
-                            searchSortErrors.Add(errorMessage);
+                            otherSearchErrors.Add(errorMessage);
                         }
                     }
                 }
@@ -552,7 +554,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // Processing of parameters is finished. If any of the parameters are unsupported warning is put into the bundle or exception is thrown,
             // depending on the state of the "Prefer" header.
-            if (unsupportedSearchParameters.Any() || searchSortErrors.Any())
+            if (unsupportedSearchParameters.Any() || otherSearchErrors.Any())
             {
                 var allErrors = new List<string>();
                 foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
@@ -560,7 +562,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
                 }
 
-                allErrors.AddRange(searchSortErrors);
+                allErrors.AddRange(otherSearchErrors);
+
+                var allErrorMessages = string.Empty;
+                foreach (string error in allErrors)
+                {
+                    allErrorMessages += error + ", ";
+                }
+
+                _logger.LogDebug("Search contained errors: {Errors}", allErrorMessages);
 
                 if (_contextAccessor.GetIsStrictHandlingEnabled())
                 {

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -655,8 +656,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenNotReferencedParameter_WhenCreated_ThenProperExpressionIsAdded()
+        public void GivenNotReferencedParameterWithWildcards_WhenCreated_ThenProperExpressionIsAdded()
         {
+            _expressionParser.ParseNotReferenced(Arg.Any<string>()).Returns(new NotReferencedExpression(null, null, true));
+
             SearchOptions options = CreateSearchOptions(
                 resourceType: ResourceType.Patient.ToString(),
                 queryParameters: new[] { Tuple.Create(KnownQueryParameterNames.NotReferenced, "*:*") });
@@ -668,11 +671,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenNotReferencedParameterWithInvalidValue_WhenCreated_ThenExceptionIsThrown()
         {
+            var message = "test";
+            _expressionParser.ParseNotReferenced(Arg.Any<string>()).Throws(new InvalidSearchOperationException(message));
+
             CreateSearchOptions(
                 resourceType: ResourceType.Patient.ToString(),
                 queryParameters: new[] { Tuple.Create(KnownQueryParameterNames.NotReferenced, "invalid") });
 
-            Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(Core.Resources.NotReferencedParameterInvalidValue));
+            Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(message));
         }
 
         [Fact]
