@@ -80,8 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SqlParameter parameter = _inner.AddParameter(column, value);
             if (includeInHash
-                && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name
-                && column.Metadata.Name != VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)
+                && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name)
             {
                 _setToHash.Add(parameter);
             }
