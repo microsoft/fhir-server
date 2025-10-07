@@ -845,7 +845,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _currentResult.SucceededResources += result.SucceededResourceCount;
                     }
 
-                    (long totalCount, List<string> resourcesTypes) = await CalculateTotalCount(unprocessedJobs);
+                    (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount(unprocessedJobs);
                     if (totalCount != 0)
                     {
                         string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." +
@@ -911,9 +911,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         /// <param name="succeededJobs">List of succeeded jobs.</param>
         /// <returns>A task that represents the asynchronous operation. The task result contains a tuple with the total count of failed resources and a list of resource types.</returns>
-        private async Task<(long totalCount, List<string> resourcesTypes)> CalculateTotalCount(List<JobInfo> succeededJobs)
+        private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount(List<JobInfo> succeededJobs)
         {
-            long totalCount = 0;
+            int totalCount = 0;
             var resourcesTypes = new HashSet<string>(); // Use HashSet to prevent duplicates
 
             // Extract unique resource types from jobs to avoid duplicate counting
