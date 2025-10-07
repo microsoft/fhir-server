@@ -152,24 +152,37 @@ stages:
     steps:
     - template: ./jobs/add-aad-test-environment.yml
 
-- stage: deploySqlServer
-  displayName: 'Deploy SQLServer'
+- stage: createNsp
+  displayName: 'Create Network Security Perimeter'
   dependsOn:
   - setupEnvironment
   jobs:
-  - template: ./jobs/provision-sqlServer.yml
+  - template: ./jobs/provision-nsp.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
-      sqlServerName: $(DeploymentEnvironmentName)
-      adminType: 'userAssignedManagedIdentity'
-      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
-      deploymentName: "AppServer"
-  - template: ./jobs/provision-sqlServer.yml
-    parameters:
-      resourceGroup: $(ResourceGroupName)
-      sqlServerName: $(DeploymentEnvironmentName)inttest
-      adminType: 'federatedServiceConnection'
-      deploymentName: "IntegrationTests"
+      nspName: 'nsp-$(ResourceGroupName)'
+      nspProfile: 'default'
+
+- stage: deploySqlServer
+displayName: 'Deploy SQLServer'
+dependsOn:
+- createNsp
+jobs:
+- template: ./jobs/provision-sqlServer.yml
+  parameters:
+    resourceGroup: $(ResourceGroupName)
+    sqlServerName: $(DeploymentEnvironmentName)
+    adminType: 'userAssignedManagedIdentity'
+    adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+    deploymentName: "AppServer"
+    nspName: 'nsp-$(ResourceGroupName)'
+- template: ./jobs/provision-sqlServer.yml
+  parameters:
+    resourceGroup: $(ResourceGroupName)
+    sqlServerName: $(DeploymentEnvironmentName)inttest
+    adminType: 'federatedServiceConnection'
+    deploymentName: "IntegrationTests"
+    nspName: 'nsp-$(ResourceGroupName)'
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'

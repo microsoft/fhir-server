@@ -14,6 +14,9 @@ parameters:
 - name: deploymentName
   type: string
   default: ''
+- name: nspName
+  type: string
+  default: ''
 
 jobs:
 - job: 'provisionSql_${{ parameters.deploymentName }}'
@@ -34,6 +37,7 @@ jobs:
         $adminType = "${{ parameters.adminType }}"
         $resourceGroup = "${{ parameters.resourceGroup }}"
         $sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
+        $nspName = "${{ parameters.nspName }}"
 
         if ($adminType -eq "userAssignedManagedIdentity" -and $adminUserAssignedManagedIdentityName -eq "") {
           Write-Error "adminUserAssignedManagedIdentityName must be provided when adminType is userAssignedManagedIdentity."
@@ -79,3 +83,55 @@ jobs:
 
         $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
         New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIp -EndIPAddress $agentIP
+
+        # Associate SQL Server with Network Security Perimeter if NSP name is provided
+        if (-not [string]::IsNullOrEmpty($nspName)) {
+          Write-Host "Associating SQL Server with Network Security Perimeter: $nspName"
+          
+          try {
+            # Get the SQL Server resource ID
+            $sqlServer = Get-AzSqlServer -ResourceGroupName $resourceGroup -ServerName $sqlServerName
+            $sqlServerResourceId = $sqlServer.ResourceId
+            
+            # Get the NSP resource ID
+            $nsp = Get-AzResource -ResourceGroupName $resourceGroup -ResourceName $nspName -ResourceType "Microsoft.Network/networkSecurityPerimeters"
+            $nspResourceId = $nsp.ResourceId
+            
+            Write-Host "SQL Server Resource ID: $sqlServerResourceId"
+            Write-Host "NSP Resource ID: $nspResourceId"
+            
+            # Create NSP association using REST API call
+            $subscriptionId = (Get-AzContext).Subscription.Id
+            $associationName = "sqlserver-$sqlServerName-association"
+            
+            $associationBody = @{
+              properties = @{
+                privateLinkResource = @{
+                  id = $sqlServerResourceId
+                }
+                profile = @{
+                  id = "$nspResourceId/profiles/default"
+                }
+              }
+            } | ConvertTo-Json -Depth 4
+            
+            $uri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityPerimeters/$nspName/resourceAssociations/$associationName"
+            $headers = @{
+              'Authorization' = "Bearer $((Get-AzAccessToken).Token)"
+              'Content-Type' = 'application/json'
+            }
+            
+            Write-Host "Creating NSP association with URI: $uri"
+            $response = Invoke-RestMethod -Uri "$uri?api-version=2023-07-01-preview" -Method PUT -Body $associationBody -Headers $headers
+            
+            Write-Host "Successfully associated SQL Server with NSP"
+            Write-Host "Association Response: $($response | ConvertTo-Json -Depth 3)"
+          }
+          catch {
+            Write-Warning "Failed to associate SQL Server with NSP: $($_.Exception.Message)"
+            Write-Host "Continuing with SQL Server provisioning..."
+          }
+        }
+        else {
+          Write-Host "No NSP name provided, skipping NSP association"
+        }

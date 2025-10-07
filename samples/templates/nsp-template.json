@@ -1,0 +1,54 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "nspName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Network Security Perimeter"
+            }
+        },
+        "nspProfile": {
+            "type": "string",
+            "defaultValue": "default",
+            "metadata": {
+                "description": "Profile type for the Network Security Perimeter"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for the Network Security Perimeter"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/networkSecurityPerimeters",
+            "apiVersion": "2023-07-01-preview",
+            "name": "[parameters('nspName')]",
+            "location": "[parameters('location')]",
+            "properties": {}
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityPerimeters/profiles",
+            "apiVersion": "2023-07-01-preview",
+            "name": "[concat(parameters('nspName'), '/', parameters('nspProfile'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityPerimeters', parameters('nspName'))]"
+            ],
+            "properties": {}
+        }
+    ],
+    "outputs": {
+        "nspName": {
+            "type": "string",
+            "value": "[parameters('nspName')]"
+        },
+        "nspResourceId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Network/networkSecurityPerimeters', parameters('nspName'))]"
+        }
+    }
+}
