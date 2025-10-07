@@ -227,11 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 Debug.Assert(buffer.Length >= elementLength, "Initial buffer size is not large enough for the datatypes we are trying to write to it");
             }
 
-#if NET8_0_OR_GREATER
             MemoryMarshal.Write(buffer[currentIndex..], in element);
-#else
-            MemoryMarshal.Write(buffer[currentIndex..], ref element);
-#endif
             currentIndex += elementLength;
         }
 
