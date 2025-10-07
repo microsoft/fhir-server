@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _jobInfo.Data = resourceCount;
 
                 // Check if we need to create a child job to continue processing
-                if (await ShouldCreateContinuationJobAsync(result))
+                if (await ShouldCreateContinuationJobAsync(result, cancellationToken))
                 {
                     await CreateAndEnqueueContinuationJobAsync(result, cancellationToken);
                 }
@@ -329,8 +329,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// If there are other jobs in the same group with a start surrogate ID equal to the next surrogate ID to process, then a continuation job is not needed (as the continuation job was already created).
         /// </summary>
         /// <param name="result">The search result from the current processing batch</param>
+        /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>True if a continuation job is needed, false otherwise</returns>
-        private async Task<bool> ShouldCreateContinuationJobAsync(SearchResult result)
+        private async Task<bool> ShouldCreateContinuationJobAsync(SearchResult result, CancellationToken cancellationToken)
         {
             bool isContinuationJobRequired = result.MaxResourceSurrogateId > 0 || result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
 
@@ -341,7 +342,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // Get all jobs in this group.
-            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, false, CancellationToken.None);
+            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, false, cancellationToken);
 
             // Filter by jobs with higher ID than current job.
             jobs = jobs.Where(j => j.Id > _jobInfo.Id).ToList();

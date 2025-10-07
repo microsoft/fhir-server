@@ -130,10 +130,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogInformation("The reindex job was canceled, Id: {Id}", _jobInfo.Id);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, "Reindex job was cancelled by caller.");
+
+                throw;
             }
             catch (Exception ex)
             {
                 HandleException(ex);
+
+                throw new JobExecutionException(ex.Message, ex, isCustomerCaused: false);
             }
 
             return JsonConvert.SerializeObject(_currentResult);
@@ -305,7 +309,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 List<(long StartId, long EndId)> processingRanges = new List<(long StartId, long EndId)>();
 
                 // Check if surrogate ID ranging hasn't been determined yet or is supported
-                if (_isSurrogateIdRangingSupported == true)
+                if (_isSurrogateIdRangingSupported)
                 {
                     // Try to use the GetSurrogateIdRanges method (SQL Server path)
                     using (IScoped<ISearchService> searchService = _searchServiceFactory())
@@ -514,7 +518,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private void HandleException(Exception ex)
         {
             AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
+
             LogReindexJobRecordErrorMessage();
+
+            _logger.LogError(ex, "ReindexJob Failed and didn't complete. GroupId {GroupId} / JobId {JobId}.", _jobInfo.GroupId, _jobInfo.Id);
         }
 
         private async Task UpdateSearchParameterStatus(List<JobInfo> completedJobs, List<string> readySearchParameters, CancellationToken cancellationToken)
@@ -617,6 +624,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private void LogReindexJobRecordErrorMessage()
         {
             _reindexJobRecord.Status = OperationStatus.Failed;
+            _jobInfo.Status = JobStatus.Failed;
+
             var ser = JsonConvert.SerializeObject(_reindexJobRecord);
             _logger.LogInformation($"ReindexJob Error: Current ReindexJobRecord for reference: {ser}, id: {_jobInfo.Id}");
         }

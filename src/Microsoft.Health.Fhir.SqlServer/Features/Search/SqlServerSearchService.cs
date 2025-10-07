@@ -825,9 +825,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return sqlDataReader.GetString(1);
         }
 
-        private static (long StartResourceSurrogateId, long EndResourceSurrogateId, long Count) ReaderGetSurrogateIdsAndCountForResourceType(SqlDataReader sqlDataReader)
+        private static (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) ReaderGetSurrogateIdsAndCountForResourceType(SqlDataReader sqlDataReader)
         {
-            return (sqlDataReader.GetInt64(0), sqlDataReader.GetInt64(1), sqlDataReader.GetInt64(2));
+            return (sqlDataReader.GetInt64(0), sqlDataReader.GetInt64(1), sqlDataReader.GetInt32(2));
         }
 
         public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
@@ -1045,7 +1045,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     long startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
                     long endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
-                    long count = await GetResourceCountBySurrogateIdRangeAsync(
+                    int count = await GetResourceCountBySurrogateIdRangeAsync(
                         resourceTypeId,
                         startId,
                         endId,
@@ -1117,7 +1117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             // can't use totalCount for reindex on extremely large dbs because we don't have an
             // index on Resource.SearchParamHash which would be necessary to calculate an accurate count
-            long totalCount = 0;
+            int totalCount = 0;
             long startResourceSurrogateId = 0;
             long tmpStartResourceSurrogateId = 0;
             long endResourceSurrogateId = 0;
@@ -1127,7 +1127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             while (true)
             {
                 long tmpEndResourceSurrogateId;
-                long tmpCount;
+                int tmpCount;
 
                 using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
@@ -1149,13 +1149,13 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
        ) A";
                 LogSqlCommand(sqlCommand);
 
-                IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, long Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
+                IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
                 if (results.Count == 0)
                 {
                     break;
                 }
 
-                (long StartResourceSurrogateId, long EndResourceSurrogateId, long Count) singleResult = results.Single();
+                (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) singleResult = results.Single();
 
                 tmpStartResourceSurrogateId = singleResult.StartResourceSurrogateId;
                 tmpEndResourceSurrogateId = singleResult.EndResourceSurrogateId;
@@ -1198,7 +1198,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
         /// <returns>SearchResult</returns>
         private async Task<SearchResult> SearchForReindexSurrogateIdsWithoutSearchParamHashAsync(short resourceTypeId, CancellationToken cancellationToken)
         {
-            long totalCount = 0;
+            int totalCount = 0;
             long startResourceSurrogateId = 0;
             long endResourceSurrogateId = 0;
 
@@ -1210,10 +1210,10 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             sqlCommand.CommandText = "SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*) FROM dbo.Resource WHERE ResourceTypeId = @p0 AND IsHistory = 0 AND IsDeleted = 0";
             LogSqlCommand(sqlCommand);
 
-            IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, long Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
+            IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
             if (results.Count > 0)
             {
-                (long StartResourceSurrogateId, long EndResourceSurrogateId, long Count) singleResult = results.Single();
+                (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) singleResult = results.Single();
 
                 startResourceSurrogateId = singleResult.StartResourceSurrogateId;
                 endResourceSurrogateId = singleResult.EndResourceSurrogateId;
@@ -1240,7 +1240,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
         /// <param name="searchParamHash">Optional search parameter hash filter</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>The count of resources within the specified range</returns>
-        private async Task<long> GetResourceCountBySurrogateIdRangeAsync(
+        private async Task<int> GetResourceCountBySurrogateIdRangeAsync(
             short resourceTypeId,
             long startId,
             long endId,
@@ -1285,13 +1285,13 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
             LogSqlCommand(sqlCommand);
 
-            long count = 0;
+            int count = 0;
             await _sqlRetryService.ExecuteSql(
                 sqlCommand,
                 async (cmd, cancel) =>
                 {
                     var result = await cmd.ExecuteScalarAsync(cancel);
-                    count = Convert.ToInt64(result);
+                    count = Convert.ToInt32(result);
                     return;
                 },
                 _logger,

@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesContinuationToken = includesContinuationToken;
         }
 
-        public SearchResult(long totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
+        public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
         {
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Gets total number of documents.
         /// </summary>
-        public long? TotalCount { get; set; }
+        public int? TotalCount { get; set; }
 
         /// <summary>
         /// The highest resource surrogateid in the results set

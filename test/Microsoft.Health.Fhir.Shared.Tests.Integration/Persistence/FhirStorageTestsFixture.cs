@@ -91,7 +91,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
 
-            _fhirRuntimeConfiguration = fixture is CosmosDbFhirStorageTestsFixture ? new AzureApiForFhirRuntimeConfiguration() : new AzureHealthDataServicesRuntimeConfiguration();
+            switch (fixture)
+            {
+                case CosmosDbFhirStorageTestsFixture cosmosDbFhirStorageTestsFixture:
+                    _fhirRuntimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+                    break;
+                case SqlServerFhirStorageTestsFixture sqlServerFhirStorageTestsFixture:
+                    _fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null);
+            }
         }
 
         public Mediator Mediator { get; private set; }

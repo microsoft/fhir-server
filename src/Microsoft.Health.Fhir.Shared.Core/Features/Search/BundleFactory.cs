@@ -255,23 +255,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
 
-            long? totalAsLong = result?.TotalCount;
-            int? totalAsInt = null;
-
-            if (totalAsLong > int.MaxValue)
-            {
-                totalAsInt = int.MaxValue;
-                _logger.LogWarning("BundleFactory: Search result total count {TotalCount} exceeds int.MaxValue, capping to int.MaxValue.", totalAsLong);
-            }
-            else
-            {
-                totalAsInt = (int?)totalAsLong;
-            }
-
             bundle.Entry.AddRange(entries);
             bundle.Id = _fhirRequestContextAccessor.RequestContext.CorrelationId;
             bundle.Type = type;
-            bundle.Total = totalAsInt;
+            bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta
             {
                 LastUpdated = Clock.UtcNow,
