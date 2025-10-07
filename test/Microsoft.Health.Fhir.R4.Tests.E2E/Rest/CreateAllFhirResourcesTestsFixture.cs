@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         tasks.Clear();
                     }
                 }
-                catch
+                catch (Exception)
                 {
                     // NOTE: ignore any exception. Don't let a pipeline run fail.
                 }
