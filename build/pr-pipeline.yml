@@ -164,25 +164,25 @@ stages:
       nspProfile: 'default'
 
 - stage: deploySqlServer
-displayName: 'Deploy SQLServer'
-dependsOn:
-- createNsp
-jobs:
-- template: ./jobs/provision-sqlServer.yml
-  parameters:
-    resourceGroup: $(ResourceGroupName)
-    sqlServerName: $(DeploymentEnvironmentName)
-    adminType: 'userAssignedManagedIdentity'
-    adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
-    deploymentName: "AppServer"
-    nspName: 'nsp-$(ResourceGroupName)'
-- template: ./jobs/provision-sqlServer.yml
-  parameters:
-    resourceGroup: $(ResourceGroupName)
-    sqlServerName: $(DeploymentEnvironmentName)inttest
-    adminType: 'federatedServiceConnection'
-    deploymentName: "IntegrationTests"
-    nspName: 'nsp-$(ResourceGroupName)'
+  displayName: 'Deploy SQLServer'
+  dependsOn:
+  - createNsp
+  jobs:
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
+      adminType: 'userAssignedManagedIdentity'
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
+      deploymentName: "AppServer"
+      nspName: 'nsp-$(ResourceGroupName)'
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)inttest
+      adminType: 'federatedServiceConnection'
+      deploymentName: "IntegrationTests"
+      nspName: 'nsp-$(ResourceGroupName)'
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
