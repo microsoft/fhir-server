@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 try
                 {
                     // Skip deleting an adit event since not allowed according to the capability statement.
-                    foreach (var id in batch.Where(x => !x.StartsWith(KnownResourceTypes.AuditEvent, StringComparison.OrdinalIgnoreCase))
+                    foreach (var id in batch.Where(x => !x.StartsWith(KnownResourceTypes.AuditEvent, StringComparison.OrdinalIgnoreCase)))
                     {
                         tasks.Add(TestFhirClient.DeleteAsync(id));
                     }
