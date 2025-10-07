@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
@@ -38,13 +39,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 try
                 {
-                    foreach (var id in batch)
+                    // Skip deleting an adit event since not allowed according to the capability statement.
+                    foreach (var id in batch.Where(x => !x.StartsWith(KnownResourceTypes.AuditEvent, StringComparison.OrdinalIgnoreCase))
                     {
-                        // Skip deleting an adit event since not supported.
-                        if (!id.StartsWith(KnownResourceTypes.AuditEvent))
-                        {
-                            tasks.Add(TestFhirClient.DeleteAsync(id));
-                        }
+                        tasks.Add(TestFhirClient.DeleteAsync(id));
                     }
 
                     if (tasks.Any())
