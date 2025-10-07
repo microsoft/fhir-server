@@ -78,7 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Count, _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery.ToString()),
                 Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
             };
 
@@ -149,14 +148,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     throw new OperationFailedException($"Search service returned null search result.", HttpStatusCode.InternalServerError);
                 }
 
-                resourceCount += result.TotalCount ?? 0;
+                resourceCount = result.TotalCount ?? 0;
                 _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
                 _jobInfo.Data = resourceCount;
 
-                // Check if we need to create a child job to continue processing
-                if (await ShouldCreateContinuationJobAsync(result, cancellationToken))
+                if (resourceCount > _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery)
                 {
-                    await CreateAndEnqueueContinuationJobAsync(result, cancellationToken);
+                    _logger.LogWarning(
+                        "Reindex: number of resources is higher than the original limit. Current count: {CurrentCount}, Original limit: {OriginalLimit}",
+                        resourceCount,
+                        _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery);
                 }
 
                 var dictionary = new Dictionary<string, string>
@@ -321,97 +322,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// Determines whether a continuation job should be created.
-        /// If the current max resource surrogate ID is less than the end surrogate ID of the job definition, then a continuation job is needed to finish reindexing.
-        /// If there are other jobs in the same group with a start surrogate ID equal to the next surrogate ID to process, then a continuation job is not needed (as the continuation job was already created).
-        /// </summary>
-        /// <param name="result">The search result from the current processing batch</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>True if a continuation job is needed, false otherwise</returns>
-        private async Task<bool> ShouldCreateContinuationJobAsync(SearchResult result, CancellationToken cancellationToken)
-        {
-            bool isContinuationJobRequired = result.MaxResourceSurrogateId > 0 || result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
-
-            // Check if there are more resources to process in the current range.
-            if (!isContinuationJobRequired)
-            {
-                return false;
-            }
-
-            // Get all jobs in this group.
-            IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, false, cancellationToken);
-
-            // Filter by jobs with higher ID than current job.
-            jobs = jobs.Where(j => j.Id > _jobInfo.Id).ToList();
-            if (jobs.Count == 0)
-            {
-                // If there are not jobs with higher ID, we should then create a continuation job.
-                return true;
-            }
-
-            // Given all jobs (in this group) with higher ID than current job, check if any of them has a job definition
-            // with a start surrogate ID equal to the next surrogate ID to process.
-            long continuationJobStartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
-            foreach (JobInfo job in jobs)
-            {
-                ReindexProcessingJobDefinition jobDefition = DeserializeJobDefinition(job);
-
-                if (jobDefition.ResourceCount.StartResourceSurrogateId == continuationJobStartResourceSurrogateId)
-                {
-                    // A continuation job with the start surrogate ID equal to the next surrogate ID to process was found.
-                    // No need to create a continuation job, as it was already created.
-                    return false;
-                }
-            }
-
-            // No other continuation job was found, so we should create one.
-            return true;
-        }
-
-        /// <summary>
-        /// Creates and enqueues a continuation job to process the remaining resources in the surrogate ID range.
-        /// </summary>
-        /// <param name="result">The search result containing the last processed resource information</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        private async Task CreateAndEnqueueContinuationJobAsync(SearchResult result, CancellationToken cancellationToken)
-        {
-            var originalEndId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
-            var originalCount = _reindexProcessingJobDefinition.ResourceCount.Count;
-            var processedCount = result.Results?.Count() ?? 0;
-
-            // Create a new ResourceCount for the child job
-            var childResourceCount = new SearchResultReindex(Math.Max(0, originalCount - processedCount))
-            {
-                StartResourceSurrogateId = result.MaxResourceSurrogateId + 1,
-                EndResourceSurrogateId = originalEndId,
-                ContinuationToken = result.ContinuationToken,
-            };
-
-            // Create a new job definition for the child
-            var childJobDefinition = new ReindexProcessingJobDefinition()
-            {
-                TypeId = _reindexProcessingJobDefinition.TypeId,
-                GroupId = _reindexProcessingJobDefinition.GroupId,
-                ResourceType = _reindexProcessingJobDefinition.ResourceType,
-                MaximumNumberOfResourcesPerQuery = _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery,
-                MaximumNumberOfResourcesPerWrite = _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite,
-                ResourceTypeSearchParameterHashMap = _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap,
-                SearchParameterUrls = _reindexProcessingJobDefinition.SearchParameterUrls,
-                ResourceCount = childResourceCount,
-            };
-
-            var generatedJobId = await EnqueueChildQueryProcessingJobAsync(childJobDefinition, cancellationToken);
-
-            _logger.LogInformation(
-                "Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}. Range: {StartId}-{EndId}",
-                _jobInfo.Id,
-                _jobInfo.GroupId,
-                generatedJobId[0],
-                childResourceCount.StartResourceSurrogateId,
-                childResourceCount.EndResourceSurrogateId);
         }
 
         private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)
