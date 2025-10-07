@@ -114,9 +114,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [InlineData(DataStore.CosmosDb)]
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed(DataStore dataStore)
         {
+            const int maxNumberOfResourcesPerQuery = 100;
+            const int startResourceSurrogateId = 1;
+            const int endResourceSurrogateId = 1000;
+            const string resourceTypeName = "accountHash";
+
             IFhirRuntimeConfiguration fhirRuntimeConfiguration = dataStore == DataStore.SqlServer ?
                 new AzureHealthDataServicesRuntimeConfiguration() :
                 new AzureApiForFhirRuntimeConfiguration();
+
+            _searchService.GetSurrogateIdRanges(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(new List<(long, long)>
+                {
+                    (startResourceSurrogateId, endResourceSurrogateId),
+                });
 
             // Get one search parameter and configure it such that it needs to be reindexed
             var param = new SearchParameterInfo(
@@ -180,11 +199,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // Fix: Create a proper ReindexJobRecord (this was the main issue)
             ReindexJobRecord job = new ReindexJobRecord(
-                new Dictionary<string, string>() { { "Account", "accountHash" } }, // Resource type hash map
+                new Dictionary<string, string>() { { "Account", resourceTypeName } }, // Resource type hash map
                 new List<string>(), // No specific target resource types (will process all applicable)
                 new List<string>(), // No specific target search parameter types
                 new List<string>(), // No specific search parameter resource types
-                100); // Max resources per query
+                maxNumberOfResourcesPerQuery); // Max resources per query
 
             JobInfo jobInfo = new JobInfo()
             {
@@ -200,8 +219,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             mockSearchResult.ReindexResult = new SearchResultReindex()
             {
                 Count = _mockedSearchCount,
-                StartResourceSurrogateId = 1,
-                EndResourceSurrogateId = 1000,
+                StartResourceSurrogateId = startResourceSurrogateId,
+                EndResourceSurrogateId = endResourceSurrogateId,
             };
 
             // Setup search result for count queries
@@ -229,7 +248,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 false,
                 Arg.Any<CancellationToken>(),
                 true).
-                Returns(CreateSearchResult());
+                Returns(CreateSearchResult(resourceType: resourceTypeName));
 
             // Execute the orchestrator job
             var orchestratorTask = reindexOrchestratorJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
@@ -237,32 +256,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Simulate processing job execution by running them in parallel
             _ = Task.Run(
                 async () =>
-            {
-                await Task.Delay(500, _cancellationToken); // Give orchestrator time to create jobs
-
-                // Get all processing jobs created by the orchestrator
-                var processingJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
-                var childJobs = processingJobs.Where(j => j.Id != jobInfo.Id).ToList();
-
-                // Execute each processing job
-                foreach (var childJob in childJobs)
                 {
-                    try
+                    await Task.Delay(500, _cancellationToken); // Give orchestrator time to create jobs
+
+                    // Get all processing jobs created by the orchestrator
+                    var processingJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
+                    var childJobs = processingJobs.Where(j => j.Id != jobInfo.Id).ToList();
+
+                    // Execute each processing job
+                    foreach (var childJob in childJobs)
                     {
-                        childJob.Status = JobStatus.Running;
-                        var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(childJob, _cancellationToken);
-                        childJob.Status = JobStatus.Completed;
-                        childJob.Result = result;
-                        await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                        try
+                        {
+                            childJob.Status = JobStatus.Running;
+                            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(childJob, _cancellationToken);
+                            childJob.Status = JobStatus.Completed;
+                            childJob.Result = result;
+                            await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            childJob.Status = JobStatus.Failed;
+                            childJob.Result = JsonConvert.SerializeObject(new { Error = ex.Message });
+                            await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        childJob.Status = JobStatus.Failed;
-                        childJob.Result = JsonConvert.SerializeObject(new { Error = ex.Message });
-                        await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
-                    }
-                }
-            },
+                },
                 _cancellationToken);
 
             // Wait for orchestrator job to complete
@@ -315,14 +334,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.False(jobs.Any());
         }
 
-        private SearchResult CreateSearchResult(string continuationToken = null, int resourceCount = 1)
+        private SearchResult CreateSearchResult(string resourceType, string continuationToken = null, int resourceCount = 1)
         {
             var resultList = new List<SearchResultEntry>();
 
             for (var i = 0; i < resourceCount; i++)
             {
                 var wrapper = Substitute.For<ResourceWrapper>();
+                var propertyInfo = wrapper.GetType().GetProperty("ResourceTypeName");
+                propertyInfo.SetValue(wrapper, resourceType);
+
                 var entry = new SearchResultEntry(wrapper);
+
                 resultList.Add(entry);
             }
 

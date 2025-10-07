@@ -342,10 +342,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Get all jobs in this group.
             IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, false, CancellationToken.None);
-            if (jobs == null || jobs.Count == 0)
-            {
-                return false;
-            }
 
             // Filter by jobs with higher ID than current job.
             jobs = jobs.Where(j => j.Id > _jobInfo.Id).ToList();
@@ -357,7 +353,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Given all jobs (in this group) with higher ID than current job, check if any of them has a job definition
             // with a start surrogate ID equal to the next surrogate ID to process.
-            bool continuationJobExists = false;
             long continuationJobStartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
             foreach (JobInfo job in jobs)
             {
@@ -365,12 +360,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (jobDefition.ResourceCount.StartResourceSurrogateId == continuationJobStartResourceSurrogateId)
                 {
-                    continuationJobExists = true;
-                    break;
+                    // A continuation job with the start surrogate ID equal to the next surrogate ID to process was found.
+                    // No need to create a continuation job, as it was already created.
+                    return false;
                 }
             }
 
-            return continuationJobExists;
+            // No other continuation job was found, so we should create one.
+            return true;
         }
 
         /// <summary>
