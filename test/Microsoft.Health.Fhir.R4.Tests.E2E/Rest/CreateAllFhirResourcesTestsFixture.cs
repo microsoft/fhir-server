@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
 
@@ -35,13 +36,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var tasks = new List<Task>();
             foreach (var batch in batches)
             {
-                foreach (var id in batch)
+                try
                 {
-                    tasks.Add(TestFhirClient.DeleteAsync(id));
-                }
+                    foreach (var id in batch)
+                    {
+                        // Skip deleting an adit event since not supported.
+                        if (!id.StartsWith(KnownResourceTypes.AuditEvent))
+                        {
+                            tasks.Add(TestFhirClient.DeleteAsync(id));
+                        }
+                    }
 
-                await Task.WhenAll(tasks);
-                tasks.Clear();
+                    if (tasks.Any())
+                    {
+                        await Task.WhenAll(tasks);
+                        tasks.Clear();
+                    }
+                }
+                catch
+                {
+                    // NOTE: ignore any exception. Don't let a pipeline run fail.
+                }
             }
         }
     }
