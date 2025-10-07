@@ -134,6 +134,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
         {
+            if (_reindexProcessingJobDefinition == null)
+            {
+                throw new InvalidOperationException("_reindexProcessingJobDefinition cannot be null during processing.");
+            }
+
             long resourceCount = 0;
             try
             {
@@ -144,13 +149,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 resourceCount = result.TotalCount ?? 0;
-                _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
+                _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition.SearchParameterUrls;
                 _jobInfo.Data = resourceCount;
 
                 if (resourceCount > _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery)
                 {
                     _logger.LogWarning(
-                        "Reindex: number of resources is higher than the original limit. Current count: {CurrentCount}, Original limit: {OriginalLimit}",
+                        "Reindex: number of resources is higher than the original limit. Group Id: {GroupId}. Job Id: {JobId}. Current count: {CurrentCount}. Original limit: {OriginalLimit}",
+                        _jobInfo.GroupId,
+                        _jobInfo.Id,
                         resourceCount,
                         _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery);
                 }
@@ -165,7 +172,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
-                    _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
+                    _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, Job Id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
                 }
             }
             catch (SqlException sqlEx)

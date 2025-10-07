@@ -93,10 +93,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             switch (fixture)
             {
-                case CosmosDbFhirStorageTestsFixture cosmosDbFhirStorageTestsFixture:
+                case CosmosDbFhirStorageTestsFixture _:
                     _fhirRuntimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
                     break;
-                case SqlServerFhirStorageTestsFixture sqlServerFhirStorageTestsFixture:
+                case SqlServerFhirStorageTestsFixture _:
                     _fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
                     break;
                 default:
