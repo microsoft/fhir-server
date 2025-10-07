@@ -239,7 +239,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                         job = new ReindexProcessingJob(
                             () => _searchService,
                             NullLoggerFactory.Instance,
-                            _queueClient,
                             fhirDataStoreScope,
                             _resourceWrapperFactory);
                     }

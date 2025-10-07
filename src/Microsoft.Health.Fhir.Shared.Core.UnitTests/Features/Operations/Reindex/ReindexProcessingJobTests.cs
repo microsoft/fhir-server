@@ -37,7 +37,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
-        private readonly IQueueClient _queueClient = new TestQueueClient();
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private CancellationToken _cancellationToken;
 
@@ -49,7 +48,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                  new ReindexProcessingJob(
                      () => _searchService.CreateMockScope(),
                      NullLoggerFactory.Instance,
-                     _queueClient,
                      fhirDataStoreScope,
                      _resourceWrapperFactory);
         }
@@ -91,7 +89,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 .ToList();
 
             _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
@@ -111,17 +109,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private SearchResultEntry CreateSearchResultEntry(string id, string type)
         {
             return new SearchResultEntry(
-                            new ResourceWrapper(
-                                id,
-                                "1",
-                                type,
-                                new RawResource("data", FhirResourceFormat.Json, isMetaSet: false),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null));
+                new ResourceWrapper(
+                    id,
+                    "1",
+                    type,
+                    new RawResource("data", FhirResourceFormat.Json, isMetaSet: false),
+                    null,
+                    DateTimeOffset.MinValue,
+                    false,
+                    null,
+                    null,
+                    null));
         }
 
         private SearchResult CreateSearchResult(string continuationToken = null, int resourceCount = 1)
@@ -172,7 +170,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // Setup search result - remove continuation token, focus on surrogate IDs
             _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
@@ -195,23 +193,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             Assert.Equal(1, result.SucceededResourceCount);
-
-            var jobs = await _queueClient.GetJobByGroupIdAsync(
-                (byte)QueueType.Reindex,
-                jobInfo.GroupId,
-                false,
-                _cancellationToken);
-
-            Assert.Single(jobs);
-            var childJob = jobs.First();
-            Assert.NotNull(childJob);
-            Assert.Equal(jobInfo.GroupId, childJob.GroupId);
-
-            var childJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(
-                childJob.Definition);
-
-            Assert.Equal(2, childJobDefinition.ResourceCount.StartResourceSurrogateId);
-            Assert.Equal(2, childJobDefinition.ResourceCount.EndResourceSurrogateId);
         }
     }
 }

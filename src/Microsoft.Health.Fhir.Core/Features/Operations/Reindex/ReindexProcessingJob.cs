@@ -11,7 +11,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -33,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
-        private IQueueClient _queueClient;
         private const int MaxTimeoutRetries = 3;
         private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
@@ -44,19 +42,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
             ILoggerFactory loggerFactory,
-            IQueueClient queueClient,
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             _logger = loggerFactory.CreateLogger<ReindexOrchestratorJob>();
             _searchServiceFactory = searchServiceFactory;
-            _queueClient = queueClient;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
         }
@@ -221,52 +216,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
-            }
-        }
-
-        private async Task<IReadOnlyList<long>> EnqueueChildQueryProcessingJobAsync(ReindexProcessingJobDefinition childJobDefinition, CancellationToken cancellationToken)
-        {
-            var definitions = new List<string>
-            {
-                // Finish mapping to processing job
-                JsonConvert.SerializeObject(childJobDefinition),
-            };
-
-            try
-            {
-                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), childJobDefinition.GroupId, false, cancellationToken))
-                    .Select(_ => _.Id)
-                    .OrderBy(_ => _)
-                    .ToList();
-                return jobIds;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to enqueue child jobs.");
-                _reindexProcessingJobResult.Error = ex.Message;
-
-                // Replace RetriableJobException with in-place retry logic
-                int retryCount = 3;
-                for (int i = 0; i < retryCount; i++)
-                {
-                    try
-                    {
-                        var retryJobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), childJobDefinition.GroupId, false, cancellationToken))
-                            .Select(_ => _.Id)
-                            .OrderBy(_ => _)
-                            .ToList();
-                        return retryJobIds;
-                    }
-                    catch
-                    {
-                        if (i == retryCount - 1)
-                        {
-                            throw; // Rethrow the exception after exhausting retries
-                        }
-                    }
-                }
-
-                throw; // This line should never be reached
             }
         }
 

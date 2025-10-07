@@ -180,7 +180,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _reindexProcessingJobTaskFactory = () => new ReindexProcessingJob(
                 () => _searchService.CreateMockScope(),
                 NullLoggerFactory.Instance,
-                _queueClient,
                 () => fhirDataStore.CreateMockScope(),
                 resourceWrapperFactory);
 
