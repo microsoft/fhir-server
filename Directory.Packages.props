@@ -14,11 +14,11 @@
         <AspNetPackageVersion>8.0.14</AspNetPackageVersion>
       </PropertyGroup>
     </When>
-    <Otherwise>
+    <When Condition="'$(TargetFramework)' == 'net9.0'">
       <PropertyGroup>
         <AspNetPackageVersion>9.0.3</AspNetPackageVersion>
       </PropertyGroup>
-    </Otherwise>
+    </When>
   </Choose>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
