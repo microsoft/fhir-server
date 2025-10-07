@@ -8,18 +8,22 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -49,28 +53,20 @@ public class ConditionalPatchResourceHandlerTests
         ILogger<ConditionalPatchResourceHandler> logger = Substitute.For<ILogger<ConditionalPatchResourceHandler>>();
 
         _conditionalPatchHandler = new ConditionalPatchResourceHandler(
-            _searchService,
             fhirDataStore,
             conformanceProvider,
             resourceWrapperFactory,
+            _searchService,
+            _mediator,
             resourceIdProvider,
             _authService,
-            _mediator,
             logger);
 
-        // Setup search service to return one match
-        var searchResults = SearchResult.Empty();
-        searchResults.Results = new List<SearchResultEntry>
-        {
-            new SearchResultEntry(Samples.GetDefaultPatient(), SearchEntryMode.Match)
-        };
-        
+        var result = GenerateSearchResult("Patient");
         _searchService.ConditionalSearchAsync(
             Arg.Any<string>(),
             Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-            Arg.Any<CancellationToken>(),
-            Arg.Any<ILogger>())
-            .Returns(searchResults);
+            Arg.Any<CancellationToken>()).Returns((Task<(IReadOnlyCollection<SearchResultEntry> Results, string ContinuationToken, string IncludesContinuationToken)>)result, null, null);
     }
 
     [Fact]
@@ -169,5 +165,40 @@ public class ConditionalPatchResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
+    }
+
+    private static IReadOnlyCollection<SearchResultEntry> GenerateSearchResult(string resourceType)
+    {
+        var entries = new List<SearchResultEntry>();
+        Resource resource;
+        switch (resourceType)
+        {
+            case "Patient":
+                resource = Samples.GetDefaultPatient().ToPoco<Patient>();
+                break;
+            case "Observation":
+                resource = Samples.GetDefaultObservation().ToPoco<Observation>();
+                break;
+            case "Practitioner":
+                resource = Samples.GetDefaultPractitioner().ToPoco<Practitioner>();
+                break;
+            case "Organization":
+                resource = Samples.GetDefaultOrganization().ToPoco<Organization>();
+                break;
+            default:
+                throw new ArgumentException($"Unsupported resource type: {resourceType}");
+        }
+
+        resource.Id = Guid.NewGuid().ToString();
+        resource.VersionId = "1";
+
+        var resourceElement = resource.ToResourceElement();
+        var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+        var resourceRequest = Substitute.For<ResourceRequest>();
+        var compartmentIndices = Substitute.For<CompartmentIndices>();
+        var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash") { IsHistory = false };
+        var entry = new SearchResultEntry(wrapper, resourceType == "Organization" ? SearchEntryMode.Include : SearchEntryMode.Match);
+        entries.Add(entry);
+        return entries;
     }
 }

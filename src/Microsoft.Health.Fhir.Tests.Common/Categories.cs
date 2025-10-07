@@ -38,6 +38,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Cors = nameof(Cors);
 
+        public const string Create = nameof(Create);
+
         public const string CustomConvertData = nameof(CustomConvertData);
 
         public const string CustomHeaders = nameof(CustomHeaders);
@@ -60,6 +62,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string ExportLongRunning = nameof(ExportLongRunning);
 
         public const string ExportData = nameof(ExportData);
+
+        public const string Get = nameof(Get);
 
         public const string History = nameof(History);
 

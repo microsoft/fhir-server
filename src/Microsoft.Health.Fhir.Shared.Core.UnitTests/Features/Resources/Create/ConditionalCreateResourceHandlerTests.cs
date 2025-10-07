@@ -5,13 +5,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
@@ -21,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -60,15 +64,24 @@ public class ConditionalCreateResourceHandlerTests
             logger);
 
         // Setup search service to return no matches (for create scenarios)
-        var searchResults = SearchResult.Empty();
-        searchResults.Results = new List<SearchResultEntry>();
-        
+        var searchResult = new SearchResult(
+            GenerateSearchResult("Patient"),
+            null,
+            null,
+            Array.Empty<Tuple<string, string>>(),
+            null,
+            null);
+
+        var resultTuple = (
+            (IReadOnlyCollection<SearchResultEntry>)searchResult.Results.ToList(),
+            searchResult.ContinuationToken,
+            searchResult.IncludesContinuationToken);
+
         _searchService.ConditionalSearchAsync(
             Arg.Any<string>(),
             Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-            Arg.Any<CancellationToken>(),
-            Arg.Any<ILogger>())
-            .Returns(searchResults);
+            Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(resultTuple));
     }
 
     [Fact]
@@ -173,5 +186,40 @@ public class ConditionalCreateResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
+    }
+
+    private static IReadOnlyCollection<SearchResultEntry> GenerateSearchResult(string resourceType)
+    {
+        var entries = new List<SearchResultEntry>();
+        Resource resource;
+        switch (resourceType)
+        {
+            case "Patient":
+                resource = Samples.GetDefaultPatient().ToPoco<Patient>();
+                break;
+            case "Observation":
+                resource = Samples.GetDefaultObservation().ToPoco<Observation>();
+                break;
+            case "Practitioner":
+                resource = Samples.GetDefaultPractitioner().ToPoco<Practitioner>();
+                break;
+            case "Organization":
+                resource = Samples.GetDefaultOrganization().ToPoco<Organization>();
+                break;
+            default:
+                throw new ArgumentException($"Unsupported resource type: {resourceType}");
+        }
+
+        resource.Id = Guid.NewGuid().ToString();
+        resource.VersionId = "1";
+
+        var resourceElement = resource.ToResourceElement();
+        var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+        var resourceRequest = Substitute.For<ResourceRequest>();
+        var compartmentIndices = Substitute.For<CompartmentIndices>();
+        var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash") { IsHistory = false };
+        var entry = new SearchResultEntry(wrapper, resourceType == "Organization" ? SearchEntryMode.Include : SearchEntryMode.Match);
+        entries.Add(entry);
+        return entries;
     }
 }

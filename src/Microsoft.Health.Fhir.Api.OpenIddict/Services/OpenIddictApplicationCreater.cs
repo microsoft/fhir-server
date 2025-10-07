@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Api.OpenIddict.Data;
 using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 using OpenIddict.Abstractions;
-using static System.Net.Mime.MediaTypeNames;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Microsoft.Health.Fhir.Api.OpenIddict.Services

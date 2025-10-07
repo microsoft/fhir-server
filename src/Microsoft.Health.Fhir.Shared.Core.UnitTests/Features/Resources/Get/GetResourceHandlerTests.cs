@@ -54,7 +54,7 @@ public class GetResourceHandlerTests
 
         // Setup default behavior for data store
         var patient = Samples.GetDefaultPatient();
-        var rawResource = new RawResource(patient.ToJson(), FhirResourceFormat.Json, false);
+        var rawResource = new RawResource(patient.ToPoco<Patient>().ToJson(), FhirResourceFormat.Json, false);
         var wrapper = new ResourceWrapper(
             patient,
             rawResource,
@@ -88,7 +88,7 @@ public class GetResourceHandlerTests
             _searchService);
 
         authService
-            .CheckAccess(DataActions.Read | DataActions.ReadV2, CancellationToken.None)
+            .CheckAccess(DataActions.Read | DataActions.ReadById, CancellationToken.None)
             .Returns(DataActions.Read);
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "123"), bundleResourceContext: null);
@@ -101,7 +101,7 @@ public class GetResourceHandlerTests
     }
 
     [Fact]
-    public async Task GivenAGetResourceRequest_WhenUserHasReadV2Permission_ThenGetShouldSucceed()
+    public async Task GivenAGetResourceRequest_WhenUserHasReadByIdPermission_ThenGetShouldSucceed()
     {
         // Arrange
         var authService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -116,8 +116,8 @@ public class GetResourceHandlerTests
             _searchService);
 
         authService
-            .CheckAccess(DataActions.Read | DataActions.ReadV2, CancellationToken.None)
-            .Returns(DataActions.ReadV2);
+            .CheckAccess(DataActions.Read | DataActions.ReadById, CancellationToken.None)
+            .Returns(DataActions.ReadById);
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "123"), bundleResourceContext: null);
 
@@ -144,7 +144,7 @@ public class GetResourceHandlerTests
             _searchService);
 
         authService
-            .CheckAccess(DataActions.Read | DataActions.ReadV2, CancellationToken.None)
+            .CheckAccess(DataActions.Read | DataActions.ReadById, CancellationToken.None)
             .Returns(DataActions.None);
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "123"), bundleResourceContext: null);
@@ -170,7 +170,7 @@ public class GetResourceHandlerTests
             _searchService);
 
         authService
-            .CheckAccess(DataActions.Read | DataActions.ReadV2, CancellationToken.None)
+            .CheckAccess(DataActions.Read | DataActions.ReadById, CancellationToken.None)
             .Returns(DataActions.Write);
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "123"), bundleResourceContext: null);
@@ -196,7 +196,7 @@ public class GetResourceHandlerTests
             _searchService);
 
         authService
-            .CheckAccess(DataActions.Read | DataActions.ReadV2, CancellationToken.None)
+            .CheckAccess(DataActions.Read | DataActions.ReadById, CancellationToken.None)
             .Returns(DataActions.Search);
 
         var request = new GetResourceRequest(new ResourceKey("Patient", "123"), bundleResourceContext: null);
@@ -222,7 +222,7 @@ public class GetResourceHandlerTests
             _searchService);
 
         authService
-            .CheckAccess(DataActions.Read | DataActions.ReadV2, CancellationToken.None)
+            .CheckAccess(DataActions.Read | DataActions.ReadById, CancellationToken.None)
             .Returns(DataActions.Read);
 
         // Setup data store to return null (resource not found)
