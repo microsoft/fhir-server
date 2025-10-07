@@ -61,12 +61,19 @@ public class ConditionalPatchResourceHandlerTests
             resourceIdProvider,
             _authService,
             logger);
+        var searchResult = new SearchResult(
+            GenerateSearchResult("Patient"),
+            null,
+            null,
+            Array.Empty<Tuple<string, string>>(),
+            null,
+            null);
 
-        var result = GenerateSearchResult("Patient");
-        _searchService.ConditionalSearchAsync(
+        _searchService.SearchAsync(
             Arg.Any<string>(),
             Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-            Arg.Any<CancellationToken>()).Returns((Task<(IReadOnlyCollection<SearchResultEntry> Results, string ContinuationToken, string IncludesContinuationToken)>)result, null, null);
+            Arg.Any<CancellationToken>())
+            .Returns(searchResult);
     }
 
     [Fact]

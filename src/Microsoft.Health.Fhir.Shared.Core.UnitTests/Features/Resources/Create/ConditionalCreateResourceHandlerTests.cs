@@ -13,9 +13,11 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -40,6 +42,7 @@ public class ConditionalCreateResourceHandlerTests
     private readonly ConditionalCreateResourceHandler _conditionalCreateHandler;
     private readonly IAuthorizationService<DataActions> _authService;
     private readonly ISearchService _searchService;
+    private readonly IScopeProvider<ISearchService> _searchServiceFactory;
     private readonly IMediator _mediator;
 
     public ConditionalCreateResourceHandlerTests()
@@ -47,11 +50,21 @@ public class ConditionalCreateResourceHandlerTests
         _authService = Substitute.For<IAuthorizationService<DataActions>>();
         IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
         _searchService = Substitute.For<ISearchService>();
+        _searchServiceFactory = Substitute.For<IScopeProvider<ISearchService>>();
         _mediator = Substitute.For<IMediator>();
         Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
         IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
         ILogger<ConditionalCreateResourceHandler> logger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
+
+        // Setup search service to return no matches (for create scenarios)
+        var searchResults = SearchResult.Empty();
+
+        _searchService.SearchAsync(
+            Arg.Any<string>(),
+            Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+            Arg.Any<CancellationToken>())
+            .Returns(searchResults);
 
         _conditionalCreateHandler = new ConditionalCreateResourceHandler(
             fhirDataStore,
@@ -62,26 +75,6 @@ public class ConditionalCreateResourceHandlerTests
             resourceIdProvider,
             _authService,
             logger);
-
-        // Setup search service to return no matches (for create scenarios)
-        var searchResult = new SearchResult(
-            GenerateSearchResult("Patient"),
-            null,
-            null,
-            Array.Empty<Tuple<string, string>>(),
-            null,
-            null);
-
-        var resultTuple = (
-            (IReadOnlyCollection<SearchResultEntry>)searchResult.Results.ToList(),
-            searchResult.ContinuationToken,
-            searchResult.IncludesContinuationToken);
-
-        _searchService.ConditionalSearchAsync(
-            Arg.Any<string>(),
-            Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-            Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(resultTuple));
     }
 
     [Fact]
@@ -186,40 +179,5 @@ public class ConditionalCreateResourceHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
-    }
-
-    private static IReadOnlyCollection<SearchResultEntry> GenerateSearchResult(string resourceType)
-    {
-        var entries = new List<SearchResultEntry>();
-        Resource resource;
-        switch (resourceType)
-        {
-            case "Patient":
-                resource = Samples.GetDefaultPatient().ToPoco<Patient>();
-                break;
-            case "Observation":
-                resource = Samples.GetDefaultObservation().ToPoco<Observation>();
-                break;
-            case "Practitioner":
-                resource = Samples.GetDefaultPractitioner().ToPoco<Practitioner>();
-                break;
-            case "Organization":
-                resource = Samples.GetDefaultOrganization().ToPoco<Organization>();
-                break;
-            default:
-                throw new ArgumentException($"Unsupported resource type: {resourceType}");
-        }
-
-        resource.Id = Guid.NewGuid().ToString();
-        resource.VersionId = "1";
-
-        var resourceElement = resource.ToResourceElement();
-        var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
-        var resourceRequest = Substitute.For<ResourceRequest>();
-        var compartmentIndices = Substitute.For<CompartmentIndices>();
-        var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash") { IsHistory = false };
-        var entry = new SearchResultEntry(wrapper, resourceType == "Organization" ? SearchEntryMode.Include : SearchEntryMode.Match);
-        entries.Add(entry);
-        return entries;
     }
 }
