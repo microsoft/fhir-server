@@ -93,42 +93,84 @@ jobs:
             $sqlServer = Get-AzSqlServer -ResourceGroupName $resourceGroup -ServerName $sqlServerName
             $sqlServerResourceId = $sqlServer.ResourceId
             
-            # Get the NSP resource ID
-            $nsp = Get-AzResource -ResourceGroupName $resourceGroup -ResourceName $nspName -ResourceType "Microsoft.Network/networkSecurityPerimeters"
-            $nspResourceId = $nsp.ResourceId
-            
             Write-Host "SQL Server Resource ID: $sqlServerResourceId"
-            Write-Host "NSP Resource ID: $nspResourceId"
             
-            # Create NSP association using REST API call
+            # Get subscription and create association name
             $subscriptionId = (Get-AzContext).Subscription.Id
             $associationName = "sqlserver-$sqlServerName-association"
             
-            $associationBody = @{
-              properties = @{
-                privateLinkResource = @{
-                  id = $sqlServerResourceId
-                }
-                profile = @{
-                  id = "$nspResourceId/profiles/default"
-                }
+            Write-Host "Subscription ID: $subscriptionId"
+            Write-Host "Resource Group: $resourceGroup"
+            Write-Host "NSP Name: $nspName"
+            Write-Host "Association Name: $associationName"
+            
+            # Try using Azure CLI instead of REST API as it might be more reliable
+            $azCliInstalled = Get-Command az -ErrorAction SilentlyContinue
+            if ($azCliInstalled) {
+              Write-Host "Using Azure CLI for NSP association"
+              
+              # First, try to create the association using Azure CLI
+              $cliCommand = "az network perimeter association create --perimeter-name '$nspName' --resource-group '$resourceGroup' --name '$associationName' --private-link-resource '$sqlServerResourceId' --profile 'default'"
+              Write-Host "CLI Command: $cliCommand"
+              
+              $result = Invoke-Expression $cliCommand 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "Successfully associated SQL Server with NSP using Azure CLI"
+                Write-Host "CLI Result: $result"
+              } else {
+                Write-Warning "Azure CLI association failed: $result"
+                throw "Azure CLI association failed"
               }
-            } | ConvertTo-Json -Depth 4
-            
-            $uri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityPerimeters/$nspName/resourceAssociations/$associationName"
-            $headers = @{
-              'Authorization' = "Bearer $((Get-AzAccessToken).Token)"
-              'Content-Type' = 'application/json'
+            } else {
+              Write-Host "Azure CLI not available, attempting REST API approach"
+              
+              # Fallback to REST API with corrected approach
+              $associationBody = @{
+                properties = @{
+                  privateLinkResource = @{
+                    id = $sqlServerResourceId
+                  }
+                  profile = @{
+                    id = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityPerimeters/$nspName/profiles/default"
+                  }
+                }
+              } | ConvertTo-Json -Depth 4
+              
+              $apiVersion = "2023-07-01-preview"
+              $uri = [System.Uri]::new("https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityPerimeters/$nspName/resourceAssociations/$associationName" + "?api-version=$apiVersion")
+              
+              Write-Host "REST API URI: $($uri.ToString())"
+              Write-Host "Association Body: $associationBody"
+              
+              # Get access token
+              $accessToken = (Get-AzAccessToken).Token
+              
+              $headers = @{
+                'Authorization' = "Bearer $accessToken"
+                'Content-Type' = 'application/json'
+              }
+              
+              Write-Host "Creating NSP association via REST API..."
+              $response = Invoke-RestMethod -Uri $uri.ToString() -Method PUT -Body $associationBody -Headers $headers
+              
+              Write-Host "Successfully associated SQL Server with NSP via REST API"
+              Write-Host "Association Response: $($response | ConvertTo-Json -Depth 3)"
             }
-            
-            Write-Host "Creating NSP association with URI: $uri"
-            $response = Invoke-RestMethod -Uri "$uri?api-version=2023-07-01-preview" -Method PUT -Body $associationBody -Headers $headers
-            
-            Write-Host "Successfully associated SQL Server with NSP"
-            Write-Host "Association Response: $($response | ConvertTo-Json -Depth 3)"
           }
           catch {
             Write-Warning "Failed to associate SQL Server with NSP: $($_.Exception.Message)"
+            Write-Host "Exception Details: $($_.Exception | Format-List * | Out-String)"
+            if ($_.Exception.Response) {
+              Write-Host "HTTP Response Status: $($_.Exception.Response.StatusCode)"
+              try {
+                $responseContent = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($responseContent)
+                $responseText = $reader.ReadToEnd()
+                Write-Host "HTTP Response Content: $responseText"
+              } catch {
+                Write-Host "Could not read response content"
+              }
+            }
             Write-Host "Continuing with SQL Server provisioning..."
           }
         }
