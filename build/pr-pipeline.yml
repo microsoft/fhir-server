@@ -154,8 +154,7 @@ stages:
 
 - stage: createNsp
   displayName: 'Create Network Security Perimeter'
-  dependsOn:
-  - setupEnvironment
+  dependsOn: []
   jobs:
   - template: ./jobs/provision-nsp.yml
     parameters:
@@ -167,6 +166,7 @@ stages:
   displayName: 'Deploy SQLServer'
   dependsOn:
   - createNsp
+  - setupEnvironment
   jobs:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
