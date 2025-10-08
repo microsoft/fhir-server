@@ -61,7 +61,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
         }
 
-#if NET8_0_OR_GREATER
         [Fact]
         public void GivenAnEmptySearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
@@ -141,7 +140,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 }
             }
         }
-#endif
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement, HttpMethod httpMethod)
         {

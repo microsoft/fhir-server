@@ -36,6 +36,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.StartSurrogateId)]
         public long StartResourceSurrogateId { get; set; }
 
+        [JsonProperty(JobRecordProperties.EndResourceSurrogateId)]
+        public long EndResourceSurrogateId { get; set; }
+
         [JsonProperty(JobRecordProperties.Status)]
         public OperationStatus Status { get; set; }
 

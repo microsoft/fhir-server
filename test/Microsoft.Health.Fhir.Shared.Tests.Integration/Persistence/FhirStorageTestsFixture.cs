@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IServiceProvider _fixture;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly DataResourceFilter _dataResourceFilter;
+        private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
 
         public FhirStorageTestsFixture(DataStore dataStore)
             : this(dataStore switch
@@ -89,6 +90,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _resourceIdProvider = new ResourceIdProvider();
 
             _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
+
+            switch (fixture)
+            {
+                case CosmosDbFhirStorageTestsFixture _:
+                    _fhirRuntimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+                    break;
+                case SqlServerFhirStorageTestsFixture _:
+                    _fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null);
+            }
         }
 
         public Mediator Mediator { get; private set; }
@@ -100,6 +113,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public FhirJsonParser JsonParser { get; } = new FhirJsonParser();
 
         public ResourceDeserializer Deserializer { get; private set; }
+
+        public IFhirRuntimeConfiguration FhirRuntimeConfiguration => _fhirRuntimeConfiguration;
 
         public IFhirDataStore DataStore => _fixture.GetRequiredService<IFhirDataStore>();
 
@@ -200,7 +215,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), Substitute.For<ISearchParameterOperations>(), Deserializer, logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), _fhirRuntimeConfiguration, Substitute.For<ISearchParameterOperations>(), Deserializer, logger);
 
             var collection = new ServiceCollection();
 

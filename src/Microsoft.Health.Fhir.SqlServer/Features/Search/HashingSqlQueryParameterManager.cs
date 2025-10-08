@@ -80,8 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SqlParameter parameter = _inner.AddParameter(column, value);
             if (includeInHash
-                && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name
-                && column.Metadata.Name != VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name)
+                && column.Metadata.Name != VLatest.Resource.ResourceId.Metadata.Name)
             {
                 _setToHash.Add(parameter);
             }
@@ -227,11 +226,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 Debug.Assert(buffer.Length >= elementLength, "Initial buffer size is not large enough for the datatypes we are trying to write to it");
             }
 
-#if NET8_0_OR_GREATER
             MemoryMarshal.Write(buffer[currentIndex..], in element);
-#else
-            MemoryMarshal.Write(buffer[currentIndex..], ref element);
-#endif
             currentIndex += elementLength;
         }
 

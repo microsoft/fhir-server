@@ -197,7 +197,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal("id2", deserializedResource.Id);
         }
 
-#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenLastUpdatedShouldBeSet()
         {
@@ -216,7 +215,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), deserializedResource.LastUpdated);
             }
         }
-#endif
 
         [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenVersionShouldBeSet()
