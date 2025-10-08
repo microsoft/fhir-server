@@ -154,7 +154,8 @@ stages:
 
 - stage: createNsp
   displayName: 'Create Network Security Perimeter'
-  dependsOn: []
+  dependsOn:
+  - provisionEnvironment
   jobs:
   - template: ./jobs/provision-nsp.yml
     parameters:
