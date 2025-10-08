@@ -89,68 +89,72 @@ jobs:
           Write-Host "Associating SQL Server with Network Security Perimeter: $nspName"
           
           try {
-            # Get the SQL Server resource ID
-            $sqlServer = Get-AzSqlServer -ResourceGroupName $resourceGroup -ServerName $sqlServerName
-            $sqlServerResourceId = $sqlServer.ResourceId
-            
-            Write-Host "SQL Server Resource ID: $sqlServerResourceId"
-            
-            # Get subscription and create association name
-            $subscriptionId = (Get-AzContext).Subscription.Id
+            # Use inline ARM template deployment similar to default-azuredeploy-docker.json
             $associationName = "sqlserver-$sqlServerName-association"
             
-            Write-Host "Subscription ID: $subscriptionId"
-            Write-Host "Resource Group: $resourceGroup"
+            Write-Host "Creating NSP association using inline ARM template..."
             Write-Host "NSP Name: $nspName"
+            Write-Host "SQL Server: $sqlServerName"
             Write-Host "Association Name: $associationName"
             
-            # Create NSP association using REST API
-            $associationBody = @{
-              properties = @{
-                privateLinkResource = @{
-                  id = $sqlServerResourceId
+            $inlineTemplate = @{
+                '$schema' = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
+                'contentVersion' = '1.0.0.0'
+                'parameters' = @{
+                    'nspName' = @{
+                        'type' = 'string'
+                    }
+                    'sqlServerName' = @{
+                        'type' = 'string'
+                    }
+                    'associationName' = @{
+                        'type' = 'string'
+                    }
                 }
-                profile = @{
-                  id = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityPerimeters/$nspName/profiles/default"
+                'resources' = @(
+                    @{
+                        'type' = 'Microsoft.Network/networkSecurityPerimeters/resourceAssociations'
+                        'apiVersion' = '2023-07-01-preview'
+                        'name' = "[concat(parameters('nspName'), '/', parameters('associationName'))]"
+                        'properties' = @{
+                            'privateLinkResource' = @{
+                                'id' = "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+                            }
+                            'profile' = @{
+                                'id' = "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', parameters('nspName'), 'default')]"
+                            }
+                            'accessMode' = 'Learning'
+                        }
+                    }
+                )
+                'outputs' = @{
+                    'associationResourceId' = @{
+                        'type' = 'string'
+                        'value' = "[resourceId('Microsoft.Network/networkSecurityPerimeters/resourceAssociations', parameters('nspName'), parameters('associationName'))]"
+                    }
                 }
-                accessMode = "Learning"
-              }
-            } | ConvertTo-Json -Depth 4
-            
-            $apiVersion = "2023-07-01-preview"
-            $uri = [System.Uri]::new("https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Network/networkSecurityPerimeters/$nspName/resourceAssociations/$associationName" + "?api-version=$apiVersion")
-            
-            Write-Host "REST API URI: $($uri.ToString())"
-            Write-Host "Association Body: $associationBody"
-            
-            # Get access token
-            $accessToken = (Get-AzAccessToken).Token
-            
-            $headers = @{
-              'Authorization' = "Bearer $accessToken"
-              'Content-Type' = 'application/json'
             }
             
-            Write-Host "Creating NSP association via REST API..."
-            $response = Invoke-RestMethod -Uri $uri.ToString() -Method PUT -Body $associationBody -Headers $headers
+            $deploymentParameters = @{
+                'nspName' = $nspName
+                'sqlServerName' = $sqlServerName
+                'associationName' = $associationName
+            }
             
-            Write-Host "Successfully associated SQL Server with NSP via REST API"
-            Write-Host "Association Response: $($response | ConvertTo-Json -Depth 3)"
+            # Deploy using inline template
+            $nspDeploymentResult = New-AzResourceGroupDeployment `
+              -ResourceGroupName $resourceGroup `
+              -Name "$sqlServerName-nsp-association-inline" `
+              -TemplateObject $inlineTemplate `
+              -TemplateParameterObject $deploymentParameters `
+              -Verbose
+            
+            Write-Host "Successfully associated SQL Server with NSP using inline ARM template"
+            Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
           }
           catch {
             Write-Warning "Failed to associate SQL Server with NSP: $($_.Exception.Message)"
             Write-Host "Exception Details: $($_.Exception | Format-List * | Out-String)"
-            if ($_.Exception.Response) {
-              Write-Host "HTTP Response Status: $($_.Exception.Response.StatusCode)"
-              try {
-                $responseContent = $_.Exception.Response.GetResponseStream()
-                $reader = New-Object System.IO.StreamReader($responseContent)
-                $responseText = $reader.ReadToEnd()
-                Write-Host "HTTP Response Content: $responseText"
-              } catch {
-                Write-Host "Could not read response content"
-              }
-            }
             Write-Host "Continuing with SQL Server provisioning..."
           }
         }
