@@ -3288,5 +3288,108 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotEmpty(results.Results);
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
         }
+
+        [SkippableFact]
+        public async Task GivenSmartV2GranularScopeWithCodeFilter_WhenSearchingObservationsWithInclude_ThenObservationsAndIncludedPatientsReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            /*
+             * Test validates that _include works with granular scopes containing search parameters
+             * scopes = patient/Observation.s?code=http://loinc.org|4548-4
+             * Only observations with code 4548-4 should be returned, plus included Patient resources
+             */
+            var scopeRestriction = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Search for Observation resources with _include=Observation:subject (includes the Patient)
+            // Should return smart-observation-A1 (which has code 4548-4) and smart-patient-A
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.NotEmpty(results.Results);
+            Assert.True(results.Results.Count() == 2, $"Expected 2 results (Observation + Patient), got {results.Results.Count()}");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
+
+            // Verify that smart-observation-A2 (with different code) is NOT included
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+        }
+
+        [SkippableFact]
+        public async Task GivenSmartV2GranularScopeWithNameFilter_WhenSearchingPatientsWithRevInclude_ThenPatientsAndRevIncludedObservationsReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            /*
+             * Test validates that _revinclude works with granular scopes containing search parameters
+             * scopes = patient/Patient.s?name=SMARTGivenName1 AND patient/Observation.s
+             * Only patient with name=SMARTGivenName1 and all observations should be returned
+             */
+            var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1")));
+            var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { patientScope, observationScope }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Search for Patient resources with _revinclude=Observation:subject (includes Observations that reference the Patient)
+            // Should return smart-patient-A and smart-observation-A1, smart-observation-A2
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            Assert.NotEmpty(results.Results);
+            Assert.True(results.Results.Count() == 3, $"Expected 3 results (1 Patient + 2 Observations), got {results.Results.Count()}");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A2" && r.Resource.ResourceTypeName == "Observation");
+        }
+
+        [SkippableFact]
+        public async Task GivenSmartV2MultipleGranularScopesWithFilters_WhenSearchingWithIncludeAndAdditionalParams_ThenCorrectResourcesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            /*
+             * Test validates complex scenario with multiple granular scopes, includes, and additional query parameters
+             * scopes = patient/Observation.s?code=http://loinc.org|4548-4 AND patient/Patient.s
+             * Search: Observation?status=final&_include=Observation:subject
+             * Should return: observations with code 4548-4 AND status=final, plus included patients
+             */
+            var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
+            var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, patientScope }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Search for Observation with status=final and _include
+            // Granular scope limits to code 4548-4, user query adds status=final filter
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("status", "final"));
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.NotEmpty(results.Results);
+
+            // Should get smart-observation-A1 (code=4548-4 AND status=final) and smart-patient-A
+            Assert.True(results.Results.Count() == 2, $"Expected 2 results (1 Observation + 1 Patient), got {results.Results.Count()}");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
+
+            // Verify smart-observation-A2 is NOT included (different code)
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+        }
     }
 }
