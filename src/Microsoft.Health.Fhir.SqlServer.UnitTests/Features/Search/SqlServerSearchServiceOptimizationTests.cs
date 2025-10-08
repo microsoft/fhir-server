@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
@@ -15,6 +17,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     /// Unit tests for SqlServerSearchService optimization logic.
     /// These tests verify the early return conditions for the optimization method.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerSearchServiceOptimizationTests
     {
         [Fact]
