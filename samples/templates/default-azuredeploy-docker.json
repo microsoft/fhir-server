@@ -242,7 +242,7 @@
         },
         "networkSecurityPerimeterProfileName": {
             "type": "string",
-            "defaultValue": "defaultProfile",
+            "defaultValue": "default",
             "metadata": {
                 "description": "Name of the Network Security Perimeter profile to create."
             }
