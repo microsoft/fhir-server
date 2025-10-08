@@ -393,7 +393,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
-            searchExpressions.AddRange(searchParams.Parameters.Select(
+            // Solution 1: Collect user query expressions separately to allow restructuring for granular scopes
+            var userQueryExpressions = new List<Expression>();
+
+            // Parse search parameters
+            userQueryExpressions.AddRange(searchParams.Parameters.Select(
             q =>
             {
                 try
@@ -412,8 +416,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
             // when applied on a circular reference
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
+            var includeExpressions = ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null).ToList();
+            var revIncludeExpressions = ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null).ToList();
+
+            userQueryExpressions.AddRange(includeExpressions);
+            userQueryExpressions.AddRange(revIncludeExpressions);
+
+            // Check if we need to restructure for granular scopes with includes/chains
+            // This is necessary when:
+            // 1. Granular scopes with search parameters are present (indicated by Union expression)
+            // 2. User query contains includes/revinclude or chained searches
+            bool hasGranularScopesWithSearchParams = _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true;
+            bool hasIncludesOrChains = includeExpressions.Any() ||
+                                       revIncludeExpressions.Any() ||
+                                       searchParams.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
+
+            if (hasGranularScopesWithSearchParams && hasIncludesOrChains && userQueryExpressions.Any())
+            {
+                // Use Solution 1: restructure expression tree to embed user query within each scope branch
+                RebuildExpressionsForGranularScopesWithIncludes(searchExpressions, userQueryExpressions);
+            }
+            else
+            {
+                // Original behavior: add user query expressions directly
+                searchExpressions.AddRange(userQueryExpressions);
+            }
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -760,15 +787,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
-                // Throw 400 if chained, include or revinclude request with ApplyFineGrainedAccessControlWithSearchParameters
-                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
-                {
-                    bool containsChainParam = searchParams.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
-                    if (containsChainParam || searchParams.Include.Any() || searchParams.RevInclude.Any())
-                    {
-                        throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
-                    }
-                }
+                // NOTE: Blocking check removed - Solution 1 implementation allows includes/chains with granular scopes
+                // by restructuring expression tree to embed user query within each scope branch
 
                 bool allowAllResourceTypes = false;
                 var clinicalScopeResources = new List<ResourceType>();
@@ -869,6 +889,73 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Restructures expression tree for granular scopes with includes/chains by embedding user query within each scope branch.
+        /// This is Solution 1: minimal change approach that allows includes/chains with granular scopes.
+        /// </summary>
+        /// <param name="searchExpressions">Current search expressions including scope union</param>
+        /// <param name="userQueryExpressions">User query expressions (params + includes + chains) to embed</param>
+        /// <returns>Modified searchExpressions list with user query embedded in scope branches</returns>
+        private static List<Expression> RebuildExpressionsForGranularScopesWithIncludes(
+            List<Expression> searchExpressions,
+            List<Expression> userQueryExpressions)
+        {
+            // Find the Union expression containing scope constraints
+            var unionExpression = searchExpressions.OfType<UnionExpression>()
+                .FirstOrDefault(u => u.IsSmartV2UnionExpressionForScopesSearchParameters);
+
+            if (unionExpression == null)
+            {
+                // No union found (shouldn't happen, but fall back to original behavior)
+                searchExpressions.AddRange(userQueryExpressions);
+                return searchExpressions;
+            }
+
+            // Remove the union from searchExpressions (we'll rebuild it)
+            searchExpressions.Remove(unionExpression);
+
+            // Build new union where each branch includes the user query
+            var newUnionBranches = new List<Expression>();
+
+            foreach (var scopeBranch in unionExpression.Expressions)
+            {
+                // Each scope branch is an AND expression containing scope constraints
+                // We need to add user query expressions to each branch
+                var branchExpressions = new List<Expression>();
+
+                // Add the original scope constraints
+                if (scopeBranch is MultiaryExpression multiaryExpr && multiaryExpr.MultiaryOperation == MultiaryOperator.And)
+                {
+                    branchExpressions.AddRange(multiaryExpr.Expressions);
+                }
+                else
+                {
+                    branchExpressions.Add(scopeBranch);
+                }
+
+                // Add ALL user query expressions (params, includes, chains)
+                branchExpressions.AddRange(userQueryExpressions);
+
+                // Create new AND expression for this complete branch
+                var completeBranch = Expression.And(branchExpressions.ToArray());
+
+                // Preserve the flag for SQL generation
+                completeBranch.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+                newUnionBranches.Add(completeBranch);
+            }
+
+            // Create new union with complete branches
+            var newUnion = Expression.Union(unionExpression.Operator, newUnionBranches);
+            newUnion.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+            // Add the new union back to searchExpressions
+            searchExpressions.Add(newUnion);
+
+            // Return the modified searchExpressions (user query already embedded in union)
+            return searchExpressions;
         }
     }
 }
