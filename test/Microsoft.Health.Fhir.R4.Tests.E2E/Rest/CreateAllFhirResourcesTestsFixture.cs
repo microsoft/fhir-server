@@ -51,9 +51,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         tasks.Clear();
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // NOTE: ignore any exception. Don't let a pipeline run fail.
+                    Console.WriteLine($"[CreateAllFhirResourcesTestsFixture] Exception during cleanup: {ex}");
                 }
             }
         }
