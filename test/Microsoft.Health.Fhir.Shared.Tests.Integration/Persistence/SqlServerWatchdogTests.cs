@@ -31,9 +31,12 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.VisualStudio.TestPlatform.Utilities;
 using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
+
+#pragma warning disable SA1116 // Split parameters should start on line after declaration
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -51,12 +54,130 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
+        [Fact]
+        public async Task DefragBlocking()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.EventLog");
+
+            // enable logging
+            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search 'UNION ALL SELECT 'DefragBlocking') A");
+
+            // populate data
+            ExecuteSql(@"
+ALTER DATABASE CURRENT SET ALLOW_SNAPSHOT_ISOLATION ON
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable',@Action='Delete'
+IF object_id('DefragTestTable') IS NOT NULL DROP TABLE dbo.DefragTestTable
+CREATE TABLE dbo.DefragTestTable 
+  (
+    TypeId smallint
+   ,Id int IDENTITY(1, 1)
+   ,Data char(500) NOT NULL 
+    
+    CONSTRAINT PKC PRIMARY KEY CLUSTERED (TypeId, Id)
+  )
+INSERT INTO dbo.DefragTestTable (TypeId, Data) SELECT TOP 1000000 96,'' FROM syscolumns A1, syscolumns A2
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable',@Action='Insert',@Rows=@@rowcount
+DELETE FROM dbo.DefragTestTable WHERE TypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
+                ");
+
+            // 4 tasks:
+            // 1. Defrag starts and acquires schema stability lock
+            // 2. Update stats. Starts after defrag start, tries to acquire schema modification lock, and is blocked by defrag, and waits.
+            // 3. Query. Starts after create stats. Tries to acquire schea stability lock and is blocked by create stats, and waits.
+            // 4. Blocking monitor. Starts before everything. Looks for blocking. When bolocking duration exceeds threashold (1 sec), it cancells defrag.
+
+            var defrag = Task.Run(() => ExecuteSql(
+                @"
+DECLARE @st datetime = getUTCdate()
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable.PKC',@Action='Reorganize'
+ALTER INDEX PKC ON dbo.DefragTestTable REORGANIZE
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable.PKC',@Action='Reorganize',@Start=@st
+                 "));
+
+            var cancelStats = new CancellationTokenSource();
+            var stats = Task.Run(async () => await ExecuteSqlAsync(
+                @"
+WAITFOR DELAY '00:00:01'
+DECLARE @st datetime = getUTCdate()
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable',@Action='UpdateStats'
+UPDATE STATISTICS dbo.DefragTestTable WITH FULLSCAN, ALL
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable',@Action='UpdateStats',@Start=@st
+                ",
+                cancelStats.Token)); // This is the only cancel that is truly needed
+
+            var cancelQueries = new CancellationTokenSource();
+            var queries = new List<Task>();
+            for (var i = 0; i < 30; i++)
+            {
+                var iInt = i;
+                queries.Add(Task.Run(async () => await ExecuteSqlAsync(
+                    @"
+WAITFOR DELAY '00:00:" + iInt + @"' -- start every second
+DECLARE @st datetime = getUTCdate(), @Rows int
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='" + iInt + @"',@Target='DefragTestTable',@Action='Select'
+-- query should be in a separate batch from logging to correctly record start, hence sp_executeSQL
+EXECUTE sp_executeSQL N'
+  SELECT TOP 100 TypeId, Id FROM dbo.DefragTestTable /* " + iInt + @" */ WHERE TypeId = 96 ORDER BY Id
+  '
+SET @Rows = @@rowcount
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='" + iInt + @"',@Target='DefragTestTable',@Action='Select',@Start=@st,@Rows=@Rows
+                    ",
+                    cancelQueries.Token))); // Cancel queries for test only.
+            }
+
+            const int maxWait = 5000;
+            var monitor = Task.Run(() => ExecuteSql(@"
+DECLARE @st datetime = getUTCdate()
+IF object_id('Sessions') IS NOT NULL DROP TABLE dbo.Sessions
+SELECT Date = getUTCDate(), command, S.status, S.session_id, blocking_session_id, wait_type, wait_resource, wait_time, last_request_start_time
+  INTO dbo.Sessions
+  FROM sys.dm_exec_sessions S LEFT OUTER JOIN sys.dm_exec_requests R ON R.session_id = S.session_id
+  WHERE 1 = 2
+WHILE datediff(second,@st,getUTCdate()) < 30 
+      AND NOT EXISTS 
+            (SELECT * 
+               FROM dbo.Sessions 
+               WHERE wait_type = 'LCK_M_SCH_S' 
+                 AND command = 'SELECT'
+                 AND wait_time > " + maxWait + @")
+BEGIN
+  INSERT INTO dbo.Sessions
+    SELECT Date = getUTCDate(), command, S.status, S.session_id, blocking_session_id, wait_type, wait_resource, wait_time, last_request_start_time
+      FROM sys.dm_exec_sessions S LEFT OUTER JOIN sys.dm_exec_requests R ON R.session_id = S.session_id
+      WHERE S.session_id <> @@spid
+        AND S.status <> 'sleeping'
+        AND wait_type <> 'WAITFOR'
+  WAITFOR DELAY '00:00:01'
+END
+                "));
+
+            await Task.WhenAll(monitor);
+            cancelStats.Cancel();
+
+            await Task.Delay(2000);
+            cancelQueries.Cancel();
+
+            await Task.WhenAll(queries);
+            await Task.WhenAll(defrag);
+            await Task.WhenAll(stats);
+
+            //// check that defrag completed
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='Reorganize' AND Status = 'End'") == 1);
+            //// check that update stats was killed == no end
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='UpdateStats' AND Status = 'End'") == 0);
+            //// check that some queris are long
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='Select' AND Status = 'End' AND Milliseconds > " + maxWait) >= 1);
+            //// check that some queris are short
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='Select' AND Status = 'End' AND Milliseconds < 200") >= 1);
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Defrag(bool indexRebuildIsEnabled)
         {
-            // ebale logging
+            // enable logging
             ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search') A");
             const string indexRebuildIsEnabledId = "Defrag.IndexRebuild.IsEnabled";
             ExecuteSql("DELETE FROM dbo.Parameters WHERE Id = '" + indexRebuildIsEnabledId + "'");
@@ -72,8 +193,8 @@ IF object_id('DefragTestTable') IS NOT NULL DROP TABLE DefragTestTable
 CREATE TABLE DefragTestTable (ResourceTypeId smallint, Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id, ResourceTypeId) ON PartitionScheme_ResourceTypeId (ResourceTypeId))
 INSERT INTO DefragTestTable (ResourceTypeId, Data) SELECT TOP 100000 96,'' FROM syscolumns A1, syscolumns A2
 DELETE FROM DefragTestTable WHERE ResourceTypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
-COMMIT TRANSACTION
 EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
+COMMIT TRANSACTION
                 ");
 
             await Task.Delay(TimeSpan.FromSeconds(10));
@@ -432,6 +553,25 @@ RAISERROR('Test',18,127)
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
             return cmd.ExecuteScalar();
+        }
+
+        private async Task ExecuteSqlAsync(string sql, CancellationToken cancel)
+        {
+            try
+            {
+                using var conn = new SqlConnection(_fixture.TestConnectionString);
+                await conn.OpenAsync(cancel);
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.CommandTimeout = 120;
+                await cmd.ExecuteScalarAsync(cancel);
+            }
+            catch (SqlException e)
+            {
+                if (!e.ToString().Contains("Operation cancelled by user"))
+                {
+                    throw;
+                }
+            }
         }
 
         private long GetCount(string table)
