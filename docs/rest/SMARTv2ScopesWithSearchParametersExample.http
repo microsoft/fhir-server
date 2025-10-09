@@ -569,41 +569,22 @@ grant_type=client_credentials
 GET https://{{hostname}}/Patient?_revinclude=*:*&_id=smartUserClient
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
-### Test Search permission - should include patient smartUserClient, and the resource Encounter if that references the patient directly.
+### Should return patient, 1 observation with code and status final
+GET https://{{hostname}}/Patient?_revinclude=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should include patient smartUserClient only and no Encounter as not in scope
 GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_id=smartUserClient
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
-### Test Search permission - should include patient smartUserClient, and the resource Encounter if that references the patient directly.
+### Should include 1 patient and 1 Observation with code and status final only and no Encounter as not in scope
 GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_revinclude=Observation:patient&_id=smartUserClient
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
-### Test Search permission - should include patient smartUserClient, and the resource Encounter if that references the patient directly.
+### Unauthhorized as MedicationRequest not in scope
 GET https://{{hostname}}/MedicationRequest?_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
-### Test Search permission - should include patient smartUserClient, and the resource Encounter if that references the patient directly.
+### Unauthhorized as MedicationRequest not in scope
 GET https://{{hostname}}/MedicationRequest?_include=MedicationRequest:patient&_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345
 Authorization: Bearer {{searchBearer.response.body.access_token}}
-#############################################################################################################################################
-### Get token with SMART v2 Search permission
-# @name searchBearer
-POST https://{{hostname}}/connect/token
-content-type: application/x-www-form-urlencoded
-
-grant_type=client_credentials
-&client_id=smartUserClient
-&client_secret=smartUserClient
-&scope=patient/Patient.s patient/Encounter.s  patient/Observation.s 
-
-### Test Search permission - should include patient smartUserClient, and the resource Encounter if that references the patient directly.
-GET https://{{hostname}}/Patient?_revinclude=*:*&_id=smartUserClient
-Authorization: Bearer {{searchBearer.response.body.access_token}}
-
-### Test Search permission - should include patient smartUserClient, and the resource Encounter if that references the patient directly.
-GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_id=smartUserClient
-Authorization: Bearer {{searchBearer.response.body.access_token}}
-
-### Test Search permission - should include patient smartUserClient, and Encounter and Observation resources if they reference the patient directly.
-GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_revinclude=Observation:patient&_id=smartUserClient
-Authorization: Bearer {{searchBearer.response.body.access_token}}
-

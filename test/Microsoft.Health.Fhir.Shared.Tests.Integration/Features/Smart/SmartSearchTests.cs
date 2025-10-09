@@ -3417,37 +3417,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             /*
              * Test validates that _revinclude works with granular scopes containing search parameters
-             * scopes = patient/Patient.s?name=SMARTGivenName1 AND patient/Observation.s AND patient/Practitioner.s?gender=female
+             * scopes = patient/Patient.s?name=SMARTGivenName1 AND patient/Observation.s?code=http://loinc.org|4548-4&status=final
              * Only patient with name=SMARTGivenName1 and all observations should be returned
              */
             var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1")));
-            var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
-            var practitionerScope = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "female")));
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { patientScope, observationScope, practitionerScope }, true);
+            var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { patientScope, observationScope }, true);
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
             // Search for Patient resources with _revinclude=Observation:subject (includes Observations that reference the Patient)
-            // Should return smart-patient-A and smart-observation-A1, smart-observation-A2
+            // Should return smart-patient-A and smart-observation-A1 only
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
             var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
 
             Assert.NotEmpty(results.Results);
-            Assert.True(results.Results.Count() == 3, $"Expected 3 results (1 Patient + 2 Observations), got {results.Results.Count()}");
+            Assert.True(results.Results.Count() == 2, $"Expected 2 results (1 Patient + 1 Observations), got {results.Results.Count()}");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A2" && r.Resource.ResourceTypeName == "Observation");
-            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2" && r.Resource.ResourceTypeName == "Observation");
 
             // Revinclude with wildcard
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_revinclude", "*:*"));
             results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
-
-            // Verify no male Practioner is included
-            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
+            Assert.True(results.Results.Count() == 2, $"Expected 2 results (1 Patient + 1 Observations), got {results.Results.Count()}");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2" && r.Resource.ResourceTypeName == "Observation");
         }
     }
 }
