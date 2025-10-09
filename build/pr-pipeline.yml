@@ -186,23 +186,23 @@ stages:
       nspName: 'nsp-$(ResourceGroupName)'
 
 - stage: deployStu3
-displayName: 'Deploy STU3 CosmosDB Site'
-dependsOn:
-- DockerBuild
-- setupEnvironment
-- createNsp
-jobs:
-- template: ./jobs/provision-deploy.yml
-  parameters: 
-    version: Stu3
-    webAppName: $(DeploymentEnvironmentName)
-    appServicePlanName: '$(appServicePlanName)-cosmos'
-    appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-    subscription: $(ConnectedServiceName)
-    resourceGroup: $(ResourceGroupName)
-    testEnvironmentUrl: $(TestApplicationResource)
-    imageTag: $(ImageTag)
-    reindexEnabled: true
+  displayName: 'Deploy STU3 CosmosDB Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - createNsp
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
