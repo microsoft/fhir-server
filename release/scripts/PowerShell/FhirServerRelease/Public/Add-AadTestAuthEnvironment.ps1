@@ -48,12 +48,20 @@ function Add-AadTestAuthEnvironment {
 
     Set-StrictMode -Version Latest
 
-    # Get current AzureAd context
+    # Get current Microsoft Graph context
     try {
-        $tenantInfo = Get-AzureADCurrentSessionInfo -ErrorAction Stop
+        $context = Get-MgContext -ErrorAction Stop
+        if (-not $context) {
+            throw "No Microsoft Graph session found"
+        }
+        # Get organization info to extract tenant domain
+        $organization = Get-MgOrganization | Select-Object -First 1
+        $tenantInfo = @{
+            TenantDomain = $organization.VerifiedDomains | Where-Object { $_.IsDefault -eq $true } | Select-Object -ExpandProperty Name
+        }
     }
     catch {
-        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
     # Get current Az context
@@ -64,7 +72,7 @@ function Add-AadTestAuthEnvironment {
         throw "Please log in to Azure RM with Login-AzAccount cmdlet before proceeding"
     }
 
-    Write-Host "Setting up Test Authorization Environment for AAD"
+    Write-Host "Setting up Test Authorization Environment for Microsoft Graph"
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
@@ -142,8 +150,7 @@ function Add-AadTestAuthEnvironment {
 
     $ClientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ClientId, $ClientSecret
         
-    Install-Module -Name Microsoft.Graph -Force
-
+    # Connect to Microsoft Graph using the credentials
     Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $ClientSecretCredential
 
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
@@ -158,66 +165,91 @@ function Add-AadTestAuthEnvironment {
     Write-Host "Setting roles on API Application"
 
     # 1 - Setting up roles
-    if ($testAuthEnvironment.users.length -eq 0) {
-        # List of users can be empty, then rely only in the list of client applications
-        $appRoles = $testAuthEnvironment.clientApplications.roles | Select-Object -Unique
+    $appRoles = @()
+    if ($testAuthEnvironment.users -and $testAuthEnvironment.users.length -gt 0) {
+        $userRoles = $testAuthEnvironment.users | Where-Object { $_.roles } | ForEach-Object { $_.roles }
+        if ($userRoles) {
+            $appRoles += $userRoles
+        }
     }
-    else {
-        $appRoles = ($testAuthEnvironment.users.roles + $testAuthEnvironment.clientApplications.roles) | Select-Object -Unique
-    }    
-    Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
+    
+    if ($testAuthEnvironment.clientApplications -and $testAuthEnvironment.clientApplications.length -gt 0) {
+        $clientRoles = $testAuthEnvironment.clientApplications | Where-Object { $_.roles } | ForEach-Object { $_.roles }
+        if ($clientRoles) {
+            $appRoles += $clientRoles
+        }
+    }
+    
+    if ($appRoles.length -gt 0) {
+        $appRoles = $appRoles | Select-Object -Unique
+        Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
+    }
 
     # 2 - Validating users
     $environmentUsers = @()
-    if ($testAuthEnvironment.users.length -gt 0) {
+    if ($testAuthEnvironment.users -and $testAuthEnvironment.users.length -gt 0) {
         Write-Host "Ensuring users and role assignments for API Application exist"
         $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.users -KeyVaultName $KeyVaultName
     }
 
     # 3 - Validating client applications
     $environmentClientApplications = @()
-    Write-Host "Ensuring client application exists"
-    foreach ($clientApp in $testAuthEnvironment.clientApplications) {
-        $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
-        $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
+    if ($testAuthEnvironment.clientApplications -and $testAuthEnvironment.clientApplications.length -gt 0) {
+        Write-Host "Ensuring client application exists"
+        foreach ($clientApp in $testAuthEnvironment.clientApplications) {
+            $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
+            $mgClientApplication = Get-AzureAdApplicationByDisplayName $displayName
 
-        $publicClient = -not $clientApp.roles
+            $publicClient = -not $clientApp.roles
 
-        if (!$aadClientApplication) {
+            if (!$mgClientApplication) {
 
-            $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
+                $mgClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
-            Set-Secret -Name secretSecure -Secret $aadClientApplication.AppSecret
+            Set-Secret -Name secretSecure -Secret $mgClientApplication.AppSecret
             $secretSecureString = Get-Secret -Name secretSecure
 
         }
         else {
-            $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
-            $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
+            # Remove existing password credentials and create new ones using Microsoft Graph
+            $existingCredentials = Get-MgApplication -ApplicationId $mgClientApplication.Id | Select-Object -ExpandProperty PasswordCredentials
+            if ($existingCredentials) {
+                # Remove all existing password credentials
+                foreach ($credential in $existingCredentials) {
+                    Remove-MgApplicationPassword -ApplicationId $mgClientApplication.Id -KeyId $credential.KeyId
+                }
+            }
+            
+            # Create new password credential
+            $passwordCredential = @{
+                displayName = "Generated by Add-AadTestAuthEnvironment"
+            }
+            $newPassword = Add-MgApplicationPassword -ApplicationId $mgClientApplication.Id -PasswordCredential $passwordCredential
 
-            Set-Secret -Name secretSecure -Secret $newPassword.Value
+            Set-Secret -Name secretSecure -Secret $newPassword.SecretText
             $secretSecureString = Get-Secret -Name secretSecure 
         }
 
         if ($publicClient) {
-            Grant-ClientAppDelegatedPermissions -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential -ResourceApplicationId $application.AppId
+            Grant-ClientAppDelegatedPermissions -AppId $mgClientApplication.AppId -TenantAdminCredential $TenantAdminCredential -ResourceApplicationId $application.AppId
 
             # The public client (native app) is being used as SMART on FHIR client app in testing.
-            New-FhirServerSmartClientReplyUrl -AppId $aadClientApplication.AppId -FhirServerUrl $fhirServiceAudience -ReplyUrl "https://localhost:6001/sampleapp/index.html"
+            New-FhirServerSmartClientReplyUrl -AppId $mgClientApplication.AppId -FhirServerUrl $fhirServiceAudience -ReplyUrl "https://localhost:6001/sampleapp/index.html"
         }
 
         $environmentClientApplications += @{
             id          = $clientApp.Id
             displayName = $displayName
-            appId       = $aadClientApplication.AppId
+            appId       = $mgClientApplication.AppId
         }
 
-        Set-Secret -Name appIdSecure -Secret $aadClientApplication.AppId
+        Set-Secret -Name appIdSecure -Secret $mgClientApplication.AppId
         $appIdSecureString = Get-Secret -Name appIdSecure
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null
 
-        Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $aadClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
+        Set-FhirServerClientAppRoleAssignments -ApiAppId $application.AppId -AppId $mgClientApplication.AppId -AppRoles $clientApp.roles | Out-Null
+        }
     }
 
     @{

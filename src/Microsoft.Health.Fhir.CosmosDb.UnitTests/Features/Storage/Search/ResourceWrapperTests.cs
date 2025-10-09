@@ -64,7 +64,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             Assert.Equal("version1", historyRecord.Version);
         }
 
-#if NET8_0_OR_GREATER
         [Fact]
         public void GivenAResource_WhenCreatingAResourceWrapper_ThenMetaPropertiesAreCorrect()
         {
@@ -88,6 +87,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 Assert.Equal("test", poco.Meta.Profile.First());
             }
         }
-#endif
     }
 }

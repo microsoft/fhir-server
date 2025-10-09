@@ -27,7 +27,6 @@ using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Health;
@@ -36,8 +35,8 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -215,6 +214,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddScoped();
 
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
+
+            services.AddScoped<IDocRefRequestConverter, DocRefRequestConverter>();
         }
     }
 }

@@ -105,7 +105,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             int rangeSize,
             int numberOfRanges,
             bool up,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool? activeOnly = false);
 
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
