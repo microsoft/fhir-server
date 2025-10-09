@@ -3290,7 +3290,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
-        public async Task GivenSmartV2GranularScopeWithCodeFilter_WhenSearchingObservationsWithInclude_ThenObservationsAndIncludedPatientsReturned()
+        public async Task GivenSmartV2GranularScopeWithCodeAndGenderFilter_WhenSearchingObservationsWithInclude_ThenObservationsAndIncludedPatientsReturned()
         {
             Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
@@ -3299,15 +3299,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             /*
              * Test validates that _include respects scope restrictions with granular scopes
-             * scopes = patient/Observation.s?code=http://loinc.org|4548-4 (Observation scope ONLY, no Patient scope)
+             * scopes = patient/Observation.s?code=http://loinc.org|4548-4 patient/Practitioner.s?gender=female (Observation scope with specific code and female Practitioners ONLY, no Patient scope)
              * Since there is no Patient scope, included Patients should NOT be returned (secure behavior)
-             * Only observations with code 4548-4 should be returned, WITHOUT included Patient resources
+             * There are no female practitioners. Only observations with code 4548-4 should be returned, WITHOUT included Patient resources
              */
-            var scopeRestriction = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction }, true);
+            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
+            var scopeRestriction2 = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "female")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 }, true);
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
+            // Include with Observation:subject
             // Search for Observation resources with _include=Observation:subject (tries to include Patient)
             // Should return ONLY smart-observation-A1 (which has code 4548-4), NOT the Patient (no Patient scope)
             var query = new List<Tuple<string, string>>();
@@ -3319,11 +3321,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
 
             // Verify that Patient is NOT included (because there's no Patient scope)
-            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Patient");
-
             // Verify that smart-observation-A2 (with different code) is NOT included
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Patient");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
 
+            // Include with wildcard
             query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_include", "*:*"));
             results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
@@ -3333,34 +3335,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
 
             // Verify that Patient is NOT included (because there's no Patient scope)
+            // Verify that smart-observation-A2 (with different code) is NOT included and male Practioner is not included
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Patient");
-
-            // Verify that smart-observation-A2 (with different code) is NOT included
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
-
-            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
-            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
-            var scopeRestriction3 = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", null);
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2, scopeRestriction3 }, false);
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_include", "*:*"));
-            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
-
-            scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
-            scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
-            scopeRestriction3 = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "female")));
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2, scopeRestriction3 }, true);
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("_include", "*:*"));
-            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
-            Assert.NotEmpty(results.Results);
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
         }
 
         [SkippableFact]
@@ -3373,12 +3351,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             /*
              * Test validates that _include works with granular scopes when BOTH resource types are in scopes
-             * scopes = patient/Observation.s?code=http://loinc.org|4548-4 AND patient/Patient.s
+             * scopes = patient/Observation.s?code=http://loinc.org|4548-4 AND patient/Patient.s patient/Practitioner.s?gender=female
              * With both scopes present, included Patients SHOULD be returned
              */
             var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
             var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, patientScope }, true);
+            var practitionerScope = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "female")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, patientScope, practitionerScope }, true);
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
@@ -3395,6 +3374,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Verify that smart-observation-A2 (with different code) is NOT included
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+
+            // Search for Observation with status=final and _include
+            // Granular scope limits to code 4548-4, user query adds status=final filter
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("status", "final"));
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.NotEmpty(results.Results);
+
+            // Should get smart-observation-A1 (code=4548-4 AND status=final) and smart-patient-A
+            Assert.True(results.Results.Count() == 2, $"Expected 2 results (1 Observation + 1 Patient), got {results.Results.Count()}");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
+
+            // Verify smart-observation-A2 is NOT included (different code) and male practitioner is not included
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
+
+            // Include with wildcard
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "*:*"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.True(results.Results.Count() == 2, $"Expected 2 results (Observation + Patient), got {results.Results.Count()}");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
+
+            // Verify that smart-observation-A2 (with different code) is NOT included and male Practioner is not included
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
         }
 
         [SkippableFact]
@@ -3407,12 +3417,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             /*
              * Test validates that _revinclude works with granular scopes containing search parameters
-             * scopes = patient/Patient.s?name=SMARTGivenName1 AND patient/Observation.s
+             * scopes = patient/Patient.s?name=SMARTGivenName1 AND patient/Observation.s AND patient/Practitioner.s?gender=female
              * Only patient with name=SMARTGivenName1 and all observations should be returned
              */
             var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1")));
             var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { patientScope, observationScope }, true);
+            var practitionerScope = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "female")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { patientScope, observationScope, practitionerScope }, true);
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
@@ -3427,44 +3438,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A2" && r.Resource.ResourceTypeName == "Observation");
-        }
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
 
-        [SkippableFact]
-        public async Task GivenSmartV2MultipleGranularScopesWithFilters_WhenSearchingWithIncludeAndAdditionalParams_ThenCorrectResourcesReturned()
-        {
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4 and R4B");
-
-            /*
-             * Test validates complex scenario with multiple granular scopes, includes, and additional query parameters
-             * scopes = patient/Observation.s?code=http://loinc.org|4548-4 AND patient/Patient.s
-             * Search: Observation?status=final&_include=Observation:subject
-             * Should return: observations with code 4548-4 AND status=final, plus included patients
-             */
-            var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
-            var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, patientScope }, true);
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
-            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
-
-            // Search for Observation with status=final and _include
-            // Granular scope limits to code 4548-4, user query adds status=final filter
-            var query = new List<Tuple<string, string>>();
-            query.Add(new Tuple<string, string>("status", "final"));
-            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
-            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
-
+            // Revinclude with wildcard
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_revinclude", "*:*"));
+            results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
             Assert.NotEmpty(results.Results);
 
-            // Should get smart-observation-A1 (code=4548-4 AND status=final) and smart-patient-A
-            Assert.True(results.Results.Count() == 2, $"Expected 2 results (1 Observation + 1 Patient), got {results.Results.Count()}");
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
-            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
-
-            // Verify smart-observation-A2 is NOT included (different code)
-            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+            // Verify no male Practioner is included
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
         }
     }
 }
