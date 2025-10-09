@@ -462,8 +462,14 @@ Authorization: Bearer {{searchBearer.response.body.access_token}}
 GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner&_include=Observation:subject
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
+### Should return patient, 1 observations, 1 practitioner B, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
+Authorization: Bearer {{searchBearer.response.body.access_token}}
 
-_include=Patient:organization&_revinclude=MedicationDispense:subject&_revinclude=DiagnosticReport:subject&_count=4&_includesCount=2
+### Should return patient, 1 observations, 2 practitioners B and C, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=MedicationRequest:requester&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
 
 #############################################################################################################################################
 ### Get token with SMART v2 Search permission
@@ -501,7 +507,7 @@ content-type: application/x-www-form-urlencoded
 grant_type=client_credentials
 &client_id=smartUserClient
 &client_secret=smartUserClient
-&scope=patient/Patient.s patient/Observation.s?code=http://loinc.org|55233-1 patient/Practitioner.s?gender=female
+&scope=patient/MedicationDispense.s patient/MedicationRequest.s patient/Organization.s patient/Patient.s patient/Observation.s?code=http://loinc.org|55233-1 patient/Practitioner.s?gender=female
 
 ### Should return patient, 1 observation with code, no Practitioner as no female practitioner in compartment
 GET https://{{hostname}}/Observation?_include=*:*
@@ -521,6 +527,14 @@ Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ### Should return patient, 2 observation with code, no Practitioner as no female practitioner in compartment
 GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner&_include=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observations, No practitioner B as its a male practitioner, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observations, No practitioner B as its a male practitioner but includes Practitioner C, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=MedicationRequest:requester&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 #################################################################################################################################################
@@ -554,6 +568,9 @@ Authorization: Bearer {{searchBearer.response.body.access_token}}
 GET https://{{hostname}}/MedicationRequest?_revinclude=MedicationDispense:prescription:MedicationRequest&_id=smart-medicationrequest-smartUserClient
 Authorization: Bearer {{searchBearer.response.body.access_token}}
 
+### Should return patient, 2 observations, 1 practitioner
+GET https://{{hostname}}/MedicationRequest?_revinclude:iterate=MedicationDispense:prescription:MedicationRequest
+Authorization: Bearer {{searchBearer.response.body.access_token}}
 #############################################################################################################################################
 ### Get token with SMART v2 Search permission
 # @name searchBearer
