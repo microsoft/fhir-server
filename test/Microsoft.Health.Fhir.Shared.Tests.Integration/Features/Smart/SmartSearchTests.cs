@@ -3323,6 +3323,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Verify that smart-observation-A2 (with different code) is NOT included
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "*:*"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.NotEmpty(results.Results);
+            Assert.True(results.Results.Count() == 1, $"Expected 1 result (Observation only, no Patient due to missing scope), got {results.Results.Count()}");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
+
+            // Verify that Patient is NOT included (because there's no Patient scope)
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Patient");
+
+            // Verify that smart-observation-A2 (with different code) is NOT included
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
+
+            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopeRestriction3 = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2, scopeRestriction3 }, false);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "*:*"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+
+            scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
+            scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            scopeRestriction3 = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "female")));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2, scopeRestriction3 }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "*:*"));
+            results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
         }
 
         [SkippableFact]

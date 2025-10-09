@@ -40,7 +40,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions)})";
+            // Create a string representation of each inner expression
+            string innerExpressions = string.Join(" OR ", Expressions.Select(e => e.ToString()));
+            return $"(Union ({Operator}) [{innerExpressions}])";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

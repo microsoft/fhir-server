@@ -760,16 +760,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
-                // Throw 400 if chained, include or revinclude request with ApplyFineGrainedAccessControlWithSearchParameters
-                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
-                {
-                    bool containsChainParam = searchParams.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
-                    if (containsChainParam || searchParams.Include.Any() || searchParams.RevInclude.Any())
-                    {
-                        throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
-                    }
-                }
-
                 bool allowAllResourceTypes = false;
                 var clinicalScopeResources = new List<ResourceType>();
                 var finalSmartSearchExpressions = new List<Expression>();
@@ -785,6 +775,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         // This should get ANDed with main query and be applied as a common search parameter across all resource types
                         if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
                         {
+                            // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
+                            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
+                            {
+                                bool containsComplexParam = restriction.SearchParameters.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
+                                if (containsComplexParam || restriction.SearchParameters.Include.Any() || restriction.SearchParameters.RevInclude.Any())
+                                {
+                                    throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
+                                }
+                            }
+
                             foreach (var param in restriction.SearchParameters.Parameters)
                             {
                                searchParams.Add(param.Item1, param.Item2);
@@ -806,6 +806,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // If search parameters are defined in the restriction, add them to searchParams.
                     if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
                     {
+                        // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
+                        if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
+                        {
+                            bool containsComplexParam = restriction.SearchParameters.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
+                            if (containsComplexParam || restriction.SearchParameters.Include.Any() || restriction.SearchParameters.RevInclude.Any())
+                            {
+                                throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
+                            }
+                        }
+
                         var andedSmartSmartSearchExpressions = new List<Expression>();
                         foreach (var param in restriction.SearchParameters.Parameters)
                         {
