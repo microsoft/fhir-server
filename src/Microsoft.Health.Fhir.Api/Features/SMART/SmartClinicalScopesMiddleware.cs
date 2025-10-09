@@ -37,8 +37,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         // v1: http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         // v2: http://hl7.org/fhir/smart-app-launch/scopes-and-launch-context/index.html#scopes-for-requesting-fhir-resources
         private static readonly Regex ClinicalScopeRegEx = new Regex(
-            @"(^|\s+)(?<id>patient|user|system)(/|\$|\.)(?<resource>\*|[a-zA-Z]*|all)\.(?<accessLevel>read|write|\*|all|[cruds]+)(?:\?(?<searchParams>([a-zA-Z0-9_\-]+=[^&\s]+)(&[a-zA-Z0-9_\-]+=[^&\s]+)*))?",
-            RegexOptions.Compiled);
+            @"(?:^|\s+)(?<id>patient|user|system)(?>/|\$|\.)(?<resource>\*|(?>[a-zA-Z]+)|all)\.(?<accessLevel>read|write|\*|all|(?>[cruds]+))(?:\?(?<searchParams>(?>[a-zA-Z0-9_\-]+=[^&\s]+)(?>&[a-zA-Z0-9_\-]+=[^&\s]+)*))?",
+            RegexOptions.Compiled,
+            TimeSpan.FromMilliseconds(100));
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
