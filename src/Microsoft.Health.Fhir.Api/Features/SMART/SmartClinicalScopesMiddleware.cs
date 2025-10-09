@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 }
                             }
 
-                            fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id, smartScopeSearchParameters));
+                            fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id, smartScopeSearchParameters.Parameters.Any() ? smartScopeSearchParameters : null));
 
                             scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
 
