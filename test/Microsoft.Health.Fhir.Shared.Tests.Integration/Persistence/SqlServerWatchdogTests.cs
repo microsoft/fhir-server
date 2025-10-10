@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
@@ -93,7 +94,6 @@ ALTER INDEX PKC ON dbo.DefragBlockingTestTable REORGANIZE
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Reorganize',@Start=@st
                  "));
 
-            var cancelStats = new CancellationTokenSource();
             var stats = Task.Run(async () => await ExecuteSqlAsync(
                 @"
 WAITFOR DELAY '00:00:01'
@@ -102,7 +102,7 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target=
 UPDATE STATISTICS dbo.DefragBlockingTestTable WITH FULLSCAN, ALL
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='UpdateStats',@Start=@st
                 ",
-                cancelStats.Token)); // This is the only cancel that is truly needed
+                CancellationToken.None));
 
             var cancelQueries = new CancellationTokenSource();
             var queries = new List<Task>();
@@ -126,7 +126,7 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='" + iInt + @
 
             const int maxWait = 5000;
             var monitor = Task.Run(() => ExecuteSql(@"
-DECLARE @st datetime = getUTCdate()
+DECLARE @st datetime = getUTCdate(), @blocking varchar(10)
 IF object_id('Sessions') IS NOT NULL DROP TABLE dbo.Sessions
 SELECT Date = getUTCDate(), command, S.status, S.session_id, blocking_session_id, wait_type, wait_resource, wait_time, last_request_start_time
   INTO dbo.Sessions
@@ -148,10 +148,17 @@ BEGIN
         AND wait_type <> 'WAITFOR'
   WAITFOR DELAY '00:00:01'
 END
+
+SET @blocking = (SELECT TOP 1 blocking_session_id 
+                   FROM dbo.Sessions 
+                   WHERE wait_type = 'LCK_M_SCH_S' 
+                     AND command = 'SELECT'
+                     AND wait_time > " + maxWait + @")
+IF @blocking IS NOT NULL
+  EXECUTE('kill ' + @blocking)
                 "));
 
             await Task.WhenAll(monitor);
-            cancelStats.Cancel();
 
             await Task.Delay(2000);
             cancelQueries.Cancel();
@@ -565,7 +572,8 @@ RAISERROR('Test',18,127)
             }
             catch (SqlException e)
             {
-                if (!e.ToString().Contains("Operation cancelled by user"))
+                if (!e.ToString().Contains("Operation cancelled by user")
+                    && !e.ToString().Contains("session is in the kill state"))
                 {
                     throw;
                 }
