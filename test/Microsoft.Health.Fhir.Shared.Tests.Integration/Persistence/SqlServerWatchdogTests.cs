@@ -156,7 +156,13 @@ SET @blocking = (SELECT TOP 1 blocking_session_id
                      AND command = 'SELECT'
                      AND wait_time > " + maxWait + @")
 IF @blocking IS NOT NULL
-  EXECUTE('kill ' + @blocking)
+  BEGIN TRY
+    EXECUTE('kill ' + @blocking)
+  END TRY
+  BEGIN CATCH
+    IF error_message() NOT LIKE '%is not an active process%'
+      THROW
+  END CATCH
                 "));
 
             await Task.WhenAll(monitor);
