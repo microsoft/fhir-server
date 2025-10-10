@@ -268,6 +268,7 @@
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "acrPullRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
         "cosmosDbDataContributorRoleId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('serviceName'), '00000000-0000-0000-0000-000000000002')]",
+        "cosmosDbDataReaderRoleId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('serviceName'), '00000000-0000-0000-0000-000000000001')]",
         "cosmosDbControlPlaneContributorRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '230815da-be43-4aae-9cb4-875f7bd000aa')]",
         "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
         "enableIntegrationStore": "[or(parameters('enableExport'), parameters('enableImport'))]",
@@ -524,6 +525,21 @@
             ],
             "properties": {
                 "roleDefinitionId": "[variables('cosmosDbDataContributorRoleId')]",
+                "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
+                "scope": "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB', parameters('fhirVersion'), variables('serviceName'))))]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
+                "[variables('appServiceResourceId')]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[variables('cosmosDbDataReaderRoleId')]",
                 "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
                 "scope": "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
             }
