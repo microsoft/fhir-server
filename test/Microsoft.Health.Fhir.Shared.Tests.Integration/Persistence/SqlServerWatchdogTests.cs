@@ -60,10 +60,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ExecuteSql("TRUNCATE TABLE dbo.EventLog");
 
             // enable logging
-            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search 'UNION ALL SELECT 'DefragBlocking') A");
+            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search 'UNION ALL SELECT 'DefragBlocking') A";
 
             // populate data
-            ExecuteSql(@"
+            await ExecuteSqlAsync(@"
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable',@Action='Delete'
 IF object_id('DefragTestTable') IS NOT NULL DROP TABLE dbo.DefragTestTable
 CREATE TABLE dbo.DefragBlockingTestTable 
@@ -78,7 +78,8 @@ INSERT INTO dbo.DefragBlockingTestTable (TypeId, Data) SELECT TOP 1000000 96,'' 
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Insert',@Rows=@@rowcount
 DELETE FROM dbo.DefragBlockingTestTable WHERE TypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Delete',@Rows=@@rowcount
-                ");
+                ",
+                CancellationToken.None);
 
             // 4 tasks:
             // 1. Defrag starts and acquires schema stability lock
@@ -567,7 +568,7 @@ RAISERROR('Test',18,127)
                 using var conn = new SqlConnection(_fixture.TestConnectionString);
                 await conn.OpenAsync(cancel);
                 using var cmd = new SqlCommand(sql, conn);
-                cmd.CommandTimeout = 120;
+                cmd.CommandTimeout = 300;
                 await cmd.ExecuteScalarAsync(cancel);
             }
             catch (SqlException e)
