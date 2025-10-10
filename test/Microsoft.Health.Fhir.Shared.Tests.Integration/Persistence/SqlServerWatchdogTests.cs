@@ -105,7 +105,7 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
                 ",
                 CancellationToken.None));
 
-            var cancelQueries = new CancellationTokenSource();
+            using var cancelQueries = new CancellationTokenSource();
             var queries = new List<Task>();
             for (var i = 0; i < 30; i++)
             {
