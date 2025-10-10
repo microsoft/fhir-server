@@ -1308,7 +1308,7 @@
 						}
 					]
 				},
-				"status": "final",
+				"status": "registered",
 				"code": {
 					"coding": [
 						{

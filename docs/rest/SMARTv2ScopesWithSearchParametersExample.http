@@ -571,6 +571,7 @@ Authorization: Bearer {{searchBearer.response.body.access_token}}
 ### Should return patient, 2 observations, 1 practitioner
 GET https://{{hostname}}/MedicationRequest?_revinclude:iterate=MedicationDispense:prescription:MedicationRequest
 Authorization: Bearer {{searchBearer.response.body.access_token}}
+
 #############################################################################################################################################
 ### Get token with SMART v2 Search permission
 # @name searchBearer
@@ -604,4 +605,83 @@ Authorization: Bearer {{searchBearer.response.body.access_token}}
 
 ### Unauthhorized as MedicationRequest not in scope
 GET https://{{hostname}}/MedicationRequest?_include=MedicationRequest:patient&_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s
+
+### Should succeed and return Observations for smartUserClient
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Observations for smartUserClient with code and status=final
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient&code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient.organization.address-city=Seattle
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}?_type=Patient,Device&_has:Observation:subject:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._type=Patient&subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s?status=registered patient/Patient.s patient/DiagnosticReport.s?status=final
+
+### Should succeed and return 1 Observation for smartUserClient
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return nothing
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient&code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return 1 DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient.organization.address-city=Seattle
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return 1 DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}?_type=Patient,Device&_has:Observation:subject:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 1 DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._type=Patient&subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
 Authorization: Bearer {{searchBearer.response.body.access_token}}
