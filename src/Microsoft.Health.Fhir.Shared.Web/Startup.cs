@@ -242,6 +242,22 @@ namespace Microsoft.Health.Fhir.Web
 
         private static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
         {
+            // Check if OpenIddict development identity provider is enabled by reading configuration directly
+            var serviceProvider = services.BuildServiceProvider();
+            var configuration = serviceProvider.GetService<IConfiguration>();
+
+            if (configuration != null)
+            {
+                var developmentIdpEnabled = configuration.GetValue<bool>("DevelopmentIdentityProvider:Enabled");
+                var testAuthFilePath = configuration["TestAuthEnvironment:FilePath"];
+
+                // If either DevelopmentIdentityProvider is explicitly enabled OR testauthenvironment.json is configured
+                if (developmentIdpEnabled || !string.IsNullOrWhiteSpace(testAuthFilePath))
+                {
+                    return; // Don't register JWT Bearer when OpenIddict is handling authentication
+                }
+            }
+
             // Note: This method is still used to configure JWT Bearer for non–OpenIddict tokens.
             services.AddAuthentication(options =>
             {
