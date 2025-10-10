@@ -571,7 +571,7 @@ RAISERROR('Test',18,127)
                 cmd.CommandTimeout = 300;
                 await cmd.ExecuteScalarAsync(cancel);
             }
-            catch (SqlException e)
+            catch (Exception e)
             {
                 if (!e.ToString().Contains("cancelled")
                     && !e.ToString().Contains("session is in the kill state"))
