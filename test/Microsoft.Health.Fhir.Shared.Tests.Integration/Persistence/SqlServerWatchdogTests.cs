@@ -573,7 +573,7 @@ RAISERROR('Test',18,127)
             }
             catch (SqlException e)
             {
-                if (!e.ToString().Contains("Operation cancelled by user")
+                if (!e.ToString().Contains("cancelled")
                     && !e.ToString().Contains("session is in the kill state"))
                 {
                     throw;
