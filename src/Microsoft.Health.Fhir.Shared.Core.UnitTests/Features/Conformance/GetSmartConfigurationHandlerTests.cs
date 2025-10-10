@@ -64,6 +64,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                         "permission-patient",
                         "permission-user",
                     });
+
+            // Verify SMART v2 scopes are included
+            Assert.NotNull(response.ScopesSupported);
         }
 
         [Fact]

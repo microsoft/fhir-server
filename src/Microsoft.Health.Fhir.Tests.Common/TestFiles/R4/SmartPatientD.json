@@ -753,7 +753,7 @@
                     ]
                 },
                 "subject": {
-                    "reference": "Patient/9323ee3e-666f-4371-D6b6-4ec73873f27b",
+                    "reference": "Patient/smart-patient-D",
                     "display": "P. van de Heuvel"
                 },
                 "participant": [

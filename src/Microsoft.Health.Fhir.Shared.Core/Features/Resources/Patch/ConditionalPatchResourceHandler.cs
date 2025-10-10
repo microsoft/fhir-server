@@ -65,5 +65,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             var patchedResource = request.Payload.Patch(match.Resource);
             return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null), cancellationToken);
         }
+
+        /// <summary>
+        /// Conditional patch requires search permissions (to find existing resources) and update permissions (for modifications).
+        /// Legacy: Read + Write, SMART v2: Search + Update
+        /// </summary>
+        protected override (DataActions legacyPermissions, DataActions granularPermissions) GetRequiredPermissions(ConditionalPatchResourceRequest request)
+        {
+            return (DataActions.Read | DataActions.Write, DataActions.Search | DataActions.Update);
+        }
     }
 }

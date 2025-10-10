@@ -96,6 +96,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             // Setup the search parameters.
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
+            _searchParameterExpressionParser
+                .Parse(Arg.Any<SearchParameterInfo>(), Arg.Any<SearchModifier>(), Arg.Any<string>())
+                .Returns(Substitute.For<Expression>());
 
             // Parse the expression.
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value));

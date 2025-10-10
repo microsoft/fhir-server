@@ -33,11 +33,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleTestsCommonFunctions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ReferenceRemoverTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\ConditionalPatchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalDelete.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\BulkUpdateServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToNumberSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToQuantitySearchValueConverterTests.cs" />

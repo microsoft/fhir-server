@@ -47,7 +47,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Write, cancellationToken) != DataActions.Write)
+            // Check for granular Create permission (SMART v2) or legacy Write permission (SMART v1/backward compatibility)
+            DataActions requiredActions = DataActions.Create | DataActions.Write;
+            DataActions allowedActions = await AuthorizationService.CheckAccess(requiredActions, cancellationToken);
+
+            if ((allowedActions & requiredActions) == DataActions.None)
             {
                 throw new UnauthorizedFhirActionException();
             }

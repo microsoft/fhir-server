@@ -737,6 +737,16 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Include, RevInclude and Chained searches do not support SMART V2 finer-grained resource constraints using search parameters..
+        /// </summary>
+        internal static string IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters {
+            get {
+                return ResourceManager.GetString("IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingS" +
+                        "earchParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The target resource type cannot be empty..
         /// </summary>
         internal static string IncludeRevIncludeInvalidTargetResourceType {

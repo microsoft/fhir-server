@@ -49,7 +49,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
+            // Check for either legacy Read permission or new SMART v2 ReadV2 permission
+            var grantedAccess = await AuthorizationService.CheckAccess(DataActions.Read | DataActions.ReadById, cancellationToken);
+            if ((grantedAccess & (DataActions.Read | DataActions.ReadById)) == DataActions.None)
             {
                 throw new UnauthorizedFhirActionException();
             }

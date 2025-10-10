@@ -65,6 +65,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceTypes, key.AsSpan(), value);
         }
 
+        /// <summary>
+        /// Checks if the given key contains either the reverse chain parameter or a chain parameter.
+        /// </summary>
+        /// <param name="key">The key to check.</param>
+        /// <returns>True if the key contains either parameter; otherwise, false.</returns>
+        public static bool ContainsChainOrReverseParameter(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            ReadOnlySpan<char> keySpan = key.AsSpan();
+
+            // If the key starts with the reverse chain parameter, return true.
+            if (TryConsume(ReverseChainParameter.AsSpan(), ref keySpan))
+            {
+                return true;
+            }
+
+            // If a chain parameter ('.') is found, return true.
+            if (TrySplit(ChainParameter, ref keySpan, out _))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate, IReadOnlyCollection<string> allowedResourceTypesByScope)
         {
             var valueSpan = includeValue.AsSpan();

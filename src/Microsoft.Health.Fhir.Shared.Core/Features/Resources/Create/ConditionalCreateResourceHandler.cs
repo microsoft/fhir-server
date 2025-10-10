@@ -51,5 +51,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             var saveOutcome = new SaveOutcome(new Models.RawResourceElement(match.Resource), SaveOutcomeType.MatchFound);
             return Task.FromResult<UpsertResourceResponse>(new UpsertResourceResponse(saveOutcome));
         }
+
+        /// <summary>
+        /// Conditional create requires search permissions (to find existing resources) and create permissions (for new resources).
+        /// Legacy: Read + Write, SMART v2: Search + Create
+        /// </summary>
+        protected override (DataActions legacyPermissions, DataActions granularPermissions) GetRequiredPermissions(ConditionalCreateResourceRequest request)
+        {
+            return (DataActions.Read | DataActions.Write, DataActions.Search | DataActions.Create);
+        }
     }
 }

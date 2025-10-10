@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -29,6 +31,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
@@ -72,6 +75,120 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _sortingValidator,
                 new ExpressionAccessControl(contextAccessor),
                 NullLogger<SearchOptionsFactory>.Instance);
+        }
+
+        public static IEnumerable<object[]> GetSearchParameterTestData
+        {
+            get
+            {
+                yield return new object[]
+                {
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Patient", DataActions.Read, "patient", new SearchParams("code1", "foo")),
+                        new ScopeRestriction("Observation", DataActions.Read, "patient", new SearchParams("code2", "doo")),
+                    },
+                    new List<Tuple<string, string>>(),
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))]))",
+                };
+                yield return new object[]
+                {
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Patient", DataActions.Read, "patient", CreateSearchParams(("code1", "foo"), ("code2", "goo"))),
+                        new ScopeRestriction("Observation", DataActions.Read, "patient", CreateSearchParams(("code2", "doo"))),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_type", "Patient,Observation,Practitioner"),
+                        Tuple.Create("tag", "xyz"),
+                    },
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))]) _type=Patient,Observation,Practitioner tag=xyz)",
+                };
+                yield return new object[]
+                {
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Patient", DataActions.Read, "patient", CreateSearchParams(("code1", "foo"), ("code2", "goo"))),
+                        new ScopeRestriction("Observation", DataActions.Read, "patient", CreateSearchParams(("code2", "doo"))),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("tag", "xyz"),
+                    },
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))]) tag=xyz)",
+                };
+                yield return new object[]
+                {
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("all", DataActions.Read, "patient", CreateSearchParams(("_type", "Practitioner,CarePlan,Organization"))),
+                        new ScopeRestriction("Observation", DataActions.Read, "patient", CreateSearchParams(("code2", "doo"))),
+                    },
+                    null,
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) _type=Practitioner,CarePlan,Organization)",
+                };
+                yield return new object[]
+                {
+                    // TODO: Check this one
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("all", DataActions.Search, "patient", null),
+                        new ScopeRestriction("Observation", DataActions.Search, "patient", CreateSearchParams(("code2", "doo"))),
+                    },
+                    null,
+                    "(Param ResourceType (StringEquals TokenCode 'Patient'))",
+                };
+                yield return new object[]
+                {
+                    // TODO: Check this one
+                    "Patient",
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("all", DataActions.Search, "patient", CreateSearchParams(("_type", "Observation"))),
+                        new ScopeRestriction("Observation", DataActions.Search, "patient", CreateSearchParams(("code2", "doo"))),
+                    },
+                    null,
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) _type=Observation)",
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("all", DataActions.Search, "patient", null),
+                    },
+                    null,
+                    null,
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Observation", DataActions.Search, "patient", CreateSearchParams(("code1", "doo"))),
+                        new ScopeRestriction("Encounter", DataActions.Search, "patient", CreateSearchParams(("code2", "goo"))),
+                    },
+                    null,
+                    "(Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code1=doo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Encounter')) code2=goo))])",
+                };
+            }
+        }
+
+        private static SearchParams CreateSearchParams(params (string key, string value)[] items)
+        {
+            var searchParams = new SearchParams();
+            foreach (var item in items)
+            {
+                searchParams.Add(item.key, item.value);
+            }
+
+            return searchParams;
         }
 
         [Fact]
@@ -619,6 +736,70 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
         }
 
+        [Theory]
+        [MemberData(nameof(GetSearchParameterTestData))]
+        public void Create_AddsFineGrainedAccessControlWithSearchParametersExpressions_UsingMemberData(string resourceType, List<ScopeRestriction> scopeRestrictions, List<Tuple<string, string>> queryParameters, string expectedSubstring)
+        {
+            // Arrange
+            var stubExpressionParser = Substitute.For<IExpressionParser>();
+            stubExpressionParser.Parse(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(x => new StubExpression($"{x.ArgAt<string>(1)}={x.ArgAt<string>(2)}"));
+            stubExpressionParser.ParseInclude(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyCollection<string>>())
+                .Returns((IncludeExpression)null);
+
+            var stubResourceTypeSearchParameter = new StubSearchParameterInfo("ResourceType", "ResourceType");
+            var stubSearchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            stubSearchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(stubResourceTypeSearchParameter);
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver resolver = () => stubSearchParameterDefinitionManager;
+
+            var fhirRequestContext = new DefaultFhirRequestContext
+            {
+                AccessControlContext = new AccessControlContext
+                {
+                    ApplyFineGrainedAccessControl = true,
+                    ApplyFineGrainedAccessControlWithSearchParameters = true,
+                },
+            };
+
+            foreach (var restriction in scopeRestrictions)
+            {
+                fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(restriction);
+            }
+
+            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            contextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            var dummySortingValidator = Substitute.For<ISortingValidator>();
+            dummySortingValidator.ValidateSorting(
+                Arg.Any<IReadOnlyList<(SearchParameterInfo, Core.Features.Search.SortOrder)>>(),
+                out _).Returns(true);
+
+            var factory = new SearchOptionsFactory(
+                stubExpressionParser,
+                resolver,
+                new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
+                contextAccessor,
+                Substitute.For<ISortingValidator>(),
+                new ExpressionAccessControl(contextAccessor),
+                NullLogger<SearchOptionsFactory>.Instance);
+
+            // Act
+            SearchOptions options = factory.Create(resourceType, queryParameters, onlyIds: false, isIncludesOperation: false);
+
+            // Assert
+            if (string.IsNullOrEmpty(expectedSubstring))
+            {
+                Assert.Null(options.Expression);
+            }
+            else
+            {
+                Assert.NotNull(options.Expression);
+                string expressionText = options.Expression.ToString();
+                Assert.Contains(expectedSubstring, expressionText, System.StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
@@ -628,6 +809,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             bool isIncludesOperation = false)
         {
             return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes, isIncludesOperation: isIncludesOperation);
+        }
+
+        // A simple stub implementation for Expression used in our test.
+        private class StubExpression : Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression
+        {
+            private readonly string _description;
+
+            public StubExpression(string description)
+            {
+                _description = description;
+            }
+
+            public override string ToString() => _description;
+
+            public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+            {
+                hashCode.Add(_description);
+            }
+
+            public override bool ValueInsensitiveEquals(Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression other) =>
+                other is StubExpression se && se._description == _description;
+
+            public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        // A stub for SearchParameterInfo.
+        private class StubSearchParameterInfo : SearchParameterInfo
+        {
+            public StubSearchParameterInfo(string name, string code)
+                : base(name, code)
+            {
+            }
+
+            public override string ToString() => Code;
+        }
+
+        // A dummy implementation of ExpressionAccessControl that does nothing.
+        private class DummyExpressionAccessControl : ExpressionAccessControl
+        {
+            public DummyExpressionAccessControl()
+                : base(null)
+            {
+            }
         }
     }
 }
