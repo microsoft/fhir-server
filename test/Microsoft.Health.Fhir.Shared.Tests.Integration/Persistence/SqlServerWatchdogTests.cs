@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ExecuteSql("TRUNCATE TABLE dbo.EventLog");
 
             // enable logging
-            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search 'UNION ALL SELECT 'DefragBlocking') A";
+            ExecuteSql("INSERT INTO Parameters (Id,Char) SELECT name, 'LogEvent' FROM (SELECT name FROM sys.objects WHERE type = 'p' UNION ALL SELECT 'Search 'UNION ALL SELECT 'DefragBlocking') A");
 
             // populate data
             await ExecuteSqlAsync(@"
