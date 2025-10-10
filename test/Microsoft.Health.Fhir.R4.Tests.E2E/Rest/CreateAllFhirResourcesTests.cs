@@ -26,12 +26,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public partial class CreateAllFhirResourcesTests : IClassFixture<HttpIntegrationTestFixture>
+    public partial class CreateAllFhirResourcesTests : IClassFixture<CreateAllFhirResourcesTestsFixture>
     {
+        private readonly CreateAllFhirResourcesTestsFixture _fixture;
         private readonly TestFhirClient _client;
 
-        public CreateAllFhirResourcesTests(HttpIntegrationTestFixture fixture)
+        public CreateAllFhirResourcesTests(CreateAllFhirResourcesTestsFixture fixture)
         {
+            _fixture = fixture;
             _client = fixture.TestFhirClient;
         }
 
@@ -42,6 +44,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var resourceJson = Samples.GetJsonSample((string)fileName).ToPoco();
             using var resource = await _client.CreateAsync(resourceJson);
             Assert.Equal(System.Net.HttpStatusCode.Created, resource.StatusCode);
+
+            _fixture.ResourcesToCleanup.Add($"{resource.Resource.TypeName}/{resource.Resource.Id}");
         }
 
         public static IEnumerable<object[]> GetResourceFileNames()
