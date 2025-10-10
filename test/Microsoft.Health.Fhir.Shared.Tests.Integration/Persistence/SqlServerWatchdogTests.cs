@@ -579,7 +579,7 @@ RAISERROR('Test',18,127)
             }
             catch (Exception e)
             {
-                if (!e.ToString().Contains("cancelled")
+                if (!e.ToString().Contains("cancel")
                     && !e.ToString().Contains("session is in the kill state"))
                 {
                     throw;
