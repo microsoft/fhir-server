@@ -47,7 +47,8 @@
 					{
 						"family": "practitionerB"
 					}
-				]
+				],
+				"gender":"male"
 			},
             "request": {
                 "method": "PUT",
@@ -72,7 +73,8 @@
 					{
 						"family": "SMARTPractionerC"
 					}
-				]
+				],
+				"gender":"female"
 			},
             "request": {
                 "method": "PUT",
@@ -1306,7 +1308,7 @@
 						}
 					]
 				},
-				"status": "final",
+				"status": "registered",
 				"code": {
 					"coding": [
 						{
@@ -1477,7 +1479,7 @@
 					"reference": "Patient/smartUserClient"
 				},
 				"requester": {
-					"reference": "Practitioner/smart-practitioner-B"
+					"reference": "Practitioner/smart-practitioner-C"
 				}
 			},
             "request": {
