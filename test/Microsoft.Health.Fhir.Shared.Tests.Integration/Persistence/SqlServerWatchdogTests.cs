@@ -63,10 +63,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // populate data
             ExecuteSql(@"
-ALTER DATABASE CURRENT SET ALLOW_SNAPSHOT_ISOLATION ON
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable',@Action='Delete'
 IF object_id('DefragTestTable') IS NOT NULL DROP TABLE dbo.DefragTestTable
-CREATE TABLE dbo.DefragTestTable 
+CREATE TABLE dbo.DefragBlockingTestTable 
   (
     TypeId smallint
    ,Id int IDENTITY(1, 1)
@@ -74,10 +73,10 @@ CREATE TABLE dbo.DefragTestTable
     
     CONSTRAINT PKC PRIMARY KEY CLUSTERED (TypeId, Id)
   )
-INSERT INTO dbo.DefragTestTable (TypeId, Data) SELECT TOP 1000000 96,'' FROM syscolumns A1, syscolumns A2
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable',@Action='Insert',@Rows=@@rowcount
-DELETE FROM dbo.DefragTestTable WHERE TypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
+INSERT INTO dbo.DefragBlockingTestTable (TypeId, Data) SELECT TOP 1000000 96,'' FROM syscolumns A1, syscolumns A2
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Insert',@Rows=@@rowcount
+DELETE FROM dbo.DefragBlockingTestTable WHERE TypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
 
             // 4 tasks:
@@ -89,9 +88,9 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
             var defrag = Task.Run(() => ExecuteSql(
                 @"
 DECLARE @st datetime = getUTCdate()
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable.PKC',@Action='Reorganize'
-ALTER INDEX PKC ON dbo.DefragTestTable REORGANIZE
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable.PKC',@Action='Reorganize',@Start=@st
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragBlockingTestTable',@Action='Reorganize'
+ALTER INDEX PKC ON dbo.DefragBlockingTestTable REORGANIZE
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Reorganize',@Start=@st
                  "));
 
             var cancelStats = new CancellationTokenSource();
@@ -99,9 +98,9 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
                 @"
 WAITFOR DELAY '00:00:01'
 DECLARE @st datetime = getUTCdate()
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable',@Action='UpdateStats'
-UPDATE STATISTICS dbo.DefragTestTable WITH FULLSCAN, ALL
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragTestTable',@Action='UpdateStats',@Start=@st
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragBlockingTestTable',@Action='UpdateStats'
+UPDATE STATISTICS dbo.DefragBlockingTestTable WITH FULLSCAN, ALL
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='UpdateStats',@Start=@st
                 ",
                 cancelStats.Token)); // This is the only cancel that is truly needed
 
@@ -114,13 +113,13 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
                     @"
 WAITFOR DELAY '00:00:" + iInt + @"' -- start every second
 DECLARE @st datetime = getUTCdate(), @Rows int
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='" + iInt + @"',@Target='DefragTestTable',@Action='Select'
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='" + iInt + @"',@Target='DefragBlockingTestTable',@Action='Select'
 -- query should be in a separate batch from logging to correctly record start, hence sp_executeSQL
 EXECUTE sp_executeSQL N'
-  SELECT TOP 100 TypeId, Id FROM dbo.DefragTestTable /* " + iInt + @" */ WHERE TypeId = 96 ORDER BY Id
+  SELECT TOP 100 TypeId, Id FROM dbo.DefragBlockingTestTable /* " + iInt + @" */ WHERE TypeId = 96 ORDER BY Id
   '
 SET @Rows = @@rowcount
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='" + iInt + @"',@Target='DefragTestTable',@Action='Select',@Start=@st,@Rows=@Rows
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='" + iInt + @"',@Target='DefragBlockingTestTable',@Action='Select',@Start=@st,@Rows=@Rows
                     ",
                     cancelQueries.Token))); // Cancel queries for test only.
             }
