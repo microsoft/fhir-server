@@ -85,6 +85,7 @@ jobs:
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
+            isNspExisting = $true
         }
 
         if("${{ parameters.sql }}" -eq "true"){
