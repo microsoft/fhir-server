@@ -238,9 +238,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                         Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
                         job = new ReindexProcessingJob(
                             () => _searchService,
-                            NullLoggerFactory.Instance,
                             fhirDataStoreScope,
-                            _resourceWrapperFactory);
+                            _resourceWrapperFactory,
+                            _searchParameterOperations,
+                            NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
                     {

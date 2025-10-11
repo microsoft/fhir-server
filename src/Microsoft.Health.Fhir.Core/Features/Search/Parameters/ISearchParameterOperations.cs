@@ -26,5 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A task.</returns>
         Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken);
+
+        string GetResourceTypeSearchParameterHashMap(string resourceType);
     }
 }
