@@ -58,6 +58,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _logger = logger;
         }
 
+        public string GetResourceTypeSearchParameterHashMap(string resourceType)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+
+            if (_searchParameterDefinitionManager?.SearchParameterHashMap == null)
+            {
+                return null;
+            }
+            else
+            {
+                if (_searchParameterDefinitionManager.SearchParameterHashMap.TryGetValue(resourceType, out string hash))
+                {
+                    return hash;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+        }
+
         public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
         {
             var searchParameterWrapper = new SearchParameterWrapper(searchParam);

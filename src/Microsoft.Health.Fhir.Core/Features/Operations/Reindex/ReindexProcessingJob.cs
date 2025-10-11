@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -27,33 +28,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     [JobTypeId((int)JobType.ReindexProcessing)]
     public class ReindexProcessingJob : IJob
     {
-        private ILogger<ReindexOrchestratorJob> _logger;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private JobInfo _jobInfo;
-        private ReindexProcessingJobResult _reindexProcessingJobResult;
-        private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
-        private const int MaxTimeoutRetries = 3;
-        private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(MaxTimeoutRetries, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ILogger<ReindexProcessingJob> _logger;
+
+        private JobInfo _jobInfo;
+        private ReindexProcessingJobResult _reindexProcessingJobResult;
+        private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
+        private const int MaxTimeoutRetries = 3;
+
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
-            ILoggerFactory loggerFactory,
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
-            IResourceWrapperFactory resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ISearchParameterOperations searchParameterOperations,
+            ILogger<ReindexProcessingJob> logger)
         {
-            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _logger = loggerFactory.CreateLogger<ReindexOrchestratorJob>();
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
+            _searchParameterOperations = searchParameterOperations;
+            _logger = logger;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -64,9 +71,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
+            await UpdateSearchParametersDefinitionIfRequiredAsync(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
+
             await ProcessQueryAsync(cancellationToken);
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
+        }
+
+        private async Task UpdateSearchParametersDefinitionIfRequiredAsync(JobInfo jobInfo, ReindexProcessingJobDefinition jobDefinition, CancellationToken cancellationToken)
+        {
+            string currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
+
+            // If the hash is different, we need to refresh our local copy of the search parameters.
+            // This ensures that the processing job always uses the latest search parameters.
+
+            if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
+            {
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+
+                currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
+
+                if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
+                {
+                    _logger.LogJobError(
+                        jobInfo,
+                        "Search parameters for resource type {ResourceType} have changed since the Reindex Job was created. Job definition hash: '{CurrentHash}', In-memory hash: '{JobHash}'.",
+                        jobDefinition.ResourceType,
+                        jobDefinition.ResourceTypeSearchParameterHashMap,
+                        currentResourceTypeHash);
+
+                    string message = "Search Parameter hash does not match even after refreshing.";
+                    throw new ReindexJobException(message);
+                }
+            }
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
