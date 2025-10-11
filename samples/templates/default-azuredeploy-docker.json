@@ -517,7 +517,7 @@
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "apiVersion": "2022-11-15",
-            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB', parameters('fhirVersion'), variables('serviceName'))))]",
+            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB-Contributor', parameters('fhirVersion'), variables('serviceName'))))]",
             "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
             "dependsOn": [
                 "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
@@ -532,7 +532,7 @@
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "apiVersion": "2022-11-15",
-            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB', parameters('fhirVersion'), variables('serviceName'))))]",
+            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName'))))]",
             "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
             "dependsOn": [
                 "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
