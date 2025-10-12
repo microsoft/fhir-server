@@ -813,6 +813,7 @@
             "apiVersion": "2020-10-01",
             "name": "waitForRoleAssignments",
             "location": "[resourceGroup().location]",
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "kind": "AzurePowerShell",
             "properties": {
                 "azPowerShellVersion": "3.0",
@@ -822,8 +823,8 @@
                 "cleanupPreference": "OnSuccess"
             },
             "dependsOn": [
-                "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Contributor', parameters('fhirVersion'), variables('serviceName')))), resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
-                "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName')))), resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
+                "[concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Contributor', parameters('fhirVersion'), variables('serviceName'))))]",
+                "[concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName'))))]",
                 "[concat('Microsoft.KeyVault/vaults/', variables('serviceName'), '/providers/Microsoft.Authorization/roleAssignments/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]"
             ]
         },
