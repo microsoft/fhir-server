@@ -173,10 +173,32 @@ IF @blocking IS NOT NULL
             await Task.WhenAll(defrag);
             await Task.WhenAll(stats);
 
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='Select' AND Status = 'End' AND Milliseconds > " + maxWait) > 0, "no long queries");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='Select' AND Status = 'End' AND Milliseconds < 400") > 0, "no short queries");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='Reorganize' AND Status = 'End'") == 1, "defrag not completed");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process='DefragBlocking' AND Action='UpdateStats' AND Status = 'End'") == 0, "stats not cancelled");
+            Assert.True((int)ExecuteSql(@"
+SELECT count(*) 
+  FROM dbo.EventLog S
+  WHERE S.Process = 'DefragBlocking' 
+    AND S.Action = 'UpdateStats' 
+    AND S.Status = 'Start'
+    AND EXISTS (SELECT * 
+                  FROM dbo.EventLog R
+                  WHERE R.Process = 'DefragBlocking' 
+                    AND R.Action = 'Reorganize'
+                    AND R.Status = 'Start'
+                    AND R.EventDate < S.EventDate
+               ) 
+    AND EXISTS (SELECT * 
+                  FROM dbo.EventLog R
+                  WHERE R.Process = 'DefragBlocking' 
+                    AND R.Action = 'Reorganize'
+                    AND R.Status = 'End'
+                    AND R.EventDate > S.EventDate
+               ) 
+            ") > 0,
+            "incorrect execution sequence");
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End' AND Milliseconds > " + maxWait) > 0, "no long queries");
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End' AND Milliseconds < 400") > 0, "no short queries");
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End'") == 1, "defrag not completed");
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'End'") == 0, "stats not cancelled");
         }
 
         [Theory]
