@@ -809,6 +809,25 @@
             }
         },
         {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "waitForRoleAssignments",
+            "location": "[resourceGroup().location]",
+            "kind": "AzurePowerShell",
+            "properties": {
+                "azPowerShellVersion": "3.0",
+                "scriptContent": "Start-Sleep -Seconds 90; Write-Output 'Role assignment propagation wait completed'",
+                "timeout": "PT5M",
+                "retentionInterval": "PT1H",
+                "cleanupPreference": "OnSuccess"
+            },
+            "dependsOn": [
+                "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Contributor', parameters('fhirVersion'), variables('serviceName')))), resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
+                "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName')))), resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
+                "[concat('Microsoft.KeyVault/vaults/', variables('serviceName'), '/providers/Microsoft.Authorization/roleAssignments/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]"
+            ]
+        },
+        {
             "type": "Microsoft.Network/networkSecurityPerimeters",
             "apiVersion": "2023-07-01-preview",
             "name": "[variables('networkSecurityPerimeterName')]",
@@ -837,7 +856,8 @@
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
+                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
+                "[resourceId('Microsoft.Resources/deploymentScripts', 'waitForRoleAssignments')]"
             ],
             "properties": {
                 "privateLinkResource": {
@@ -857,7 +877,8 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
+                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]",
+                "[resourceId('Microsoft.Resources/deploymentScripts', 'waitForRoleAssignments')]"
             ],
             "properties": {
                 "privateLinkResource": {
@@ -877,7 +898,8 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+                "[resourceId('Microsoft.Resources/deploymentScripts', 'waitForRoleAssignments')]"
             ],
             "properties": {
                 "privateLinkResource": {
@@ -897,7 +919,8 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
+                "[resourceId('Microsoft.Resources/deploymentScripts', 'waitForRoleAssignments')]"
             ],
             "properties": {
                 "privateLinkResource": {
