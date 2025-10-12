@@ -1086,7 +1086,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-D";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            var query = new List<Tuple<string, string>>() { new Tuple<string, string>("_revinclude", "*"), new Tuple<string, string>("_id", "smart-patient-D") };
+            var query = new List<Tuple<string, string>>() { new Tuple<string, string>("_revinclude", "*:*"), new Tuple<string, string>("_id", "smart-patient-D") };
             var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
 
             Assert.NotEmpty(results.Results);
@@ -3826,12 +3826,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
              *          No Encounters should be returned if none match status=finished AND class=IMP
              */
             var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
+            var observationScope2 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-9")));
             var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1"), ("gender", "male")));
 
             // Using Encounter with restrictive filters to potentially exclude encounters
             var encounterScope = new ScopeRestriction("Encounter", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "finished")));
 
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, patientScope, encounterScope }, true);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, observationScope2, patientScope, encounterScope }, true);
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
@@ -3851,12 +3852,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Should contain only Observations that match the scope filters (code 55233-1 and status=final)
             var observationResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Observation").ToList();
+            Assert.Single(observationResults);
+            var observationA2result = observationResults.Where(o => o.Resource.ResourceId == "smart-observation-A2");
+            Assert.Empty(observationA2result);
 
-            // Verify observations match the scope criteria
             // Should only contain Encounters that match the scope filters (status=finished AND class=IMP)
             var encounterResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Encounter").ToList();
 
             Assert.NotEmpty(encounterResults);
+            Assert.Single(encounterResults);
+            Assert.Contains(encounterResults, e => e.Resource.ResourceId == "smart-encounter-A1");
 
             // Verify only explicitly requested resource types are included
             var allowedTypes = new[] { "Patient", "Observation", "Encounter" };

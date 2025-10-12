@@ -1023,6 +1023,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         var matchesResourceType = CheckResourceTypeMatches(resourceTypeExpr.Expression, resourceType);
                         if (matchesResourceType)
                         {
+                            var singleScopeANDExpressions = new List<Expression>();
+
                             // Extract just the search parameter filters (not the resource type)
                             // We need to remove the entire sub-expression that contains the resource type filter
                             foreach (MultiaryExpression child in andExpr.Expressions.OfType<MultiaryExpression>())
@@ -1030,20 +1032,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                 var searchParamFilters = child.Expressions.Where(e => !ContainsResourceTypeExpression(e)).ToList();
                                 if (searchParamFilters.Any())
                                 {
-                                    resourceTypeFilters.Add(searchParamFilters.Count == 1 ? searchParamFilters[0] : Expression.And(searchParamFilters.ToArray()));
+                                    singleScopeANDExpressions.Add(searchParamFilters.Count == 1 ? searchParamFilters[0] : Expression.And(searchParamFilters.ToArray()));
                                 }
                             }
+
+                            if (singleScopeANDExpressions.Count == 0)
+                            {
+                                continue;
+                            }
+
+                            resourceTypeFilters.Add(singleScopeANDExpressions.Count == 1 ? singleScopeANDExpressions[0] : Expression.And(singleScopeANDExpressions.ToArray()));
                         }
                     }
                 }
             }
 
-            if (!resourceTypeFilters.Any())
+            if (resourceTypeFilters.Count == 0)
             {
                 return null;
             }
 
-            // Return OR of all filters for this resource type
+            // OR mulitple different SCOPES for the same resource type
             return resourceTypeFilters.Count == 1 ? resourceTypeFilters[0] : Expression.Or(resourceTypeFilters.ToArray());
         }
 
