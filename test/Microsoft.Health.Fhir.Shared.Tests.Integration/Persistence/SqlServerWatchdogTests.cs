@@ -83,8 +83,8 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
             // 4 tasks:
             // 1. Defrag starts and acquires schema stability lock
             // 2. Update stats. Starts after defrag start, tries to acquire schema modification lock, and is blocked by defrag, and waits.
-            // 3. Query. Starts after create stats. Tries to acquire schea stability lock and is blocked by create stats, and waits.
-            // 4. Blocking monitor. Starts before everything. Looks for blocking. When bolocking duration exceeds threashold (1 sec), it cancells defrag.
+            // 3. Query. Starts after stats. Tries to acquire schema stability lock and is blocked by stats, and waits.
+            // 4. Blocking monitor. Starts before everything. Looks for blocking. When bolocking duration exceeds threashold (1 sec), it kills stats.
 
             var defrag = Task.Run(() => ExecuteSql(
                 @"
