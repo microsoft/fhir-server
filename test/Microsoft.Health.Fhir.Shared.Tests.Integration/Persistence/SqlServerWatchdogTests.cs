@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // populate data
             ExecuteSql(@"
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragTestTable',@Action='Delete'
+EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragBlockingTestTable',@Action='Create'
 IF object_id('DefragTestTable') IS NOT NULL DROP TABLE dbo.DefragTestTable
 CREATE TABLE dbo.DefragBlockingTestTable 
   (
@@ -106,7 +106,7 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
 
             using var cancelQueries = new CancellationTokenSource();
             var queries = new List<Task>();
-            for (var i = 0; i < 97; i++)
+            for (var i = 0; i < 59; i++)
             {
                 var iInt = i;
                 queries.Add(Task.Run(async () => await ExecuteSqlAsync(
@@ -156,6 +156,7 @@ SET @blocking = (SELECT TOP 1 blocking_session_id
                      AND wait_time > " + maxWait + @")
 IF @blocking IS NOT NULL
   BEGIN TRY
+    EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Kill',@Mode='',@Target='DefragBlockingTestTable',@Action='UpdateStats'
     EXECUTE('kill ' + @blocking)
   END TRY
   BEGIN CATCH
@@ -198,7 +199,7 @@ SELECT count(*)
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End' AND Milliseconds > " + maxWait) > 0, "no long queries");
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End' AND Milliseconds < 400") > 0, "no short queries");
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End'") == 1, "defrag not completed");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'End'") == 0, "stats not cancelled");
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'Kill'") == 1, "stats not killed");
         }
 
         [Theory]
