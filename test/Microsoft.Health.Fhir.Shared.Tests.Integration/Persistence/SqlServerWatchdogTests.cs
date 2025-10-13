@@ -209,7 +209,8 @@ SELECT count(*)
             ") > 0,
             "incorrect execution sequence");
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End' AND Milliseconds > " + maxWait) > 0, "no long queries");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End' AND Milliseconds < 400") > 0, "no short queries");
+            var minDuration = (int)ExecuteSql("SELECT min(Milliseconds) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End'");
+            Assert.True(minDuration < 400, $"high min duration = {minDuration}");
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End'") == 1, "defrag not completed");
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'Kill'") == 1, "stats not killed");
         }
