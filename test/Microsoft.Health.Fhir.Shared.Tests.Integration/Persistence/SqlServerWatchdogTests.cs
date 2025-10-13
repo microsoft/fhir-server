@@ -57,13 +57,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task DefragBlocking()
         {
+            // I don't know why blocking is not 100% reproduced. Hence this workaround.
             var retries = 0;
             while (true)
             {
                 try
                 {
                     await DefragBlockingMain();
-                    return;
+                    break;
                 }
                 catch (Exception)
                 {
