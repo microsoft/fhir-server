@@ -3400,7 +3400,7 @@ VALUES                                  (@message);
 
 GO
 CREATE PROCEDURE dbo.MergeResources
-@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @OverwriteExisting BIT=0, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
@@ -3448,7 +3448,6 @@ BEGIN TRY
                     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
                     IF @@rowcount = (SELECT count(*)
                                      FROM   @Resources)
-                       AND @OverwriteExisting = 0
                         SET @IsRetry = 1;
                     IF @IsRetry = 0
                         COMMIT TRANSACTION;
@@ -3477,7 +3476,6 @@ BEGIN TRY
                       AND B.IsHistory = 0
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             IF @RaiseExceptionOnConflict = 1
-               AND @OverwriteExisting = 0
                AND EXISTS (SELECT *
                            FROM   @ResourceInfos
                            WHERE  (PreviousVersion IS NOT NULL
@@ -3524,24 +3522,6 @@ BEGIN TRY
                                               AND SurrogateId = ResourceSurrogateId
                                               AND KeepHistory = 0);
                     SET @AffectedRows += @@rowcount;
-                    IF @OverwriteExisting = 1
-                        BEGIN
-                            DECLARE @Cleanup AS TABLE (
-                                SurrogateId BIGINT);
-                            INSERT INTO @Cleanup
-                            SELECT ResourceSurrogateId
-                            FROM   dbo.Resource AS b
-                            WHERE  EXISTS (SELECT *
-                                           FROM   @Resources AS a
-                                           WHERE  a.ResourceTypeId = b.ResourceTypeId
-                                                  AND a.ResourceId = b.ResourceId
-                                                  AND a.ResourceSurrogateId = b.ResourceSurrogateId
-                                                  AND a.Version = b.Version);
-                            DELETE dbo.Resource
-                            WHERE  EXISTS (SELECT *
-                                           FROM   @Cleanup
-                                           WHERE  SurrogateId = ResourceSurrogateId);
-                        END
                     DELETE dbo.ResourceWriteClaim
                     WHERE  EXISTS (SELECT *
                                    FROM   @PreviousSurrogateIds

@@ -77,7 +77,7 @@ BEGIN TRY
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
       -- If all resources being merged are already in the resource table with updated versions this is a retry and only search parameters need to be updated.
-      IF @@rowcount = (SELECT count(*) FROM @Resources) AND @OverwriteExisting = 0 SET @IsRetry = 1
+      IF @@rowcount = (SELECT count(*) FROM @Resources) SET @IsRetry = 1
 
       IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
     END
