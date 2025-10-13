@@ -817,8 +817,8 @@
             "kind": "AzurePowerShell",
             "properties": {
                 "azPowerShellVersion": "3.0",
-                "scriptContent": "Start-Sleep -Seconds 90; Write-Output 'Role assignment propagation wait completed'",
-                "timeout": "PT5M",
+                "scriptContent": "[concat('$maxRetries = 30; $retryCount = 0; $success = $false; do { Start-Sleep -Seconds 10; Write-Output \"Waiting for role assignments to propagate (attempt $($retryCount + 1)/$maxRetries)...\"; try { $cosmosAccount = Get-AzCosmosDBAccount -ResourceGroupName \"', resourceGroup().name, '\" -Name \"', variables('serviceName'), '\" -ErrorAction Stop; Write-Output \"CosmosDB account accessible: $($cosmosAccount.Name)\"; $keyVault = Get-AzKeyVault -ResourceGroupName \"', resourceGroup().name, '\" -VaultName \"', variables('serviceName'), '\" -ErrorAction Stop; Write-Output \"Key Vault accessible: $($keyVault.VaultName)\"; $success = $true; } catch { Write-Output \"Role assignments not yet fully propagated: $($_.Exception.Message)\"; $retryCount++; if ($retryCount -ge $maxRetries) { Write-Error \"Role assignments failed to propagate after maximum retries\"; exit 1; } } } while (-not $success); Write-Output \"Role assignment propagation verified successfully\"')]",
+                "timeout": "PT10M",
                 "retentionInterval": "PT1H",
                 "cleanupPreference": "OnSuccess"
             },
@@ -877,8 +877,7 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]",
-                "[resourceId('Microsoft.Resources/deploymentScripts', 'waitForRoleAssignments')]"
+                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
             ],
             "properties": {
                 "privateLinkResource": {
@@ -898,8 +897,7 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
-                "[resourceId('Microsoft.Resources/deploymentScripts', 'waitForRoleAssignments')]"
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
             ],
             "properties": {
                 "privateLinkResource": {
