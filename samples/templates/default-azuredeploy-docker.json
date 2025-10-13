@@ -817,15 +817,40 @@
             "kind": "AzurePowerShell",
             "properties": {
                 "azPowerShellVersion": "3.0",
-                "scriptContent": "[concat('$maxRetries = 30; $retryCount = 0; $success = $false; do { Start-Sleep -Seconds 10; Write-Output \"Waiting for role assignments to propagate (attempt $($retryCount + 1)/$maxRetries)...\"; try { $cosmosAccount = Get-AzCosmosDBAccount -ResourceGroupName \"', resourceGroup().name, '\" -Name \"', variables('serviceName'), '\" -ErrorAction Stop; Write-Output \"CosmosDB account accessible: $($cosmosAccount.Name)\"; $keyVault = Get-AzKeyVault -ResourceGroupName \"', resourceGroup().name, '\" -VaultName \"', variables('serviceName'), '\" -ErrorAction Stop; Write-Output \"Key Vault accessible: $($keyVault.VaultName)\"; $success = $true; } catch { Write-Output \"Role assignments not yet fully propagated: $($_.Exception.Message)\"; $retryCount++; if ($retryCount -ge $maxRetries) { Write-Error \"Role assignments failed to propagate after maximum retries\"; exit 1; } } } while (-not $success); Write-Output \"Role assignment propagation verified successfully\"')]",
-                "timeout": "PT10M",
+                "scriptContent": "[concat('
+                  Write-Output \"Starting waitForRoleAssignments script for Cosmos DB role assignments...\";
+
+                  $maxRetries = 30
+                  $retryCount = 0
+                  $success = $false
+
+                  do {
+                      Start-Sleep -Seconds 10
+                      $retryCount++
+                      Write-Output \"Attempt $retryCount/$maxRetries: Checking Cosmos DB account access...\"
+
+                      try {
+                          $cosmosAccount = Get-AzCosmosDBAccount -ResourceGroupName \"', resourceGroup().name, '\" -Name \"', variables('serviceName'), '\" -ErrorAction Stop
+                          Write-Output \"Cosmos DB account accessible: $($cosmosAccount.Name)\"
+                          $success = $true
+                      } catch {
+                          Write-Output \"Role assignments not fully propagated yet: $($_.Exception.Message)\"
+                          if ($retryCount -ge $maxRetries) {
+                              Write-Error \"Role assignments failed to propagate after $maxRetries attempts.\"
+                              exit 1
+                          }
+                      }
+                  } while (-not $success)
+
+                  Write-Output \"Cosmos DB role assignment propagation verified successfully.\"
+                ')]",
+                "timeout": "PT20M",
                 "retentionInterval": "PT1H",
                 "cleanupPreference": "OnSuccess"
             },
             "dependsOn": [
                 "[concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Contributor', parameters('fhirVersion'), variables('serviceName'))))]",
-                "[concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName'))))]",
-                "[concat('Microsoft.KeyVault/vaults/', variables('serviceName'), '/providers/Microsoft.Authorization/roleAssignments/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]"
+                "[concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName'))))]"
             ]
         },
         {
