@@ -57,6 +57,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task DefragBlocking()
         {
+            var retries = 0;
+            while (true)
+            {
+                try
+                {
+                    await DefragBlockingMain();
+                    return;
+                }
+                catch (Exception)
+                {
+                    if (retries++ > 3)
+                    {
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private async Task DefragBlockingMain()
+        {
             ExecuteSql("EXECUTE dbo.DefragChangeDatabaseSettings 0");
 
             ExecuteSql("TRUNCATE TABLE dbo.EventLog");
