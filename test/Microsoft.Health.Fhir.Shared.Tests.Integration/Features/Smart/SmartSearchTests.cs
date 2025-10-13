@@ -3756,6 +3756,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // Should contain only Observations that match the scope filters (code 55233-1 and status=final)
             var observationResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Observation").ToList();
+            Assert.Single(observationResults);
 
             // Verify observations match the scope criteria
             // Should only contain Encounters that match the scope filters (status=finished AND class=IMP)
