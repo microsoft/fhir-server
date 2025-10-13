@@ -1740,6 +1740,12 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 return null;
             }
 
+            // If requesting history, but not specific id, then this is not a simple read.
+            if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) && string.IsNullOrEmpty(versionId))
+            {
+                return null;
+            }
+
             try
             {
                 // Create ResourceKey with proper version handling
