@@ -57,6 +57,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task DefragBlocking()
         {
+            ExecuteSql("EXECUTE dbo.DefragChangeDatabaseSettings 0");
+
             ExecuteSql("TRUNCATE TABLE dbo.EventLog");
 
             // enable logging
@@ -65,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // populate data
             ExecuteSql(@"
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragBlockingTestTable',@Action='Create'
-IF object_id('DefragTestTable') IS NOT NULL DROP TABLE dbo.DefragTestTable
+IF object_id('DefragBlockingTestTable') IS NOT NULL DROP TABLE dbo.DefragBlockingTestTable
 CREATE TABLE dbo.DefragBlockingTestTable 
   (
     TypeId smallint
@@ -74,9 +76,9 @@ CREATE TABLE dbo.DefragBlockingTestTable
     
     CONSTRAINT PKC PRIMARY KEY CLUSTERED (TypeId, Id)
   )
-INSERT INTO dbo.DefragBlockingTestTable (TypeId, Data) SELECT TOP 1000000 96,'' FROM syscolumns A1, syscolumns A2
+INSERT INTO dbo.DefragBlockingTestTable (TypeId, Data) SELECT TOP 500000 96,'' FROM syscolumns A1, syscolumns A2
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Insert',@Rows=@@rowcount
-DELETE FROM dbo.DefragBlockingTestTable WHERE TypeId = 96 AND Id % 10 IN (0,1,2,3,4,5,6,7,8)
+DELETE FROM dbo.DefragBlockingTestTable WHERE TypeId = 96 AND Id % 10 IN (0,1,2,3,4)
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
 
@@ -104,20 +106,12 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
                 ",
                 CancellationToken.None));
 
-            using var cancelQueries = new CancellationTokenSource();
             var queries = Task.Run(async () => await ExecuteSqlAsync(
                 @"
 DECLARE @i nvarchar(10) = 0, @st datetime, @SQL nvarchar(4000), @global datetime = getUTCdate()
 WHILE datediff(second,@global,getUTCdate()) < 200 
-      AND NOT EXISTS 
-            (SELECT * 
-               FROM dbo.EventLog
-               WHERE Process = 'DefragBlocking' 
-                 AND Action = 'Reorganize'
-                 AND Status = 'End'
-            ) 
+      AND NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End')
 BEGIN
-  WAITFOR DELAY '00:00:01'
   SET @st = getUTCdate()
   EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode=@i,@Target='DefragBlockingTestTable',@Action='Select'
   -- query should be in a separate batch from logging to correctly record start, hence sp_executeSQL
@@ -125,11 +119,12 @@ BEGIN
   EXECUTE sp_executeSQL @SQL
   EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode=@i,@Target='DefragBlockingTestTable',@Action='Select',@Start=@st,@Rows=@@rowcount
   SET @i = convert(int,@i)+1
+  WAITFOR DELAY '00:00:01'
 END
                 ",
-                cancelQueries.Token)); // Cancel queries for test only.
+                CancellationToken.None));
 
-            const int maxWait = 4000;
+            const int maxWait = 1000;
             var monitor = Task.Run(() => ExecuteSql(@"
 DECLARE @st datetime = getUTCdate(), @blocking varchar(10)
 IF object_id('Sessions') IS NOT NULL DROP TABLE dbo.Sessions
@@ -178,13 +173,11 @@ IF @blocking IS NOT NULL
                 "));
 
             await Task.WhenAll(monitor);
-
-            await Task.Delay(maxWait * 2);
-            cancelQueries.Cancel();
-
             await Task.WhenAll(queries);
             await Task.WhenAll(defrag);
             await Task.WhenAll(stats);
+
+            ExecuteSql("EXECUTE dbo.DefragChangeDatabaseSettings 1");
 
             Assert.True((int)ExecuteSql(@"
 SELECT count(*) 
@@ -208,9 +201,10 @@ SELECT count(*)
                ) 
             ") > 0,
             "incorrect execution sequence");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End' AND Milliseconds > " + maxWait) > 0, "no long queries");
+            var maxDuration = (int)ExecuteSql("SELECT max(Milliseconds) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End'");
+            Assert.True(maxDuration > maxWait, $"low max duration = {maxDuration}");
             var minDuration = (int)ExecuteSql("SELECT min(Milliseconds) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End'");
-            Assert.True(minDuration < 400, $"high min duration = {minDuration}");
+            Assert.True(minDuration < 100, $"high min duration = {minDuration}");
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End'") == 1, "defrag not completed");
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'Kill'") == 1, "stats not killed");
         }
