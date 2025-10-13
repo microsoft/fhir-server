@@ -1793,18 +1793,15 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             SearchParameterExpression resourceTypeExpression = null;
             SearchParameterExpression resourceIdExpression = null;
 
-            foreach (var tableExpression in expression.ResourceTableExpressions)
+            foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
             {
-                if (tableExpression is SearchParameterExpression searchParamExpression)
+                if (searchParamExpression.Parameter.Name == SearchParameterNames.ResourceType)
                 {
-                    if (searchParamExpression.Parameter.Name == SearchParameterNames.ResourceType)
-                    {
-                        resourceTypeExpression = searchParamExpression;
-                    }
-                    else if (searchParamExpression.Parameter.Name == SearchParameterNames.Id)
-                    {
-                        resourceIdExpression = searchParamExpression;
-                    }
+                    resourceTypeExpression = searchParamExpression;
+                }
+                else if (searchParamExpression.Parameter.Name == SearchParameterNames.Id)
+                {
+                    resourceIdExpression = searchParamExpression;
                 }
             }
 
