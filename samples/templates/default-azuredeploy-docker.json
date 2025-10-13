@@ -268,7 +268,6 @@
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "acrPullRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
         "cosmosDbDataContributorRoleId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('serviceName'), '00000000-0000-0000-0000-000000000002')]",
-        "cosmosDbDataReaderRoleId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('serviceName'), '00000000-0000-0000-0000-000000000001')]",
         "cosmosDbControlPlaneContributorRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '230815da-be43-4aae-9cb4-875f7bd000aa')]",
         "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
         "enableIntegrationStore": "[or(parameters('enableExport'), parameters('enableImport'))]",
@@ -517,7 +516,7 @@
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "apiVersion": "2022-11-15",
-            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB-Contributor', parameters('fhirVersion'), variables('serviceName'))))]",
+            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB', parameters('fhirVersion'), variables('serviceName'))))]",
             "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
             "dependsOn": [
                 "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
@@ -525,21 +524,6 @@
             ],
             "properties": {
                 "roleDefinitionId": "[variables('cosmosDbDataContributorRoleId')]",
-                "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
-                "scope": "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
-            }
-        },
-        {
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "apiVersion": "2022-11-15",
-            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName'))))]",
-            "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
-            "dependsOn": [
-                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
-                "[variables('appServiceResourceId')]"
-            ],
-            "properties": {
-                "roleDefinitionId": "[variables('cosmosDbDataReaderRoleId')]",
                 "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
                 "scope": "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
             }
@@ -809,51 +793,6 @@
             }
         },
         {
-            "type": "Microsoft.Resources/deploymentScripts",
-            "apiVersion": "2020-10-01",
-            "name": "waitForRoleAssignments",
-            "location": "[resourceGroup().location]",
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "kind": "AzurePowerShell",
-            "properties": {
-                "azPowerShellVersion": "3.0",
-                "scriptContent": "[concat('
-                  Write-Output \"Starting waitForRoleAssignments script for Cosmos DB role assignments...\";
-
-                  $maxRetries = 30
-                  $retryCount = 0
-                  $success = $false
-
-                  do {
-                      Start-Sleep -Seconds 10
-                      $retryCount++
-                      Write-Output \"Attempt $retryCount/$maxRetries: Checking Cosmos DB account access...\"
-
-                      try {
-                          $cosmosAccount = Get-AzCosmosDBAccount -ResourceGroupName \"', resourceGroup().name, '\" -Name \"', variables('serviceName'), '\" -ErrorAction Stop
-                          Write-Output \"Cosmos DB account accessible: $($cosmosAccount.Name)\"
-                          $success = $true
-                      } catch {
-                          Write-Output \"Role assignments not fully propagated yet: $($_.Exception.Message)\"
-                          if ($retryCount -ge $maxRetries) {
-                              Write-Error \"Role assignments failed to propagate after $maxRetries attempts.\"
-                              exit 1
-                          }
-                      }
-                  } while (-not $success)
-
-                  Write-Output \"Cosmos DB role assignment propagation verified successfully.\"
-                ')]",
-                "timeout": "PT20M",
-                "retentionInterval": "PT1H",
-                "cleanupPreference": "OnSuccess"
-            },
-            "dependsOn": [
-                "[concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Contributor', parameters('fhirVersion'), variables('serviceName'))))]",
-                "[concat('Microsoft.DocumentDB/databaseAccounts/', variables('serviceName'), '/sqlRoleAssignments/', guid(uniqueString('CosmosDB-Reader', parameters('fhirVersion'), variables('serviceName'))))]"
-            ]
-        },
-        {
             "type": "Microsoft.Network/networkSecurityPerimeters",
             "apiVersion": "2023-07-01-preview",
             "name": "[variables('networkSecurityPerimeterName')]",
@@ -927,27 +866,6 @@
             "properties": {
                 "privateLinkResource": {
                     "id": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/cosmosdb-', variables('serviceName'), '-association')]",
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
-                "[resourceId('Microsoft.Resources/deploymentScripts', 'waitForRoleAssignments')]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
                 },
                 "profile": {
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
