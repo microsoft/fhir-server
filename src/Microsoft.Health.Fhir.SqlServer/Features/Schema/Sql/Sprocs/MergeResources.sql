@@ -11,7 +11,6 @@ CREATE PROCEDURE dbo.MergeResources
    ,@TransactionId bigint = NULL
    ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
-   ,@OverwriteExisting bit = 0
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
@@ -124,19 +123,6 @@ BEGIN TRY
       ELSE
         DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
       SET @AffectedRows += @@rowcount
-
-      -- Cleanup for silent meta changes.
-      IF @OverwriteExisting = 1
-      BEGIN
-        DECLARE @Cleanup AS TABLE (SurrogateId bigint)
-        INSERT INTO @Cleanup
-          SELECT ResourceSurrogateId
-            FROM dbo.Resource b
-	        WHERE EXISTS (SELECT * FROM @Resources a WHERE a.ResourceTypeId = b.ResourceTypeId AND a.ResourceId = b.ResourceId AND a.ResourceSurrogateId = b.ResourceSurrogateId AND a.Version = b.Version)
-
-        DELETE FROM dbo.Resource
-          WHERE EXISTS (SELECT * FROM @Cleanup WHERE SurrogateId = ResourceSurrogateId)
-      END
 
       -- Cleanup search parameters for historical versions
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)

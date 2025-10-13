@@ -194,9 +194,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var index = 0;
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
-            var overallSilentMeta = false;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
+                var silentMeta = false;
                 var resource = resourceExt.Wrapper;
                 var setAsHistory = prevResourceId == resource.ResourceId; // this assumes that first resource version is the latest one
                 //// negative versions are historical by definition
@@ -214,7 +214,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
                 var existingVersion = 0;
-                var silentMetaChange = false;
 
                 // Check for any validation errors
                 if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
@@ -306,8 +305,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                         else if (resourceExt.MetaSilent && ChangesAreOnlyInMetadata(resource, existingResource))
                         {
-                            silentMetaChange = true;
-                            overallSilentMeta = true;
+                            silentMeta = true;
                         }
                     }
 
@@ -315,15 +313,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
                     if (!resourceExt.KeepVersion) // version is set on input
                     {
-                        if (silentMetaChange)
-                        {
-                            resource.Version = existingResource.Version;
-                            hasVersionToCompare = true;
-                        }
-                        else
-                        {
-                            resource.Version = versionPlusOne;
-                        }
+                        resource.Version = versionPlusOne;
                     }
 
                     // This is not part of the above check to cover the case of importing data in version order.
@@ -339,13 +329,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 long surrId;
-                if (silentMetaChange)
-                {
-                    surrId = existingResource.ResourceSurrogateId;
-                    resource.LastModified = existingResource.LastModified;
-                    SyncVersionIdAndLastUpdatedInMeta(resource);
-                }
-                else if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
+                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
                 {
                     surrId = transactionId + index;
                     resource.LastModified = surrId.ToLastUpdated();
@@ -360,12 +344,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 resource.ResourceSurrogateId = surrId;
-                if (resource.Version != InitialVersion || silentMetaChange) // Do not begin transaction if all creates
+                if (resource.Version != InitialVersion) // Do not begin transaction if all creates
                 {
                     singleTransaction = true;
                 }
 
-                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && !silentMeta, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
@@ -402,7 +386,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, overallSilentMeta, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
                             break;
                         }
                         catch (Exception e)
@@ -740,7 +724,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, bool silentMeta, CancellationToken cancellationToken)
+        internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
         {
             var sw = Stopwatch.StartNew();
             using var cmd = new SqlCommand();
@@ -750,7 +734,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            cmd.Parameters.AddWithValue("@OverwriteExisting", silentMeta);
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -944,9 +927,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return false;
             }
 
-            if (input.Data == existing.Data)
+            if (keepVersion)
             {
-                return true; // The two are identical
+                return input.Data == existing.Data;
             }
 
             var inputDate = GetJsonValue(input.Data, "lastUpdated", false);
@@ -955,6 +938,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var existingVersion = GetJsonValue(existing.Data, "versionId", true);
             if (inputVersion == existingVersion)
             {
+                if (inputDate == existingDate)
+                {
+                    return input.Data == existing.Data;
+                }
+
                 return input.Data == existing.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
             else

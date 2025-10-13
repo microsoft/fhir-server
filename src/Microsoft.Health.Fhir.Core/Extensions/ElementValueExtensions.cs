@@ -13,8 +13,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ElementValueExtensions
     {
+        /// <summary>
+        /// Checks if two ElementValue instances have the same values recursively.
+        /// </summary>
+        /// <param name="source">The first ElementValue instance to compare.</param>
+        /// <param name="other">The second ElementValue instance to compare.</param>
+        /// <returns>Whether the two ElementValues are equal.</returns>
         public static bool EqualValues(this ElementValue source, ElementValue other)
         {
+            // if both are the same reference return true
             if (source.Equals(other))
             {
                 return true;
@@ -49,16 +56,19 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                     var sourceMoved = sourceChildren.MoveNext();
                     var otherMoved = otherChildren.MoveNext();
 
+                    // if one has more children than the other return false
                     if (sourceMoved != otherMoved)
                     {
                         return false;
                     }
 
+                    // if both are done, break
                     if (!sourceMoved)
                     {
                         break;
                     }
 
+                    // if current children are not equal return false
                     if (!sourceChildren.Current.EqualValues(otherChildren.Current))
                     {
                         return false;

@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     _factory.Update(resource);
                 }
 
-                await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(x => new MergeResourceWrapper(x, true, true)).ToList(), false, 0, false, cancellationToken);
+                await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(x => new MergeResourceWrapper(x, true, true)).ToList(), false, 0, cancellationToken);
                 await _store.StoreClient.MergeResourcesCommitTransactionAsync(tranId, null, cancellationToken);
                 _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources={Resources}", tranId, resources.Count);
                 await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources={resources.Count}", st, cancellationToken);
