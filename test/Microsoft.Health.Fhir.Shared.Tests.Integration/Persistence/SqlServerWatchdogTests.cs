@@ -109,13 +109,15 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
             // 3. Query. Starts after stats. Tries to acquire schema stability lock and is blocked by stats, and waits.
             // 4. Blocking monitor. Starts before everything. Looks for blocking. When bolocking duration exceeds threashold (1 sec), it kills stats.
 
-            var defrag = Task.Run(() => ExecuteSql(
+            using var defragCancel = new CancellationTokenSource();
+            var defrag = Task.Run(async () => await ExecuteSqlAsync(
                 @"
 DECLARE @st datetime = getUTCdate()
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='',@Target='DefragBlockingTestTable',@Action='Reorganize'
 ALTER INDEX PKC ON dbo.DefragBlockingTestTable REORGANIZE
 EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='DefragBlockingTestTable',@Action='Reorganize',@Start=@st
-                "));
+                ",
+                defragCancel.Token));
 
             var stats = Task.Run(async () => await ExecuteSqlAsync(
                 @"
@@ -131,7 +133,7 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
                 @"
 DECLARE @i nvarchar(10) = 0, @st datetime, @SQL nvarchar(4000), @global datetime = getUTCdate()
 WHILE datediff(second,@global,getUTCdate()) < 200 
-      AND NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End')
+      AND NOT EXISTS (SELECT * FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'End')
 BEGIN
   SET @st = getUTCdate()
   EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode=@i,@Target='DefragBlockingTestTable',@Action='Select'
@@ -147,7 +149,7 @@ END
 
             const int maxWait = 1000;
             var monitor = Task.Run(() => ExecuteSql(@"
-DECLARE @st datetime = getUTCdate(), @blocking varchar(10)
+DECLARE @st datetime = getUTCdate()
 IF object_id('Sessions') IS NOT NULL DROP TABLE dbo.Sessions
 SELECT Date = getUTCDate(), command, S.status, S.session_id, blocking_session_id, wait_type, wait_resource, wait_time, last_request_start_time
   INTO dbo.Sessions
@@ -161,12 +163,7 @@ WHILE datediff(second,@st,getUTCdate()) < 200
                  AND command = 'SELECT'
                  AND wait_time > " + maxWait + @")
       AND NOT EXISTS 
-            (SELECT * 
-               FROM dbo.EventLog
-               WHERE Process = 'DefragBlocking' 
-                 AND Action = 'Reorganize'
-                 AND Status = 'End'
-            ) 
+            (SELECT * FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'End') 
 BEGIN
   INSERT INTO dbo.Sessions
     SELECT Date = getUTCDate(), command, S.status, S.session_id, blocking_session_id, wait_type, wait_resource, wait_time, last_request_start_time
@@ -176,26 +173,12 @@ BEGIN
         AND wait_type <> 'WAITFOR'
   WAITFOR DELAY '00:00:01'
 END
-
-SET @blocking = (SELECT TOP 1 blocking_session_id 
-                   FROM dbo.Sessions 
-                   WHERE wait_type = 'LCK_M_SCH_S' 
-                     AND command = 'SELECT'
-                     AND wait_time > " + maxWait + @")
-IF @blocking IS NOT NULL
-  BEGIN TRY
-    EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Kill',@Mode='',@Target='DefragBlockingTestTable',@Action='UpdateStats'
-    EXECUTE('kill ' + @blocking)
-  END TRY
-  BEGIN CATCH
-    IF error_message() NOT LIKE '%is not an active process%'
-      THROW
-  END CATCH
                 "));
 
             await Task.WhenAll(monitor);
-            await Task.WhenAll(queries);
+            defragCancel.Cancel();
             await Task.WhenAll(defrag);
+            await Task.WhenAll(queries);
             await Task.WhenAll(stats);
 
             ExecuteSql("EXECUTE dbo.DefragChangeDatabaseSettings 1");
@@ -213,21 +196,14 @@ SELECT count(*)
                     AND R.Status = 'Start'
                     AND R.EventDate < S.EventDate
                ) 
-    AND EXISTS (SELECT * 
-                  FROM dbo.EventLog R
-                  WHERE R.Process = 'DefragBlocking' 
-                    AND R.Action = 'Reorganize'
-                    AND R.Status = 'End'
-                    AND R.EventDate > S.EventDate
-               ) 
-            ") > 0,
+            ") == 1,
             "incorrect execution sequence");
             var maxDuration = (int)ExecuteSql("SELECT max(Milliseconds) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End'");
             Assert.True(maxDuration > maxWait, $"low max duration = {maxDuration}");
             var minDuration = (int)ExecuteSql("SELECT min(Milliseconds) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Select' AND Status = 'End'");
             Assert.True(minDuration < 100, $"high min duration = {minDuration}");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End'") == 1, "defrag not completed");
-            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'Kill'") == 1, "stats not killed");
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'Reorganize' AND Status = 'End'") == 0, "defrag not cancelled");
+            Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'End'") == 1, "stats not completed");
         }
 
         [Theory]
