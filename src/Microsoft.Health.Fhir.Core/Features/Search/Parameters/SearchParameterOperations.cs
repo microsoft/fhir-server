@@ -68,14 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             else
             {
-                if (_searchParameterDefinitionManager.SearchParameterHashMap.TryGetValue(resourceType, out string hash))
-                {
-                    return hash;
-                }
-                else
-                {
-                    return null;
-                }
+                return _searchParameterDefinitionManager.SearchParameterHashMap.TryGetValue(resourceType, out string hash) ? hash : null;
             }
         }
 

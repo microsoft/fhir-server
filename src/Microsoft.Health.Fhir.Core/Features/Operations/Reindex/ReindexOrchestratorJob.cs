@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _reindexJobRecord.Status = OperationStatus.Running;
             _jobInfo.Status = JobStatus.Running;
-            _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
+            _logger.LogJobInformation(_jobInfo, "Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
 
             // Check for any changes to Search Parameters
             await SyncSearchParameterStatusupdates(cancellationToken);
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("The reindex job was canceled, Id: {Id}", _jobInfo.Id);
+                _logger.LogJobInformation(_jobInfo, "The reindex job was canceled, Id: {Id}", _jobInfo.Id);
                 AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, "Reindex job was cancelled by caller.");
 
                 throw;
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (Exception ex)
             {
                 // The job failed.
-                _logger.LogError(ex, "Error querying latest SearchParameterStatus updates for job Id: {Id}.", _jobInfo.Id);
+                _logger.LogJobError(ex, _jobInfo, "Error querying latest SearchParameterStatus updates for job Id: {Id}.", _jobInfo.Id);
             }
         }
 
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     else
                     {
-                        _logger.LogInformation("Search parameter {Url} is not being reindexed as it does not match the target types of reindex job Id: {Reindexid}.", searchParam.Url, _jobInfo.Id);
+                        _logger.LogJobInformation(_jobInfo, "Search parameter {Url} is not being reindexed as it does not match the target types of reindex job Id: {Reindexid}.", searchParam.Url, _jobInfo.Id);
                     }
                 }
             }
@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (!validSearchParameterUrls.Any())
                 {
-                    _logger.LogWarning("No valid search parameters found for resource type {ResourceType} in reindex job {JobId}", resourceType, _jobInfo.Id);
+                    _logger.LogJobWarning(_jobInfo, "No valid search parameters found for resource type {ResourceType} in reindex job {JobId}.", resourceType, _jobInfo.Id);
                 }
 
                 // Create a list to store the ranges for processing
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     long totalResources = resourceCount.Count;
 
                     int numberOfChunks = (int)Math.Ceiling(totalResources / (double)resourcesPerJob);
-                    _logger.LogInformation("Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
+                    _logger.LogJobInformation(_jobInfo, "Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
 
                     // Create uniform-sized chunks based on resource count
                     for (int i = 0; i < numberOfChunks; i++)
@@ -375,8 +375,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
                 }
 
-                _logger.LogInformation(
-                    "Created jobs for resource type {ResourceType} with {Count} valid search parameters: {SearchParams}", resourceType, validSearchParameterUrls.Count, string.Join(", ", validSearchParameterUrls));
+                _logger.LogJobInformation(
+                    _jobInfo,
+                    "Created jobs for resource type {ResourceType} with {Count} valid search parameters: {SearchParams}",
+                    resourceType,
+                    validSearchParameterUrls.Count,
+                    string.Join(", ", validSearchParameterUrls));
             }
 
             try
@@ -386,12 +390,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     .OrderBy(id => id)
                     .ToList());
 
-                _logger.LogInformation("Enqueued {Count} query processing jobs. Job ID: {Id}, Group ID: {GroupId}.", jobIds.Count, _jobInfo.Id, _jobInfo.GroupId);
+                _logger.LogJobInformation(_jobInfo, "Enqueued {Count} query processing jobs.", jobIds.Count);
                 return jobIds;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enqueue jobs. Job ID: {Id}", _jobInfo.Id);
+                _logger.LogJobError(ex, _jobInfo, "Failed to enqueue jobs.");
                 throw;
             }
         }
@@ -506,7 +510,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
                     var reindexJobException = new ReindexJobException(message, ex);
-                    _logger.LogError(ex, "Error running SearchForReindexAsync for resource type {ResourceType}, job Id: {JobId}.", queryStatus.ResourceType, _jobInfo.Id);
+                    _logger.LogJobError(ex, _jobInfo, "Error running SearchForReindexAsync for resource type {ResourceType}.", queryStatus.ResourceType);
                     queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
                     LogReindexJobRecordErrorMessage();
 
@@ -521,7 +525,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             LogReindexJobRecordErrorMessage();
 
-            _logger.LogError(ex, "ReindexJob Failed and didn't complete. GroupId {GroupId} / JobId {JobId}.", _jobInfo.GroupId, _jobInfo.Id);
+            _logger.LogJobError(ex, _jobInfo, "ReindexJob Failed and didn't complete.");
         }
 
         private async Task UpdateSearchParameterStatus(List<JobInfo> completedJobs, List<string> readySearchParameters, CancellationToken cancellationToken)
@@ -550,12 +554,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 switch (spStatus)
                 {
                     case SearchParameterStatus.PendingDisable:
-                        _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Disabled.", _jobInfo.Id, searchParamInfo.Url);
+                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Disabled.", searchParamInfo.Url);
                         await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
                         _processedSearchParameters.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.PendingDelete:
-                        _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Deleted.", _jobInfo.Id, searchParamInfo.Url);
+                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Deleted.", searchParamInfo.Url);
                         await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
                         _processedSearchParameters.Add(searchParameterUrl);
                         break;
@@ -568,7 +572,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (fullyIndexedParamUris.Count > 0)
             {
-                _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameters: '{ParamUris} to Enabled.'", _jobInfo.Id, string.Join("', '", fullyIndexedParamUris));
+                _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris} to Enabled.'", string.Join("', '", fullyIndexedParamUris));
                 await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken);
                 _processedSearchParameters.UnionWith(fullyIndexedParamUris);
             }
@@ -627,7 +631,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _jobInfo.Status = JobStatus.Failed;
 
             var ser = JsonConvert.SerializeObject(_reindexJobRecord);
-            _logger.LogInformation($"ReindexJob Error: Current ReindexJobRecord for reference: {ser}, id: {_jobInfo.Id}");
+            _logger.LogJobInformation(_jobInfo, $"ReindexJob Error: Current ReindexJobRecord for reference: {ser}.");
         }
 
         private async Task CheckForCompletionAsync(List<JobInfo> jobInfos, CancellationToken cancellationToken)
@@ -694,8 +698,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         unchangedCount = 0;
                         currentPollInterval = Math.Max(MIN_POLL_INTERVAL_MS, currentPollInterval / (1 + (changeDetectedCount / 2)));
 
-                        _logger.LogInformation(
-                            "Reindex processing jobs changed for Id: {Id}. {Count} jobs active. Polling interval: {Interval}ms", _jobInfo.Id, activeJobs.Count, currentPollInterval);
+                        _logger.LogJobInformation(
+                            _jobInfo,
+                            "Reindex processing jobs changed for Id: {Id}. {Count} jobs active. Polling interval: {Interval}ms",
+                            _jobInfo.Id,
+                            activeJobs.Count,
+                            currentPollInterval);
 
                         lastActiveJobCount = activeJobs.Count;
                     }
@@ -792,7 +800,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    _logger.LogWarning(ex, "Error checking job status for Id: {Id}. Will retry with increased interval.", _jobInfo.Id);
+                    _logger.LogJobWarning(ex, _jobInfo, "Error checking job status for Id: {Id}. Will retry with increased interval.", _jobInfo.Id);
                     currentPollInterval = Math.Min(MAX_POLL_INTERVAL_MS, currentPollInterval * 2);
                     await Task.Delay(currentPollInterval, cancellationToken);
                 }
@@ -854,7 +862,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             OperationOutcomeConstants.IssueSeverity.Error,
                             OperationOutcomeConstants.IssueType.Incomplete,
                             userMessage);
-                        _logger.LogWarning("{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}' for job id: {Id}.", totalCount, string.Join("', '", resourcesTypes), _jobInfo.Id);
+                        _logger.LogJobWarning(_jobInfo, "{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}' for job id: {Id}.", totalCount, string.Join("', '", resourcesTypes), _jobInfo.Id);
 
                         LogReindexJobRecordErrorMessage();
 
@@ -873,9 +881,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                                 if (filteredReadySearchParameters.Count != readySearchParameters.Count)
                                 {
-                                    _logger.LogInformation(
-                                        "Removed {RemovedCount} search parameters from ready list for resource type {ResourceType} due to incomplete reindexing. " +
-                                        "Removed parameters: {RemovedParams}",
+                                    _logger.LogJobInformation(
+                                        _jobInfo,
+                                        "Removed {RemovedCount} search parameters from ready list for resource type {ResourceType} due to incomplete reindexing. Removed parameters: {RemovedParams}",
                                         readySearchParameters.Count - filteredReadySearchParameters.Count,
                                         resourceType,
                                         string.Join(", ", readySearchParameters.Except(filteredReadySearchParameters)));
@@ -887,7 +895,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    _logger.LogInformation("Updating search parameters for {Count} unprocessed jobs", unprocessedJobs.Count);
+                    _logger.LogJobInformation(_jobInfo, "Updating search parameters for {Count} unprocessed jobs", unprocessedJobs.Count);
                     await UpdateSearchParameterStatus(unprocessedJobs, readySearchParameters, cancellationToken);
 
                     _processedJobIds.UnionWith(unprocessedJobs.Select(j => j.Id));
@@ -899,7 +907,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // Update the final completion count and status
                 _currentResult.CompletedJobs += _jobsToProcess.Count(j => j.Status == JobStatus.Completed);
                 _reindexJobRecord.Status = failedJobInfos.Any() ? OperationStatus.Failed : OperationStatus.Completed;
-                _logger.LogInformation("All reindex processing jobs completed for Id: {Id}. Total completed: {CompletedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs);
+                _logger.LogJobInformation(_jobInfo, "All reindex processing jobs completed for Id: {Id}. Total completed: {CompletedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs);
             }
 
             _jobsToProcess.Clear();
@@ -960,7 +968,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Check 1: Count change indicates newly added or completely removed parameters
             if (initialLookup.Count != currentLookup.Count)
             {
-                _logger.LogInformation("Search parameter count changed from {InitialCount} to {CurrentCount}", initialLookup.Count, currentLookup.Count);
+                _logger.LogJobInformation(_jobInfo, "Search parameter count changed from {InitialCount} to {CurrentCount}", initialLookup.Count, currentLookup.Count);
                 return true;
             }
 
@@ -970,7 +978,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 if (!currentLookup.TryGetValue(kvp.Key, out var currentStatus) || currentStatus != kvp.Value)
                 {
-                    _logger.LogInformation("Initially enabled search parameter status changed for {Uri}: {InitialStatus} -> {CurrentStatus}", kvp.Key, kvp.Value, currentStatus.ToString());
+                    _logger.LogJobInformation(_jobInfo, "Initially enabled search parameter status changed for {Uri}: {InitialStatus} -> {CurrentStatus}", kvp.Key, kvp.Value, currentStatus.ToString());
                     return true;
                 }
             }
@@ -983,7 +991,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (deletedParams.Any())
             {
-                _logger.LogInformation("Search parameters transitioned to Deleted status: {DeletedParams}", string.Join(", ", deletedParams.Select(kvp => kvp.Key)));
+                _logger.LogJobInformation(_jobInfo, "Search parameters transitioned to Deleted status: {DeletedParams}", string.Join(", ", deletedParams.Select(kvp => kvp.Key)));
                 return true;
             }
 
@@ -1006,7 +1014,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (IsSearchParameterFullyCompleted(searchParamUrl, allJobs))
                 {
                     readySearchParameters.Add(searchParamUrl);
-                    _logger.LogInformation(
+                    _logger.LogJobInformation(
+                        _jobInfo,
                         "Search parameter {SearchParamUrl} is ready for status update - all related resource types completed",
                         searchParamUrl);
                 }
@@ -1026,7 +1035,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to parse job definition for job {JobId}", job.Id);
+                _logger.LogJobWarning(ex, _jobInfo, "Failed to parse job definition for job {JobId}", job.Id);
                 return null;
             }
         }
@@ -1068,7 +1077,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error checking completion status for search parameter {SearchParamUrl}", searchParamUrl);
+                _logger.LogJobWarning(ex, _jobInfo, "Error checking completion status for search parameter {SearchParamUrl}", searchParamUrl);
                 return false;
             }
         }
@@ -1176,7 +1185,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Error validating search parameter {SearchParamUrl} for resource type {ResourceType}", searchParamUrl, resourceType);
+                        _logger.LogJobWarning(ex, _jobInfo, "Error validating search parameter {SearchParamUrl} for resource type {ResourceType}", searchParamUrl, resourceType);
                     }
                 }
 
@@ -1184,7 +1193,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error getting valid search parameters for resource type {ResourceType}. Using all search parameters as fallback.", resourceType);
+                _logger.LogJobWarning(ex, _jobInfo, "Error getting valid search parameters for resource type {ResourceType}. Using all search parameters as fallback.", resourceType);
 
                 // Fallback to all search parameters if there's an error
                 return _reindexJobRecord.SearchParams.ToList();
