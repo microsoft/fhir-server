@@ -105,24 +105,22 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
                 CancellationToken.None));
 
             using var cancelQueries = new CancellationTokenSource();
-            var queries = new List<Task>();
-            for (var i = 0; i < 59; i++)
-            {
-                var iInt = i;
-                queries.Add(Task.Run(async () => await ExecuteSqlAsync(
-                    @"
-WAITFOR DELAY '00:00:" + iInt + @"' -- start every 1 second
-DECLARE @st datetime = getUTCdate(), @Rows int
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode='" + iInt + @"',@Target='DefragBlockingTestTable',@Action='Select'
--- query should be in a separate batch from logging to correctly record start, hence sp_executeSQL
-EXECUTE sp_executeSQL N'
-  SELECT TOP 100 TypeId, Id FROM dbo.DefragBlockingTestTable /* " + iInt + @" */ WHERE TypeId = 96 ORDER BY Id
-  '
-SET @Rows = @@rowcount
-EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='" + iInt + @"',@Target='DefragBlockingTestTable',@Action='Select',@Start=@st,@Rows=@Rows
-                    ",
-                    cancelQueries.Token))); // Cancel queries for test only.
-            }
+            var queries = Task.Run(async () => await ExecuteSqlAsync(
+                @"
+DECLARE @i nvarchar(10) = 0, @st datetime, @SQL nvarchar(4000)
+WHILE 1 = 1
+BEGIN
+  WAITFOR DELAY '00:00:01'
+  SET @st = getUTCdate()
+  EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode=@i,@Target='DefragBlockingTestTable',@Action='Select'
+  -- query should be in a separate batch from logging to correctly record start, hence sp_executeSQL
+  SET @SQL = N'SELECT TOP 100 TypeId, Id FROM dbo.DefragBlockingTestTable /* '+@i+' */ WHERE TypeId = 96 ORDER BY Id'
+  EXECUTE sp_executeSQL @SQL
+  EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode=@i,@Target='DefragBlockingTestTable',@Action='Select',@Start=@st,@Rows=@@rowcount
+  SET @i = convert(int,@i)+1
+END
+                ",
+                cancelQueries.Token)); // Cancel queries for test only.
 
             const int maxWait = 4000;
             var monitor = Task.Run(() => ExecuteSql(@"
