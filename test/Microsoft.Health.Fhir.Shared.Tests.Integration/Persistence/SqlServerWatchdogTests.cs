@@ -107,14 +107,21 @@ EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode='',@Target='D
             using var cancelQueries = new CancellationTokenSource();
             var queries = Task.Run(async () => await ExecuteSqlAsync(
                 @"
-DECLARE @i nvarchar(10) = 0, @st datetime, @SQL nvarchar(4000)
-WHILE 1 = 1
+DECLARE @i nvarchar(10) = 0, @st datetime, @SQL nvarchar(4000), @global datetime = getUTCdate()
+WHILE datediff(second,@global,getUTCdate()) < 200 
+      AND NOT EXISTS 
+            (SELECT * 
+               FROM dbo.EventLog
+               WHERE Process = 'DefragBlocking' 
+                 AND Action = 'Reorganize'
+                 AND Status = 'End'
+            ) 
 BEGIN
   WAITFOR DELAY '00:00:01'
   SET @st = getUTCdate()
   EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='Start',@Mode=@i,@Target='DefragBlockingTestTable',@Action='Select'
   -- query should be in a separate batch from logging to correctly record start, hence sp_executeSQL
-  SET @SQL = N'SELECT TOP 100 TypeId, Id FROM dbo.DefragBlockingTestTable /* '+@i+' */ WHERE TypeId = 96 ORDER BY Id'
+  SET @SQL = N'SELECT TOP 1000 TypeId, Id FROM dbo.DefragBlockingTestTable /* '+@i+' */ WHERE TypeId = 96 ORDER BY Id'
   EXECUTE sp_executeSQL @SQL
   EXECUTE dbo.LogEvent @Process='DefragBlocking',@Status='End',@Mode=@i,@Target='DefragBlockingTestTable',@Action='Select',@Start=@st,@Rows=@@rowcount
   SET @i = convert(int,@i)+1
@@ -130,13 +137,20 @@ SELECT Date = getUTCDate(), command, S.status, S.session_id, blocking_session_id
   INTO dbo.Sessions
   FROM sys.dm_exec_sessions S LEFT OUTER JOIN sys.dm_exec_requests R ON R.session_id = S.session_id
   WHERE 1 = 2
-WHILE datediff(second,@st,getUTCdate()) < 300
+WHILE datediff(second,@st,getUTCdate()) < 200
       AND NOT EXISTS 
             (SELECT * 
                FROM dbo.Sessions 
                WHERE wait_type = 'LCK_M_SCH_S' 
                  AND command = 'SELECT'
                  AND wait_time > " + maxWait + @")
+      AND NOT EXISTS 
+            (SELECT * 
+               FROM dbo.EventLog
+               WHERE Process = 'DefragBlocking' 
+                 AND Action = 'Reorganize'
+                 AND Status = 'End'
+            ) 
 BEGIN
   INSERT INTO dbo.Sessions
     SELECT Date = getUTCDate(), command, S.status, S.session_id, blocking_session_id, wait_type, wait_resource, wait_time, last_request_start_time
@@ -165,7 +179,7 @@ IF @blocking IS NOT NULL
 
             await Task.WhenAll(monitor);
 
-            await Task.Delay(2000);
+            await Task.Delay(maxWait * 2);
             cancelQueries.Cancel();
 
             await Task.WhenAll(queries);
