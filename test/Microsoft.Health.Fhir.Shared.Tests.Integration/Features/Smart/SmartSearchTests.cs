@@ -3408,6 +3408,46 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        public async Task GivenSmartV2GranularScope_WhenSearchingWithIncludeIterate_ThenCorrectResourcesAreReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            /*
+             * Test validates that _include iterate respects scope restrictions with granular scopes
+             * scopes = patient/MedicationDispense.s patient/MedicationRequest.s patient/Organization.s patient/Patient.s patient/Observation.s?code=http://loinc.org|55233-1 patient/Practitioner.s?gender=female
+             */
+            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4")));
+            var scopeRestriction2 = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "female")));
+            var scopeRestriction3 = new ScopeRestriction("MedicationDispense", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopeRestriction4 = new ScopeRestriction("MedicationRequest", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopeRestriction5 = new ScopeRestriction("Organization", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopeRestriction6 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2, scopeRestriction3, scopeRestriction4, scopeRestriction5, scopeRestriction6 }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "MedicationDispense:prescription"));
+            query.Add(new Tuple<string, string>("_include:iterate", "MedicationRequest:patient"));
+            query.Add(new Tuple<string, string>("_include:iterate", "Patient:general-practitioner"));
+            query.Add(new Tuple<string, string>("_include:iterate", "Patient:organization"));
+            var results = await _searchService.Value.SearchAsync("MedicationDispense", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-medicationdispense-A1" && r.Resource.ResourceTypeName == "MedicationDispense");
+            Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-medicationrequest-A1" && r.Resource.ResourceTypeName == "MedicationRequest");
+
+            // Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
+
+            // Include with wildcard
+            query.Add(new Tuple<string, string>("_include:iterate", "MedicationRequest:requester"));
+            results = await _searchService.Value.SearchAsync("MedicationDispense", query, CancellationToken.None);
+            Assert.NotEmpty(results.Results);
+        }
+
+        [SkippableFact]
         public async Task GivenSmartV2GranularScopeWithNameFilter_WhenSearchingPatientsWithRevInclude_ThenPatientsAndRevIncludedObservationsReturned()
         {
             Skip.If(
