@@ -1,4 +1,3 @@
-
 parameters:
 - name: version
   type: string
@@ -110,6 +109,10 @@ jobs:
         Write-Host "Provisioning Resource Group"
         Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
 
+        # Set NSP name to match ARM template convention
+        $nspName = "nsp-$resourceGroupName"
+        $templateParameters["networkSecurityPerimeterName"] = $nspName
+
         # Check if a deployment with the specified name already exists
         $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
 
@@ -146,8 +149,80 @@ jobs:
               -Scope "/" `
               -PrincipalId $principalId `
               -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
-        }
 
+            # Associate CosmosDB with Network Security Perimeter using inline ARM template (consistent with SQL Server approach)
+            Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
+            
+            try {
+                # Use inline ARM template deployment similar to provision-sqlServer.yml
+                $associationName = "cosmosdb-$webAppName-association"
+                
+                Write-Host "Creating NSP association using inline ARM template..."
+                Write-Host "NSP Name: $nspName"
+                Write-Host "CosmosDB Account: $webAppName"
+                Write-Host "Association Name: $associationName"
+                
+                $inlineTemplate = @{
+                    '$schema' = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
+                    'contentVersion' = '1.0.0.0'
+                    'parameters' = @{
+                        'nspName' = @{
+                            'type' = 'string'
+                        }
+                        'cosmosDbAccountName' = @{
+                            'type' = 'string'
+                        }
+                        'associationName' = @{
+                            'type' = 'string'
+                        }
+                    }
+                    'resources' = @(
+                        @{
+                            'type' = 'Microsoft.Network/networkSecurityPerimeters/resourceAssociations'
+                            'apiVersion' = '2023-07-01-preview'
+                            'name' = "[concat(parameters('nspName'), '/', parameters('associationName'))]"
+                            'properties' = @{
+                                'privateLinkResource' = @{
+                                    'id' = "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbAccountName'))]"
+                                }
+                                'profile' = @{
+                                    'id' = "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', parameters('nspName'), 'default')]"
+                                }
+                                'accessMode' = 'Learning'
+                            }
+                        }
+                    )
+                    'outputs' = @{
+                        'associationResourceId' = @{
+                            'type' = 'string'
+                            'value' = "[resourceId('Microsoft.Network/networkSecurityPerimeters/resourceAssociations', parameters('nspName'), parameters('associationName'))]"
+                        }
+                    }
+                }
+                
+                $deploymentParameters = @{
+                    'nspName' = $nspName
+                    'cosmosDbAccountName' = $webAppName
+                    'associationName' = $associationName
+                }
+                
+                # Deploy using inline template
+                $nspDeploymentResult = New-AzResourceGroupDeployment `
+                  -ResourceGroupName $resourceGroupName `
+                  -Name "$webAppName-cosmosdb-nsp-association-inline" `
+                  -TemplateObject $inlineTemplate `
+                  -TemplateParameterObject $deploymentParameters `
+                  -Verbose
+                
+                Write-Host "Successfully associated CosmosDB with NSP using inline ARM template"
+                Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+            }
+            catch {
+                Write-Warning "Failed to associate CosmosDB with NSP: $($_.Exception.Message)"
+                Write-Host "Exception Details: $($_.Exception | Format-List * | Out-String)"
+                Write-Host "Continuing with CosmosDB provisioning..."
+            }
+        }
   - template: ./provision-healthcheck.yml
     parameters:
       webAppName: ${{ parameters.webAppName }}
