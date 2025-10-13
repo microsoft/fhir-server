@@ -1,6 +1,6 @@
-﻿--DROP PROCEDURE dbo.MergeResources
+--DROP PROCEDURE dbo.MergeResources
 GO
-CREATE PROCEDURE dbo.MergeResources
+CREATE OR ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
@@ -99,7 +99,7 @@ BEGIN TRY
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
     -- Consider surrogate id out of allignment as a conflict
-    IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE (PreviousVersion IS NOT NULL AND Version <= PreviousVersion) OR (PreviousSurrogateId IS NOT NULL AND SurrogateId <= PreviousSurrogateId))
+    IF @RaiseExceptionOnConflict = 1 AND @OverwriteExisting = 0 AND EXISTS (SELECT * FROM @ResourceInfos WHERE (PreviousVersion IS NOT NULL AND Version <= PreviousVersion) OR (PreviousSurrogateId IS NOT NULL AND SurrogateId <= PreviousSurrogateId))
       THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1
 
     INSERT INTO @PreviousSurrogateIds

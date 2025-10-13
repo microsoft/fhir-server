@@ -3477,7 +3477,6 @@ BEGIN TRY
                       AND B.IsHistory = 0
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             IF @RaiseExceptionOnConflict = 1
-               AND @OverwriteExisting = 0
                AND EXISTS (SELECT *
                            FROM   @ResourceInfos
                            WHERE  (PreviousVersion IS NOT NULL
