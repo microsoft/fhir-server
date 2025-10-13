@@ -292,6 +292,7 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                 "Group",
                 "Immunization",
                 "MedicationRequest",
+                "MedicationDispense",
                 "Observation",
                 "Patient",
                 "Practitioner",
