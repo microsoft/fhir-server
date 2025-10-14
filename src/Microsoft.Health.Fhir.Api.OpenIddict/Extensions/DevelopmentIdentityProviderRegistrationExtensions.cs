@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 
         internal static List<string> GenerateSmartClinicalScopes()
         {
-            // Generating the full ist of scopes for all resource types is slow and
+            // Generating the full list of scopes for all resource types is slow and
             // consumes an excessive amount of memory. Instead, we will generate the
             // scopes for a subset of the resource types
             // var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
