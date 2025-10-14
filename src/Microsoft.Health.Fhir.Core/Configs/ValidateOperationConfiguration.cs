@@ -11,5 +11,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// For how long we cache profile in memory.
         /// </summary>
         public int CacheDurationInSeconds { get; set; } = 14400;
+
+        /// <summary>
+        /// Max number of codes in a ValueSet.
+        /// </summary>
+        public int MaxExpansionSize { get; set; } = 20000;
     }
 }

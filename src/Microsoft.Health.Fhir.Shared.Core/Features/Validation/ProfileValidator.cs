@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
+using static Microsoft.IO.RecyclableMemoryStreamManager;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
@@ -25,9 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     {
         private readonly TimeSpan _validatatorRefresh = TimeSpan.FromMinutes(30);
         private readonly IResourceResolver _resolver;
+        private readonly ILogger<ProfileValidator> _logger;
+        private readonly int _maxExpansionSize = 1000;
+
         private Validator _validator;
         private DateTime _lastValidatorRefresh = DateTime.MinValue;
-        private ILogger<ProfileValidator> _logger;
 
         public ProfileValidator(
             IProvideProfilesForValidation profilesResolver,
@@ -42,6 +45,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
+                int cacheDuration = options.Value.CacheDurationInSeconds;
+                _maxExpansionSize = options.Value.MaxExpansionSize;
+
                 _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
             }
             catch (Exception)
@@ -63,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             var expanderSettings = new ValueSetExpanderSettings
             {
-                MaxExpansionSize = 20000, // Set your desired max expansion size here
+                MaxExpansionSize = _maxExpansionSize, // Set your desired max expansion size here
             };
 
             var terminologyService = new LocalTerminologyService(_resolver.AsAsync(), expanderSettings);
