@@ -12,13 +12,10 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
-using static Microsoft.IO.RecyclableMemoryStreamManager;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
@@ -45,6 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
+                _logger.LogInformation(
+                    "Creating ProfileValidator with: CacheDuration {CacheDurationInSeconds}; and MaxExpansionSize {MaxExpansionSize}.",
+                    options.Value.CacheDurationInSeconds,
+                    options.Value.MaxExpansionSize);
+
                 int cacheDuration = options.Value.CacheDurationInSeconds;
                 _maxExpansionSize = options.Value.MaxExpansionSize;
 
