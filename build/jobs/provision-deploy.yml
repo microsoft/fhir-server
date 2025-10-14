@@ -153,39 +153,32 @@ jobs:
             # Associate CosmosDB with Network Security Perimeter using external template
             Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
             
-            try {
-                $associationName = "cosmosdb-$webAppName-association"
+            $associationName = "cosmosdb-$webAppName-association"
                 
-                Write-Host "Creating NSP association using external ARM template..."
-                Write-Host "NSP Name: $nspName"
-                Write-Host "CosmosDB Account: $webAppName"
-                Write-Host "Association Name: $associationName"
+            Write-Host "Creating NSP association using external ARM template..."
+            Write-Host "NSP Name: $nspName"
+            Write-Host "CosmosDB Account: $webAppName"
+            Write-Host "Association Name: $associationName"
                 
-                $templateParameters = @{
-                    'nspName' = $nspName
-                    'resourceName' = $webAppName
-                    'resourceType' = 'Microsoft.DocumentDB/databaseAccounts'
-                    'associationName' = $associationName
-                    'accessMode' = 'Learning'
-                    'nspProfile' = 'default'
-                }
-                
-                # Deploy using external template
-                $nspDeploymentResult = New-AzResourceGroupDeployment `
-                  -ResourceGroupName $resourceGroupName `
-                  -Name "$webAppName-cosmosdb-nsp-association" `
-                  -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-                  -TemplateParameterObject $templateParameters `
-                  -Verbose
-                
-                Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
-                Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+            $templateParameters = @{
+                'nspName' = $nspName
+                'resourceName' = $webAppName
+                'resourceType' = 'Microsoft.DocumentDB/databaseAccounts'
+                'associationName' = $associationName
+                'accessMode' = 'Learning'
+                'nspProfile' = 'default'
             }
-            catch {
-                Write-Warning "Failed to associate CosmosDB with NSP: $($_.Exception.Message)"
-                Write-Host "Exception Details: $($_.Exception | Format-List * | Out-String)"
-                Write-Host "Continuing with CosmosDB provisioning..."
-            }
+                
+            # Deploy using external template
+            $nspDeploymentResult = New-AzResourceGroupDeployment `
+              -ResourceGroupName $resourceGroupName `
+              -Name "$webAppName-cosmosdb-nsp-association" `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+              -TemplateParameterObject $templateParameters `
+              -Verbose
+                
+            Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
+            Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
         }
   - template: ./provision-healthcheck.yml
     parameters:
