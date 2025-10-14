@@ -63,6 +63,14 @@ jobs:
       arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
+    env:
+      'CosmosDb__Host': $(CosmosDb--Host)
+      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
+      'CosmosDb__UseManagedIdentity': true
+      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
+      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
+      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
   - task: reportgenerator@5
     displayName: 'Aggregate code coverage'
     condition: succeededOrFailed()
@@ -70,6 +78,10 @@ jobs:
       reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
+  - script: |
+      ls -la $(Agent.TempDirectory)
+      ls -la $(Agent.TempDirectory)/coverage
+    displayName: 'List Temp and Coverage Directories'
   - task: PublishCodeCoverageResults@1
     displayName: 'Publish Cosmos Integration code coverage'
     condition: succeededOrFailed()
@@ -83,14 +95,6 @@ jobs:
       pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
-    env:
-      'CosmosDb__Host': $(CosmosDb--Host)
-      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
-      'CosmosDb__UseManagedIdentity': true
-      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
-      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
-      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
-      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
 - job: "SqlIntegrationTests"
   pool:
@@ -151,6 +155,10 @@ jobs:
       reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
+  - script: |
+      ls -la $(Agent.TempDirectory)
+      ls -la $(Agent.TempDirectory)/coverage
+    displayName: 'List Temp and Coverage Directories'
   - task: PublishCodeCoverageResults@1
     displayName: 'Publish Sql Integration code coverage'
     condition: succeededOrFailed()

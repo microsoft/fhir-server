@@ -134,6 +134,10 @@ steps:
       reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
+  - script: |
+      ls -la $(Agent.TempDirectory)
+      ls -la $(Agent.TempDirectory)/coverage
+    displayName: 'List Temp and Coverage Directories'
   - task: PublishCodeCoverageResults@1
     displayName: 'Publish E2E test code coverage'
     condition: succeededOrFailed()
