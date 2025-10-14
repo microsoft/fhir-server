@@ -128,7 +128,7 @@ steps:
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
   - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Unit Tests Coverage'
+    displayName: 'Publish E2E Tests Coverage'
     inputs:
       codeCoverageTool: 'Cobertura'
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'

@@ -64,7 +64,7 @@ jobs:
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
   - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Unit Tests Coverage'
+    displayName: 'Publish Integration Tests Coverage'
     inputs:
       codeCoverageTool: 'Cobertura'
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'
@@ -130,7 +130,7 @@ jobs:
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
   - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Unit Tests Coverage'
+    displayName: 'Publish Integration Tests Coverage'
     inputs:
       codeCoverageTool: 'Cobertura'
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'
