@@ -395,6 +395,29 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR5)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
+- stage: Publish final code coverage
+  displayName: 'Publish final code coverage'
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR4B
+  - testR5
+  jobs:
+  - job: MergeCoverageReports
+    dependsOn:
+      - UnitTests
+      - IntegrationTests
+    steps:
+    - script: |
+        mkdir merged_coverage
+        reportgenerator -reports:"$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml" -targetdir:merged_coverage -reporttypes:Html
+      displayName: 'Merge Coverage Reports'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Merged Coverage Report'
+      inputs:
+        PathtoPublish: 'merged_coverage'
+        ArtifactName: 'CodeCoverageReport'
+  
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
