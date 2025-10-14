@@ -169,7 +169,7 @@ grant_type=client_credentials
 DELETE https://{{hostname}}/Patient/smart-patient-A
 Authorization: Bearer {{deleteBearer.response.body.access_token}}
 
-### Test Hard Delete permission - should fao;
+### Test Hard Delete permission - should fail
 DELETE https://{{hostname}}/Patient/smart-patient-A?hardDelete=true
 Authorization: Bearer {{deleteBearer.response.body.access_token}}
 
