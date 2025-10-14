@@ -60,14 +60,29 @@ jobs:
     displayName: 'Run Cosmos Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal --configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
+  - task: reportgenerator@5
+    displayName: 'Aggregate code coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(Agent.TempDirectory)/coverage'
   - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Integration Tests Coverage'
+    displayName: 'Publish Cosmos Integration code coverage'
+    condition: succeededOrFailed()
     inputs:
       codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'
+      failIfCoverageEmpty: true
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Cobertura.xml'
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+      artifactName: 'IntegrationTests'
+      artifactType: 'container'
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -120,7 +135,7 @@ jobs:
     displayName: 'Run Sql Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal --configuration $(buildConfiguration) --collect:"XPlat Code Coverage"'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
@@ -129,11 +144,26 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+  - task: reportgenerator@5
+    displayName: 'Aggregate code coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(Agent.TempDirectory)/coverage'
   - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Integration Tests Coverage'
+    displayName: 'Publish Sql Integration code coverage'
+    condition: succeededOrFailed()
     inputs:
       codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'
+      failIfCoverageEmpty: true
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Cobertura.xml'
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+      artifactName: 'IntegrationTests'
+      artifactType: 'container'
 
 - job: 'cosmosE2eTests'
   dependsOn: []
