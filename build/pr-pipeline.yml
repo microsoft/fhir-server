@@ -395,7 +395,7 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR5)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: Publish final code coverage
+- stage: Publish_Final_Code_Coverage
   displayName: 'Publish final code coverage'
   dependsOn:
   - testStu3
@@ -404,9 +404,7 @@ stages:
   - testR5
   jobs:
   - job: MergeCoverageReports
-    dependsOn:
-      - UnitTests
-      - IntegrationTests
+    displayName: 'Merge Coverage Reports and Publish'
     steps:
     - script: |
         mkdir merged_coverage
