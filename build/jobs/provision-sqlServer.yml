@@ -89,67 +89,31 @@ jobs:
           Write-Host "Associating SQL Server with Network Security Perimeter: $nspName"
           
           try {
-            # Use inline ARM template deployment similar to default-azuredeploy-docker.json
             $associationName = "sqlserver-$sqlServerName-association"
             
-            Write-Host "Creating NSP association using inline ARM template..."
+            Write-Host "Creating NSP association using external ARM template..."
             Write-Host "NSP Name: $nspName"
             Write-Host "SQL Server: $sqlServerName"
             Write-Host "Association Name: $associationName"
             
-            $inlineTemplate = @{
-                '$schema' = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
-                'contentVersion' = '1.0.0.0'
-                'parameters' = @{
-                    'nspName' = @{
-                        'type' = 'string'
-                    }
-                    'sqlServerName' = @{
-                        'type' = 'string'
-                    }
-                    'associationName' = @{
-                        'type' = 'string'
-                    }
-                }
-                'resources' = @(
-                    @{
-                        'type' = 'Microsoft.Network/networkSecurityPerimeters/resourceAssociations'
-                        'apiVersion' = '2023-07-01-preview'
-                        'name' = "[concat(parameters('nspName'), '/', parameters('associationName'))]"
-                        'properties' = @{
-                            'privateLinkResource' = @{
-                                'id' = "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
-                            }
-                            'profile' = @{
-                                'id' = "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', parameters('nspName'), 'default')]"
-                            }
-                            'accessMode' = 'Learning'
-                        }
-                    }
-                )
-                'outputs' = @{
-                    'associationResourceId' = @{
-                        'type' = 'string'
-                        'value' = "[resourceId('Microsoft.Network/networkSecurityPerimeters/resourceAssociations', parameters('nspName'), parameters('associationName'))]"
-                    }
-                }
-            }
-            
-            $deploymentParameters = @{
+            $templateParameters = @{
                 'nspName' = $nspName
-                'sqlServerName' = $sqlServerName
+                'resourceName' = $sqlServerName
+                'resourceType' = 'Microsoft.Sql/servers'
                 'associationName' = $associationName
+                'accessMode' = 'Learning'
+                'nspProfile' = 'default'
             }
             
-            # Deploy using inline template
+            # Deploy using external template
             $nspDeploymentResult = New-AzResourceGroupDeployment `
               -ResourceGroupName $resourceGroup `
-              -Name "$sqlServerName-nsp-association-inline" `
-              -TemplateObject $inlineTemplate `
-              -TemplateParameterObject $deploymentParameters `
+              -Name "$sqlServerName-nsp-association" `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+              -TemplateParameterObject $templateParameters `
               -Verbose
             
-            Write-Host "Successfully associated SQL Server with NSP using inline ARM template"
+            Write-Host "Successfully associated SQL Server with NSP using external ARM template"
             Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
           }
           catch {
