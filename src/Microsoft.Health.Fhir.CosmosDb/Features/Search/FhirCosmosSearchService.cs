@@ -1052,7 +1052,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return null;
             }
 
-            // OR mulitple different SCOPES for the same resource type
+            // OR multiple different SCOPES for the same resource type
             return resourceTypeFilters.Count == 1 ? resourceTypeFilters[0] : Expression.Or(resourceTypeFilters.ToArray());
         }
 
