@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly TimeSpan _validatatorRefresh = TimeSpan.FromMinutes(30);
         private readonly IResourceResolver _resolver;
         private readonly ILogger<ProfileValidator> _logger;
-        private readonly int _maxExpansionSize = 1000;
+        private readonly int _maxExpansionSize;
 
         private Validator _validator;
         private DateTime _lastValidatorRefresh = DateTime.MinValue;
