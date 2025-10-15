@@ -88,7 +88,7 @@ steps:
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" -v detailed --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
     env:
@@ -138,6 +138,13 @@ steps:
       ls -la $(Agent.TempDirectory)
       ls -la $(Agent.TempDirectory)/coverage
     displayName: 'List Temp and Coverage Directories'
+  - task: Bash@3
+    displayName: 'Display first 10 lines of Cobertura.xml'
+    inputs:
+      targetType: 'inline'
+      script: |
+        echo "Displaying first 10 lines of $(Agent.TempDirectory)/coverage/Cobertura.xml:"
+        head -n 10 "$(Agent.TempDirectory)/coverage/Cobertura.xml"
   - task: PublishCodeCoverageResults@1
     displayName: 'Publish E2E test code coverage'
     condition: succeededOrFailed()
