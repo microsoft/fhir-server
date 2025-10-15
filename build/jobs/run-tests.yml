@@ -60,7 +60,7 @@ jobs:
     displayName: 'Run Cosmos Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v detailed --no-build --collect "XPlat Code Coverage"'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v detailed --collect "XPlat Code Coverage"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
@@ -160,7 +160,7 @@ jobs:
     displayName: 'Run Sql Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v detailed --no-build --collect "XPlat Code Coverage"'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v detailed --collect "XPlat Code Coverage"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
