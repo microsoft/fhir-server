@@ -580,7 +580,7 @@ namespace Microsoft.Health.Fhir.Client
             {
                 await Task.Delay(TimeSpan.FromSeconds(1));
                 reindexJobResult = await CheckJobAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == ReindexParametersStatus)?.Value.ToString();
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name.Equals(ReindexParametersStatus, StringComparison.OrdinalIgnoreCase))?.Value.ToString();
             }
             while (!desiredStatus.Contains(currentStatus) && sw.Elapsed.TotalSeconds < maxSeconds);
             sw.Stop();
