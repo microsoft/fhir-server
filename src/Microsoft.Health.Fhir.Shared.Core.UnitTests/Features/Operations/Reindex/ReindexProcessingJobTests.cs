@@ -255,10 +255,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                         TotalCount = 1,
                     });
 
-            ReindexJobException exception = await Assert.ThrowsAsync<ReindexJobException>(
+            ReindexProcessingJobSoftException exception = await Assert.ThrowsAsync<ReindexProcessingJobSoftException>(
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            Assert.Contains("Search Parameter hash does not match even after refreshing", exception.Message);
+            Assert.Contains("Search Parameter hash does not match. Resubmit reindex job to try again.", exception.Message);
         }
     }
 }

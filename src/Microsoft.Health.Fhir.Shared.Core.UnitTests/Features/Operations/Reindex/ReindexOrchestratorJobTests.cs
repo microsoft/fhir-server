@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -100,7 +102,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             IFhirRuntimeConfiguration fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
             _reindexOrchestratorJobTaskFactory = () =>
-                 new ReindexOrchestratorJob(
+            {
+                // Create a mock CoreFeatureConfiguration for the test
+                var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                {
+                    SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                });
+
+                // Create a mock OperationsConfiguration for the test
+                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                operationsConfig.Value.Returns(new OperationsConfiguration
+                {
+                    Reindex = new ReindexJobConfiguration
+                    {
+                        ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                    },
+                });
+
+                return new ReindexOrchestratorJob(
                      _queueClient,
                      () => _searchService.CreateMockScope(),
                      _searchDefinitionManager,
@@ -108,7 +128,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                      _searchParameterStatusmanager,
                      _searchParameterOperations,
                      fhirRuntimeConfiguration,
-                     NullLoggerFactory.Instance);
+                     NullLoggerFactory.Instance,
+                     coreFeatureConfig,
+                     operationsConfig);
+            };
         }
 
         [Theory]
@@ -189,7 +212,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 NullLogger<ReindexProcessingJob>.Instance);
 
             var reindexOrchestratorJobTaskFactory = () =>
-                new ReindexOrchestratorJob(
+            {
+                // Create a mock CoreFeatureConfiguration for the test
+                var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                {
+                    SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                });
+
+                // Create a mock OperationsConfiguration for the test
+                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                operationsConfig.Value.Returns(new OperationsConfiguration
+                {
+                    Reindex = new ReindexJobConfiguration
+                    {
+                        ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                    },
+                });
+
+                return new ReindexOrchestratorJob(
                     _queueClient,
                     () => _searchService.CreateMockScope(),
                     searchDefinitionManager,
@@ -197,7 +238,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     searchParameterStatusmanager,
                     _searchParameterOperations,
                     fhirRuntimeConfiguration,
-                    NullLoggerFactory.Instance);
+                    NullLoggerFactory.Instance,
+                    coreFeatureConfig,
+                    operationsConfig);
+            };
 
             var expectedResourceType = "Account"; // Fix: Use the actual resource type
 

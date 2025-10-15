@@ -223,6 +223,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                     if (typeId == (int)JobType.ReindexOrchestrator)
                     {
+                        // Create a mock CoreFeatureConfiguration for the test
+                        var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                        coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                        {
+                            SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                        });
+
+                        // Create a mock OperationsConfiguration for the test
+                        var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                        operationsConfig.Value.Returns(new OperationsConfiguration
+                        {
+                            Reindex = new ReindexJobConfiguration
+                            {
+                                ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                            },
+                        });
+
                         job = new ReindexOrchestratorJob(
                             _queueClient,
                             () => _searchService,
@@ -231,7 +248,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _searchParameterStatusManager,
                             _searchParameterOperations,
                             _fixture.FhirRuntimeConfiguration,
-                            NullLoggerFactory.Instance);
+                            NullLoggerFactory.Instance,
+                            coreFeatureConfig,
+                            operationsConfig);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {

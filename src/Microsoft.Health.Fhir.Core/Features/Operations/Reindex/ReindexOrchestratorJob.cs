@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly bool _isSurrogateIdRangingSupported;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly OperationsConfiguration _operationsConfiguration;
 
         private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
@@ -65,7 +66,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ISearchParameterOperations searchParameterOperations,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILoggerFactory loggerFactory,
-            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
+            IOptions<OperationsConfiguration> operationsConfiguration)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
@@ -75,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
+            EnsureArg.IsNotNull(operationsConfiguration?.Value, nameof(operationsConfiguration));
 
             _queueClient = queueClient;
             _searchServiceFactory = searchServiceFactory;
@@ -84,6 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
+            _operationsConfiguration = operationsConfiguration.Value;
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
@@ -104,12 +108,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                // Wait for the configured SearchParameterCacheRefreshIntervalMinutes before processing
-                var delayMinutes = Math.Max(1, _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalMinutes);
-                var delayMultiplier = 3;
-                _logger.LogInformation("Reindex job with Id: {Id} waiting for {DelayMinutes} minute(s) before processing as configured by SearchParameterCacheRefreshIntervalMinutes.", _jobInfo.Id, delayMinutes * delayMultiplier);
+                // Wait for the configured SearchParameterCacheRefreshIntervalSeconds before processing
+                var delaySeconds = Math.Max(1, _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds);
+                var delayMultiplier = Math.Max(1, _operationsConfiguration.Reindex.ReindexDelayMultiplier);
+                _logger.LogInformation("Reindex job with Id: {Id} waiting for {DelaySeconds} second(s) before processing as configured by SearchParameterCacheRefreshIntervalSeconds and ReindexDelayMultiplier.", _jobInfo.Id, delaySeconds * delayMultiplier);
 
-                await Task.Delay(TimeSpan.FromMinutes(delayMinutes) * delayMultiplier, cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds) * delayMultiplier, cancellationToken);
 
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
@@ -930,7 +934,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
             return (totalCount, resourcesTypes.ToList());
-        }
+                }
 
         /// <summary>
         /// Unified method to process completed jobs and determine which search parameters are ready for status updates.
@@ -952,7 +956,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _jobInfo,
                         "Search parameter {SearchParamUrl} is ready for status update - all related resource types completed",
                         searchParamUrl);
-                }
+            }
             }
 
             return readySearchParameters;
@@ -1004,11 +1008,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _logger.LogDebug(
                             "Search parameter {SearchParamUrl} not ready - resource type {ResourceType} still has incomplete jobs", searchParamUrl, resourceType);
                         return false;
-                    }
                 }
+            }
 
                 return true;
-            }
+        }
             catch (Exception ex)
             {
                 _logger.LogJobWarning(ex, _jobInfo, "Error checking completion status for search parameter {SearchParamUrl}", searchParamUrl);
@@ -1042,7 +1046,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IReadOnlyList<JobInfo> allJobs,
             string resourceType,
             string searchParamUrl)
-        {
+                {
             return allJobs
                 .Where(j =>
                 {
@@ -1058,7 +1062,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Gets jobs that contain any of the specified search parameters
         /// </summary>
         private List<JobInfo> GetJobsForSearchParameters(List<JobInfo> jobs, List<string> searchParameterUrls)
-        {
+                    {
             return jobs
                 .Where(job =>
                 {
@@ -1095,7 +1099,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     else
                     {
                         _logger.LogDebug("Search parameter {SearchParamUrl} is not valid for resource type {ResourceType} and will be excluded from processing job", searchParamUrl, resourceType);
-                    }
+                }
                 }
 
                 // Additional validation: Ensure search parameters from the reindex job actually apply to this resource type
