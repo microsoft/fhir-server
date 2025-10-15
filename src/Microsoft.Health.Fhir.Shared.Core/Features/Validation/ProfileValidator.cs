@@ -42,13 +42,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
+                int cacheDuration = options.Value.CacheDurationInSeconds <= 0 ? ValidateOperationConfiguration.DefaultCacheDurationInSeconds : options.Value.CacheDurationInSeconds;
+                _maxExpansionSize = options.Value.MaxExpansionSize <= 0 ? ValidateOperationConfiguration.DefaultMaxExpansionSize : options.Value.MaxExpansionSize;
+
                 _logger.LogInformation(
                     "Creating ProfileValidator with: CacheDuration {CacheDurationInSeconds}; and MaxExpansionSize {MaxExpansionSize}.",
-                    options.Value.CacheDurationInSeconds,
-                    options.Value.MaxExpansionSize);
-
-                int cacheDuration = options.Value.CacheDurationInSeconds;
-                _maxExpansionSize = options.Value.MaxExpansionSize;
+                    cacheDuration,
+                    _maxExpansionSize);
 
                 _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), cacheDuration), profilesResolver);
             }
