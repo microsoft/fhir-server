@@ -76,8 +76,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
-            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
-            EnsureArg.IsNotNull(operationsConfiguration?.Value, nameof(operationsConfiguration));
+            EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
+            EnsureArg.IsNotNull(coreFeatureConfiguration.Value, nameof(coreFeatureConfiguration.Value));
+            EnsureArg.IsNotNull(operationsConfiguration, nameof(operationsConfiguration));
+            EnsureArg.IsNotNull(operationsConfiguration.Value, nameof(operationsConfiguration.Value));
 
             _queueClient = queueClient;
             _searchServiceFactory = searchServiceFactory;
@@ -671,7 +673,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             int lastActiveJobCount = activeJobs.Count;
             int unchangedCount = 0;
             int changeDetectedCount = 0;
-            DateTime lastPollTime = DateTime.UtcNow;
 
             const int MAX_UNCHANGED_CYCLES = 3;
             const int MIN_POLL_INTERVAL_MS = 10000;
@@ -778,8 +779,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
                     }
 
-                    // Track last poll time and delay before next poll
-                    lastPollTime = DateTime.UtcNow;
                     await Task.Delay(
                         Math.Min(MIN_POLL_INTERVAL_MS, currentPollInterval / 10),
                         cancellationToken);

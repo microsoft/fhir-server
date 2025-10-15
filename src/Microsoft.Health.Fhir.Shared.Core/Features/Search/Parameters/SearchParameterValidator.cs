@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
             if (string.IsNullOrEmpty(searchParam.Url) && (method.Equals(HttpDeleteName, StringComparison.Ordinal) || method.Equals(HttpPatchName, StringComparison.Ordinal)))
             {
-                // Return out if this is delete call and no Url so FHIRController can move to next action
+                // Return out if this is delete OR patch call and no Url so FHIRController can move to next action
                 return;
             }
 

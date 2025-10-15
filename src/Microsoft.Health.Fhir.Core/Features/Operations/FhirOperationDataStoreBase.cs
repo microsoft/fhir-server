@@ -358,8 +358,6 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 record.Status = OperationStatus.Failed;
                 status = JobStatus.Failed;
             }
-
-            result = JsonConvert.SerializeObject(record);
         }
 
         PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
@@ -378,12 +376,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                     errorMessage += error.Diagnostics + " ";
                 }
 
-                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error)
+                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error && !inFlightJobsExist)
                 {
-                    if (!inFlightJobsExist)
-                    {
-                        status = JobStatus.Failed;
-                    }
+                    status = JobStatus.Failed;
                 }
             }
 
@@ -483,8 +478,12 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                     continue;
                 }
             }
+            else
+            {
+                _logger.LogError("Job definition is null for job {JobId}", job.Id);
+            }
 
-            if (jobDefinition.ResourceType != null)
+            if (jobDefinition?.ResourceType != null)
             {
                 // Aggregate counts instead of ignoring duplicates
                 if (record.ResourceCounts.TryGetValue(jobDefinition.ResourceType, out var existing))
