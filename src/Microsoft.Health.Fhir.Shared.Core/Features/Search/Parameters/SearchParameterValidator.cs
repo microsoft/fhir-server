@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private const string HttpPostName = "POST";
         private const string HttpPutName = "PUT";
         private const string HttpDeleteName = "DELETE";
+        private const string HttpPatchName = "PATCH";
 
         public SearchParameterValidator(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 }
             }
 
-            if (searchParam.Url == null && method.Equals(HttpDeleteName, StringComparison.Ordinal))
+            if (string.IsNullOrEmpty(searchParam.Url) && (method.Equals(HttpDeleteName, StringComparison.Ordinal) || method.Equals(HttpPatchName, StringComparison.Ordinal)))
             {
                 // Return out if this is delete call and no Url so FHIRController can move to next action
                 return;

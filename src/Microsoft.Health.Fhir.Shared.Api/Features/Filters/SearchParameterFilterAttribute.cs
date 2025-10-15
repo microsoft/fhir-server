@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     internal sealed class SearchParameterFilterAttribute : ActionFilterAttribute
     {
         private ISearchParameterValidator _searchParameterValidator;
-        private const string HttpDeleteName = "DELETE";
 
         public SearchParameterFilterAttribute(ISearchParameterValidator searchParamValidator)
         {
@@ -54,8 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
 
             // Check for delete scenario with SearchParameter resource type
-            if (context.HttpContext.Request.Method.Equals(HttpDeleteName, StringComparison.Ordinal) &&
-                context.ActionArguments.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceType) &&
+            if (context.ActionArguments.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceType) &&
                 string.Equals(resourceType?.ToString(), KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
             {
                 return new SearchParameter();

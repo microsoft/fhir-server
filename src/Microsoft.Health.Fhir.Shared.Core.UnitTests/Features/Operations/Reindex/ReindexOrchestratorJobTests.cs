@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _ = Task.Run(
                 async () =>
                 {
-                    await Task.Delay(500, _cancellationToken); // Give orchestrator time to create jobs
+                    await Task.Delay(5000, _cancellationToken); // Give orchestrator time to create jobs
 
                     // Get all processing jobs created by the orchestrator
                     var processingJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
