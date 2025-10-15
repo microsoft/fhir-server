@@ -226,6 +226,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
@@ -410,6 +411,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, HardDeleteModel hardDeleteModel, [FromQuery] bool allowPartialSuccess)
         {

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Threading;
 using EnsureThat;
 using FluentValidation.Results;
@@ -75,6 +76,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
+            }
+
+            // check if reindex job is running
+            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
+            {
+                (var activeReindexJobs, var reindexJobId) = await fhirOperationDataStore.Value.CheckActiveReindexJobsAsync(cancellationToken);
+                if (activeReindexJobs)
+                {
+                    throw new JobConflictException(string.Format(Resources.ChangesToSearchParametersNotAllowedWhileReindexing, reindexJobId));
+                }
+            }
+
+            if (searchParam.Url == null && method.Equals(HttpDeleteName, StringComparison.Ordinal))
+            {
+                // Return out if this is delete call and no Url so FHIRController can move to next action
+                return;
             }
 
             var validationFailures = new List<ValidationFailure>();

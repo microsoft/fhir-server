@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -293,6 +294,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         var status = jobInfo.Status;
         var result = jobInfo.Result;
+        var serializedJobResult = !string.IsNullOrEmpty(result) && !result.Equals("null", StringComparison.OrdinalIgnoreCase)
+            ? JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result)
+            : null;
         ReindexJobRecord record;
         try
         {
@@ -329,7 +333,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                         {
                             record.FailureDetails = new JobFailureDetails(processResult.Message, HttpStatusCode.InternalServerError);
                         }
-                        else if (!processResult.Message.Equals(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
+                        else if (!processResult.Message.Contains(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
                         {
                             record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + processResult.Message, record.FailureDetails.FailureStatusCode);
                         }
@@ -351,15 +355,40 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             record.Status = OperationStatus.Failed;
             status = JobStatus.Failed;
             result = JsonConvert.SerializeObject(record);
-            record.Progress = groupJobs
-                .Where(x => x.Id != jobInfo.Id && !string.IsNullOrEmpty(x.Result))
-                .Sum(x => JsonConvert.DeserializeObject<ReindexProcessingJobResult>(x.Result)?.SucceededResourceCount ?? 0);
         }
 
         PopulateReindexJobRecordDataFromJobs(jobInfo, groupJobs, ref record);
 
         record.LastModified = jobInfo.HeartbeatDateTime;
         record.QueuedTime = jobInfo.CreateDate;
+
+        if (serializedJobResult?.Error != null)
+        {
+            var errorMessage = string.Empty;
+
+            foreach (var error in serializedJobResult.Error)
+            {
+                if (error.Diagnostics != null)
+                {
+                    errorMessage += error.Diagnostics + " ";
+                }
+
+                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error)
+                {
+                    status = JobStatus.Failed;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                record.FailureDetails = new JobFailureDetails(errorMessage, HttpStatusCode.InternalServerError);
+            }
+        }
+
+        if (status == JobStatus.Failed && record.FailureDetails == null)
+        {
+            record.FailureDetails = new JobFailureDetails("Reindex failed with unknown error. Please resubmit to try again.", HttpStatusCode.InternalServerError);
+        }
 
         switch (status)
         {
@@ -447,8 +476,26 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 }
             }
 
-            // Only process if we have both result and definition
-            if (jobResult != null && jobDefinition != null)
+            if (jobDefinition.ResourceType != null)
+            {
+                // Aggregate counts instead of ignoring duplicates
+                if (record.ResourceCounts.TryGetValue(jobDefinition.ResourceType, out var existing))
+                {
+                    existing.Count += jobDefinition.ResourceCount.Count;
+                }
+                else
+                {
+                    record.ResourceCounts.TryAdd(jobDefinition.ResourceType, jobDefinition.ResourceCount);
+                }
+
+                // Add to resources list only once
+                if (!record.Resources.Contains(jobDefinition.ResourceType))
+                {
+                    record.Resources.Add(jobDefinition.ResourceType);
+                }
+            }
+
+            if (jobResult != null)
             {
                 if (job.Status == JobStatus.Completed)
                 {
@@ -456,17 +503,6 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 }
 
                 record.Count += jobResult.SucceededResourceCount + jobResult.FailedResourceCount;
-
-                if (jobDefinition.ResourceType != null)
-                {
-                    var isAdded = record.ResourceCounts.TryAdd(jobDefinition.ResourceType, jobDefinition.ResourceCount);
-
-                    // Used to prevent duplicates for the resources list
-                    if (isAdded && !record.Resources.Contains(jobDefinition.ResourceType))
-                    {
-                        record.Resources.Add(jobDefinition.ResourceType);
-                    }
-                }
             }
         }
     }

@@ -71,38 +71,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
-            await UpdateSearchParametersDefinitionIfRequiredAsync(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
+            ValidateSearchParametersHash(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
 
             await ProcessQueryAsync(cancellationToken);
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
 
-        private async Task UpdateSearchParametersDefinitionIfRequiredAsync(JobInfo jobInfo, ReindexProcessingJobDefinition jobDefinition, CancellationToken cancellationToken)
+        private void ValidateSearchParametersHash(JobInfo jobInfo, ReindexProcessingJobDefinition jobDefinition, CancellationToken cancellationToken)
         {
             string currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
 
-            // If the hash is different, we need to refresh our local copy of the search parameters.
-            // This ensures that the processing job always uses the latest search parameters.
+            // If the hash is different, we need to fail job as this means something has changed unexpectedly.
+            // This ensures that the processing job always uses the latest search parameters and we do not complete job incorrectly.
 
             if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
             {
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                _logger.LogJobError(
+                    jobInfo,
+                    "Search parameters for resource type {ResourceType} have changed since the Reindex Job was created. Job definition hash: '{CurrentHash}', In-memory hash: '{JobHash}'.",
+                    jobDefinition.ResourceType,
+                    jobDefinition.ResourceTypeSearchParameterHashMap,
+                    currentResourceTypeHash);
 
-                currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
+                string message = "Search Parameter hash does not match. Resubmit reindex job to try again.";
 
-                if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
+                // Create error object to provide structured error information
+                var errorObject = new
                 {
-                    _logger.LogJobError(
-                        jobInfo,
-                        "Search parameters for resource type {ResourceType} have changed since the Reindex Job was created. Job definition hash: '{CurrentHash}', In-memory hash: '{JobHash}'.",
-                        jobDefinition.ResourceType,
-                        jobDefinition.ResourceTypeSearchParameterHashMap,
-                        currentResourceTypeHash);
+                    message = message,
+                    resourceType = jobDefinition.ResourceType,
+                    jobDefinitionHash = jobDefinition.ResourceTypeSearchParameterHashMap,
+                    currentHash = currentResourceTypeHash,
+                    jobId = jobInfo.Id,
+                    groupId = jobInfo.GroupId,
+                };
 
-                    string message = "Search Parameter hash does not match even after refreshing.";
-                    throw new ReindexJobException(message);
-                }
+                throw new ReindexProcessingJobSoftException(message, errorObject, isCustomerCaused: true);
             }
         }
 
@@ -152,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (Exception ex)
                 {
                     var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
-                    var reindexJobException = new ReindexJobException(message, ex);
+                    var reindexJobException = new ReindexProcessingJobSoftException(message, ex);
                     _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}, job id: {Id}, group id: {GroupId}.", _reindexProcessingJobDefinition.ResourceType, _jobInfo.Id, _jobInfo.GroupId);
                     _reindexProcessingJobResult.Error = reindexJobException.Message + " : " + ex.Message;
                     LogReindexProcessingJobErrorMessage();

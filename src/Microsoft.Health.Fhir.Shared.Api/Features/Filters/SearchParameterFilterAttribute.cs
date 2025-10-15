@@ -8,6 +8,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 using Task = System.Threading.Tasks.Task;
 
@@ -17,6 +18,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     internal sealed class SearchParameterFilterAttribute : ActionFilterAttribute
     {
         private ISearchParameterValidator _searchParameterValidator;
+        private const string HttpDeleteName = "DELETE";
 
         public SearchParameterFilterAttribute(ISearchParameterValidator searchParamValidator)
         {
@@ -29,19 +31,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
+            var searchParameter = ExtractSearchParameter(context);
+            if (searchParameter != null)
             {
-                if (parsedModel is SearchParameter searchParameter)
-                {
-                    // wait for the validation checks to pass before allowing the FHIRController action to continue
-                    await _searchParameterValidator.ValidateSearchParameterInput(
-                        searchParameter,
-                        context.HttpContext.Request.Method,
-                        context.HttpContext.RequestAborted);
-                }
+                // wait for the validation checks to pass before allowing the FHIRController action to continue
+                await _searchParameterValidator.ValidateSearchParameterInput(
+                    searchParameter,
+                    context.HttpContext.Request.Method,
+                    context.HttpContext.RequestAborted);
             }
 
             await next();
+        }
+
+        private static SearchParameter ExtractSearchParameter(ActionExecutingContext context)
+        {
+            // Check for direct SearchParameter resource
+            if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel) &&
+                parsedModel is SearchParameter searchParameter)
+            {
+                return searchParameter;
+            }
+
+            // Check for delete scenario with SearchParameter resource type
+            if (context.HttpContext.Request.Method.Equals(HttpDeleteName, StringComparison.Ordinal) &&
+                context.ActionArguments.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceType) &&
+                string.Equals(resourceType?.ToString(), KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
+            {
+                return new SearchParameter();
+            }
+
+            return null;
         }
     }
 }
