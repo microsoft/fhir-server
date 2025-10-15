@@ -352,8 +352,13 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 }
             }
 
-            record.Status = OperationStatus.Failed;
-            status = JobStatus.Failed;
+            // Only mark as failed if no in-flight jobs exist
+            if (!inFlightJobsExist)
+            {
+                record.Status = OperationStatus.Failed;
+                status = JobStatus.Failed;
+            }
+
             result = JsonConvert.SerializeObject(record);
         }
 
@@ -375,7 +380,10 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
                 if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error)
                 {
-                    status = JobStatus.Failed;
+                    if (!inFlightJobsExist)
+                    {
+                        status = JobStatus.Failed;
+                    }
                 }
             }
 
