@@ -83,6 +83,20 @@ jobs:
       ls -la $(Agent.TempDirectory)/coverage
     displayName: 'List Temp and Coverage Directories'
   - task: Bash@3
+    displayName: 'List and display coverage files'
+    inputs:
+      targetType: 'inline'
+      script: |
+        #!/bin/bash
+        echo "Searching for coverage.cobertura.xml files in $(Agent.TempDirectory):"
+        find "$(Agent.TempDirectory)" -type f -name "coverage.cobertura.xml" | while read file; do
+          echo "-------------------------------------------------------"
+          echo "Found file: $file"
+          echo "-------------------------------------------------------"
+          cat "$file"
+          echo "-------------------------------------------------------"
+        done
+  - task: Bash@3
     displayName: 'Display first 10 lines of Cobertura.xml'
     inputs:
       targetType: 'inline'
@@ -166,6 +180,20 @@ jobs:
       ls -la $(Agent.TempDirectory)
       ls -la $(Agent.TempDirectory)/coverage
     displayName: 'List Temp and Coverage Directories'
+  - task: Bash@3
+    displayName: 'List and display coverage files'
+    inputs:
+      targetType: 'inline'
+      script: |
+        #!/bin/bash
+        echo "Searching for coverage.cobertura.xml files in $(Agent.TempDirectory):"
+        find "$(Agent.TempDirectory)" -type f -name "coverage.cobertura.xml" | while read file; do
+          echo "-------------------------------------------------------"
+          echo "Found file: $file"
+          echo "-------------------------------------------------------"
+          cat "$file"
+          echo "-------------------------------------------------------"
+        done
   - task: Bash@3
     displayName: 'Display first 10 lines of Cobertura.xml'
     inputs:
