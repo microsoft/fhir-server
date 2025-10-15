@@ -20,6 +20,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -68,6 +69,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // enable rebuild indexes for testing
             configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
             configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";
+
+            // Validate operation settings
+            var validateConfiguration = new ValidateOperationConfiguration();
+            configuration["FhirServer:Operations:Validate:CacheDurationInSeconds"] = validateConfiguration.CacheDurationInSeconds.ToString();
+            configuration["FhirServer:Operations:Validate:MaxExpansionSize"] = validateConfiguration.MaxExpansionSize.ToString();
 
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
