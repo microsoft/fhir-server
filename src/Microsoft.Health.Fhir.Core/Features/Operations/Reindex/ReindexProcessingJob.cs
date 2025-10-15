@@ -158,8 +158,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
                     var reindexJobException = new ReindexProcessingJobSoftException(message, ex);
-                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}, job id: {Id}, group id: {GroupId}.", _reindexProcessingJobDefinition.ResourceType, _jobInfo.Id, _jobInfo.GroupId);
-                    _reindexProcessingJobResult.Error = reindexJobException.Message + " : " + ex.Message;
+                    _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _reindexProcessingJobDefinition.ResourceType);
                     LogReindexProcessingJobErrorMessage();
 
                     throw reindexJobException;
@@ -171,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
             var result = JsonConvert.SerializeObject(_reindexProcessingJobResult);
-            _logger.LogInformation($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}. ReindexProcessing Job Result: {result}.");
+            _logger.LogJobInformation(_jobInfo, $"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}. ReindexProcessing Job Result: {result}.");
         }
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
@@ -196,10 +195,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (resourceCount > _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery)
                 {
-                    _logger.LogWarning(
-                        "Reindex: number of resources is higher than the original limit. Group Id: {GroupId}. Job Id: {JobId}. Current count: {CurrentCount}. Original limit: {OriginalLimit}",
-                        _jobInfo.GroupId,
-                        _jobInfo.Id,
+                    _logger.LogJobWarning(
+                        _jobInfo,
+                        "Reindex: number of resources is higher than the original limit. Current count: {CurrentCount}. Original limit: {OriginalLimit}",
                         resourceCount,
                         _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery);
                 }
@@ -214,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
-                    _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, Job Id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
+                    _logger.LogJobInformation(_jobInfo, "Reindex processing job complete. Current number of resources indexed by this job: {Progress}.", _reindexProcessingJobResult.SucceededResourceCount);
                 }
             }
             catch (SqlException sqlEx)
@@ -230,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // If we've hit max retries for timeouts, fail the job
                     if (_reindexProcessingJobResult.TimeoutCount >= MaxTimeoutRetries)
                     {
-                        _logger.LogError("Maximum SQL timeout retries ({MaxRetries}) reached. Job id: {Id}, group id: {GroupId}.", MaxTimeoutRetries, _jobInfo.Id, _jobInfo.GroupId);
+                        _logger.LogJobError(_jobInfo, "Maximum SQL timeout retries ({MaxRetries}) reached.", MaxTimeoutRetries);
 
                         _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
                         _reindexProcessingJobResult.FailedResourceCount = resourceCount;
@@ -239,14 +237,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     // Otherwise log a warning and return without throwing (allowing a retry)
-                    _logger.LogWarning("SQL timeout occurred during reindex processing - retry {RetryCount} of {MaxRetries}. Job id: {Id}", _reindexProcessingJobResult.TimeoutCount, MaxTimeoutRetries, _jobInfo.Id);
+                    _logger.LogJobWarning(_jobInfo, "SQL timeout occurred during reindex processing - retry {RetryCount} of {MaxRetries}.", _reindexProcessingJobResult.TimeoutCount, MaxTimeoutRetries);
                     _jobInfo.Status = JobStatus.Created;
 
                     return;
                 }
 
                 // For non-timeout SQL errors, throw an exception to fail the job
-                _logger.LogError(sqlEx, "SQL error occurred during reindex processing. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
+                _logger.LogJobError(sqlEx, _jobInfo, "SQL error occurred during reindex processing.");
                 _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
 
@@ -254,14 +252,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (FhirException ex)
             {
-                _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: true", _jobInfo.Id);
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: false", _jobInfo.Id);
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;

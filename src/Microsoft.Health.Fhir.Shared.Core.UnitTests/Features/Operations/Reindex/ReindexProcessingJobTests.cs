@@ -37,9 +37,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-
-        private Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
-        private CancellationToken _cancellationToken;
+        private readonly Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
+        private readonly CancellationToken _cancellationToken;
 
         public ReindexProcessingJobTests()
         {
