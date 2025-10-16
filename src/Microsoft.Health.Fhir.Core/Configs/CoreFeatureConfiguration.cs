@@ -101,10 +101,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool EnableGeoRedundancy { get; set; }
 
         /// <summary>
-        /// Gets or sets the refresh interval in minutes for the SearchParameter cache background service.
+        /// Gets or sets the refresh interval in seconds for the SearchParameter cache background service.
         /// The background service will call EnsureCacheFreshnessAsync at this interval to keep
-        /// SearchParameter cache synchronized across instances. Default is 1 minute if not specified.
+        /// SearchParameter cache synchronized across instances. Default is 60 seconds if not specified.
         /// </summary>
-        public int SearchParameterCacheRefreshIntervalMinutes { get; set; } = 1;
+        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 60;
     }
 }

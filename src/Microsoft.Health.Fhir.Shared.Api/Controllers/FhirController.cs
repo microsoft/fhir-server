@@ -179,6 +179,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ConditionalConstraint]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalCreate)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
@@ -226,6 +227,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
@@ -243,6 +245,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPut]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalUpdate)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
         {
             SetupConditionalRequestWithQueryOptimizeConcurrency();
@@ -410,6 +413,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, HardDeleteModel hardDeleteModel, [FromQuery] bool allowPartialSuccess)
         {
@@ -456,6 +460,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalDelete)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> ConditionalDelete(string typeParameter, HardDeleteModel hardDeleteModel, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
@@ -490,6 +495,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/json-patch+json")]
         public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
@@ -515,6 +521,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPatch]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalPatch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/json-patch+json")]
         public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
@@ -540,6 +547,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/fhir+json")]
         public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
@@ -560,6 +568,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPatch]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalPatch)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/fhir+json")]
         public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {

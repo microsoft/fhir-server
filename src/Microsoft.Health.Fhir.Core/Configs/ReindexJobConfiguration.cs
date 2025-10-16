@@ -41,5 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// data store resources to use
         /// </summary>
         public ushort? TargetDataStoreResourcePercentage { get; set; } = null;
+
+        /// <summary>
+        /// Controls the multiplier applied to the SearchParameterCacheRefreshIntervalSeconds
+        /// to determine how long to wait before starting the reindex job processing
+        /// </summary>
+        public int ReindexDelayMultiplier { get; set; } = 3;
     }
 }
