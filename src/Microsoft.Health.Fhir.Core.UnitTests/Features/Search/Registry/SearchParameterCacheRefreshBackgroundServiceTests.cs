@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _coreFeatureConfiguration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             _coreFeatureConfiguration.Value.Returns(new CoreFeatureConfiguration
             {
-                SearchParameterCacheRefreshIntervalMinutes = 1,
+                SearchParameterCacheRefreshIntervalSeconds = 60,
             });
 
             _service = new SearchParameterCacheRefreshBackgroundService(
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             var config = new CoreFeatureConfiguration
             {
-                SearchParameterCacheRefreshIntervalMinutes = 5,
+                SearchParameterCacheRefreshIntervalSeconds = 300,
             };
             var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             options.Value.Returns(config);
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             var config = new CoreFeatureConfiguration
             {
-                SearchParameterCacheRefreshIntervalMinutes = 0,
+                SearchParameterCacheRefreshIntervalSeconds = 0,
             };
             var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             options.Value.Returns(config);
@@ -104,11 +104,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Assert
             Assert.NotNull(service);
 
-            // Verify that the constructor logged the correct default interval (1 minute) by checking the Log method was called
+            // Verify that the constructor logged the correct default interval (1 second) by checking the Log method was called
             mockLogger.Received(1).Log(
                 LogLevel.Information,
                 Arg.Any<EventId>(),
-                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service initialized with 00:01:00 interval.")),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service initialized with 00:00:01 interval.")),
                 null,
                 Arg.Any<Func<object, Exception, string>>());
         }
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange - Test with negative value
             var config = new CoreFeatureConfiguration
             {
-                SearchParameterCacheRefreshIntervalMinutes = -5,
+                SearchParameterCacheRefreshIntervalSeconds = -5,
             };
             var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             options.Value.Returns(config);
@@ -136,11 +136,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Assert
             Assert.NotNull(service);
 
-            // Verify that the constructor logged the correct default interval (1 minute) by checking the Log method was called
+            // Verify that the constructor logged the correct default interval (1 second) by checking the Log method was called
             mockLogger.Received(1).Log(
                 LogLevel.Information,
                 Arg.Any<EventId>(),
-                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service initialized with 00:01:00 interval.")),
+                Arg.Is<object>(o => o.ToString().Contains("SearchParameter cache refresh background service initialized with 00:00:01 interval.")),
                 null,
                 Arg.Any<Func<object, Exception, string>>());
         }
