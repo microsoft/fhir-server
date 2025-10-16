@@ -299,6 +299,103 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(updateResponseAfterMetaUpdated.Resource.Meta.Tag, t => t.Code == "TestCode2");
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
+        public async Task GivenTheResource_WhenUpdatingMetadataWithSilentMetaHeader_ThenNoHistoricalRecordIsCreated()
+        {
+            // Arrange: Create a resource
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            var originalVersionId = int.Parse(createdResource.Meta.VersionId);
+            DateTimeOffset? originalLastUpdated = createdResource.Meta.LastUpdated;
+
+            var historyResponse = await _client.ReadHistoryAsync(ResourceType.Observation, createdResource.Id);
+            Assert.Single(historyResponse.Resource.Entry);
+
+            // Act: Update with _silent-meta header set to true
+            UpdateMetadata(createdResource);
+
+            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(
+                createdResource,
+                ifMatchHeaderETag: null,
+                provenanceHeader: null,
+                silentMeta: true);
+
+            // Assert: Historical record should not be created (version and lastUpdated remain change)
+            Observation updatedResource = updateResponse.Resource;
+            Assert.Equal(originalVersionId + 1, int.Parse(updatedResource.Meta.VersionId));
+            Assert.NotEqual(originalLastUpdated, updatedResource.Meta.LastUpdated);
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+            historyResponse = await _client.ReadHistoryAsync(ResourceType.Observation, createdResource.Id);
+            Assert.Single(historyResponse.Resource.Entry);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
+        public async Task GivenTheResource_WhenUpdatingMetadataWithSilentMetaHeaderFalse_ThenHistoricalRecordIsCreated()
+        {
+            // Arrange: Create a resource
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            var originalVersionId = int.Parse(createdResource.Meta.VersionId);
+            DateTimeOffset? originalLastUpdated = createdResource.Meta.LastUpdated;
+
+            var historyResponse = await _client.ReadHistoryAsync(ResourceType.Observation, createdResource.Id);
+            Assert.Single(historyResponse.Resource.Entry);
+
+            // Act: Update with _silent-meta header set to false
+            UpdateMetadata(createdResource);
+
+            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(
+                createdResource,
+                ifMatchHeaderETag: null,
+                provenanceHeader: null,
+                silentMeta: false);
+
+            // Assert: Historical record should be created (version and lastUpdated change)
+            Observation updatedResource = updateResponse.Resource;
+            Assert.Equal(originalVersionId + 1, int.Parse(updatedResource.Meta.VersionId));
+            Assert.NotEqual(originalLastUpdated, updatedResource.Meta.LastUpdated);
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+            historyResponse = await _client.ReadHistoryAsync(ResourceType.Observation, createdResource.Id);
+            Assert.Equal(2, historyResponse.Resource.Entry.Count);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
+        public async Task GivenTheResource_WhenUpdatingMetadataAndContentWithSilentMetaHeader_ThenHistoricalRecordIsCreated()
+        {
+            // Arrange: Create a resource
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            var originalVersionId = int.Parse(createdResource.Meta.VersionId);
+            DateTimeOffset? originalLastUpdated = createdResource.Meta.LastUpdated;
+
+            var historyResponse = await _client.ReadHistoryAsync(ResourceType.Observation, createdResource.Id);
+            Assert.Single(historyResponse.Resource.Entry);
+
+            // Act: Update with _silent-meta header set to true
+            UpdateMetadata(createdResource);
+            UpdateObservation(createdResource);
+
+            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(
+                createdResource,
+                ifMatchHeaderETag: null,
+                provenanceHeader: null,
+                silentMeta: true);
+
+            // Assert: Historical record should be created (version and lastUpdated change)
+            Observation updatedResource = updateResponse.Resource;
+            Assert.Equal(originalVersionId + 1, int.Parse(updatedResource.Meta.VersionId));
+            Assert.NotEqual(originalLastUpdated, updatedResource.Meta.LastUpdated);
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+            historyResponse = await _client.ReadHistoryAsync(ResourceType.Observation, createdResource.Id);
+            Assert.Equal(2, historyResponse.Resource.Entry.Count);
+        }
+
         private static void ValidateUpdateResponse<T>(T oldResource, FhirResponse<T> newResponse, bool same, HttpStatusCode expectedStatusCode)
             where T : DomainResource
         {
@@ -325,11 +422,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private static void UpdateObservation(Observation observationResource)
         {
-                observationResource.Text = new Narrative
-                {
-                    Status = Narrative.NarrativeStatus.Generated,
-                    Div = $"<div>{ContentUpdated}</div>",
-                };
-            }
+            observationResource.Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>{ContentUpdated}</div>",
+            };
+        }
+
+        private static void UpdateMetadata(Resource resource)
+        {
+            resource.Meta.Tag = new List<Coding>() { new Coding("testMeta", Guid.NewGuid().ToString()) };
         }
     }
+}

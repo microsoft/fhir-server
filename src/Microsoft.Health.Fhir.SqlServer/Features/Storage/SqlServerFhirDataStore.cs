@@ -21,6 +21,7 @@ using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -64,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
+        private readonly IResourceDeserializer _resourceDeserializer;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
         private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -83,7 +85,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient)
+            SqlStoreClient storeClient,
+            IResourceDeserializer resourceDeserializer)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -99,6 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -192,6 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var prevResourceId = string.Empty;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
+                var silentMeta = false;
                 var resource = resourceExt.Wrapper;
                 var setAsHistory = prevResourceId == resource.ResourceId; // this assumes that first resource version is the latest one
                 //// negative versions are historical by definition
@@ -298,6 +303,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                             continue;
                         }
+                        else if (resourceExt.MetaSilent && ChangesAreOnlyInMetadata(resource, existingResource))
+                        {
+                            silentMeta = true;
+                        }
                     }
 
                     existingVersion = int.Parse(existingResource.Version);
@@ -307,6 +316,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         resource.Version = versionPlusOne;
                     }
 
+                    // This is not part of the above check to cover the case of importing data in version order.
                     if (resource.Version == versionPlusOne)
                     {
                         hasVersionToCompare = true;
@@ -339,7 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && !silentMeta, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
@@ -946,6 +956,91 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             == existing.Data
                                 .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
                                 .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+            }
+        }
+
+        private bool ChangesAreOnlyInMetadata(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper)
+        {
+            var inputResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(inputWrapper).ResourceInstance;
+            var existingResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(existingWrapper).ResourceInstance;
+
+            var inputMeta = inputResource.Meta;
+            var existingMeta = existingResource.Meta;
+
+            if (inputMeta.Equals(existingMeta))
+            {
+                return false; // Difference is in a non-meta field
+            }
+            else
+            {
+                var inputChildren = inputResource.NamedChildren.GetEnumerator();
+                var existingChildren = existingResource.NamedChildren.GetEnumerator();
+
+                var inputMoved = inputChildren.MoveNext();
+                var existingMoved = existingChildren.MoveNext();
+
+                if (inputMoved != existingMoved)
+                {
+                    return false;
+                }
+
+                if (!inputMoved)
+                {
+                    return true; // empty input & existing resource
+                }
+
+                while (true)
+                {
+                    var inputChild = inputChildren.Current;
+                    var existingChild = existingChildren.Current;
+
+                    // Skip meta
+                    if (inputChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
+                    {
+                        inputMoved = inputChildren.MoveNext();
+                        inputChild = inputChildren.Current;
+                    }
+
+                    if (existingChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingMoved = existingChildren.MoveNext();
+                        existingChild = existingChildren.Current;
+                    }
+
+                    // Need to check if they moved to skip meta and still agree on if there are more fields
+                    if (inputMoved != existingMoved)
+                    {
+                        return false;
+                    }
+
+                    // If they agree and they didn't move then meta was the last field
+                    if (!inputMoved)
+                    {
+                        break;
+                    }
+
+                    if (!inputChild.EqualValues(existingChild))
+                    {
+                        return false;
+                    }
+
+                    inputMoved = inputChildren.MoveNext();
+                    existingMoved = existingChildren.MoveNext();
+
+                    // One resource has more fields than the other
+                    if (inputMoved != existingMoved)
+                    {
+                        return false;
+                    }
+
+                    // The end of the file has been reached
+                    if (!inputMoved)
+                    {
+                        break;
+                    }
+                }
+
+                return true;
             }
         }
 
