@@ -51,10 +51,12 @@ while ($true) {
     $found = @()
     $found += Get-ChildItem -Path $ArtifactsDir -Recurse -Filter '*.zip' -File -ErrorAction SilentlyContinue
     $found += Get-ChildItem -Path $expandedDir -Recurse -Filter '*.zip' -File -ErrorAction SilentlyContinue
+    $found = @($found)
 
     # Filter out already processed zips
     $toProcess = $found | Where-Object { -not $processedZips.ContainsKey($_.FullName) }
-    if (-not $toProcess -or $toProcess.Count -eq 0) {
+    $toProcess = @($toProcess)
+    if ($toProcess.Count -eq 0) {
         Write-Host "No new zip archives found in iteration $iteration. Extraction complete."
         break
     }
@@ -119,9 +121,8 @@ $dlls += Get-ChildItem -Path $ArtifactsDir -Filter $Pattern -Recurse -File -Erro
 # Search expanded dir (from nested zip extraction)
 $dlls += Get-ChildItem -Path $expandedDir -Filter $Pattern -Recurse -File -ErrorAction SilentlyContinue
 
-# De-duplicate by fullname
-$dlls = $dlls | Sort-Object -Property FullName -Unique
-if (-not $dlls -or $dlls.Count -eq 0) {
+$dlls = @($dlls | Sort-Object -Property FullName -Unique)
+if ($dlls.Count -eq 0) {
     Write-Host "No test DLLs found under $ArtifactsDir with pattern $Pattern. Exiting with success (nothing to do)."
     exit 0
 }
