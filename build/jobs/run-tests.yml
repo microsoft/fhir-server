@@ -26,6 +26,44 @@ jobs:
     inputs:
       archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
       destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+  - task: Bash@3
+    displayName: 'Unzip nested IntegrationTests zips (Cosmos)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+        echo "Looking for nested zip files to extract under $(Agent.TempDirectory)/IntegrationTests"
+        find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.zip' | while read zipfile; do
+          relpath=$(realpath --relative-to="$(Agent.TempDirectory)/IntegrationTests" "$zipfile")
+          outdir="$(Agent.TempDirectory)/IntegrationTests/unzipped/${relpath%.*}"
+          mkdir -p "$outdir"
+          echo "Extracting $zipfile -> $outdir"
+          unzip -q "$zipfile" -d "$outdir" || true
+        done || true
+
+  - task: Bash@3
+    displayName: 'Diagnostic: inspect extracted IntegrationTests (Cosmos)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        #!/bin/bash
+        echo "---- Top-level extracted items: ----"
+        ls -la "$(Agent.TempDirectory)/IntegrationTests" || true
+        echo
+        echo "---- First 500 files (paths): ----"
+        find "$(Agent.TempDirectory)/IntegrationTests" -type f | sed -n '1,500p' || true
+        echo
+        echo "---- Search for runtime / test / collector artifacts: ----"
+        find "$(Agent.TempDirectory)/IntegrationTests" -type f \( -iname '*Tests.Integration*.dll' -o -iname '*.deps.json' -o -iname '*.runtimeconfig.json' -o -iname 'Microsoft.NET.Test.Sdk*' -o -iname '*testhost*' -o -iname '*vstest*' -o -iname '*coverlet*' -o -iname '*xunit*' \) -print || true
+        echo
+        echo "---- Counts: ----"
+        echo "DLLs: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*Tests.Integration*.dll' | wc -l)
+        echo "deps.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.deps.json' | wc -l)
+        echo "runtimeconfig.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.runtimeconfig.json' | wc -l)
+        echo "coverlet: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*coverlet*' | wc -l)
+        echo "Microsoft.NET.Test.Sdk: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname 'Microsoft.NET.Test.Sdk*' | wc -l)
+        echo "testhost: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*testhost*' | wc -l)
 
   - task: UseDotNet@2
     inputs:
@@ -60,7 +98,7 @@ jobs:
     displayName: 'Run Cosmos Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v detailed --collect "XPlat Code Coverage"'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v detailed --collect "XPlat Code Coverage" --settings "$(Build.SourcesDirectory)/CodeCoverage.runsettings"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
@@ -75,7 +113,7 @@ jobs:
     displayName: 'Aggregate code coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
   - script: |
@@ -134,6 +172,44 @@ jobs:
     inputs:
       archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
       destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+  - task: Bash@3
+    displayName: 'Unzip nested IntegrationTests zips (SQL)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+        echo "Looking for nested zip files to extract under $(Agent.TempDirectory)/IntegrationTests"
+        find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.zip' | while read zipfile; do
+          relpath=$(realpath --relative-to="$(Agent.TempDirectory)/IntegrationTests" "$zipfile")
+          outdir="$(Agent.TempDirectory)/IntegrationTests/unzipped/${relpath%.*}"
+          mkdir -p "$outdir"
+          echo "Extracting $zipfile -> $outdir"
+          unzip -q "$zipfile" -d "$outdir" || true
+        done || true
+
+  - task: Bash@3
+    displayName: 'Diagnostic: inspect extracted IntegrationTests (SQL)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        #!/bin/bash
+        echo "---- Top-level extracted items: ----"
+        ls -la "$(Agent.TempDirectory)/IntegrationTests" || true
+        echo
+        echo "---- First 500 files (paths): ----"
+        find "$(Agent.TempDirectory)/IntegrationTests" -type f | sed -n '1,500p' || true
+        echo
+        echo "---- Search for runtime / test / collector artifacts: ----"
+        find "$(Agent.TempDirectory)/IntegrationTests" -type f \( -iname '*Tests.Integration*.dll' -o -iname '*.deps.json' -o -iname '*.runtimeconfig.json' -o -iname 'Microsoft.NET.Test.Sdk*' -o -iname '*testhost*' -o -iname '*vstest*' -o -iname '*coverlet*' -o -iname '*xunit*' \) -print || true
+        echo
+        echo "---- Counts: ----"
+        echo "DLLs: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*Tests.Integration*.dll' | wc -l)
+        echo "deps.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.deps.json' | wc -l)
+        echo "runtimeconfig.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.runtimeconfig.json' | wc -l)
+        echo "coverlet: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*coverlet*' | wc -l)
+        echo "Microsoft.NET.Test.Sdk: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname 'Microsoft.NET.Test.Sdk*' | wc -l)
+        echo "testhost: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*testhost*' | wc -l)
 
   - task: UseDotNet@2
     inputs:
@@ -160,7 +236,7 @@ jobs:
     displayName: 'Run Sql Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v detailed --collect "XPlat Code Coverage"'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v detailed --collect "XPlat Code Coverage" --settings "$(Build.SourcesDirectory)/CodeCoverage.runsettings"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
@@ -173,7 +249,7 @@ jobs:
     displayName: 'Aggregate code coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
   - script: |
