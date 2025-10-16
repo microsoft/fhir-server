@@ -56,7 +56,8 @@ while ($true) {
     # Filter out already processed zips
     $toProcess = $found | Where-Object { -not $processedZips.ContainsKey($_.FullName) }
     $toProcess = @($toProcess)
-    if ($toProcess.Count -eq 0) {
+    $toProcessCount = ($toProcess | Measure-Object).Count
+    if ($toProcessCount -eq 0) {
         Write-Host "No new zip archives found in iteration $iteration. Extraction complete."
         break
     }
@@ -85,9 +86,19 @@ while ($true) {
 }
 
 function Find-ToolExecutable($prefix) {
-    # find files in tools path whose name starts with the prefix (case-insensitive)
-    $files = Get-ChildItem -Path $toolsPath -File -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "(?i)^$prefix" }
-    if ($files -and $files.Count -gt 0) { return $files[0].FullName }
+    # find executable files in tools path whose name starts with the prefix (case-insensitive)
+    # dotnet local tools install to .tools/ with executable or .exe depending on platform
+    $files = Get-ChildItem -Path $toolsPath -File -Recurse -ErrorAction SilentlyContinue | Where-Object { 
+        $_.Name -match "(?i)^$prefix" -and ($_.Extension -eq '.exe' -or $_.Extension -eq '' -or $_.Name -eq $prefix)
+    }
+    $files = @($files)
+    $filesCount = ($files | Measure-Object).Count
+    if ($filesCount -gt 0) { return $files[0].FullName }
+    
+    # Fallback: try to find the tool by name alone in .tools root (common on Linux/Mac)
+    $directExe = Join-Path $toolsPath $prefix
+    if (Test-Path $directExe) { return $directExe }
+    
     return $null
 }
 
@@ -122,12 +133,13 @@ $dlls += Get-ChildItem -Path $ArtifactsDir -Filter $Pattern -Recurse -File -Erro
 $dlls += Get-ChildItem -Path $expandedDir -Filter $Pattern -Recurse -File -ErrorAction SilentlyContinue
 
 $dlls = @($dlls | Sort-Object -Property FullName -Unique)
-if ($dlls.Count -eq 0) {
+$dllCount = ($dlls | Measure-Object).Count
+if ($dllCount -eq 0) {
     Write-Host "No test DLLs found under $ArtifactsDir with pattern $Pattern. Exiting with success (nothing to do)."
     exit 0
 }
 
-Write-Host "Found $($dlls.Count) test DLL(s). Processing..."
+Write-Host "Found $dllCount test DLL(s). Processing..."
 
 $coverageFiles = @()
 foreach ($dll in $dlls) {
@@ -172,7 +184,8 @@ foreach ($dll in $dlls) {
     }
 }
 
-if ($coverageFiles.Count -eq 0) {
+$coverageCount = ($coverageFiles | Measure-Object).Count
+if ($coverageCount -eq 0) {
     Write-Warning 'No coverage output files were produced by coverlet. Verify the test DLLs are valid and vstest executed them.'
     # Still produce a minimal placeholder so pipeline steps expecting a report can continue
     New-Item -ItemType Directory -Force -Path (Join-Path $OutDir 'report') | Out-Null
