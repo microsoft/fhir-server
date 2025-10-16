@@ -404,7 +404,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         {
             try
             {
-                var blobServiceClient = string.IsNullOrEmpty(storageUri) ? new BlobServiceClient(storageConnectionString) : new BlobServiceClient(new Uri(storageUri), string.IsNullOrEmpty(storageUAMI) ? new InteractiveBrowserCredential() : new ManagedIdentityCredential(storageUAMI));
+                var blobServiceClient = string.IsNullOrEmpty(storageUri) ? new BlobServiceClient(storageConnectionString) : new BlobServiceClient(new Uri(storageUri), string.IsNullOrEmpty(storageUAMI) ? new DefaultAzureCredential() : new ManagedIdentityCredential(storageUAMI));
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(storageContainerName);
 
                 if (!blobContainerClient.Exists())
