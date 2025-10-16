@@ -59,10 +59,16 @@ jobs:
   - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests'
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} Integration'
+      command: custom
+      # replaced with coverlet.console invocation via PowerShell below
+    
+  - task: PowerShell@2
+    displayName: 'Run Cosmos Integration Tests and collect coverage (published DLLs)'
+    inputs:
+      targetType: 'filePath'
+      filePath: '$(Build.SourcesDirectory)/tools/run_coverage_on_published_dlls.ps1'
+      arguments: "-ArtifactsDir '$(Agent.TempDirectory)/IntegrationTests' -OutDir '$(Agent.TempDirectory)/coverage' -Pattern '*${{ parameters.version }}.Tests.Integration*.dll'"
+      pwsh: true
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -71,6 +77,21 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish integration test coverage'
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      artifactName: 'IntegrationTestsCoverage'
+      artifactType: 'container'
+
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish code coverage results (integration)'
+    condition: always()
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/report/Cobertura.xml'
+      reportDirectory: '$(Agent.TempDirectory)/coverage/report'
 
 - job: "SqlIntegrationTests"
   pool:
@@ -114,16 +135,28 @@ jobs:
   - task: DotNetCoreCLI@2
     displayName: 'Run Sql Integration Tests'
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} Integration'
+      command: custom
+
+  - task: PowerShell@2
+    displayName: 'Run Sql Integration Tests and collect coverage (published DLLs)'
+    inputs:
+      targetType: 'filePath'
+      filePath: '$(Build.SourcesDirectory)/tools/run_coverage_on_published_dlls.ps1'
+      arguments: "-ArtifactsDir '$(Agent.TempDirectory)/IntegrationTests' -OutDir '$(Agent.TempDirectory)/coverage' -Pattern '*${{ parameters.version }}.Tests.Integration*.dll'"
+      pwsh: true
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish integration test coverage'
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      artifactName: 'IntegrationTestsCoverage'
+      artifactType: 'container'
 
 - job: 'cosmosE2eTests'
   dependsOn: []
