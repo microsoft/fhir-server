@@ -434,10 +434,12 @@ stages:
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
+  - BuildUnitTests
   - testStu3
   - testR4
   - testR4B
   - testR5
+  - aggregateCoverage
   condition: always()
   jobs:
   - template: ./jobs/cleanup.yml

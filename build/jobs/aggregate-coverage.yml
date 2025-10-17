@@ -22,6 +22,7 @@ steps:
   # Publish the aggregated coverage artifact
   - task: PublishBuildArtifacts@1
     displayName: 'Publish aggregated coverage artifact'
+    continueOnError: true  # Allow re-runs if artifact already exists
     inputs:
       pathToPublish: '$(Pipeline.Workspace)/AggregatedCoverage'
       artifactName: 'Coverage_Aggregated'
@@ -35,3 +36,44 @@ steps:
       summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
       reportDirectory: '$(Pipeline.Workspace)/AggregatedCoverage'
       failIfCoverageEmpty: false
+
+  # Check coverage threshold and fail pipeline if below minimum
+  - task: PowerShell@2
+    displayName: 'Verify coverage meets minimum threshold'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $coberturaPath = "$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
+        $minLineRate = 0.65  # 65% minimum line coverage
+        $minBranchRate = 0.60  # 60% minimum branch coverage
+        
+        Write-Host "Reading coverage from: $coberturaPath"
+        [xml]$coverage = Get-Content $coberturaPath
+        
+        $lineRate = [double]$coverage.coverage.'line-rate'
+        $branchRate = [double]$coverage.coverage.'branch-rate'
+        $linePercent = [math]::Round($lineRate * 100, 2)
+        $branchPercent = [math]::Round($branchRate * 100, 2)
+        
+        Write-Host ""
+        Write-Host "=== Coverage Results ===" -ForegroundColor Cyan
+        Write-Host "Line Coverage:   $linePercent% (minimum: $($minLineRate * 100)%)" -ForegroundColor $(if ($lineRate -ge $minLineRate) { "Green" } else { "Red" })
+        Write-Host "Branch Coverage: $branchPercent% (minimum: $($minBranchRate * 100)%)" -ForegroundColor $(if ($branchRate -ge $minBranchRate) { "Green" } else { "Red" })
+        Write-Host ""
+        
+        $failed = $false
+        if ($lineRate -lt $minLineRate) {
+          Write-Host "##vso[task.logissue type=error]Line coverage $linePercent% is below minimum threshold of $($minLineRate * 100)%"
+          $failed = $true
+        }
+        if ($branchRate -lt $minBranchRate) {
+          Write-Host "##vso[task.logissue type=error]Branch coverage $branchPercent% is below minimum threshold of $($minBranchRate * 100)%"
+          $failed = $true
+        }
+        
+        if ($failed) {
+          Write-Host "##vso[task.complete result=Failed;]Coverage threshold check failed"
+          exit 1
+        } else {
+          Write-Host "✓ Coverage meets minimum thresholds" -ForegroundColor Green
+        }
