@@ -96,11 +96,11 @@ steps:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
-    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}} with coverage'
+    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       command: test
       projects: 'test/**/*${{ parameters.version }}.Tests.E2E*.csproj'
-      arguments: '--filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework) --blame-hang-timeout 7m'
+      arguments: '--filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" --configuration $(buildConfiguration) -v normal --no-build -f $(defaultBuildFramework) --blame-hang-timeout 7m'
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} E2E'
       publishTestResults: true
     env:
@@ -139,28 +139,4 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-
-  - task: reportgenerator@5
-    displayName: 'Aggregate E2E test coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish E2E test coverage'
-    condition: succeededOrFailed()
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'Coverage_E2ETests_${{ parameters.version }}_${{ parameters.appServiceType }}'
-      artifactType: 'container'
-
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish E2E code coverage results'
-    condition: always()
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      reportDirectory: '$(Agent.TempDirectory)/coverage'
 

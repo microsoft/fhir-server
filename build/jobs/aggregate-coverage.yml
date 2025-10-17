@@ -9,7 +9,6 @@ steps:
       patterns: |
         Coverage_UnitTests/**
         Coverage_IntegrationTests_*/**
-        Coverage_E2ETests_*/**
 
   # Aggregate all coverage files into a single report
   - task: reportgenerator@5
