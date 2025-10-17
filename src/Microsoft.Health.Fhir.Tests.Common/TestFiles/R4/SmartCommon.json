@@ -17,12 +17,13 @@
 						}
 					]
 				},
-				"name": [
-					{
-						"family": "practitionerA"
-					}
-				]
-			},
+                "name": [
+                    {
+                        "family": "practitionerA"
+                    }
+                ],
+                "gender":  "male"
+            },
             "request": {
                 "method": "PUT",
                 "url": "Practitioner/smart-practitioner-A"

@@ -36,7 +36,8 @@ public class ExpressionAccessControl
                     out _,
                     out IReadOnlyList<IncludeExpression> includeExpressions,
                     out IReadOnlyList<IncludeExpression> revIncludeExpressions,
-                    out IReadOnlyList<ChainedExpression> chainedExpressions))
+                    out IReadOnlyList<ChainedExpression> chainedExpressions,
+                    out _))
             {
                 var validResourceTypes = _requestContextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions.Select(r => r.Resource).ToHashSet();
 

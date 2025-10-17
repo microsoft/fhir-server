@@ -1,0 +1,70 @@
+{
+    "resourceType": "Bundle",
+    "id": "bundle-transaction",
+    "meta": {
+        "lastUpdated": "2014-08-18T01:43:30Z"
+    },
+    "type": "transaction",
+    "entry": [
+        {
+            "request": {
+                "method": "GET",
+                "url": "?_count=100"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Patient"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Observation"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Encounter"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Practitioner"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "DiagnosticReport"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "?_type=Observation,Patient,Practitioner"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Observation?code=http://loinc.org|4548-4&status=final"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Observation?code=http://loinc.org|55233-1&status=final"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Observation?code=http://loinc.org|55233-1"
+            }
+        }    
+    ]
+}

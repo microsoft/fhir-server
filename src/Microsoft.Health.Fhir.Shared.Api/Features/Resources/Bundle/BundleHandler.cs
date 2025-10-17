@@ -882,6 +882,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Propagate Fine Grained Access Control to the new FHIR Request Context.
             newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = requestContext.AccessControlContext.ApplyFineGrainedAccessControl;
+            newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControlWithSearchParameters = requestContext.AccessControlContext.ApplyFineGrainedAccessControlWithSearchParameters;
 
             // Propagate bundle context information to inner requests.
             BundleResourceContext bundleResourceExecutionContext = new BundleResourceContext(
