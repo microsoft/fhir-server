@@ -34,11 +34,13 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -124,8 +126,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
+            var fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+            var resourceDeserializer = Substitute.For<IResourceDeserializer>();
 
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), fhirRuntimeConfiguration, searchParameterOperations, resourceDeserializer, logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();

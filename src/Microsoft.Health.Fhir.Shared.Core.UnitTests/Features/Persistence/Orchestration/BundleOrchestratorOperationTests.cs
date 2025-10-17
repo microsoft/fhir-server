@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             for (int i = 0; i < numberOfResources; i++)
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(BundleProcessingLogic.Parallel, GetHttpVerb(i), operation.Id));
+                ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(null, BundleProcessingLogic.Parallel, GetHttpVerb(i), string.Empty, operation.Id));
 
                 Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 tasksWaitingForMergeAsync[i] = appendedResourceTask;
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Parallel.For(0, numberOfResources, (i, task) =>
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(BundleProcessingLogic.Parallel, GetHttpVerb(i), operation.Id));
+                ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(null, BundleProcessingLogic.Parallel, GetHttpVerb((int)i), string.Empty, operation.Id));
 
                 Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 tasksWaitingForMergeAsync.Add(appendedResourceTask);
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
             DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-            ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(BundleProcessingLogic.Parallel, GetHttpVerb(0), operation.Id));
+            ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(null, BundleProcessingLogic.Parallel, GetHttpVerb(0), string.Empty, operation.Id));
 
             Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
             tasksWaitingForMergeAsync.Add(appendedResourceTask);
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                 else
                 {
                     DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                    ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(BundleProcessingLogic.Parallel, GetHttpVerb(i), operation.Id));
+                    ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(null, BundleProcessingLogic.Parallel, GetHttpVerb((int)i), string.Empty, operation.Id));
 
                     appendTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 }
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
 
             DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-            ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(BundleProcessingLogic.Parallel, GetHttpVerb(index: 0), operation.Id));
+            ResourceWrapperOperation resourceWrapper = BundleTestsCommonFunctions.GetResourceWrapperOperation(resource, new BundleResourceContext(null, BundleProcessingLogic.Parallel, GetHttpVerb(index: 0), string.Empty, operation.Id));
 
             // A single resource will be appended to this operation.
             // In this test, we are forcing the operation to timeout while waiting for the remain resources.
@@ -268,10 +268,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
         }
 
-        private static HTTPVerb GetHttpVerb(int index)
+        private static Bundle.HTTPVerb GetHttpVerb(int index)
         {
             int nextHttpVerb = index % 6;
-            return (HTTPVerb)nextHttpVerb;
+            return (Bundle.HTTPVerb)nextHttpVerb;
         }
     }
 }
