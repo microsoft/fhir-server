@@ -82,7 +82,7 @@ jobs:
     displayName: 'Publish Cosmos integration test coverage'
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'Coverage/IntegrationTests/Cosmos_${{ parameters.version }}'
+      artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
       artifactType: 'container'
 
   - task: PublishCodeCoverageResults@1
@@ -157,7 +157,7 @@ jobs:
     displayName: 'Publish SQL integration test coverage'
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'Coverage/IntegrationTests/Sql_${{ parameters.version }}'
+      artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
       artifactType: 'container'
 
   - task: PublishCodeCoverageResults@1

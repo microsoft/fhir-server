@@ -153,7 +153,7 @@ steps:
     condition: succeededOrFailed()
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'Coverage/E2ETests/${{ parameters.version }}_${{ parameters.appServiceType }}'
+      artifactName: 'Coverage_E2ETests_${{ parameters.version }}_${{ parameters.appServiceType }}'
       artifactType: 'container'
 
   - task: PublishCodeCoverageResults@1

@@ -59,7 +59,7 @@ steps:
     condition: succeededOrFailed()
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'Coverage/UnitTests'
+      artifactName: 'Coverage_UnitTests'
       artifactType: 'container'
 
 - ${{ if eq(parameters.packageArtifacts, 'true') }}:

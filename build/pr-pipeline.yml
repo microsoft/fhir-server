@@ -421,7 +421,7 @@ stages:
   - testR4
   - testR4B
   - testR5
-  condition: succeededOrFailed()
+  condition: succeeded()
   jobs:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
@@ -438,7 +438,7 @@ stages:
   - testR4
   - testR4B
   - testR5
-  - aggregateCoverage
+  condition: always()
   jobs:
   - template: ./jobs/cleanup.yml
 

@@ -7,9 +7,9 @@ steps:
     inputs:
       path: '$(Pipeline.Workspace)/AllCoverage'
       patterns: |
-        Coverage/UnitTests/**
-        Coverage/IntegrationTests/**
-        Coverage/E2ETests/**
+        Coverage_UnitTests/**
+        Coverage_IntegrationTests_*/**
+        Coverage_E2ETests_*/**
 
   # Aggregate all coverage files into a single report
   - task: reportgenerator@5
@@ -24,7 +24,7 @@ steps:
     displayName: 'Publish aggregated coverage artifact'
     inputs:
       pathToPublish: '$(Pipeline.Workspace)/AggregatedCoverage'
-      artifactName: 'Coverage/Aggregated'
+      artifactName: 'Coverage_Aggregated'
       artifactType: 'container'
 
   # Publish to Azure DevOps for pipeline UI visualization
