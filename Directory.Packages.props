@@ -86,7 +86,7 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.23.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetSdkPackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.3.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
