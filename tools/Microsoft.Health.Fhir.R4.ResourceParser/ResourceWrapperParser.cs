@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
     public class ResourceWrapperParser
     {
         private ResourceWrapperFactory _resourceWrapperFactory;
-        private FhirJsonParser _fhirJsonParser;
+        private FhirJsonDeserializer _fhirJsonDeserializer;
         private FhirJsonSerializer _fhirJsonSerializer;
         private IModelInfoProvider _modelInfoProvider;
 
@@ -55,10 +55,10 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             var compartmentIndexer = new CompartmentIndexer(compartmentDefinitionManager);
 
             var fhirJsonSerializer = new FhirJsonSerializer();
-            var fhirJsonParser = new FhirJsonParser();
+            var fhirJsonDeserializer = new FhirJsonDeserializer();
             var rawResourceFactory = new RawResourceFactory(fhirJsonSerializer);
             var claimsExtractor = new MockClaimsExtractor();
-            var resourceDeserializer = new ResourceDeserializer((FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => fhirJsonParser.Parse(str).ToResourceElement())));
+            var resourceDeserializer = new ResourceDeserializer((FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => fhirJsonDeserializer.Deserialize<Resource>(str).ToResourceElement())));
             var resourceWrapperFactory = new ResourceWrapperFactory(rawResourceFactory, fhirRequestContextAccessor, searchIndexer, claimsExtractor, compartmentIndexer, searchParameterDefinitionManager, resourceDeserializer);
 
             var definitionManagerTask = searchParameterDefinitionManager.StartAsync(CancellationToken.None);
@@ -74,20 +74,21 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             fhirRequestContextAccessor.RequestContext = new FhirRequestContext("EXE", "http://null/", "https://null/", "null", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
 
             _resourceWrapperFactory = resourceWrapperFactory;
-            _fhirJsonParser = fhirJsonParser;
+            _fhirJsonDeserializer = fhirJsonDeserializer;
             _fhirJsonSerializer = fhirJsonSerializer;
             _modelInfoProvider = modelInfoProvider;
         }
 
         public ResourceWrapper CreateResourceWrapper(string input)
         {
-            Base resource = _fhirJsonParser.Parse(input);
-            return _resourceWrapperFactory.Create(new ResourceElement(resource.ToTypedElement()), false, true);
+            Resource resource = _fhirJsonDeserializer.Deserialize<Resource>(input);
+            return _resourceWrapperFactory.Create(new ResourceElement(resource.ToPocoNode()), false, true);
         }
 
         public string SerializeToString(ResourceWrapper wrapper)
         {
-            return _fhirJsonSerializer.SerializeToString(_fhirJsonParser.Parse(wrapper.RawResource.ToITypedElement(_modelInfoProvider)));
+            var typedElement = wrapper.RawResource.ToITypedElement(_modelInfoProvider);
+            return _fhirJsonSerializer.SerializeToString(_fhirJsonDeserializer.Deserialize<Resource>(typedElement.ToJson()));
         }
 
         private static List<ITypedElementToSearchValueConverter> MakeConverters(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, ICodeSystemResolver codeSystemResolver)

@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             { TerminologyOperationParameterNames.Expand.ForceSystemVersion, typeof(Canonical) },
         };
 
-        private readonly FhirJsonParser _parser;
+        private readonly FhirJsonDeserializer _parser;
         private readonly ITerminologyService _terminologyService;
         private readonly IAsyncResourceResolver _resourceResolver;
         private readonly ILogger<FirelyTerminologyServiceProxy> _logger;
@@ -65,11 +65,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             EnsureArg.IsNotNull(resourceResolver, nameof(resourceResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _parser = new FhirJsonParser(
-                new ParserSettings()
-                {
-                    PermissiveParsing = false,
-                });
+            _parser = new FhirJsonDeserializer();
             _terminologyService = terminologyService;
             _resourceResolver = resourceResolver;
             _logger = logger;
@@ -153,7 +149,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 
             try
             {
-                return _parser.Parse<Resource>(value);
+                return _parser.Deserialize<Resource>(value);
             }
             catch (Exception ex)
             {

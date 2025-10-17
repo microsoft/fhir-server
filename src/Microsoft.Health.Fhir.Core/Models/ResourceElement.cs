@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 

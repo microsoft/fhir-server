@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {

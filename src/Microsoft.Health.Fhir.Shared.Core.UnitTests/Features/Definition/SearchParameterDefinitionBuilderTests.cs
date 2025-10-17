@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable SDK0001 // Type is for evaluation purposes only
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

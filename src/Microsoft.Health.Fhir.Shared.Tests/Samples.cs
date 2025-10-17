@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
                     Method = Bundle.HTTPVerb.PUT,
                     Url = "Patient",
                 },
-                Resource = GetDefaultPatient().Instance.ToPoco<Patient>(),
+                Resource = GetDefaultPatient().ToPoco<Patient>(),
             });
 
             return bundle;

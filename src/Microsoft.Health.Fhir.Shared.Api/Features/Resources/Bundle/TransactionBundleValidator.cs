@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequestUrl));
             }
 
-            var requestVerb = entry.Request?.MethodElement?.ObjectValue as string;
+            var requestVerb = entry.Request?.MethodElement?.JsonValue as string;
             if (string.IsNullOrWhiteSpace(requestVerb) || !Enum.IsDefined(typeof(HTTPVerb), requestVerb))
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, requestVerb));

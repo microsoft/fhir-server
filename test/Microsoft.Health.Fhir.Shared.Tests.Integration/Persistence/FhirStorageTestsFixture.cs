@@ -39,6 +39,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -48,6 +49,7 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -133,6 +135,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 
+        public IFhirRuntimeConfiguration FhirRuntimeConfiguration { get; private set; }
+
         public void Dispose()
         {
             (_fixture as IDisposable)?.Dispose();
@@ -194,8 +198,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
+            FhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+            var resourceDeserializer = Substitute.For<IResourceDeserializer>();
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), FhirRuntimeConfiguration, searchParameterOperations, resourceDeserializer, logger);
 
             var collection = new ServiceCollection();
 

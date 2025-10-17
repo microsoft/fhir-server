@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _logger,
                             ct);
 
-                        statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
+                        statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
 
                         DetectNeedToRefreshProfiles(resourceExecutionContext.ResourceType);
 
@@ -303,8 +303,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
 
                     SetupContexts(
+                        bundleType,
                         request,
                         httpVerb,
+                        persistedId,
                         httpContext,
                         BundleProcessingLogic.Parallel,
                         bundleOperation,
@@ -382,7 +384,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     httpStatusCode = HttpStatusCode.BadRequest;
                 }
 
-                TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
+                TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome, cancelled: false);
             }
 
             responseBundle.Entry[entryIndex] = entryComponent;
