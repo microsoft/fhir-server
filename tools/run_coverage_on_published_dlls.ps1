@@ -186,7 +186,6 @@ foreach ($dll in $dlls) {
         '--format', 'cobertura',
         '--output', $outPrefix,
         '--verbosity', 'detailed',
-        '--does-not-return-attribute-names', 'DoesNotReturnAttribute,DoesNotReturnIfAttribute',
         '--use-source-link'
     )
 
