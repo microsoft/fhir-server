@@ -60,7 +60,7 @@ jobs:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/tools/run_coverage_on_published_dlls.ps1'
-      arguments: "-ArtifactsDir '$(Agent.TempDirectory)/IntegrationTests' -OutDir '$(Agent.TempDirectory)/coverage' -Pattern '*${{ parameters.version }}.Tests.Integration*.dll'"
+      arguments: "-ArtifactsDir '$(Agent.TempDirectory)/IntegrationTests' -OutDir '$(Agent.TempDirectory)/coverage' -Pattern '*${{ parameters.version }}.Tests.Integration*.dll' -TestFilter 'DisplayName!~SqlServer'"
       pwsh: true
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
@@ -72,14 +72,14 @@ jobs:
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
   - task: PublishBuildArtifacts@1
-    displayName: 'Publish integration test coverage'
+    displayName: 'Publish Cosmos integration test coverage'
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'IntegrationTestsCoverage'
+      artifactName: 'CosmosIntegrationTestsCoverage_${{ parameters.version }}'
       artifactType: 'container'
 
   - task: PublishCodeCoverageResults@1
-    displayName: 'Publish code coverage results (integration)'
+    displayName: 'Publish Cosmos code coverage results'
     condition: always()
     inputs:
       codeCoverageTool: 'Cobertura'
@@ -130,7 +130,7 @@ jobs:
     inputs:
       targetType: 'filePath'
       filePath: '$(Build.SourcesDirectory)/tools/run_coverage_on_published_dlls.ps1'
-      arguments: "-ArtifactsDir '$(Agent.TempDirectory)/IntegrationTests' -OutDir '$(Agent.TempDirectory)/coverage' -Pattern '*${{ parameters.version }}.Tests.Integration*.dll'"
+      arguments: "-ArtifactsDir '$(Agent.TempDirectory)/IntegrationTests' -OutDir '$(Agent.TempDirectory)/coverage' -Pattern '*${{ parameters.version }}.Tests.Integration*.dll' -TestFilter 'DisplayName!~CosmosDb'"
       pwsh: true
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
@@ -140,11 +140,19 @@ jobs:
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
   - task: PublishBuildArtifacts@1
-    displayName: 'Publish integration test coverage'
+    displayName: 'Publish SQL integration test coverage'
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'IntegrationTestsCoverage'
+      artifactName: 'SqlIntegrationTestsCoverage_${{ parameters.version }}'
       artifactType: 'container'
+
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish SQL code coverage results'
+    condition: always()
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/report/Cobertura.xml'
+      reportDirectory: '$(Agent.TempDirectory)/coverage/report'
 
 - job: 'cosmosE2eTests'
   dependsOn: []
