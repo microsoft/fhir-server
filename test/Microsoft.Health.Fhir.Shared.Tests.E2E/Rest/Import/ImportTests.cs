@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
-        private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private static readonly FhirJsonDeserializer _fhirJsonParser = new FhirJsonDeserializer();
 
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
@@ -2028,7 +2028,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                     string line;
                     while ((line = reader.ReadLine()) != null)
                     {
-                        var resource = _fhirJsonParser.Parse<Hl7.Fhir.Model.Resource>(line);
+                        var resource = _fhirJsonParser.Deserialize<Hl7.Fhir.Model.Resource>(line);
                         if (resource?.TypeName?.Equals(nameof(OperationOutcome), StringComparison.OrdinalIgnoreCase) ?? false)
                         {
                             resources.Add((OperationOutcome)resource);
