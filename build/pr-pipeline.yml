@@ -438,7 +438,7 @@ stages:
   - testR4
   - testR4B
   - testR5
-  condition: always()
+  condition: succeeded()
   jobs:
   - template: ./jobs/cleanup.yml
 
