@@ -7,20 +7,9 @@ parameters:
   type: string
 
 steps:
-  - checkout: self
-    fetchDepth: 1
-    fetchTags: false
-
-  - task: UseDotNet@2
-    inputs:
-      useGlobalJson: true
-
-  - task: DotNetCoreCLI@2
-    displayName: 'Build E2E test projects'
-    inputs:
-      command: build
-      projects: 'test/**/*${{ parameters.version }}.Tests.E2E*.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+  - template: e2e-tests-extract.yml
+    parameters:
+      version: ${{parameters.version}}
 
   - task: AzurePowerShell@5
     displayName: 'Set Variables'
@@ -99,10 +88,9 @@ steps:
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       command: test
-      projects: 'test/**/*${{ parameters.version }}.Tests.E2E*.csproj'
-      arguments: '--filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" --configuration $(buildConfiguration) -v normal --no-build -f $(defaultBuildFramework) --blame-hang-timeout 7m'
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} E2E'
-      publishTestResults: true
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -139,4 +127,3 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-
