@@ -1,0 +1,37 @@
+steps:
+  - checkout: none
+
+  # Download all coverage artifacts from all test stages
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download all coverage artifacts'
+    inputs:
+      path: '$(Pipeline.Workspace)/AllCoverage'
+      patterns: |
+        Coverage_UnitTests/**
+        Coverage_IntegrationTests_*/**
+
+  # Aggregate all coverage files into a single report
+  - task: reportgenerator@5
+    displayName: 'Aggregate all coverage reports'
+    inputs:
+      reports: '$(Pipeline.Workspace)/AllCoverage/**/Cobertura.xml'
+      reporttypes: 'Cobertura;HtmlInline_AzurePipelines'
+      targetdir: '$(Pipeline.Workspace)/AggregatedCoverage'
+
+  # Publish the aggregated coverage artifact
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish aggregated coverage artifact'
+    continueOnError: true  # Allow re-runs if artifact already exists
+    inputs:
+      pathToPublish: '$(Pipeline.Workspace)/AggregatedCoverage'
+      artifactName: 'Coverage_Aggregated'
+      artifactType: 'container'
+
+  # Publish to Azure DevOps for pipeline UI visualization
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish aggregated code coverage to pipeline'
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
+      reportDirectory: '$(Pipeline.Workspace)/AggregatedCoverage'
+      failIfCoverageEmpty: false
