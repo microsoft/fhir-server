@@ -413,24 +413,24 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR5)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: Publish_Final_Code_Coverage
-  displayName: 'Publish final code coverage'
+- stage: aggregateCoverage
+  displayName: 'Aggregate All Coverage Reports'
   dependsOn:
+  - BuildUnitTests
   - testStu3
   - testR4
   - testR4B
   - testR5
+  condition: succeeded()
   jobs:
-  - job: MergeCoverageReports
-    displayName: 'Merge Coverage Reports and Publish'
+  - job: AggregateCoverage
+    displayName: 'Aggregate coverage from all test types and versions'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
     steps:
-    - script: |
-        mkdir merged_coverage
-        reportgenerator -reports:"$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml" -targetdir:merged_coverage -reporttypes:Html
-      displayName: 'Merge Coverage Reports'
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publish Merged Coverage Report'
-      inputs:
+    - template: ./jobs/aggregate-coverage.yml
+
         PathtoPublish: 'merged_coverage'
         ArtifactName: 'CodeCoverageReport'
   
@@ -441,6 +441,7 @@ stages:
   - testR4
   - testR4B
   - testR5
+  condition: succeeded()
   jobs:
   - template: ./jobs/cleanup.yml
 

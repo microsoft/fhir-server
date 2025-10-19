@@ -14,18 +14,9 @@ jobs:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task: DownloadBuildArtifacts@0
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'IntegrationTests'
-
-  - task: ExtractFiles@1
-    displayName: 'Extract Integration Test Binaries'
-    inputs:
-      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
-      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
   - task: Bash@3
     displayName: 'Unzip nested IntegrationTests zips (Cosmos)'
     inputs:
@@ -64,7 +55,7 @@ jobs:
         echo "coverlet: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*coverlet*' | wc -l)
         echo "Microsoft.NET.Test.Sdk: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname 'Microsoft.NET.Test.Sdk*' | wc -l)
         echo "testhost: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*testhost*' | wc -l)
-
+    
   - task: UseDotNet@2
     inputs:
       useGlobalJson: true
@@ -93,14 +84,21 @@ jobs:
         Write-Host "$dataStoreResourceId"
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
+  - task: DotNetCoreCLI@2
+    displayName: 'Build integration test projects'
+    inputs:
+      command: build
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
   - task: DotNetCoreCLI@2
-    displayName: 'Run Cosmos Integration Tests'
+    displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v detailed --collect "XPlat Code Coverage" --settings "$(Build.SourcesDirectory)/CodeCoverage.runsettings"'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} Integration'
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
+      publishTestResults: true
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -155,23 +153,37 @@ jobs:
       artifactName: 'IntegrationTests'
       artifactType: 'container'
 
+  - task: reportgenerator@5
+    displayName: 'Aggregate Cosmos integration test coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(Agent.TempDirectory)/coverage'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Cosmos integration test coverage'
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
+      artifactType: 'container'
+
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish Cosmos code coverage results'
+    condition: always()
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+      reportDirectory: '$(Agent.TempDirectory)/coverage'
+
 - job: "SqlIntegrationTests"
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task: DownloadBuildArtifacts@0
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'IntegrationTests'
-
-  - task: ExtractFiles@1
-    displayName: 'Extract Integration Test Binaries'
-    inputs:
-      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
-      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
   - task: Bash@3
     displayName: 'Unzip nested IntegrationTests zips (SQL)'
     inputs:
@@ -210,7 +222,7 @@ jobs:
         echo "coverlet: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*coverlet*' | wc -l)
         echo "Microsoft.NET.Test.Sdk: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname 'Microsoft.NET.Test.Sdk*' | wc -l)
         echo "testhost: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*testhost*' | wc -l)
-
+    
   - task: UseDotNet@2
     inputs:
       useGlobalJson: true
@@ -233,41 +245,49 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
-    displayName: 'Run Sql Integration Tests'
+    displayName: 'Build integration test projects'
+    inputs:
+      command: build
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run SQL Integration Tests with coverage'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v detailed --collect "XPlat Code Coverage" --settings "$(Build.SourcesDirectory)/CodeCoverage.runsettings"'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} Integration'
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~CosmosDb --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+      publishTestResults: true
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+
   - task: reportgenerator@5
-    displayName: 'Aggregate code coverage'
+    displayName: 'Aggregate SQL integration test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
-  - script: |
-      ls -la $(Agent.TempDirectory)
-      ls -la $(Agent.TempDirectory)/coverage
-    displayName: 'List Temp and Coverage Directories'
-  - task: Bash@3
-    displayName: 'List and display coverage files'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish SQL integration test coverage'
     inputs:
-      targetType: 'inline'
-      script: |
-        #!/bin/bash
-        echo "Searching for coverage.cobertura.xml files in $(Agent.TempDirectory):"
-        find "$(Agent.TempDirectory)" -type f -name "coverage.cobertura.xml" | while read file; do
-          echo "-------------------------------------------------------"
-          echo "Found file: $file"
-          echo "-------------------------------------------------------"
-          cat "$file"
+      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
+      artifactType: 'container'
+
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish SQL code coverage results'
+    condition: always()
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+      reportDirectory: '$(Agent.TempDirectory)/coverage'
           echo "-------------------------------------------------------"
         done
   - task: Bash@3
