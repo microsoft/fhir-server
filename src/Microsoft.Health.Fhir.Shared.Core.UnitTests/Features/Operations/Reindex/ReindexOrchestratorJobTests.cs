@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -47,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private ISearchParameterStatusManager _searchParameterStatusmanager;
         private Func<ReindexOrchestratorJob> _reindexOrchestratorJobTaskFactory;
         private Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
-        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IQueueClient _queueClient = new TestQueueClient();
 
         private ISearchParameterDefinitionManager _searchDefinitionManager;
@@ -58,6 +60,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationToken = _cancellationTokenSource.Token;
             _searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
+
+            _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
             var job = CreateReindexJobRecord();
             List<SearchParameterInfo> searchParameterInfos = new List<SearchParameterInfo>()
@@ -98,7 +102,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             IFhirRuntimeConfiguration fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
             _reindexOrchestratorJobTaskFactory = () =>
-                 new ReindexOrchestratorJob(
+            {
+                // Create a mock CoreFeatureConfiguration for the test
+                var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                {
+                    SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                });
+
+                // Create a mock OperationsConfiguration for the test
+                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                operationsConfig.Value.Returns(new OperationsConfiguration
+                {
+                    Reindex = new ReindexJobConfiguration
+                    {
+                        ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                    },
+                });
+
+                return new ReindexOrchestratorJob(
                      _queueClient,
                      () => _searchService.CreateMockScope(),
                      _searchDefinitionManager,
@@ -106,7 +128,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                      _searchParameterStatusmanager,
                      _searchParameterOperations,
                      fhirRuntimeConfiguration,
-                     NullLoggerFactory.Instance);
+                     NullLoggerFactory.Instance,
+                     coreFeatureConfig,
+                     operationsConfig);
+            };
         }
 
         [Theory]
@@ -117,7 +142,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             const int maxNumberOfResourcesPerQuery = 100;
             const int startResourceSurrogateId = 1;
             const int endResourceSurrogateId = 1000;
-            const string resourceTypeName = "accountHash";
+            const string resourceTypeHash = "accountHash";
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(resourceTypeHash);
 
             IFhirRuntimeConfiguration fhirRuntimeConfiguration = dataStore == DataStore.SqlServer ?
                 new AzureHealthDataServicesRuntimeConfiguration() :
@@ -179,12 +206,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Set up the factory for ReindexProcessingJob
             _reindexProcessingJobTaskFactory = () => new ReindexProcessingJob(
                 () => _searchService.CreateMockScope(),
-                NullLoggerFactory.Instance,
                 () => fhirDataStore.CreateMockScope(),
-                resourceWrapperFactory);
+                resourceWrapperFactory,
+                _searchParameterOperations,
+                NullLogger<ReindexProcessingJob>.Instance);
 
             var reindexOrchestratorJobTaskFactory = () =>
-                new ReindexOrchestratorJob(
+            {
+                // Create a mock CoreFeatureConfiguration for the test
+                var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                {
+                    SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                });
+
+                // Create a mock OperationsConfiguration for the test
+                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                operationsConfig.Value.Returns(new OperationsConfiguration
+                {
+                    Reindex = new ReindexJobConfiguration
+                    {
+                        ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                    },
+                });
+
+                return new ReindexOrchestratorJob(
                     _queueClient,
                     () => _searchService.CreateMockScope(),
                     searchDefinitionManager,
@@ -192,13 +238,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     searchParameterStatusmanager,
                     _searchParameterOperations,
                     fhirRuntimeConfiguration,
-                    NullLoggerFactory.Instance);
+                    NullLoggerFactory.Instance,
+                    coreFeatureConfig,
+                    operationsConfig);
+            };
 
             var expectedResourceType = "Account"; // Fix: Use the actual resource type
 
             // Fix: Create a proper ReindexJobRecord (this was the main issue)
             ReindexJobRecord job = new ReindexJobRecord(
-                new Dictionary<string, string>() { { "Account", resourceTypeName } }, // Resource type hash map
+                new Dictionary<string, string>() { { "Account", resourceTypeHash } }, // Resource type hash map
                 new List<string>(), // No specific target resource types (will process all applicable)
                 new List<string>(), // No specific target search parameter types
                 new List<string>(), // No specific search parameter resource types
@@ -247,7 +296,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 false,
                 Arg.Any<CancellationToken>(),
                 true).
-                Returns(CreateSearchResult(resourceType: resourceTypeName));
+                Returns(CreateSearchResult(resourceType: resourceTypeHash));
 
             // Execute the orchestrator job
             var orchestratorTask = reindexOrchestratorJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
@@ -256,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _ = Task.Run(
                 async () =>
                 {
-                    await Task.Delay(500, _cancellationToken); // Give orchestrator time to create jobs
+                    await Task.Delay(5000, _cancellationToken); // Give orchestrator time to create jobs
 
                     // Get all processing jobs created by the orchestrator
                     var processingJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
@@ -318,6 +367,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCompletesWithNoWork()
         {
             var job = CreateReindexJobRecord();
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap.First().Value);
+
             JobInfo jobInfo = new JobInfo()
             {
                 Id = 3,

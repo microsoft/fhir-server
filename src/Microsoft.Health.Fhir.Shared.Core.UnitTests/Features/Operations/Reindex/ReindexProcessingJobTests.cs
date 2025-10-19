@@ -11,14 +11,13 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
-using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -35,10 +34,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
         private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-        private CancellationToken _cancellationToken;
+        private readonly Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
+        private readonly CancellationToken _cancellationToken;
 
         public ReindexProcessingJobTests()
         {
@@ -47,9 +47,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _reindexProcessingJobTaskFactory = () =>
                  new ReindexProcessingJob(
                      () => _searchService.CreateMockScope(),
-                     NullLoggerFactory.Instance,
                      fhirDataStoreScope,
-                     _resourceWrapperFactory);
+                     _resourceWrapperFactory,
+                     _searchParameterOperations,
+                     NullLogger<ReindexProcessingJob>.Instance);
         }
 
         [Fact]
@@ -72,6 +73,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
                 TypeId = (int)JobType.ReindexProcessing,
             };
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap);
 
             JobInfo jobInfo = new JobInfo()
             {
@@ -156,7 +159,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
                 TypeId = (int)JobType.ReindexProcessing,
                 GroupId = 3,
+                ResourceTypeSearchParameterHashMap = "accountHash",
             };
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap);
 
             JobInfo jobInfo = new JobInfo()
             {
@@ -193,6 +199,66 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             Assert.Equal(1, result.SucceededResourceCount);
+        }
+
+        [Fact]
+        public async Task GivenSurrogateIdRange_WhenHashDoesNotMatch_ThenRaiseError()
+        {
+            var expectedResourceType = "Account";
+            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 1,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 1,
+                    EndResourceSurrogateId = 2,
+                    StartResourceSurrogateId = 0,
+                },
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Accout-status" },
+                TypeId = (int)JobType.ReindexProcessing,
+                GroupId = 3,
+                ResourceTypeSearchParameterHashMap = "accountHash",
+            };
+
+            // Injecting a different hash to trigger the update logic and subsequent failure.
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap + "_trash");
+
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 2,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 3,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            // Setup search result - remove continuation token, focus on surrogate IDs
+            _searchService.SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true).
+                Returns(
+                    new SearchResult(
+                        new List<SearchResultEntry>()
+                        {
+                            CreateSearchResultEntry("1", "Account"),
+                        },
+                        null, // No continuation token
+                        new List<(SearchParameterInfo, SortOrder)>(),
+                        new List<Tuple<string, string>>())
+                    {
+                        MaxResourceSurrogateId = 1,
+                        TotalCount = 1,
+                    });
+
+            ReindexProcessingJobSoftException exception = await Assert.ThrowsAsync<ReindexProcessingJobSoftException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            Assert.Contains("Search Parameter hash does not match. Resubmit reindex job to try again.", exception.Message);
         }
     }
 }
