@@ -67,9 +67,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions dataActions = (request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete) | DataActions.Read;
+            // Build required permissions: delete permission + read/search permission for conditional operations
+            DataActions deletePermissions = request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete;
+            DataActions searchPermissions = DataActions.Read | DataActions.Search; // Support both legacy Read and SMART v2 Search
+            DataActions requiredPermissions = deletePermissions | searchPermissions; // Include legacy Write support
 
-            if (await AuthorizationService.CheckAccess(dataActions, cancellationToken) != dataActions)
+            var grantedAccess = await AuthorizationService.CheckAccess(requiredPermissions, cancellationToken);
+
+            // Check if user has required delete permissions (granular or legacy Write)
+            bool hasDeletePermission = request.DeleteOperation == DeleteOperation.SoftDelete
+                ? (grantedAccess & DataActions.Delete) != 0
+                : (grantedAccess & (DataActions.HardDelete | DataActions.Delete)) == (DataActions.HardDelete | DataActions.Delete);
+
+            // Check if user has required search permissions for conditional operations
+            bool hasSearchPermission = (grantedAccess & (DataActions.Read | DataActions.Search)) != 0;
+
+            if (!hasDeletePermission || !hasSearchPermission)
             {
                 throw new UnauthorizedFhirActionException();
             }

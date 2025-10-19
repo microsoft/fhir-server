@@ -44,9 +44,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
-            // Get refresh interval from configuration (default 1 minute, minimum 1 minute)
-            var refreshIntervalMinutes = Math.Max(1, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalMinutes);
-            _refreshInterval = TimeSpan.FromMinutes(refreshIntervalMinutes);
+            // Get refresh interval from configuration (default 60 seconds, minimum 1 second)
+            var refreshIntervalSeconds = Math.Max(1, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds);
+            _refreshInterval = TimeSpan.FromSeconds(refreshIntervalSeconds);
 
             _logger.LogInformation("SearchParameter cache refresh background service initialized with {RefreshInterval} interval.", _refreshInterval);
 

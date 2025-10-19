@@ -68,6 +68,22 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Services
             EnsureArg.IsNotNull(applicationManager, nameof(applicationManager));
             EnsureArg.IsNotNull(applications, nameof(applications));
 
+            var permissionsSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            permissionsSet.Add(Permissions.Endpoints.Authorization);
+            permissionsSet.Add(Permissions.Endpoints.Token);
+            permissionsSet.Add(Permissions.ResponseTypes.Code);
+            permissionsSet.Add(Permissions.Scopes.Roles);
+
+            foreach (var grantType in DevelopmentIdentityProviderRegistrationExtensions.AllowedGrantTypes)
+            {
+                permissionsSet.Add($"{Permissions.Prefixes.GrantType}{grantType}");
+            }
+
+            foreach (var scope in DevelopmentIdentityProviderRegistrationExtensions.AllowedScopes.Concat(DevelopmentIdentityProviderRegistrationExtensions.GenerateSmartClinicalScopes()))
+            {
+                permissionsSet.Add($"{Permissions.Prefixes.Scope}{scope}");
+            }
+
             applications.ToList().ForEach(
                 async application =>
                 {
@@ -78,25 +94,10 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Services
                             // TODO: encoding the client secret will cause the token validator to fail, need to investigate why...
                             ClientId = application.Id,
                             ClientSecret = application.Id,
-                            Permissions =
-                            {
-                                Permissions.Endpoints.Authorization,
-                                Permissions.Endpoints.Token,
-                                Permissions.ResponseTypes.Code,
-                                Permissions.Scopes.Roles,
-                            },
                             RedirectUris = { new Uri("http://localhost") },
                         };
 
-                        foreach (var grantType in DevelopmentIdentityProviderRegistrationExtensions.AllowedGrantTypes)
-                        {
-                            applicationDescriptor.Permissions.Add($"{Permissions.Prefixes.GrantType}{grantType}");
-                        }
-
-                        foreach (var scope in DevelopmentIdentityProviderRegistrationExtensions.AllowedScopes.Concat(DevelopmentIdentityProviderRegistrationExtensions.GenerateSmartClinicalScopes()))
-                        {
-                            applicationDescriptor.Permissions.Add($"{Permissions.Prefixes.Scope}{scope}");
-                        }
+                        applicationDescriptor.Permissions.UnionWith(permissionsSet);
 
                         foreach (var role in application.Roles)
                         {
@@ -127,15 +128,15 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Services
                     if (await scopeManager.FindByNameAsync(scope) is null)
                     {
                         await scopeManager.CreateAsync(
-                            new OpenIddictScopeDescriptor
-                            {
-                                Name = scope,
-                                Resources =
-                                {
+                           new OpenIddictScopeDescriptor
+                           {
+                               Name = scope,
+                               Resources =
+                               {
                                     scope,
-                                },
-                            },
-                            cancellationToken);
+                               },
+                           },
+                           cancellationToken);
                     }
                 });
 
