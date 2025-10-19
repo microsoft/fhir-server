@@ -17,44 +17,6 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-  - task: Bash@3
-    displayName: 'Unzip nested IntegrationTests zips (Cosmos)'
-    inputs:
-      targetType: 'inline'
-      script: |
-        #!/bin/bash
-        set -euo pipefail
-        echo "Looking for nested zip files to extract under $(Agent.TempDirectory)/IntegrationTests"
-        find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.zip' | while read zipfile; do
-          relpath=$(realpath --relative-to="$(Agent.TempDirectory)/IntegrationTests" "$zipfile")
-          outdir="$(Agent.TempDirectory)/IntegrationTests/unzipped/${relpath%.*}"
-          mkdir -p "$outdir"
-          echo "Extracting $zipfile -> $outdir"
-          unzip -q "$zipfile" -d "$outdir" || true
-        done || true
-
-  - task: Bash@3
-    displayName: 'Diagnostic: inspect extracted IntegrationTests (Cosmos)'
-    inputs:
-      targetType: 'inline'
-      script: |
-        #!/bin/bash
-        echo "---- Top-level extracted items: ----"
-        ls -la "$(Agent.TempDirectory)/IntegrationTests" || true
-        echo
-        echo "---- First 500 files (paths): ----"
-        find "$(Agent.TempDirectory)/IntegrationTests" -type f | sed -n '1,500p' || true
-        echo
-        echo "---- Search for runtime / test / collector artifacts: ----"
-        find "$(Agent.TempDirectory)/IntegrationTests" -type f \( -iname '*Tests.Integration*.dll' -o -iname '*.deps.json' -o -iname '*.runtimeconfig.json' -o -iname 'Microsoft.NET.Test.Sdk*' -o -iname '*testhost*' -o -iname '*vstest*' -o -iname '*coverlet*' -o -iname '*xunit*' \) -print || true
-        echo
-        echo "---- Counts: ----"
-        echo "DLLs: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*Tests.Integration*.dll' | wc -l)
-        echo "deps.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.deps.json' | wc -l)
-        echo "runtimeconfig.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.runtimeconfig.json' | wc -l)
-        echo "coverlet: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*coverlet*' | wc -l)
-        echo "Microsoft.NET.Test.Sdk: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname 'Microsoft.NET.Test.Sdk*' | wc -l)
-        echo "testhost: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*testhost*' | wc -l)
     
   - task: UseDotNet@2
     inputs:
@@ -107,51 +69,6 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-  - task: reportgenerator@5
-    displayName: 'Aggregate code coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
-  - script: |
-      ls -la $(Agent.TempDirectory)
-      ls -la $(Agent.TempDirectory)/coverage
-    displayName: 'List Temp and Coverage Directories'
-  - task: Bash@3
-    displayName: 'List and display coverage files'
-    inputs:
-      targetType: 'inline'
-      script: |
-        #!/bin/bash
-        echo "Searching for coverage.cobertura.xml files in $(Agent.TempDirectory):"
-        find "$(Agent.TempDirectory)" -type f -name "coverage.cobertura.xml" | while read file; do
-          echo "-------------------------------------------------------"
-          echo "Found file: $file"
-          echo "-------------------------------------------------------"
-          cat "$file"
-          echo "-------------------------------------------------------"
-        done
-  - task: Bash@3
-    displayName: 'Display first 10 lines of Cobertura.xml'
-    inputs:
-      targetType: 'inline'
-      script: |
-        echo "Displaying first 10 lines of $(Agent.TempDirectory)/coverage/Cobertura.xml:"
-        head -n 10 "$(Agent.TempDirectory)/coverage/Cobertura.xml"
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Cosmos Integration code coverage'
-    condition: succeededOrFailed()
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      failIfCoverageEmpty: true
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish Cobertura.xml'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      artifactName: 'IntegrationTests'
-      artifactType: 'container'
 
   - task: reportgenerator@5
     displayName: 'Aggregate Cosmos integration test coverage'
@@ -184,44 +101,6 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-  - task: Bash@3
-    displayName: 'Unzip nested IntegrationTests zips (SQL)'
-    inputs:
-      targetType: 'inline'
-      script: |
-        #!/bin/bash
-        set -euo pipefail
-        echo "Looking for nested zip files to extract under $(Agent.TempDirectory)/IntegrationTests"
-        find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.zip' | while read zipfile; do
-          relpath=$(realpath --relative-to="$(Agent.TempDirectory)/IntegrationTests" "$zipfile")
-          outdir="$(Agent.TempDirectory)/IntegrationTests/unzipped/${relpath%.*}"
-          mkdir -p "$outdir"
-          echo "Extracting $zipfile -> $outdir"
-          unzip -q "$zipfile" -d "$outdir" || true
-        done || true
-
-  - task: Bash@3
-    displayName: 'Diagnostic: inspect extracted IntegrationTests (SQL)'
-    inputs:
-      targetType: 'inline'
-      script: |
-        #!/bin/bash
-        echo "---- Top-level extracted items: ----"
-        ls -la "$(Agent.TempDirectory)/IntegrationTests" || true
-        echo
-        echo "---- First 500 files (paths): ----"
-        find "$(Agent.TempDirectory)/IntegrationTests" -type f | sed -n '1,500p' || true
-        echo
-        echo "---- Search for runtime / test / collector artifacts: ----"
-        find "$(Agent.TempDirectory)/IntegrationTests" -type f \( -iname '*Tests.Integration*.dll' -o -iname '*.deps.json' -o -iname '*.runtimeconfig.json' -o -iname 'Microsoft.NET.Test.Sdk*' -o -iname '*testhost*' -o -iname '*vstest*' -o -iname '*coverlet*' -o -iname '*xunit*' \) -print || true
-        echo
-        echo "---- Counts: ----"
-        echo "DLLs: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*Tests.Integration*.dll' | wc -l)
-        echo "deps.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.deps.json' | wc -l)
-        echo "runtimeconfig.json: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*.runtimeconfig.json' | wc -l)
-        echo "coverlet: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*coverlet*' | wc -l)
-        echo "Microsoft.NET.Test.Sdk: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname 'Microsoft.NET.Test.Sdk*' | wc -l)
-        echo "testhost: " $(find "$(Agent.TempDirectory)/IntegrationTests" -type f -iname '*testhost*' | wc -l)
     
   - task: UseDotNet@2
     inputs:
@@ -288,28 +167,6 @@ jobs:
       codeCoverageTool: 'Cobertura'
       summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
       reportDirectory: '$(Agent.TempDirectory)/coverage'
-          echo "-------------------------------------------------------"
-        done
-  - task: Bash@3
-    displayName: 'Display first 10 lines of Cobertura.xml'
-    inputs:
-      targetType: 'inline'
-      script: |
-        echo "Displaying first 10 lines of $(Agent.TempDirectory)/coverage/Cobertura.xml:"
-        head -n 10 "$(Agent.TempDirectory)/coverage/Cobertura.xml"
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Sql Integration code coverage'
-    condition: succeededOrFailed()
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      failIfCoverageEmpty: true
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish Cobertura.xml'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      artifactName: 'IntegrationTests'
-      artifactType: 'container'
 
 - job: 'cosmosE2eTests'
   dependsOn: []
