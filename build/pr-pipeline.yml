@@ -431,9 +431,6 @@ stages:
     steps:
     - template: ./jobs/aggregate-coverage.yml
 
-        PathtoPublish: 'merged_coverage'
-        ArtifactName: 'CodeCoverageReport'
-  
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
