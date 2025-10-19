@@ -88,7 +88,7 @@ steps:
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" -v detailed --collect "XPlat Code Coverage"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
     env:
@@ -127,48 +127,3 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-  - task: reportgenerator@5
-    displayName: 'Aggregate code coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
-  - script: |
-      ls -la $(Agent.TempDirectory)
-      ls -la $(Agent.TempDirectory)/coverage
-    displayName: 'List Temp and Coverage Directories'
-  - task: Bash@3
-    displayName: 'List and display coverage files'
-    inputs:
-      targetType: 'inline'
-      script: |
-        #!/bin/bash
-        echo "Searching for coverage.cobertura.xml files in $(Agent.TempDirectory):"
-        find "$(Agent.TempDirectory)" -type f -name "coverage.cobertura.xml" | while read file; do
-          echo "-------------------------------------------------------"
-          echo "Found file: $file"
-          echo "-------------------------------------------------------"
-          cat "$file"
-          echo "-------------------------------------------------------"
-        done
-  - task: Bash@3
-    displayName: 'Display first 10 lines of Cobertura.xml'
-    inputs:
-      targetType: 'inline'
-      script: |
-        echo "Displaying first 10 lines of $(Agent.TempDirectory)/coverage/Cobertura.xml:"
-        head -n 10 "$(Agent.TempDirectory)/coverage/Cobertura.xml"
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish E2E test code coverage'
-    condition: succeededOrFailed()
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      failIfCoverageEmpty: true
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish Cobertura.xml'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      artifactName: 'IntegrationTests'
-      artifactType: 'container'
