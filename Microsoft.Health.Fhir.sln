@@ -205,6 +205,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Cosmo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Api.OpenIddict", "src\Microsoft.Health.Fhir.Api.OpenIddict\Microsoft.Health.Fhir.Api.OpenIddict.csproj", "{869F0CD6-280E-403E-8034-185A8B63D03E}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Fakes", "src\Microsoft.Health.Fhir.Shared.Tests.Fakes\Microsoft.Health.Fhir.Shared.Tests.Fakes.shproj", "{EEAFC509-4550-4253-850D-BE758F72A845}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -582,10 +584,11 @@ Global
 		{B9AAA11D-8C8C-44C3-AADE-801376EF82F0} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{869F0CD6-280E-403E-8034-185A8B63D03E} = {1295CCC3-73FB-4376-AE95-F6F31A37B152}
+		{EEAFC509-4550-4253-850D-BE758F72A845} = {7457B218-2651-49B5-BED8-22233889516A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -616,6 +619,7 @@ Global
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{734cac7f-d979-4639-8067-a0875c0691f2}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Web.UnitTests\Microsoft.Health.Fhir.Shared.Web.UnitTests.projitems*{73bc4365-2bfb-41c7-b0b1-610059f967ac}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems*{743ea25c-a6f5-4b41-bc56-69d9a89386a3}*SharedItemsImports = 5
+		src\Microsoft.Health.Fhir.Shared.Tests.Fakes\Microsoft.Health.Fhir.Shared.Tests.Fakes.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems*{7f2b9209-2c50-42ed-961b-a09cc8a26a07}*SharedItemsImports = 5
@@ -654,6 +658,7 @@ Global
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{e18e488b-ee9c-4735-81b1-65c74dae83cf}*SharedItemsImports = 5
 		test\Microsoft.Health.Fhir.Shared.Tests.Integration\Microsoft.Health.Fhir.Shared.Tests.Integration.projitems*{e18e488b-ee9c-4735-81b1-65c74dae83cf}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems*{e8aec3f3-efbb-4439-95ff-e45613cc7da2}*SharedItemsImports = 5
+		src\Microsoft.Health.Fhir.Shared.Tests.Fakes\Microsoft.Health.Fhir.Shared.Tests.Fakes.projitems*{eeafc509-4550-4253-850d-be758f72a845}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Api.UnitTests\Microsoft.Health.Fhir.Shared.Api.UnitTests.projitems*{f0639ca9-bfd6-46ff-8454-bd8a1965b31a}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{f0639ca9-bfd6-46ff-8454-bd8a1965b31a}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Api.UnitTests\Microsoft.Health.Fhir.Shared.Api.UnitTests.projitems*{fcbad356-8af3-41b0-b578-eaaef6a5d365}*SharedItemsImports = 13
