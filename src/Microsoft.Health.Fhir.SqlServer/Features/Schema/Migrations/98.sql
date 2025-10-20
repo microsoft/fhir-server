@@ -710,8 +710,8 @@ CREATE TABLE dbo.SearchParam (
     CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (Uri) WITH (DATA_COMPRESSION = PAGE)
 );
 
-CREATE NONCLUSTERED INDEX IX_SearchParam_LastUpdated
-    ON dbo.SearchParam(LastUpdated) WITH (DATA_COMPRESSION = PAGE);
+CREATE NONCLUSTERED INDEX IX_LastUpdated
+    ON dbo.SearchParam(LastUpdated)
 
 CREATE TABLE dbo.StringSearchParam (
     ResourceTypeId      SMALLINT       NOT NULL,

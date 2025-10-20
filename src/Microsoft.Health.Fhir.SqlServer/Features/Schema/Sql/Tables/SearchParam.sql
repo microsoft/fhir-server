@@ -10,6 +10,5 @@
     IsPartiallySupported    bit                         NOT NULL
 )
 
-CREATE NONCLUSTERED INDEX IX_SearchParam_LastUpdated
+CREATE NONCLUSTERED INDEX IX_LastUpdated
 ON dbo.SearchParam (LastUpdated)
-WITH (DATA_COMPRESSION = PAGE)
