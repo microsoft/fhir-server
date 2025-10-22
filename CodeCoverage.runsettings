@@ -9,7 +9,8 @@
           <Include>[Microsoft.Health.Fhir.*]*</Include>
           <ExcludeByAttribute>ExcludeFromCodeCoverage</ExcludeByAttribute>
           <!-- Remove ExcludeByFile for generated files once coverlet-coverage/coverlet#1198 is resolved -->
-          <ExcludeByFile>**/*.g.cs,**/test/**</ExcludeByFile>
+          <!-- Exclude auto-generated, DI registration, and configuration-only files (no business logic) -->
+          <ExcludeByFile>**/*.g.cs,**/test/**,**/*.Designer.cs,**/*RegistrationExtensions.cs,**/Registration/*Extensions.cs,**/Modules/*Module.cs,**/Extensions/ServiceCollectionExtensions.cs,**/Api.OpenIddict/Configuration/*.cs,**/Core/Configs/*Configuration.cs,**/CosmosDb.Core/Configs/*Configuration.cs,**/SchemaManager/Command*.cs,**/SchemaManager/*ParserBuilder.cs,**/Modules/KnownAssemblies.cs,**/Modules/FeatureFlags/*/ValidatePostConfigureOptions.cs,**/XmlFormatterConfiguration.cs</ExcludeByFile>
           <SingleHit>false</SingleHit>
           <UseSourceLink>true</UseSourceLink>
           <IncludeTestAssembly>false</IncludeTestAssembly>
