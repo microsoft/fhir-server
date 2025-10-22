@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         {
             // This class does not implement IDisposable, as Tasks do not need to be disposed (always).
             // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
-            // Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
+            // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
 
             _resources.Clear();
             _cleared = true;
