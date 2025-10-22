@@ -961,87 +961,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ChangesAreOnlyInMetadata(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper)
         {
-            var inputResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(inputWrapper).ResourceInstance;
-            var existingResource = (Hl7.Fhir.Model.Resource)_resourceDeserializer.Deserialize(existingWrapper).ResourceInstance;
+            var inputData = inputWrapper.RawResource.Data;
+            var existingData = existingWrapper.RawResource.Data;
 
-            var inputMeta = inputResource.Meta;
-            var existingMeta = existingResource.Meta;
+            var inputMetaStartIndex = inputData.IndexOf("\"meta\":", StringComparison.Ordinal);
+            var existingMetaStartIndex = existingData.IndexOf("\"meta\":", StringComparison.Ordinal);
 
-            if (inputMeta.Equals(existingMeta))
-            {
-                return false; // Difference is in a non-meta field
-            }
-            else
-            {
-                var inputChildren = inputResource.NamedChildren.GetEnumerator();
-                var existingChildren = existingResource.NamedChildren.GetEnumerator();
+            var inputMeta = inputData.GetJsonSection(inputMetaStartIndex);
+            var existingMeta = existingData.GetJsonSection(existingMetaStartIndex);
 
-                var inputMoved = inputChildren.MoveNext();
-                var existingMoved = existingChildren.MoveNext();
+            var inputDataWithoutMeta = inputData.Replace(inputMeta, string.Empty, StringComparison.Ordinal);
+            var existingDataWithoutMeta = existingData.Replace(existingMeta, string.Empty, StringComparison.Ordinal);
 
-                if (inputMoved != existingMoved)
-                {
-                    return false;
-                }
-
-                if (!inputMoved)
-                {
-                    return true; // empty input & existing resource
-                }
-
-                while (true)
-                {
-                    var inputChild = inputChildren.Current;
-                    var existingChild = existingChildren.Current;
-
-                    // Skip meta
-                    if (inputChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
-                    {
-                        inputMoved = inputChildren.MoveNext();
-                        inputChild = inputChildren.Current;
-                    }
-
-                    if (existingChild.ElementName.Equals("meta", StringComparison.OrdinalIgnoreCase))
-                    {
-                        existingMoved = existingChildren.MoveNext();
-                        existingChild = existingChildren.Current;
-                    }
-
-                    // Need to check if they moved to skip meta and still agree on if there are more fields
-                    if (inputMoved != existingMoved)
-                    {
-                        return false;
-                    }
-
-                    // If they agree and they didn't move then meta was the last field
-                    if (!inputMoved)
-                    {
-                        break;
-                    }
-
-                    if (!inputChild.EqualValues(existingChild))
-                    {
-                        return false;
-                    }
-
-                    inputMoved = inputChildren.MoveNext();
-                    existingMoved = existingChildren.MoveNext();
-
-                    // One resource has more fields than the other
-                    if (inputMoved != existingMoved)
-                    {
-                        return false;
-                    }
-
-                    // The end of the file has been reached
-                    if (!inputMoved)
-                    {
-                        break;
-                    }
-                }
-
-                return true;
-            }
+            return inputDataWithoutMeta.Equals(existingDataWithoutMeta, StringComparison.Ordinal);
         }
 
         // This method relies on current raw resource string formatting, i.e. no extra spaces.
