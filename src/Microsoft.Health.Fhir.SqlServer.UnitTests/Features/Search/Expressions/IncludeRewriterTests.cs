@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -1646,7 +1647,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 var mediator = Substitute.For<IMediator>();
                 var searchService = Substitute.For<ISearchService>();
                 var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
-                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
+                var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+                var logger = NullLogger<SearchParameterDefinitionManager>.Instance;
+
+                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                    modelInfoProvider,
+                    mediator,
+                    searchService.CreateMockScopeProvider(),
+                    searchParameterComparer,
+                    statusDataStore.CreateMockScopeProvider(),
+                    logger);
             }
 
             public ISearchParameterDefinitionManager SearchParameterDefinitionManager { get; }

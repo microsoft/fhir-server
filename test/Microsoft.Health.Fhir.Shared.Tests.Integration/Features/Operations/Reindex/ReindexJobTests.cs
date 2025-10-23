@@ -1238,8 +1238,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var mediator = new Mediator(services);
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
 
-            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, _searchService.CreateMockScopeProviderFromScoped(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                mediator,
+                _searchService.CreateMockScopeProviderFromScoped(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 

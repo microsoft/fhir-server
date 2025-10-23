@@ -92,7 +92,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var searchService = Substitute.For<ISearchService>();
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var definitionManager = new SearchParameterDefinitionManager(
+                modelInfoProvider,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
@@ -113,7 +120,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var searchService = Substitute.For<ISearchService>();
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, searchService.CreateMockScopeProvider(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var definitionManager = new SearchParameterDefinitionManager(
+                modelInfoProvider,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
