@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
+        private readonly IScopeProvider<ISearchParameterStatusDataStore> _searchParameterStatusDataStoreFactory;
         private readonly ILogger _logger;
 
         private bool _initialized = false;
@@ -51,12 +53,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IMediator mediator,
             IScopeProvider<ISearchService> searchServiceFactory,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
+            IScopeProvider<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
+            EnsureArg.IsNotNull(searchParameterStatusDataStoreFactory, nameof(searchParameterStatusDataStoreFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _modelInfoProvider = modelInfoProvider;
@@ -66,6 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
             _searchServiceFactory = searchServiceFactory;
             _searchParameterComparer = searchParameterComparer;
+            _searchParameterStatusDataStoreFactory = searchParameterStatusDataStoreFactory;
             _logger = logger;
 
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
@@ -370,14 +375,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             // now read in any previously POST'd SearchParameter resources
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            using IScoped<ISearchParameterStatusDataStore> statusDataStore = _searchParameterStatusDataStoreFactory.Invoke();
+
             string continuationToken = null;
+            int totalLoaded = 0;
+            int totalPendingDelete = 0;
+
+            // Get all PendingDelete search parameters from the status store
+            var allStatuses = await statusDataStore.Value.GetSearchParameterStatuses(cancellationToken);
+            var pendingDeleteUrls = new HashSet<string>(
+                allStatuses
+                    .Where(s => s.Status == SearchParameterStatus.PendingDelete)
+                    .Select(s => s.Uri.OriginalString),
+                StringComparer.OrdinalIgnoreCase);
+
+            _logger.LogInformation(
+                "Found {PendingDeleteCount} search parameters with PendingDelete status in the status store",
+                pendingDeleteUrls.Count);
+
             do
             {
                 var searchOptions = new SearchOptions();
                 searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
                 searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
-                searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
+                searchOptions.Expression = Expression.SearchParameter(
+                    SearchParameterInfo.ResourceTypeSearchParameter,
+                    Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
                 searchOptions.MaxItemCount = 10;
+
+                // ✅ Include soft-deleted resources to find PendingDelete search parameters
+                searchOptions.ResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.SoftDeleted;
+
                 if (continuationToken != null)
                 {
                     searchOptions.ContinuationToken = continuationToken;
@@ -388,40 +416,166 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 if (result?.Results != null && result.Results.Any())
                 {
-                    var searchParams = result.Results.Select(r => r.Resource.RawResource.ToITypedElement(_modelInfoProvider)).ToList();
-
-                    _logger.LogInformation("There are {CustomSearchParameters} custom Search Parameters", result.Results.Count().ToString());
-
-                    foreach (var searchParam in searchParams)
+                    foreach (var searchResult in result.Results)
                     {
-                        try
-                        {
-                            SearchParameterDefinitionBuilder.Build(
-                                new List<ITypedElement>() { searchParam },
-                                UrlLookup,
-                                TypeLookup,
-                                _modelInfoProvider,
-                                _searchParameterComparer,
-                                _logger);
-                        }
-                        catch (FhirException ex)
-                        {
-                            StringBuilder issueDetails = new StringBuilder();
-                            foreach (OperationOutcomeIssue issue in ex.Issues)
-                            {
-                                issueDetails.Append(issue.Diagnostics).Append("; ");
-                            }
+                        var isDeleted = searchResult.Resource.IsDeleted;
 
-                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store. Issues: {Issues}", searchParam.GetStringScalar("url"), issueDetails.ToString());
-                        }
-                        catch (Exception ex)
+                        // For soft-deleted resources, check if they are in PendingDelete status
+                        if (isDeleted)
                         {
-                            _logger.LogError(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
+                            try
+                            {
+                                // Get the resource ID to fetch its history
+                                var resourceId = searchResult.Resource.ResourceId;
+
+                                // Retrieve at least 2 versions to get past the deletion marker
+                                var historyResult = await search.Value.SearchHistoryAsync(
+                                    resourceType: KnownResourceTypes.SearchParameter,
+                                    resourceId: resourceId,
+                                    at: null,
+                                    since: null,
+                                    before: null,
+                                    count: 2, // Get at least 2 versions to find the pre-deletion version
+                                    summary: null,
+                                    continuationToken: null,
+                                    sort: null,
+                                    cancellationToken: cancellationToken);
+
+                                if (historyResult?.Results != null && historyResult.Results.Any())
+                                {
+                                    // Find the first version that has a valid RawResource with a URL
+                                    // The first result is typically the deletion marker, so we need subsequent versions
+                                    ResourceWrapper validVersion = null;
+                                    string urlScalar = null;
+
+                                    foreach (var historyEntry in historyResult.Results)
+                                    {
+                                        if (historyEntry.Resource?.RawResource != null)
+                                        {
+                                            var tempElement = historyEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
+                                            urlScalar = tempElement.GetStringScalar("url");
+
+                                            if (!string.IsNullOrEmpty(urlScalar))
+                                            {
+                                                validVersion = historyEntry.Resource;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    // Only load if this URL is marked as PendingDelete in the status store
+                                    if (!string.IsNullOrEmpty(urlScalar) && pendingDeleteUrls.Contains(urlScalar))
+                                    {
+                                        if (validVersion?.RawResource != null)
+                                        {
+                                            var searchParam = validVersion.RawResource.ToITypedElement(_modelInfoProvider);
+
+                                            // Build the search parameter using the historical version
+                                            SearchParameterDefinitionBuilder.Build(
+                                                new List<ITypedElement>() { searchParam },
+                                                UrlLookup,
+                                                TypeLookup,
+                                                _modelInfoProvider,
+                                                _searchParameterComparer,
+                                                _logger);
+
+                                            totalLoaded++;
+
+                                            // Update the status to PendingDelete since the resource is soft-deleted
+                                            if (UrlLookup.TryGetValue(urlScalar, out var loadedParam))
+                                            {
+                                                loadedParam.SearchParameterStatus = SearchParameterStatus.PendingDelete;
+                                                totalPendingDelete++;
+                                                _logger.LogInformation(
+                                                    "Loaded PendingDelete search parameter from historical version: {Url}",
+                                                    urlScalar);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _logger.LogWarning(
+                                                "Could not retrieve valid RawResource with URL for soft-deleted SearchParameter {ResourceId} with URL {Url}",
+                                                resourceId,
+                                                urlScalar);
+                                        }
+                                    }
+                                    else if (!string.IsNullOrEmpty(urlScalar))
+                                    {
+                                        _logger.LogDebug(
+                                            "Skipping soft-deleted SearchParameter {ResourceId} with URL {Url} - not in PendingDelete status",
+                                            resourceId,
+                                            urlScalar);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning(
+                                            "Could not retrieve valid URL for historical versions of soft-deleted SearchParameter {ResourceId}",
+                                            resourceId);
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogWarning(
+                                        "No historical versions found for soft-deleted SearchParameter {ResourceId}",
+                                        resourceId);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(
+                                    ex,
+                                    "Error loading historical version of soft-deleted SearchParameter {ResourceId}",
+                                    searchResult.Resource.ResourceId);
+                            }
+                        }
+                        else
+                        {
+                            // Normal processing for active resources
+                            var searchParam = searchResult.Resource.RawResource.ToITypedElement(_modelInfoProvider);
+
+                            try
+                            {
+                                SearchParameterDefinitionBuilder.Build(
+                                    new List<ITypedElement>() { searchParam },
+                                    UrlLookup,
+                                    TypeLookup,
+                                    _modelInfoProvider,
+                                    _searchParameterComparer,
+                                    _logger);
+
+                                totalLoaded++;
+                            }
+                            catch (FhirException ex)
+                            {
+                                StringBuilder issueDetails = new StringBuilder();
+                                foreach (OperationOutcomeIssue issue in ex.Issues)
+                                {
+                                    issueDetails.Append(issue.Diagnostics).Append("; ");
+                                }
+
+                                _logger.LogWarning(
+                                    ex,
+                                    "Error loading search parameter {Url} from data store. Issues: {Issues}",
+                                    searchParam.GetStringScalar("url"),
+                                    issueDetails.ToString());
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(
+                                    ex,
+                                    "Error loading search parameter {Url} from data store.",
+                                    searchParam.GetStringScalar("url"));
+                            }
                         }
                     }
                 }
             }
             while (continuationToken != null);
+
+            _logger.LogInformation(
+                "Loaded {TotalLoaded} active and {TotalPendingDelete} PendingDelete search parameters from data store",
+                totalLoaded,
+                totalPendingDelete);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
