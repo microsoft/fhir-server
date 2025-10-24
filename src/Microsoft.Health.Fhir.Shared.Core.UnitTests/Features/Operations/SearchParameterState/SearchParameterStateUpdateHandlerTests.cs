@@ -77,11 +77,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var searchServiceProvider = Substitute.For<IScopeProvider<ISearchService>>();
             searchServiceProvider.Invoke().Returns(searchServiceScope);
 
-            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(
+            // Create a proper IScopeProvider<ISearchParameterStatusDataStore> mock
+            var searchParameterStatusDataStoreScope = Substitute.For<IScoped<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreScope.Value.Returns(_searchParameterStatusDataStore);
+            var searchParameterStatusDataStoreProvider = Substitute.For<IScopeProvider<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreProvider.Invoke().Returns(searchParameterStatusDataStoreScope);
+
+            // Create SearchParameterDefinitionManager with proper dependencies
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 _mediator,
                 searchServiceProvider,
                 _searchParameterComparer,
+                searchParameterStatusDataStoreProvider,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
