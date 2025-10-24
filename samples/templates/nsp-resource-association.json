@@ -11,14 +11,15 @@
         "resourceName": {
             "type": "string",
             "metadata": {
-                "description": "Name of the resource to associate with NSP (CosmosDB account, SQL Server, etc.)"
+                "description": "Name of the resource to associate with NSP (CosmosDB account, SQL Server, KeyVault, etc.)"
             }
         },
         "resourceType": {
             "type": "string",
             "allowedValues": [
                 "Microsoft.DocumentDB/databaseAccounts",
-                "Microsoft.Sql/servers"
+                "Microsoft.Sql/servers",
+                "Microsoft.KeyVault/vaults"
             ],
             "metadata": {
                 "description": "Type of the resource to associate with NSP"
