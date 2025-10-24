@@ -161,6 +161,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
+
+                    // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
+                    // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
+
                     await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
@@ -186,8 +190,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger.LogError(ex, "Failure while processing bundle in parallel. Error: {ErrorMessage}", ex.Message);
                     throw;
                 }
-
-                _bundleOrchestrator.CompleteOperation(bundleOperation);
+                finally
+                {
+                    _bundleOrchestrator.CompleteOperation(bundleOperation);
+                }
 
                 return throttledEntryComponent;
             }
