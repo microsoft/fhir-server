@@ -448,18 +448,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                     ResourceWrapper validVersion = null;
                                     string urlScalar = null;
 
-                                    foreach (var historyEntry in historyResult.Results)
+                                    foreach (var historyEntry in historyResult.Results.Where(e => e.Resource?.RawResource != null))
                                     {
-                                        if (historyEntry.Resource?.RawResource != null)
-                                        {
-                                            var tempElement = historyEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-                                            urlScalar = tempElement.GetStringScalar("url");
+                                        var tempElement = historyEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
+                                        urlScalar = tempElement.GetStringScalar("url");
 
-                                            if (!string.IsNullOrEmpty(urlScalar))
-                                            {
-                                                validVersion = historyEntry.Resource;
-                                                break;
-                                            }
+                                        if (!string.IsNullOrEmpty(urlScalar))
+                                        {
+                                            validVersion = historyEntry.Resource;
+                                            break;
                                         }
                                     }
 
@@ -559,7 +556,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                     searchParam.GetStringScalar("url"),
                                     issueDetails.ToString());
                             }
-                            catch (Exception ex)
+                            catch (Exception ex) when (
+                                !(ex is OutOfMemoryException
+                                || ex is StackOverflowException
+                                || ex is ThreadAbortException))
                             {
                                 _logger.LogError(
                                     ex,

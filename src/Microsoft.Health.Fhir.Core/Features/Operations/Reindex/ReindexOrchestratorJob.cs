@@ -594,7 +594,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             foreach (var searchParameterUrl in readySearchParameters)
             {
-                var spStatus = searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParameterUrl)).Status;
+                var spStatus = searchParamStatusCollection.FirstOrDefault(sp => string.Equals(sp.Uri.OriginalString, searchParameterUrl, StringComparison.Ordinal))?.Status;
 
                 switch (spStatus)
                 {
