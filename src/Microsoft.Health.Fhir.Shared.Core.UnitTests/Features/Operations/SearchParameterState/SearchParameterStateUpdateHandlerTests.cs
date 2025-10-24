@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -83,6 +84,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var searchParameterStatusDataStoreProvider = Substitute.For<IScopeProvider<ISearchParameterStatusDataStore>>();
             searchParameterStatusDataStoreProvider.Invoke().Returns(searchParameterStatusDataStoreScope);
 
+            // Create a proper IScopeProvider<IFhirDataStore> mock
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStoreScope = Substitute.For<IScoped<IFhirDataStore>>();
+            fhirDataStoreScope.Value.Returns(fhirDataStore);
+            var fhirDataStoreProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
+            fhirDataStoreProvider.Invoke().Returns(fhirDataStoreScope);
+
             // Create SearchParameterDefinitionManager with proper dependencies
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
@@ -90,6 +98,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 searchServiceProvider,
                 _searchParameterComparer,
                 searchParameterStatusDataStoreProvider,
+                fhirDataStoreProvider,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));

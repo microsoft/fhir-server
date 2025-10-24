@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -457,168 +458,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenASqlRootExpressionWithOneIncludeAndOneRevIncludeSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
-        {
-            // Order the following query:
-            // [base]/MedicationRequest?_include=MedicationRequest:patient&_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var revincludeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", "MedicationRequest", null, false, true, false);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationRequest", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(7, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithOneIncludeAndOneRevIncludeIterateSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationRequest?_revinclude:iterate=MedicationDispense:patient&_include=MedicationRequest:subject:Patient&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "patient");
-            var revincludeIterateMedicationDispensePatient = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, true, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "subject");
-            var includeMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", "Patient", null, false, false, false);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationRequest", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  revincludeIterateMedicationDispensePatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(7, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("subject", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithTwoRevIncludesSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
-        {
-            // Order the following query:
-            // [base]/Patient?_revinclude=MedicationDispense:subject:Patient&_revinclude=MedicationRequest:patient&_id=patientId
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "subject");
-            var revincludeMedicationDispensePatient = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", "Patient", null, false, true, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var revincludeMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, true, false);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "patientId", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationDispensePatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(7, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("subject", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
-        }
-
-        [Fact]
         public void GivenASqlRootExpressionWithOneRevIncludeAndOneRevIncludeIterate_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -673,16 +512,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenASqlRootExpressionWithOneRevIncludeAndOneIncludeIterate_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
+        public void GivenASqlRootExpressionWithOneIncludeAndOneRevIncludeIterateSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
-            // [base]/MedicationRequest?_include:iterate=MedicationDispense:patient&_revinclude=MedicationDispense:prescription&_id=12345
+            // [base]/MedicationRequest?_include:iterate=MedicationDispense:patient&_revinclude:MedicationDispense:prescription:MedicationRequest&_id=12345
 
             var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "patient");
             var includeIterateMedicationDispensePatient = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, true);
 
             refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var revincludeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, true, false);
+            var revincludeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", "MedicationRequest", null, false, true, false);
 
             Expression predicate = Expression.And(new List<Expression>
                 {
@@ -711,8 +550,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
             var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
+            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
+            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
 
@@ -726,415 +565,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        // Queries with indirect dependencies
-        // All possible permutations of 3 parameters: _include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner
-
         [Fact]
-        public void GivenASqlRootExpressionWithThreeIncludesFirstPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
+        public void GivenASqlRootExpressionWithTwoIncludesSpecifyingTargetTypeAndWildcard_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
         {
             // Order the following query:
-            // [base]/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_id=12345
+            // [base]/MedicationDispense?_include=MedicationDispense:prescription&_include:MedicationDispense:subject:Patient&_include=MedicationDispense:*&_id=smart-MedicationDispense-567
 
             var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
             var includeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
 
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithThreeIncludesSecondPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=Patient:general-practitioner&_include:iterate=MedicationRequest:patient&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithThreeIncludesThirdPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_include:iterate=MedicationRequest:patient&_include=MedicationDispense:prescription&_include:iterate=Patient:general-practitioner&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithThreeIncludesFourthPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_include=MedicationDispense:prescription&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithThreeIncludesFifthPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_include:iterate=Patient:general-practitioner&_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithThreeIncludesSixthPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_include:iterate=Patient:general-practitioner&_include:iterate=MedicationRequest:patient&_include=MedicationDispense:prescription&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        // Queries with multiple includes/revincludes
-
-        [Fact]
-        public void GivenASqlRootExpressionWithMultipleIncludes_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_include:iterate=Patient:general-practitioner&_include:iterate=MedicationRequest:patient&_include=MedicationDispense:prescription&_id=smart-MedicationDispense-567
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
+            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "subject");
+            var includeMedicationDispensePatient = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", "Patient", null, false, false, false);
+
+            var referencedTypes = new List<string> { "Location", "MedicationRequest", "Patient", "Practitioner", "Organization" }; // partial list of referenced types
+            var includeMedicationDispenseWildcard = new IncludeExpression(new[] { "MedicationDispense" }, null, "MedicationDispense", null, referencedTypes, true, false, false);
 
             Expression predicate = Expression.And(new List<Expression>
                 {
@@ -1146,421 +590,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 new List<SearchParamTableExpression>
                 {
                     new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
                     new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithMultipleRevIncludes_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/Organization?_revinclude:iterate=MedicationDispense:prescription&_revinclude:iterate=MedicationRequest:patient&_revinclude=Patient:organization&_id=organization-id
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, true, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, true, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "organization");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, true, false);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Organization", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "organization-id", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("organization", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithMultipleIncludesAndRevIncludes_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/Organization?_include:iterate=MedicationDispense:prescription&_revinclude:iterate=MedicationDispense:patient&_revinclude=Patient:organization&_id=organization-id
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, true, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "organization");
-            var includeMedicationDispensePrescription = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, true, false);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Organization", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "organization-id", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("organization", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        // Queries with search parameters unrelated to the query
-        [Fact]
-        public void GivenASqlRootExpressionWithParametersUnrelatedToTheQuery_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_id=12345&_include:iterate=Device:location&_include:iterate=Location:endpoint&_include=MedicationDispense:performer&_include:iterate=Patient:general-practitioner
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Device", "location");
-            var includeIterateDeviceLocation = new IncludeExpression(new[] { "Device" }, refSearchParameter, "Device", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Location", "endpoint");
-            var includeIterateLocationEndpoint = new IncludeExpression(new[] { "Location" }, refSearchParameter, "Location", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "performer");
-            var includeMedicationDispensePerformer = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Organization", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateDeviceLocation, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateLocationEndpoint, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePerformer, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientPractitioner, SearchParamTableExpressionKind.Include),
-
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(11, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("performer", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("Device", includeExpression.ResourceTypes[0]);
-            Assert.Equal("location", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Location", includeExpression.ResourceTypes[0]);
-            Assert.Equal("endpoint", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[8].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[8].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[9].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[10].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithParametersUnrelatedToTheQuerySortedDiferently_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_id=12345&_include:iterate=Location:endpoint&_include=MedicationDispense:performer&_include:iterate=Patient:general-practitioner&_include:iterate=Device:location
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Device", "location");
-            var includeIterateDeviceLocation = new IncludeExpression(new[] { "Device" }, refSearchParameter, "Device", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Location", "endpoint");
-            var includeIterateLocationEndpoint = new IncludeExpression(new[] { "Location" }, refSearchParameter, "Location", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "performer");
-            var includeMedicationDispensePerformer = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, false);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Organization", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateLocationEndpoint, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePerformer, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateDeviceLocation,  SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(11, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("performer", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[9].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Device", includeExpression.ResourceTypes[0]);
-            Assert.Equal("location", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[8].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[8].Predicate;
-            Assert.Equal("Location", includeExpression.ResourceTypes[0]);
-            Assert.Equal("endpoint", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[9].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[10].Kind);
-        }
-
-        // Wildcard Queries
-
-        [Fact]
-        public void GivenASqlRootExpressionWithIncludeWildcard_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationDispense?_include:iterate=Patient:general-practitioner&_include:iterate=MedicationRequest:patient&_include=MedicationDispense:*&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
-            var includeIteratePatientGeneralPractitioner = new IncludeExpression(new[] { "Patient" }, refSearchParameter, "Patient", null, null, false, false, true);
-
-            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationRequest" }, refSearchParameter, "MedicationRequest", null, null, false, false, true);
-
-            var referencedTypes = new List<string> { "Location", "MedicationRequest", "Patient", "Practitioner", "Organization" }; // partial list of referenced types
-            var includeMedicationDispenseWildcard = new IncludeExpression(new[] { "MedicationDispense" }, null, "MedicationDispense", null, referencedTypes, true, false, false);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
+                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePatient, SearchParamTableExpressionKind.Include),
                     new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispenseWildcard, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
-                },
-                new List<SearchParameterExpressionBase>());
-
-            var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).SearchParamTableExpressions;
-
-            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
-            Assert.NotNull(orderedExpressions);
-            Assert.Equal(9, orderedExpressions.Count);
-
-            Assert.Equal(SearchParamTableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(SearchParamTableExpressionKind.Top, orderedExpressions[1].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.True(includeExpression.WildCard);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
-            Assert.Equal("MedicationRequest", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
-            Assert.Equal("Patient", includeExpression.ResourceTypes[0]);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Code);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
-        }
-
-        [Fact]
-        public void GivenASqlRootExpressionWithRevIncludeWildcard_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
-        {
-            // Order the following query:
-            // [base]/MedicationRequest?_include:iterate=MedicationDispense:patient&_revinclude=MedicationDispense:*&_id=12345
-
-            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "patient");
-            var includeIterateMedicationRequestPatient = new IncludeExpression(new[] { "MedicationDispense" }, refSearchParameter, "MedicationDispense", null, null, false, false, true);
-
-            var referencedTypes = new List<string> { "Location", "MedicationRequest", "Patient", "Practitioner", "Organization" }; // partial list of referenced types
-            var revIncludeMedicationDispenseWildcard = new IncludeExpression(new[] { "MedicationDispense" }, null, "MedicationDispense", null, referencedTypes, true, true, false);
-
-            Expression predicate = Expression.And(new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationRequest", false)),
-                    new SearchParameterExpression(new SearchParameterInfo("_id", "_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
-                });
-
-            var sqlExpression = new SqlRootExpression(
-                new List<SearchParamTableExpression>
-                {
-                    new SearchParamTableExpression(null, predicate, SearchParamTableExpressionKind.All),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, SearchParamTableExpressionKind.Include),
-                    new SearchParamTableExpression(IncludeQueryGenerator.Instance,  revIncludeMedicationDispenseWildcard, SearchParamTableExpressionKind.Include),
                     new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top),
                 },
                 new List<SearchParameterExpressionBase>());
@@ -1577,18 +609,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[2].Kind);
             var includeExpression = (IncludeExpression)orderedExpressions[2].Predicate;
             Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.True(includeExpression.WildCard);
+            Assert.Equal("prescription", includeExpression.ReferenceSearchParameter.Code);
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
 
             Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[4].Kind);
             includeExpression = (IncludeExpression)orderedExpressions[4].Predicate;
             Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
-            Assert.Equal("patient", includeExpression.ReferenceSearchParameter.Code);
+            Assert.Equal("subject", includeExpression.ReferenceSearchParameter.Code);
 
             Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
 
-            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
+            Assert.Equal(SearchParamTableExpressionKind.Include, orderedExpressions[6].Kind);
+            includeExpression = (IncludeExpression)orderedExpressions[6].Predicate;
+            Assert.Equal("MedicationDispense", includeExpression.ResourceTypes[0]);
+            Assert.True(includeExpression.WildCard);
+
+            Assert.Equal(SearchParamTableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
+
+            Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
         [Fact]
@@ -1648,6 +687,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 var searchService = Substitute.For<ISearchService>();
                 var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
                 var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+                var fhirDataStore = Substitute.For<IFhirDataStore>();
                 var logger = NullLogger<SearchParameterDefinitionManager>.Instance;
 
                 SearchParameterDefinitionManager = new SearchParameterDefinitionManager(
@@ -1656,6 +696,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     searchService.CreateMockScopeProvider(),
                     searchParameterComparer,
                     statusDataStore.CreateMockScopeProvider(),
+                    fhirDataStore.CreateMockScopeProvider(),
                     logger);
             }
 

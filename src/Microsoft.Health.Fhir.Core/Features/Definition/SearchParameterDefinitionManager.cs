@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
         private readonly IScopeProvider<ISearchParameterStatusDataStore> _searchParameterStatusDataStoreFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly ILogger _logger;
 
         private bool _initialized = false;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IScopeProvider<ISearchService> searchServiceFactory,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             IScopeProvider<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -61,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
             EnsureArg.IsNotNull(searchParameterStatusDataStoreFactory, nameof(searchParameterStatusDataStoreFactory));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _modelInfoProvider = modelInfoProvider;
@@ -71,6 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _searchServiceFactory = searchServiceFactory;
             _searchParameterComparer = searchParameterComparer;
             _searchParameterStatusDataStoreFactory = searchParameterStatusDataStoreFactory;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
             _logger = logger;
 
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
@@ -376,6 +380,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             // now read in any previously POST'd SearchParameter resources
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             using IScoped<ISearchParameterStatusDataStore> statusDataStore = _searchParameterStatusDataStoreFactory.Invoke();
+            using IScoped<IFhirDataStore> fhirDataStore = _fhirDataStoreFactory.Invoke();
 
             string continuationToken = null;
             int totalLoaded = 0;
@@ -425,49 +430,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         {
                             try
                             {
-                                // Get the resource ID to fetch its history
+                                // Get the resource ID to fetch its last version before deletion
                                 var resourceId = searchResult.Resource.ResourceId;
 
-                                // Retrieve at least 2 versions to get past the deletion marker
-                                var historyResult = await search.Value.SearchHistoryAsync(
-                                    resourceType: KnownResourceTypes.SearchParameter,
-                                    resourceId: resourceId,
-                                    at: null,
-                                    since: null,
-                                    before: null,
-                                    count: 2, // Get at least 2 versions to find the pre-deletion version
-                                    summary: null,
-                                    continuationToken: null,
-                                    sort: null,
-                                    cancellationToken: cancellationToken);
-
-                                if (historyResult?.Results != null && historyResult.Results.Any())
+                                // Parse the current version and calculate the previous version
+                                if (int.TryParse(searchResult.Resource.Version, out int currentVersion) && currentVersion > 1)
                                 {
-                                    // Find the first version that has a valid RawResource with a URL
-                                    // The first result is typically the deletion marker, so we need subsequent versions
-                                    ResourceWrapper validVersion = null;
-                                    string urlScalar = null;
+                                    var previousVersion = (currentVersion - 1).ToString();
+                                    var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, resourceId, previousVersion);
+                                    var lastVersion = await fhirDataStore.Value.GetAsync(resourceKey, cancellationToken);
 
-                                    foreach (var historyEntry in historyResult.Results.Where(e => e.Resource?.RawResource != null))
+                                    if (lastVersion?.RawResource != null)
                                     {
-                                        var tempElement = historyEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-                                        urlScalar = tempElement.GetStringScalar("url");
+                                        var searchParam = lastVersion.RawResource.ToITypedElement(_modelInfoProvider);
+                                        var urlScalar = searchParam.GetStringScalar("url");
 
-                                        if (!string.IsNullOrEmpty(urlScalar))
+                                        // Only load if this URL is marked as PendingDelete in the status store
+                                        if (!string.IsNullOrEmpty(urlScalar) && pendingDeleteUrls.Contains(urlScalar))
                                         {
-                                            validVersion = historyEntry.Resource;
-                                            break;
-                                        }
-                                    }
-
-                                    // Only load if this URL is marked as PendingDelete in the status store
-                                    if (!string.IsNullOrEmpty(urlScalar) && pendingDeleteUrls.Contains(urlScalar))
-                                    {
-                                        if (validVersion?.RawResource != null)
-                                        {
-                                            var searchParam = validVersion.RawResource.ToITypedElement(_modelInfoProvider);
-
-                                            // Build the search parameter using the historical version
+                                            // Build the search parameter using the last version before deletion
                                             SearchParameterDefinitionBuilder.Build(
                                                 new List<ITypedElement>() { searchParam },
                                                 UrlLookup,
@@ -484,44 +465,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                                 loadedParam.SearchParameterStatus = SearchParameterStatus.PendingDelete;
                                                 totalPendingDelete++;
                                                 _logger.LogInformation(
-                                                    "Loaded PendingDelete search parameter from historical version: {Url}",
+                                                    "Loaded PendingDelete search parameter from last version before deletion: {Url}",
                                                     urlScalar);
                                             }
+                                        }
+                                        else if (!string.IsNullOrEmpty(urlScalar))
+                                        {
+                                            _logger.LogDebug(
+                                                "Skipping soft-deleted SearchParameter {ResourceId} with URL {Url} - not in PendingDelete status",
+                                                resourceId,
+                                                urlScalar);
                                         }
                                         else
                                         {
                                             _logger.LogWarning(
-                                                "Could not retrieve valid RawResource with URL for soft-deleted SearchParameter {ResourceId} with URL {Url}",
-                                                resourceId,
-                                                urlScalar);
+                                                "Could not retrieve valid URL for soft-deleted SearchParameter {ResourceId}",
+                                                resourceId);
                                         }
-                                    }
-                                    else if (!string.IsNullOrEmpty(urlScalar))
-                                    {
-                                        _logger.LogDebug(
-                                            "Skipping soft-deleted SearchParameter {ResourceId} with URL {Url} - not in PendingDelete status",
-                                            resourceId,
-                                            urlScalar);
                                     }
                                     else
                                     {
                                         _logger.LogWarning(
-                                            "Could not retrieve valid URL for historical versions of soft-deleted SearchParameter {ResourceId}",
+                                            "Could not retrieve last version for soft-deleted SearchParameter {ResourceId}",
                                             resourceId);
                                     }
                                 }
                                 else
                                 {
                                     _logger.LogWarning(
-                                        "No historical versions found for soft-deleted SearchParameter {ResourceId}",
-                                        resourceId);
+                                        "Could not parse version or version is 1 for soft-deleted SearchParameter {ResourceId}, version: {Version}",
+                                        resourceId,
+                                        searchResult.Resource.Version);
                                 }
                             }
                             catch (Exception ex)
                             {
                                 _logger.LogError(
                                     ex,
-                                    "Error loading historical version of soft-deleted SearchParameter {ResourceId}",
+                                    "Error loading last version of soft-deleted SearchParameter {ResourceId}",
                                     searchResult.Resource.ResourceId);
                             }
                         }
