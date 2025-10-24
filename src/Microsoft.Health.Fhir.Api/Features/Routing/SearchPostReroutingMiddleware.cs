@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -10,8 +11,12 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Web;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
@@ -19,11 +24,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     public class SearchPostReroutingMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly ILogger<SearchPostReroutingMiddleware> _logger;
 
-        public SearchPostReroutingMiddleware(RequestDelegate next)
+        public SearchPostReroutingMiddleware(RequestDelegate next, ILogger<SearchPostReroutingMiddleware> logger)
         {
             EnsureArg.IsNotNull(next);
             _next = next;
+            _logger = logger;
         }
 
         public async Task Invoke(HttpContext context)
@@ -36,6 +43,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             {
                 if (request.ContentType is null || request.HasFormContentType)
                 {
+                    _logger.LogInformation("Rerouting POST {Path} to GET with query parameters from form body.", request.Path);
+
                     if (request.HasFormContentType)
                     {
                         var mergedPairs = GetUniqueFormAndQueryStringKeyValues(HttpUtility.ParseQueryString(request.QueryString.ToString()), request.Form);
@@ -49,9 +58,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 }
                 else
                 {
+                    _logger.LogWarning("Rejecting POST {Path} with invalid Content-Type.", request.Path);
+
                     context.Response.Clear();
                     context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    await context.Response.WriteAsync(Api.Resources.ContentTypeFormUrlEncodedExpected);
+
+                    var operationOutcome = new OperationOutcome
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Issue = new List<OperationOutcome.IssueComponent>()
+                        {
+                            new OperationOutcome.IssueComponent()
+                            {
+                                Severity = OperationOutcome.IssueSeverity.Error,
+                                Code = OperationOutcome.IssueType.Invalid,
+                                Diagnostics = Api.Resources.ContentTypeFormUrlEncodedExpected,
+                            },
+                        },
+                        Meta = new Meta()
+                        {
+                            LastUpdated = Clock.UtcNow,
+                        },
+                    };
+
+                    await context.Response.WriteAsJsonAsync(operationOutcome);
                     return;
                 }
             }
