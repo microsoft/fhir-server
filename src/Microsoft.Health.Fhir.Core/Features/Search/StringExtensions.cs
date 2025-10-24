@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return s;
         }
 
-        public static string GetJsonSection(string input, int startingIndex)
+        public static string GetJsonSection(this string input, int startingIndex)
         {
             char startChar = '{';
             char endChar = '}';
