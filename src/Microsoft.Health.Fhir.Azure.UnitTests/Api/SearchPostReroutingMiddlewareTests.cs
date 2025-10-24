@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.Api
         {
             _httpContext = new DefaultHttpContext();
             _requestDelegate = Substitute.For<RequestDelegate>();
-            _middleware = new SearchPostReroutingMiddleware(_requestDelegate);
+            _middleware = new SearchPostReroutingMiddleware(_requestDelegate, new NullLogger<SearchPostReroutingMiddleware>());
         }
 
         [Theory]
