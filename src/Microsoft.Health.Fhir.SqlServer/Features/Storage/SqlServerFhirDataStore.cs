@@ -21,6 +21,7 @@ using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -28,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -64,6 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
+        private readonly IResourceDeserializer _resourceDeserializer;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
         private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -83,7 +86,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient)
+            SqlStoreClient storeClient,
+            IResourceDeserializer resourceDeserializer)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -99,6 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -192,6 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var prevResourceId = string.Empty;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
+                var silentMeta = false;
                 var resource = resourceExt.Wrapper;
                 var setAsHistory = prevResourceId == resource.ResourceId; // this assumes that first resource version is the latest one
                 //// negative versions are historical by definition
@@ -298,6 +304,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                             continue;
                         }
+                        else if (resourceExt.MetaSilent && ChangesAreOnlyInMetadata(resource, existingResource))
+                        {
+                            silentMeta = true;
+                        }
                     }
 
                     existingVersion = int.Parse(existingResource.Version);
@@ -307,6 +317,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         resource.Version = versionPlusOne;
                     }
 
+                    // This is not part of the above check to cover the case of importing data in version order.
                     if (resource.Version == versionPlusOne)
                     {
                         hasVersionToCompare = true;
@@ -339,7 +350,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && !silentMeta, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
@@ -947,6 +958,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
                                 .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
+        }
+
+        private static bool ChangesAreOnlyInMetadata(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper)
+        {
+            var inputData = inputWrapper.RawResource.Data;
+            var existingData = existingWrapper.RawResource.Data;
+
+            var inputMetaStartIndex = inputData.IndexOf("\"meta\":", StringComparison.Ordinal);
+            var existingMetaStartIndex = existingData.IndexOf("\"meta\":", StringComparison.Ordinal);
+
+            var inputMeta = inputData.GetJsonSection(inputMetaStartIndex);
+            var existingMeta = existingData.GetJsonSection(existingMetaStartIndex);
+
+            var inputDataWithoutMeta = inputData.Replace(inputMeta, string.Empty, StringComparison.Ordinal);
+            var existingDataWithoutMeta = existingData.Replace(existingMeta, string.Empty, StringComparison.Ordinal);
+
+            return inputDataWithoutMeta.Equals(existingDataWithoutMeta, StringComparison.Ordinal);
         }
 
         // This method relies on current raw resource string formatting, i.e. no extra spaces.
