@@ -422,19 +422,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
-                var logSB = new StringBuilder("Long running retrieve SQL connection");
+                var logSB = new StringBuilder("Long running retrieve SQL connection. ");
                 var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
 
                 if (!isReadOnly || !_coreFeatureConfiguration.SupportsSqlReplicas)
                 {
-                    logSB.AppendLine("Not read only");
+                    logSB.AppendLine("Not read only. ");
                     conn = await sqlConnectionBuilder.GetSqlConnectionAsync(false, applicationName);
                 }
                 else
                 {
-                    logSB.AppendLine("Checking read only");
+                    logSB.AppendLine("Checking read only. ");
                     var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder, logger);
-                    logSB.AppendLine($"Got replica traffic ratio in {sw.Elapsed.TotalSeconds} seconds. Ratio is {replicaTrafficRatio}");
+                    logSB.AppendLine($"Got replica traffic ratio in {sw.Elapsed.TotalSeconds} seconds. Ratio is {replicaTrafficRatio}. ");
 
                     if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
                     {

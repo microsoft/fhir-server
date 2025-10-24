@@ -37,36 +37,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             var request = context.Request;
 
-            if (request != null
-                && request.Method == "POST"
-                && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase))
+            try
             {
-                if (request.ContentType is null || request.HasFormContentType)
+                if (request != null
+                    && request.Method == "POST"
+                    && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogInformation("Rerouting POST {Path} to GET with query parameters from form body.", request.Path);
-
-                    if (request.HasFormContentType)
+                    if (request.ContentType is null || request.HasFormContentType)
                     {
-                        var mergedPairs = GetUniqueFormAndQueryStringKeyValues(HttpUtility.ParseQueryString(request.QueryString.ToString()), request.Form);
-                        request.Query = mergedPairs;
+                        _logger.LogInformation("Rerouting POST {Path} to GET with query parameters from form body.", request.Path);
+
+                        if (request.HasFormContentType)
+                        {
+                            var mergedPairs = GetUniqueFormAndQueryStringKeyValues(HttpUtility.ParseQueryString(request.QueryString.ToString()), request.Form);
+                            request.Query = mergedPairs;
+                        }
+
+                        request.ContentType = null;
+                        request.Form = null;
+                        request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
+                        request.Method = "GET";
                     }
-
-                    request.ContentType = null;
-                    request.Form = null;
-                    request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
-                    request.Method = "GET";
-                }
-                else
-                {
-                    _logger.LogWarning("Rejecting POST {Path} with invalid Content-Type.", request.Path);
-
-                    context.Response.Clear();
-                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-
-                    var operationOutcome = new OperationOutcome
+                    else
                     {
-                        Id = Guid.NewGuid().ToString(),
-                        Issue = new List<OperationOutcome.IssueComponent>()
+                        _logger.LogDebug("Rejecting POST {Path} with invalid Content-Type.", request.Path);
+
+                        context.Response.Clear();
+                        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+
+                        var operationOutcome = new OperationOutcome
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Issue = new List<OperationOutcome.IssueComponent>()
                         {
                             new OperationOutcome.IssueComponent()
                             {
@@ -75,15 +77,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                                 Diagnostics = Api.Resources.ContentTypeFormUrlEncodedExpected,
                             },
                         },
-                        Meta = new Meta()
-                        {
-                            LastUpdated = Clock.UtcNow,
-                        },
-                    };
+                            Meta = new Meta()
+                            {
+                                LastUpdated = Clock.UtcNow,
+                            },
+                        };
 
-                    await context.Response.WriteAsJsonAsync(operationOutcome);
-                    return;
+                        await context.Response.WriteAsJsonAsync(operationOutcome);
+                        return;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while rerouting POST search to GET.");
+                throw;
             }
 
             await _next.Invoke(context);
