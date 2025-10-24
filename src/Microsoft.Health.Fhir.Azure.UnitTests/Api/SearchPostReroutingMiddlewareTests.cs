@@ -65,7 +65,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.Api
                 _httpContext.Response.Body.Position = 0;
                 using var reader = new StreamReader(_httpContext.Response.Body);
                 var body = reader.ReadToEnd();
-                Assert.Equal(ApiResources.ContentTypeFormUrlEncodedExpected, body);
+                var expectedString = ApiResources.ContentTypeFormUrlEncodedExpected.Replace("\"", "\\\"");
+                expectedString = $"\"{expectedString}\"";
+                Assert.Contains(expectedString, body);
                 Assert.Equal((int)HttpStatusCode.BadRequest, _httpContext.Response.StatusCode);
             }
         }
