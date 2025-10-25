@@ -120,7 +120,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
