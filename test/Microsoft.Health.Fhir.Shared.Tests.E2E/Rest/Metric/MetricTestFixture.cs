@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         public MetricHandler MetricHandler
         {
-            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ApiResponseNotification>>());
+            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Services.GetRequiredService<INotificationHandler<ApiResponseNotification>>());
         }
     }
 }

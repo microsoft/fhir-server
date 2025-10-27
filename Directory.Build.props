@@ -13,13 +13,13 @@
     <HighEntropyVA>true</HighEntropyVA>
     <LangVersion>latest</LangVersion>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <NoWarn>$(NoWarn);NU5104;CS1574;IDE0005</NoWarn>
+    <NoWarn>$(NoWarn);NU5104;CS1574;IDE0005;CA1873;CA2024</NoWarn>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Product>Microsoft FHIR Server for Azure</Product>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryUrl>https://github.com/microsoft/fhir-server</RepositoryUrl>
     <RunSettingsFilePath>$(MSBuildThisFileDirectory)\CodeCoverage.runsettings</RunSettingsFilePath>
-    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />

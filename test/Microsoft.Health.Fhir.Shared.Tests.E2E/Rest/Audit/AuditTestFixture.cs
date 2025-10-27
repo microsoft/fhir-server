@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         public TraceAuditLogger AuditLogger
         {
-            get => _auditLogger ?? (_auditLogger = (TraceAuditLogger)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<IAuditLogger>());
+            get => _auditLogger ?? (_auditLogger = (TraceAuditLogger)(TestFhirServer as InProcTestFhirServer)?.Server.Services.GetRequiredService<IAuditLogger>());
         }
     }
 }

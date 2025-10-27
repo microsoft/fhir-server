@@ -49,7 +49,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             {
                 if (!string.Equals(x.Url.OriginalString, y.Url.OriginalString, StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogInformation($"Url mismatch: '{x.Url}', '{x.Url}'");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Url mismatch: '{x.Url}', '{x.Url}'");
+                    }
+
                     return int.MinValue;
                 }
 
@@ -58,27 +62,43 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 result = CompareBase(baseX, baseY);
                 if (result == int.MinValue)
                 {
-                    _logger.LogInformation($"Base mismatch: '{string.Join(",", baseX)}', '{string.Join(",", baseY)}'");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Base mismatch: '{string.Join(",", baseX)}', '{string.Join(",", baseY)}'");
+                    }
+
                     return result;
                 }
             }
 
             if (!string.Equals(x.Code, y.Code, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogInformation($"Code mismatch: '{x.Code}', '{x.Code}'");
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation($"Code mismatch: '{x.Code}', '{x.Code}'");
+                }
+
                 return int.MinValue;
             }
 
             if (x.Type != y.Type)
             {
-                _logger.LogInformation($"Type mismatch: '{x.Type}', '{x.Type}'");
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation($"Type mismatch: '{x.Type}', '{x.Type}'");
+                }
+
                 return int.MinValue;
             }
 
             var expressionResult = CompareExpression(x.Expression, y.Expression, isBaseTypeSearchParameter);
             if (expressionResult == int.MinValue)
             {
-                _logger.LogInformation($"Expression mismatch: '{x.Expression}', '{y.Expression}'");
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation($"Expression mismatch: '{x.Expression}', '{y.Expression}'");
+                }
+
                 return expressionResult;
             }
 
@@ -90,13 +110,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 var componentResult = CompareComponent(componentX, componentY);
                 if (componentResult == int.MinValue)
                 {
-                    _logger.LogInformation($"Component mismatch: '{componentX.Count} components', '{componentY.Count} components'");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Component mismatch: '{componentX.Count} components', '{componentY.Count} components'");
+                    }
+
                     return componentResult;
                 }
 
                 if ((result != 0 && componentResult != 0 && result != componentResult) || (expressionResult != 0 && componentResult != 0 && expressionResult != componentResult))
                 {
-                    _logger.LogInformation($"Superset/subset relation mismatch: base={result}, component={componentResult}");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"Superset/subset relation mismatch: base={result}, component={componentResult}");
+                    }
+
                     return int.MinValue;
                 }
 
@@ -176,7 +204,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to compare expressions: '{x}', '{y}'");
+                if (_logger.IsEnabled(LogLevel.Error))
+                {
+                    _logger.LogError(ex, $"Failed to compare expressions: '{x}', '{y}'");
+                }
+
                 throw;
             }
         }
@@ -223,8 +255,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             Flatten(x, expsX);
             Flatten(y, expsY);
 
-            _logger.LogInformation($"Flatten '{x}' to {expsX.Count} expressions.");
-            _logger.LogInformation($"Flatten '{y}' to {expsY.Count} expressions.");
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation($"Flatten '{x}' to {expsX.Count} expressions.");
+                _logger.LogInformation($"Flatten '{y}' to {expsY.Count} expressions.");
+            }
+
             if (expsX.Count <= expsY.Count)
             {
                 foreach (var expX in expsX)
@@ -235,7 +271,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     }
                 }
 
-                _logger.LogInformation($"{expsX.Count} expressions.");
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation($"{expsX.Count} expressions.");
+                }
+
                 return expsX.Count == expsY.Count ? 0 : -1;
             }
 

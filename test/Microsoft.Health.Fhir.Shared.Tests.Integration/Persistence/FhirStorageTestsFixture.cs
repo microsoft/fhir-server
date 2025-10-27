@@ -243,13 +243,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             IUrlHelperFactory urlHelperFactory = Substitute.For<IUrlHelperFactory>();
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-            IActionContextAccessor actionContextAccessor = Substitute.For<IActionContextAccessor>();
             IBundleHttpContextAccessor bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
             IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
             LinkGenerator linkGenerator = Substitute.For<LinkGenerator>();
 
             var httpContext = new DefaultHttpContext();
-            var actionContext = new ActionContext();
 
             const string scheme = "scheme";
             const string host = "test";
@@ -259,10 +257,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             httpContext.Request.Scheme = scheme;
             httpContext.Request.Host = new HostString(host);
 
-            actionContextAccessor.ActionContext.Returns(actionContext);
-
             urlHelper.RouteUrl(Arg.Do<UrlRouteContext>(_ => { }));
-            urlHelperFactory.GetUrlHelper(actionContext).Returns(urlHelper);
+            urlHelperFactory.GetUrlHelper(Arg.Any<ActionContext>()).Returns(urlHelper);
             urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns($"{scheme}://{host}");
 
             bundleHttpContextAccessor.HttpContext.Returns((HttpContext)null);
@@ -271,7 +267,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 fhirRequestContextAccessor,
                 urlHelperFactory,
                 httpContextAccessor,
-                actionContextAccessor,
                 bundleHttpContextAccessor,
                 linkGenerator);
         }

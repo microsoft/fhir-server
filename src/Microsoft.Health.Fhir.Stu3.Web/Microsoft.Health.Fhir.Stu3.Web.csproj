@@ -17,8 +17,6 @@
     <PackageReference Include="prometheus-net.SystemMetrics" />
     <!-- Referenced to mitigate CVE-2021-26701 -->
     <PackageReference Include="System.Text.Encodings.Web" />
-    <!-- Referenced to mitigate CVE-2020-1045 -->
-    <PackageReference Include="Microsoft.AspNetCore.Http" />
   </ItemGroup>
 
   <ItemGroup>

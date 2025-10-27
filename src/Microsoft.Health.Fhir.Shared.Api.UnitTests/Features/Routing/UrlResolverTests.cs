@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
@@ -42,12 +41,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IUrlHelperFactory _urlHelperFactory = Substitute.For<IUrlHelperFactory>();
         private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-        private readonly IActionContextAccessor _actionContextAccessor = Substitute.For<IActionContextAccessor>();
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
 
         private readonly IUrlHelper _urlHelper = Substitute.For<IUrlHelper>();
         private readonly DefaultHttpContext _httpContext = new DefaultHttpContext();
-        private readonly ActionContext _actionContext = new ActionContext();
         private readonly LinkGenerator _linkGenerator = Substitute.For<LinkGenerator>();
 
         private readonly UrlResolver _urlResolver;
@@ -60,7 +57,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _fhirRequestContextAccessor,
                 _urlHelperFactory,
                 _httpContextAccessor,
-                _actionContextAccessor,
                 _bundleHttpContextAccessor,
                 _linkGenerator);
 
@@ -71,12 +67,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             _httpContext.Request.Scheme = Scheme;
             _httpContext.Request.Host = new HostString(Host);
 
-            _actionContextAccessor.ActionContext.Returns(_actionContext);
-
             _urlHelper.RouteUrl(
                 Arg.Do<UrlRouteContext>(c => _capturedUrlRouteContext = c));
 
-            _urlHelperFactory.GetUrlHelper(_actionContext).Returns(_urlHelper);
+            _urlHelperFactory.GetUrlHelper(Arg.Any<ActionContext>()).Returns(_urlHelper);
 
             _urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns($"{Scheme}://{Host}");
 

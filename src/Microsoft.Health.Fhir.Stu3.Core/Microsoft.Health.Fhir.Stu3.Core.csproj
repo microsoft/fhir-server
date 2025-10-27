@@ -28,7 +28,6 @@
     <PackageReference Include="Hl7.Fhir.Validation.Legacy.STU3" PrivateAssets="build;analyzers" />
     <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" />
     <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>

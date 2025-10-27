@@ -62,7 +62,6 @@
     <PackageReference Include="Newtonsoft.Json.Schema" />
     <PackageReference Include="Polly" />
     <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
     <!-- Transitive Dependency of Microsoft.Health.SqlServer. Fixing version to mitigate CVE -->

@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public MetricHandler MetricHandler
         {
-            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ImportJobMetricsNotification>>());
+            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Services.GetRequiredService<INotificationHandler<ImportJobMetricsNotification>>());
         }
 
         public ImportTestStorageAccount StorageAccount { get; private set; }

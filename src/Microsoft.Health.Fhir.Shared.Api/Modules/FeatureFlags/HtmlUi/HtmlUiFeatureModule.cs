@@ -5,7 +5,6 @@
 
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -41,10 +40,11 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.HtmlUi
                     .AsService<TextOutputFormatter>();
 
                 // Adds provider to serve embedded razor views
-                services.Configure<MvcRazorRuntimeCompilationOptions>(options =>
-                {
-                    options.FileProviders.Add(new EmbeddedFileProvider(typeof(CodePreviewModel).Assembly));
-                }).AddControllersWithViews().AddRazorRuntimeCompilation();
+                services.AddControllersWithViews()
+                    .AddRazorRuntimeCompilation(options =>
+                    {
+                        options.FileProviders.Add(new EmbeddedFileProvider(typeof(CodePreviewModel).Assembly));
+                    });
             }
         }
     }

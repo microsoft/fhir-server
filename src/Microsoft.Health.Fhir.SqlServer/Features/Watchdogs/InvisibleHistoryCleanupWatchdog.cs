@@ -48,24 +48,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"{Name}: starting...");
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation($"{Name}: starting...");
+            }
+
             var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(cancellationToken);
-            _logger.LogInformation($"{Name}: visibility={visibility}.");
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation($"{Name}: visibility={visibility}.");
+            }
+
             var totalRows = 0;
             var totalTrans = 0;
             var transToCleanCount = 0;
             do
             {
                 var lastTranId = await GetLastCleanedUpTransactionIdAsync(cancellationToken);
-                _logger.LogInformation($"{Name}: last cleaned up transaction={lastTranId}.");
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation($"{Name}: last cleaned up transaction={lastTranId}.");
+                }
+
                 var transToClean = await _store.GetTransactionsAsync(lastTranId, visibility, cancellationToken, DateTime.UtcNow.AddDays(-1 * RetentionPeriodDays));
-                _logger.LogInformation($"{Name}: found transactions={transToClean.Count}.");
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation($"{Name}: found transactions={transToClean.Count}.");
+                }
+
                 if (transToClean.Count > 0)
                 {
                     foreach (var tran in transToClean.Where(x => !x.InvisibleHistoryRemovedDate.HasValue).OrderBy(x => x.TransactionId))
                     {
                         var rows = await _store.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, cancellationToken);
-                        _logger.LogInformation($"{Name}: transaction={tran.TransactionId} removed rows={rows}.");
+                        if (_logger.IsEnabled(LogLevel.Information))
+                        {
+                            _logger.LogInformation($"{Name}: transaction={tran.TransactionId} removed rows={rows}.");
+                        }
+
                         totalRows += rows;
                         totalTrans++;
 
@@ -74,14 +94,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                     var cleanedUpToTranId = transToClean.Max(_ => _.TransactionId);
                     await UpdateLastCleanedUpTransactionId(cleanedUpToTranId);
-                    _logger.LogInformation($"{Name}: cleaned up to {cleanedUpToTranId}. transactions={totalTrans} removed rows={totalRows}");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        _logger.LogInformation($"{Name}: cleaned up to {cleanedUpToTranId}. transactions={totalTrans} removed rows={totalRows}");
+                    }
                 }
 
                 transToCleanCount = transToClean.Count;
             }
             while (transToCleanCount > 0);
 
-            _logger.LogInformation($"{Name}: completed. transactions={totalTrans} removed rows={totalRows}");
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation($"{Name}: completed. transactions={totalTrans} removed rows={totalRows}");
+            }
         }
 
         private async Task<long> GetLastCleanedUpTransactionIdAsync(CancellationToken cancellationToken)

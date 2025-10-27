@@ -10,14 +10,15 @@ using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -131,15 +132,44 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
             }
 
-            var builder = WebHost.CreateDefaultBuilder()
-                .UseContentRoot(Path.GetDirectoryName(startupType.Assembly.Location))
+            // Build the IHost with the startup type and services configuration
+            var hostBuilder = Host.CreateDefaultBuilder()
                 .ConfigureAppConfiguration(configurationBuilder =>
                 {
                     configurationBuilder.AddDevelopmentAuthEnvironmentIfConfigured(new ConfigurationBuilder().AddInMemoryCollection(configuration).Build());
                     configurationBuilder.AddJsonFile(testConfigPath);
                     configurationBuilder.AddInMemoryCollection(configuration);
                 })
-                .UseStartup(startupType)
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
+                    webBuilder
+                        .UseContentRoot(Path.GetDirectoryName(startupType.Assembly.Location))
+                        .UseStartup(startupType);
+                })
+                .ConfigureServices(serviceCollection =>
+                {
+                    // Placeholder - services will be configured after TestServer creation
+                });
+
+            var host = hostBuilder.Build();
+
+            // Create TestServer using the IServiceProvider from the built host
+            Server = new TestServer(host.Services);
+
+            // Reconfigure services to use the TestServer (need to rebuild with the configured HttpClient)
+            var updatedHostBuilder = Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration(configurationBuilder =>
+                {
+                    configurationBuilder.AddDevelopmentAuthEnvironmentIfConfigured(new ConfigurationBuilder().AddInMemoryCollection(configuration).Build());
+                    configurationBuilder.AddJsonFile(testConfigPath);
+                    configurationBuilder.AddInMemoryCollection(configuration);
+                })
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
+                    webBuilder
+                        .UseContentRoot(Path.GetDirectoryName(startupType.Assembly.Location))
+                        .UseStartup(startupType);
+                })
                 .ConfigureServices(serviceCollection =>
                 {
                     // ensure that HttpClients
@@ -154,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         options => options.BackchannelHttpHandler = Server.CreateHandler());
                 });
 
-            Server = new TestServer(builder);
+            host = updatedHostBuilder.Build();
 
             _builtConfiguration = Server.Services.GetRequiredService<IConfiguration>();
         }

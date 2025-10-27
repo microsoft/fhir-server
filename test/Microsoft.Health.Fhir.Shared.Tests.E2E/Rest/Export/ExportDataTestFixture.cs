@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         public MetricHandler MetricHandler
         {
-            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ExportTaskMetricsNotification>>());
+            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Services.GetRequiredService<INotificationHandler<ExportTaskMetricsNotification>>());
         }
 
         internal DataStore DataStore { get; private set; }

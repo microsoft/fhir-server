@@ -195,6 +195,7 @@ namespace Microsoft.Health.JobManagement
                     await jobCancellationToken.CancelAsync();
                 }
 
+                #pragma warning disable CA2025 // Task is awaited before disposal
                 Task<string> runningJob = ExecuteJobWithHeartbeatsAsync(
                                     _queueClient,
                                     jobInfo.QueueType,
@@ -203,6 +204,7 @@ namespace Microsoft.Health.JobManagement
                                     cancellationSource => job.Value.ExecuteAsync(jobInfo, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
+                #pragma warning restore CA2025
 
                 jobInfo.Result = await runningJob;
             }

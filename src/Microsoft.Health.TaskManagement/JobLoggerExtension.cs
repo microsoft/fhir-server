@@ -43,6 +43,20 @@ namespace Microsoft.Health.JobManagement
 
         private static void LogInformation<T>(int logType, ILogger<T> logger, Exception exception, JobInfo jobInfo, string message, params object[] args)
         {
+            // Check if logging is enabled to avoid expensive argument evaluation
+            LogLevel logLevel = logType switch
+            {
+                1 => LogLevel.Information,
+                2 => LogLevel.Error,
+                3 => LogLevel.Warning,
+                _ => throw new InvalidOperationException($"Invalid LogType '{logType}'."),
+            };
+
+            if (!logger.IsEnabled(logLevel))
+            {
+                return;
+            }
+
             // Combine prefix and message.
             string fullMessage = "[GroupId:{GroupId}/JobId:{JobId}/Type:{Type}] " + message;
 
@@ -95,10 +109,6 @@ namespace Microsoft.Health.JobManagement
                 {
                     logger.LogWarning(fullMessage, finalArgs.ToArray());
                 }
-            }
-            else
-            {
-                throw new InvalidOperationException($"Invalid LogType '{logType}'.");
             }
         }
     }

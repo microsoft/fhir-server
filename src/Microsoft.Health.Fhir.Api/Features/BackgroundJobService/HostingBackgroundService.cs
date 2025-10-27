@@ -79,7 +79,9 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 foreach (var queueConfig in enabledQueueConfigs)
                 {
                     short runningJobCount = queueConfig.MaxRunningTaskCount ?? _hostingConfiguration?.MaxRunningTaskCount ?? Constants.DefaultMaxRunningJobCount;
+#pragma warning disable CA2025 // Tasks are awaited before disposal
                     jobQueues.Add(jobHostingValue.ExecuteAsync((byte)queueConfig.Queue, runningJobCount, Environment.MachineName, cancellationTokenSource));
+#pragma warning restore CA2025
                 }
 
                 await Task.WhenAll(jobQueues);

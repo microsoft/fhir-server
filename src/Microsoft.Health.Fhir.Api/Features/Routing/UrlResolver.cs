@@ -10,7 +10,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
@@ -39,7 +39,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         // the registration since enabling these accessors has performance implications.
         // https://github.com/aspnet/Hosting/issues/793
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IActionContextAccessor _actionContextAccessor;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
 
         /// <summary>
@@ -48,27 +47,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="urlHelperFactory">The ASP.NET Core URL helper factory.</param>
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
-        /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
         /// <param name="linkGenerator">The ASP.NET Core link generator.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
-            IActionContextAccessor actionContextAccessor,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             LinkGenerator linkGenerator)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
-            EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
             _httpContextAccessor = httpContextAccessor;
-            _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _linkGenerator = linkGenerator;
         }
@@ -86,9 +81,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
         }
 
-        private ActionContext ActionContext => _actionContextAccessor.ActionContext;
+        private IUrlHelper UrlHelper => _urlHelperFactory.GetUrlHelper(GetActionContext());
 
-        private IUrlHelper UrlHelper => _urlHelperFactory.GetUrlHelper(ActionContext);
+        private HttpContext GetHttpContext()
+        {
+            if (_bundleHttpContextAccessor.HttpContext != null)
+            {
+                return _bundleHttpContextAccessor.HttpContext;
+            }
+
+            return _httpContextAccessor?.HttpContext;
+        }
+
+        private ActionContext GetActionContext()
+        {
+            var httpContext = GetHttpContext();
+            if (httpContext == null)
+            {
+                return null;
+            }
+
+            return new ActionContext(httpContext, httpContext.GetRouteData(), new ActionDescriptor());
+        }
 
         /// <inheritdoc />
         public Uri ResolveMetadataUrl(bool includeSystemQueryString)
@@ -101,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             return GetRouteUri(
-                ActionContext.HttpContext,
+                GetHttpContext(),
                 RouteNames.Metadata,
                 routeValues,
                 Request.Scheme,
@@ -138,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             return GetRouteUri(
-                ActionContext.HttpContext,
+                GetHttpContext(),
                 routeName,
                 routeValues,
                 Request.Scheme,
@@ -232,7 +246,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             return GetRouteUri(
-                ActionContext.HttpContext,
+                GetHttpContext(),
                 routeName,
                 routeValues,
                 Request.Scheme,
@@ -245,7 +259,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             var routeValueDictionary = new RouteValueDictionary(routeValues);
 
             return GetRouteUri(
-                ActionContext.HttpContext,
+                GetHttpContext(),
                 routeName,
                 routeValueDictionary,
                 Request.Scheme,
@@ -295,7 +309,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             };
 
             return GetRouteUri(
-                ActionContext.HttpContext,
+                GetHttpContext(),
                 routeName,
                 routeValues,
                 Request.Scheme,
@@ -359,7 +373,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             return GetRouteUri(
-                ActionContext?.HttpContext,
+                GetHttpContext(),
                 routeName,
                 null,
                 Request?.Scheme,

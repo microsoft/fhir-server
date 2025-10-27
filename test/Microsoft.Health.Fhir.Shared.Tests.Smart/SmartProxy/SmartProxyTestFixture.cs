@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
     public class SmartProxyTestFixture : IDisposable, IAsyncLifetime
     {
         private readonly TestFhirServerFactory _testFhirServerFactory;
+        private IHost _host;
 
         public SmartProxyTestFixture(TestFhirServerFactory testFhirServerFactory)
         {
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
             _testFhirServerFactory = testFhirServerFactory;
         }
 
-        public IWebHost WebServer { get; private set; }
+        public IWebHost WebServer => _host?.Services.GetService(typeof(IWebHost)) as IWebHost;
 
         public int Port { get; private set; } = 6001;
 
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
                 var baseUrl = "https://localhost:" + Port;
                 SmartLauncherUrl = baseUrl + "/index.html";
 
-                var builder = WebHost.CreateDefaultBuilder()
+                var hostBuilder = Host.CreateDefaultBuilder()
                     .ConfigureAppConfiguration((hostingContext, config) =>
                     {
                         config.AddInMemoryCollection(new Dictionary<string, string>
@@ -58,26 +59,33 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
                             { "DefaultSmartAppUrl", "/sampleapp/launch.html" },
                         });
                     })
-                    .UseStartup<Startup>()
-                    .UseUrls(baseUrl);
+                    .ConfigureWebHostDefaults(webBuilder =>
+                    {
+                        webBuilder
+                            .UseStartup<Startup>()
+                            .UseUrls(baseUrl);
+                    });
 
-                WebServer = builder.Build();
-                WebServer.Start();
+                _host = hostBuilder.Build();
+                await _host.StartAsync();
 
                 TestFhirServer testFhirServer = await _testFhirServerFactory.GetTestFhirServerAsync(DataStore.CosmosDb, null);
                 TestFhirClient = testFhirServer.GetTestFhirClient(ResourceFormat.Json);
             }
         }
 
-        public Task DisposeAsync()
+        public async Task DisposeAsync()
         {
-            Dispose();
-            return Task.CompletedTask;
+            if (_host != null)
+            {
+                await _host.StopAsync();
+                _host.Dispose();
+            }
         }
 
         public void Dispose()
         {
-            WebServer?.Dispose();
+            _host?.Dispose();
         }
     }
 }

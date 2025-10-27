@@ -110,7 +110,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     // Only loopback proxies are allowed by default.
                     // Clear that restriction because forwarders are enabled by explicit
                     // configuration.
-                    options.KnownNetworks.Clear();
                     options.KnownProxies.Clear();
                 });
             }

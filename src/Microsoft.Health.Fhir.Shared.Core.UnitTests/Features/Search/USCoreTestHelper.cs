@@ -229,12 +229,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         {
             IUrlHelperFactory urlHelperFactory = Substitute.For<IUrlHelperFactory>();
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-            IActionContextAccessor actionContextAccessor = Substitute.For<IActionContextAccessor>();
             IBundleHttpContextAccessor bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
             IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
 
             var httpContext = new DefaultHttpContext();
-            var actionContext = new ActionContext();
 
             const string scheme = "scheme";
             const string host = "test";
@@ -244,10 +242,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             httpContext.Request.Scheme = scheme;
             httpContext.Request.Host = new HostString(host);
 
-            actionContextAccessor.ActionContext.Returns(actionContext);
-
             urlHelper.RouteUrl(Arg.Do<UrlRouteContext>(_ => { }));
-            urlHelperFactory.GetUrlHelper(actionContext).Returns(urlHelper);
+            urlHelperFactory.GetUrlHelper(Arg.Any<ActionContext>()).Returns(urlHelper);
             urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns($"{scheme}://{host}");
 
             bundleHttpContextAccessor.HttpContext.Returns((HttpContext)null);
@@ -256,7 +252,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                 fhirRequestContextAccessor,
                 urlHelperFactory,
                 httpContextAccessor,
-                actionContextAccessor,
                 bundleHttpContextAccessor,
                 _linkGenerator);
         }

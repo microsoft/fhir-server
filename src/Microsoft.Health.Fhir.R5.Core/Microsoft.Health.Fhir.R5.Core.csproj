@@ -20,7 +20,6 @@
     <PackageReference Include="Hl7.Fhir.R5" />
     <PackageReference Include="Hl7.Fhir.Validation.Legacy.R5" PrivateAssets="build;analyzers" />
     <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>

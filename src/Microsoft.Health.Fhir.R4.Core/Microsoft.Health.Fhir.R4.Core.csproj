@@ -22,7 +22,6 @@
     <PackageReference Include="Hl7.Fhir.Validation.Legacy.R4" PrivateAssets="build;analyzers" />
     <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" />
     <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>
