@@ -12,6 +12,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -185,11 +186,26 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 
                                 return default;
                             }));
+                    })
+                    .AddValidation(options =>
+                    {
+                        // Import the configuration from the local OpenIddict server instance.
+                        options.UseLocalServer();
+
+                        // Register the ASP.NET Core host.
+                        options.UseAspNetCore();
                     });
 
-                services.AddAuthentication(options =>
+                // Only override the default authentication scheme - don't call AddAuthentication here
+                // Let the SecurityModule handle the authentication setup
+                services.PostConfigure<AuthenticationOptions>(options =>
                 {
-                    options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                    if (string.IsNullOrEmpty(options.DefaultScheme))
+                    {
+                        options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                        options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                        options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                    }
                 });
 
                 services.AddHostedService<OpenIddictApplicationCreater>();
