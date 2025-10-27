@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DocRefRequestConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\FirelyTerminologyServiceProxyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetSmartConfigurationHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\TerminologyRequestHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\MockLogger.cs" />
