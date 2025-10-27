@@ -145,17 +145,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     {
                         if (_operationsById.TryRemove(longRunningOperation.Id, out _))
                         {
-                            text.AppendLine($"{longRunningOperation.Id} - {longRunningOperation.Status} - {longRunningOperation.ElapsedTime} - Removed.");
+                            text.AppendLine($"{longRunningOperation.Id} - {longRunningOperation.Status} - {longRunningOperation.ElapsedTime} - Removed. ");
                             longRunningOperation.Clear();
                         }
                         else
                         {
-                            text.AppendLine($"{longRunningOperation.Id} - {longRunningOperation.Status} - {longRunningOperation.ElapsedTime} - Failed to remove.");
+                            text.AppendLine($"{longRunningOperation.Id} - {longRunningOperation.Status} - {longRunningOperation.ElapsedTime} - Failed to remove. ");
                         }
                     }
                     else
                     {
-                        text.AppendLine($"{longRunningOperation.Id} - {longRunningOperation.Status} - {longRunningOperation.ElapsedTime}");
+                        text.AppendLine($"{longRunningOperation.Id} - {longRunningOperation.Status} - {longRunningOperation.ElapsedTime}. ");
                     }
 
                     _logger.LogInformation("BundleOrchestrator: Long running operation details: {OperationDetails}", text.ToString());

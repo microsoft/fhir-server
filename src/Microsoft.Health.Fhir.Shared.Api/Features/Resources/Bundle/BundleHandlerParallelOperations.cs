@@ -190,10 +190,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger.LogError(ex, "Failure while processing bundle in parallel. Error: {ErrorMessage}", ex.Message);
                     throw;
                 }
-                finally
-                {
-                    _bundleOrchestrator.CompleteOperation(bundleOperation);
-                }
+
+                _bundleOrchestrator.CompleteOperation(bundleOperation);
 
                 return throttledEntryComponent;
             }

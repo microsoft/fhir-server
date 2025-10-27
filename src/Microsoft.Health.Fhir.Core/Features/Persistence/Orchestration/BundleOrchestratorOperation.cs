@@ -299,9 +299,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         private void CheckForClearedOperations()
         {
-            if (_cleared)
+            lock (_lock)
             {
-                throw new BundleOrchestratorException($"Bundle Operation '{Id}'. Bundle Orchestrator Operation was already cleared. No further resources can be appended or released.");
+                if (_cleared)
+                {
+                    throw new BundleOrchestratorException($"Bundle Operation '{Id}'. Bundle Orchestrator Operation was already cleared. No further resources can be appended or released.");
+                }
             }
         }
 
