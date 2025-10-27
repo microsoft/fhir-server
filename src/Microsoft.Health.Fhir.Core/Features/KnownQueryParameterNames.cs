@@ -149,6 +149,6 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string ReturnDetails = "_details";
 
-        public const string SilentMeta = "_silent-meta";
+        public const string MetaHistory = "_meta-history";
     }
 }

@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             ResourceWrapper resourceWrapper = ResourceWrapperFactory.CreateResourceWrapper(resource, ResourceIdProvider, deleted: false, keepMeta: allowCreate);
 
-            UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, allowCreate, keepHistory, request.WeakETag, requireETagOnUpdate, false, request.BundleResourceContext, request.MetaSilent), cancellationToken);
+            UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, allowCreate, keepHistory, request.WeakETag, requireETagOnUpdate, false, request.BundleResourceContext, request.MetaHistory), cancellationToken);
 
             resource.VersionId = result.Wrapper.Version;
 

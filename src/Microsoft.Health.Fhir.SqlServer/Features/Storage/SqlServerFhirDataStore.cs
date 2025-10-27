@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var prevResourceId = string.Empty;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
-                var silentMeta = false;
+                var metaHistory = true;
                 var resource = resourceExt.Wrapper;
                 var setAsHistory = prevResourceId == resource.ResourceId; // this assumes that first resource version is the latest one
                 //// negative versions are historical by definition
@@ -304,9 +304,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                             continue;
                         }
-                        else if (resourceExt.MetaSilent && ChangesAreOnlyInMetadata(resource, existingResource))
+                        else if (!resourceExt.MetaHistory && ChangesAreOnlyInMetadata(resource, existingResource))
                         {
-                            silentMeta = true;
+                            metaHistory = false;
                         }
                     }
 
@@ -350,7 +350,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && !silentMeta, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && metaHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
