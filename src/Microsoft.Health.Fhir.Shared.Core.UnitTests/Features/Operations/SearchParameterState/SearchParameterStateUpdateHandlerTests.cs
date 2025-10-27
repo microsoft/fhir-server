@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -77,11 +78,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var searchServiceProvider = Substitute.For<IScopeProvider<ISearchService>>();
             searchServiceProvider.Invoke().Returns(searchServiceScope);
 
-            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(
+            // Create a proper IScopeProvider<ISearchParameterStatusDataStore> mock
+            var searchParameterStatusDataStoreScope = Substitute.For<IScoped<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreScope.Value.Returns(_searchParameterStatusDataStore);
+            var searchParameterStatusDataStoreProvider = Substitute.For<IScopeProvider<ISearchParameterStatusDataStore>>();
+            searchParameterStatusDataStoreProvider.Invoke().Returns(searchParameterStatusDataStoreScope);
+
+            // Create a proper IScopeProvider<IFhirDataStore> mock
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStoreScope = Substitute.For<IScoped<IFhirDataStore>>();
+            fhirDataStoreScope.Value.Returns(fhirDataStore);
+            var fhirDataStoreProvider = Substitute.For<IScopeProvider<IFhirDataStore>>();
+            fhirDataStoreProvider.Invoke().Returns(fhirDataStoreScope);
+
+            // Create SearchParameterDefinitionManager with proper dependencies
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(
                 ModelInfoProvider.Instance,
                 _mediator,
                 searchServiceProvider,
                 _searchParameterComparer,
+                searchParameterStatusDataStoreProvider,
+                fhirDataStoreProvider,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));

@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -128,7 +129,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var searchService = Substitute.For<ISearchService>();
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
-            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), searchService.CreateMockScopeProvider(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                Substitute.For<IMediator>(),
+                searchService.CreateMockScopeProvider(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.MinForUpgrade, maxSchemaVersion);
