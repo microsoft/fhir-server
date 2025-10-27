@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 {
                     if (request.ContentType is null || request.HasFormContentType)
                     {
-                        _logger.LogInformation("Rerouting POST {Path} to GET with query parameters from form body.", request.Path);
+                        _logger.LogInformation("Rerouting POST to GET with query parameters from form body.");
 
                         if (request.HasFormContentType)
                         {
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     }
                     else
                     {
-                        _logger.LogDebug("Rejecting POST {Path} with invalid Content-Type.", request.Path);
+                        _logger.LogDebug("Rejecting POST with invalid Content-Type.");
 
                         context.Response.Clear();
                         context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
