@@ -756,16 +756,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Include and RevInclude searches do not support SMART V2 finer-grained resource constraints using search parameters..
-        /// </summary>
-        internal static string IncludeRevIncludeSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters {
-            get {
-                return ResourceManager.GetString("IncludeRevIncludeSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchPa" +
-                        "rameters", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The &apos;includesCt&apos; parameter is ignored for a non-$includes request..
         /// </summary>
         internal static string IncludesContinuationTokenIgnored {
