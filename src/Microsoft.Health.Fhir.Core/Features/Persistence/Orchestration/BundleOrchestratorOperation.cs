@@ -313,9 +313,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             try
             {
                 // 1 - Wait for pending resources to be appended to the operation.
-                using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_maxExecutionTimeInSeconds)))
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    var escapeConditionCancellationToken = cancellationTokenSource.Token;
+                    cts.CancelAfter(TimeSpan.FromSeconds(_maxExecutionTimeInSeconds));
+                    CancellationToken escapeConditionCancellationToken = cts.Token;
+
                     do
                     {
                         if (escapeConditionCancellationToken.IsCancellationRequested)
@@ -328,11 +330,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                             escapeConditionCancellationToken.ThrowIfCancellationRequested();
                         }
 
-                        cancellationToken.ThrowIfCancellationRequested();
+                        escapeConditionCancellationToken.ThrowIfCancellationRequested();
 
-                        await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, cancellationToken);
+                        await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, escapeConditionCancellationToken);
                     }
-                    while (_resources.Count != CurrentExpectedNumberOfResources);
+                    while (_resources.Count != CurrentExpectedNumberOfResources && !escapeConditionCancellationToken.IsCancellationRequested);
+
+                    escapeConditionCancellationToken.ThrowIfCancellationRequested();
                 }
 
                 if (CurrentExpectedNumberOfResources == 0)
