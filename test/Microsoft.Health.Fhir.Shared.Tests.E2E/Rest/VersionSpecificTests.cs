@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CapabilityStatement capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             Assert.NotNull(capabilityStatement.FhirVersionElement);
-            Assert.Equal(expectedVersion, capabilityStatement.FhirVersionElement.ObjectValue);
+            Assert.Equal(expectedVersion, capabilityStatement.FhirVersionElement.JsonValue);
         }
     }
 }

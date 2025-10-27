@@ -129,8 +129,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Deserialize the FHIR patch parameters from the payload
-            var fhirJsonParser = new FhirJsonParser();
-            var deserializedFhirPatchParameters = await fhirJsonParser.ParseAsync<Hl7.Fhir.Model.Parameters>(fhirPatchParameters);
+            var fhirJsonDeserializer = new FhirJsonDeserializer();
+            var deserializedFhirPatchParameters = fhirJsonDeserializer.Deserialize<Hl7.Fhir.Model.Parameters>(fhirPatchParameters);
 
             try
             {

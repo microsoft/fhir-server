@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
     [Trait(Traits.Category, Categories.Conformance)]
     public class TerminologyRequestHandlerTests
     {
-        private readonly FhirJsonParser _parser;
+        private readonly FhirJsonDeserializer _parser;
         private readonly TerminologyRequestHandler _handler;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ITerminologyServiceProxy _terminologyServiceProxy;
@@ -59,11 +59,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(CreateGetResourceResponse(CreateValueSet(Guid.NewGuid().ToString()))));
 
-            _parser = new FhirJsonParser(
-                new ParserSettings()
-                {
-                    PermissiveParsing = true,
-                });
+            _parser = new FhirJsonDeserializer();
             _handler = new TerminologyRequestHandler(
                 _authorizationService,
                 _terminologyServiceProxy,
@@ -135,14 +131,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                                         return false;
                                     }
 
-                                    var actual = _parser.Parse<Resource>(x.Item2);
+                                    var actual = _parser.Deserialize<Resource>(x.Item2);
                                     var rid = request.ResourceId;
                                     if (string.IsNullOrEmpty(rid))
                                     {
                                         var json = request.Parameters.Single(y => string.Equals(y.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase))?.Item2;
                                         if (!string.IsNullOrEmpty(json))
                                         {
-                                            var expected = _parser.Parse<Resource>(json);
+                                            var expected = _parser.Deserialize<Resource>(json);
                                             rid = expected.Id;
                                         }
                                     }

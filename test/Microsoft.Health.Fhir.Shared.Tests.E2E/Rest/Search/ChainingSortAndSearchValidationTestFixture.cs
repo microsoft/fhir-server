@@ -28,8 +28,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         protected async Task<IReadOnlyList<Bundle.EntryComponent>> GetHealthEntryComponentsAsync(CancellationToken cancellationToken)
         {
             string requestBundleAsString = Samples.GetJson(BundleFileName);
-            var parser = new FhirJsonParser();
-            var requestBundle = parser.Parse<Bundle>(requestBundleAsString);
+            var parser = new FhirJsonDeserializer();
+            var requestBundle = parser.Deserialize<Bundle>(requestBundleAsString);
 
             using FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle, cancellationToken: cancellationToken);
             Assert.NotNull(fhirResponse);
