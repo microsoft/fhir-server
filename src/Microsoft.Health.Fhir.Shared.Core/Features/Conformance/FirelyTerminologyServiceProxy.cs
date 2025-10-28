@@ -241,17 +241,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                         .Select(
                             x =>
                             {
-                                var url = string.Empty;
-                                if (x.Binding.ValueSet is FhirUri)
-                                {
-                                    url = ((FhirUri)x.Binding.ValueSet).Value;
-                                }
-                                else
-                                {
-                                    url = ((ResourceReference)x.Binding.ValueSet).Reference;
-                                }
-
-                                return url;
+                                return (x.Binding.ValueSet is FhirUri) ? ((FhirUri)x.Binding.ValueSet).Value : ((ResourceReference)x.Binding.ValueSet).Reference;
                             })
 #endif
                         .FirstOrDefault();
