@@ -48,7 +48,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         [InlineData("?valueSet={'bogusResource'}", true, "valueSet")] // Invalid parameter value handled by the proxy (OperationOutcome expected)
         [InlineData("?url=0&unknown=unknown", false, "unknown")] // Invalid parameter (unknown parameter)
         [InlineData("?url=0&offset=1&offset=2", false, "offset")] // Invalid parameter count
+#if Stu3 || R4
         [InlineData("?context=http://hl7.org/fhir/StructureDefinition/DiagnosticReport#DiagnosticReport.category", true, null)] // Valid knowing LocalTerminologyService has a matching valueset for this context
+#endif
         public async Task GivenQuery_WhenExpanding_ThenValueSetShouldBeExpanded(
             string query,
             bool validQuery,
@@ -129,7 +131,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         [InlineData("?valueSet={'bogusResource'}", true, "valueSet")] // Invalid parameter value handled by the proxy (OperationOutcome expected)
         [InlineData("?url=0&unknown=unknown", false, "unknown")] // Invalid parameter (unknown parameter)
         [InlineData("?url=0&url=1", false, "url")] // Invalid parameter count
+#if Stu3 || R4
         [InlineData("?context=http://hl7.org/fhir/StructureDefinition/DiagnosticReport#DiagnosticReport.category", true, null)] // Valid knowing LocalTerminologyService has a matching valueset for this context
+#endif
         public async Task GivenParameters_WhenExpanding_ThenValueSetShouldBeExpanded(
             string query,
             bool validQuery,
