@@ -59,6 +59,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 return;
             }
 
+            _logger.LogInformation(context?.Exception, "Exception handled in OperationOutcomeExceptionFilterAttribute.");
+
             if (context.Exception is FhirException fhirException)
             {
                 var operationOutcomeResult = new OperationOutcomeResult(
