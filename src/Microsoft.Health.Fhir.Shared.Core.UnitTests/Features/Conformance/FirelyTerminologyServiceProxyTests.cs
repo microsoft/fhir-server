@@ -205,10 +205,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             IReadOnlyList<Tuple<string, string>> parameterList,
             string valueSetUrl)
         {
-            var shouldUseContext = !parameterList?
+            parameterList = parameterList ?? new List<Tuple<string, string>>();
+            var shouldUseContext = !parameterList
                 .Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Url, StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)) ?? false;
-            var context = parameterList?
+                        || string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase));
+            var context = parameterList
                 .SingleOrDefault(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Context, StringComparison.OrdinalIgnoreCase))?
                 .Item2;
             Assert.NotNull(context);
