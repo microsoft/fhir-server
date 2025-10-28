@@ -355,6 +355,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             await CreateStats(expression, cancellationToken);
 
+            // Detect SMART v2 + granular scopes + includes - use two-query approach
+            if (RequiresSeparateIncludeExecution(expression, clonedSearchOptions))
+            {
+                return await SearchSmartV2WithSeparateIncludesAsync(expression, clonedSearchOptions, reuseQueryPlans, cancellationToken);
+            }
+
             SearchResult searchResult = null;
 
             await _sqlRetryService.ExecuteSql(
@@ -1677,6 +1683,263 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 true); // this enables reads from replicas
 
             return searchResult;
+        }
+
+        /// <summary>
+        /// Determines if the query requires separate include execution due to SMART v2 granular scopes.
+        /// This approach avoids temp table scaling issues with broad scopes.
+        /// </summary>
+        private static bool RequiresSeparateIncludeExecution(SqlRootExpression expression, SqlSearchOptions options)
+        {
+            // Check if expression has SMART v2 granular scopes with search parameters
+            bool hasSmartV2GranularScopes = expression.SearchParamTableExpressions.Any(t =>
+                t.SplitExpressions(out UnionExpression unionExpression, out _) &&
+                unionExpression != null &&
+                unionExpression.Expressions.Any(e => e.IsSmartV2UnionExpressionForScopesSearchParameters));
+
+            // Check if expression has include/revinclude expressions
+            bool hasIncludes = expression.SearchParamTableExpressions.Any(t =>
+                t.Kind == SearchParamTableExpressionKind.Include);
+
+            return hasSmartV2GranularScopes && hasIncludes;
+        }
+
+        /// <summary>
+        /// Executes search with SMART v2 granular scopes using two-query approach:
+        /// 1. Main query without includes
+        /// 2. Separate include query with scope filtering for the first page of results
+        /// </summary>
+        private async Task<SearchResult> SearchSmartV2WithSeparateIncludesAsync(
+            SqlRootExpression expression,
+            SqlSearchOptions options,
+            bool reuseQueryPlans,
+            CancellationToken cancellationToken)
+        {
+            // Step 1: Extract include expressions before removing them
+            var includeExpressions = expression.SearchParamTableExpressions
+                .Where(t => t.Kind == SearchParamTableExpressionKind.Include)
+                .ToList();
+
+            _logger.LogInformation(
+                "SMART v2 two-query approach: Executing main query without {IncludeCount} include expressions",
+                includeExpressions.Count);
+
+            // Step 2: Create expression without includes for main query
+            var expressionWithoutIncludes = new SqlRootExpression(
+                expression.SearchParamTableExpressions
+                    .Where(t => t.Kind != SearchParamTableExpressionKind.Include)
+                    .ToList(),
+                expression.ResourceTableExpressions);
+
+            // Step 3: Clone options and remove includes from expression
+            var mainQueryOptions = new SqlSearchOptions(options);
+            if (mainQueryOptions.Expression != null)
+            {
+                mainQueryOptions.Expression = mainQueryOptions.Expression.AcceptVisitor(RemoveIncludesRewriter.Instance);
+            }
+
+            // Step 4: Execute main query (without includes) using standard search logic
+            SearchResult mainSearchResult = null;
+
+            await _sqlRetryService.ExecuteSql(
+                async (connection, cancellationToken, sqlException) =>
+                {
+                    using (SqlCommand sqlCommand = connection.CreateCommand())
+                    {
+                        sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+
+                        var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+                        EnableTimeAndIoMessageLogging(stringBuilder, connection);
+
+                        var queryGenerator = new SqlQueryGenerator(
+                            stringBuilder,
+                            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
+                            _model,
+                            _schemaInformation,
+                            _queryGeneratorFactory,
+                            reuseQueryPlans,
+                            options.IsAsyncOperation,
+                            sqlException);
+
+                        expressionWithoutIncludes.AcceptVisitor(queryGenerator, mainQueryOptions);
+
+                        SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+
+                        var queryText = stringBuilder.ToString();
+                        var queryHash = _queryHashCalculator.CalculateHash(queryText);
+                        _logger.LogInformation("SMART v2 main query hash: {QueryHash}", queryHash);
+
+#pragma warning disable CA2100
+                        sqlCommand.CommandText = queryText;
+#pragma warning restore CA2100
+
+                        LogSqlCommand(sqlCommand);
+
+                        using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                        {
+                            var matchedResources = new List<SearchResultEntry>(options.MaxItemCount);
+                            short? newContinuationType = null;
+                            long? newContinuationId = null;
+                            bool moreResults = false;
+                            int matchCount = 0;
+
+                            while (await reader.ReadAsync(cancellationToken))
+                            {
+                                ReadWrapper(
+                                    reader,
+                                    false, // exportTimeTravel
+                                    out short resourceTypeId,
+                                    out string resourceId,
+                                    out int version,
+                                    out bool isDeleted,
+                                    out long resourceSurrogateId,
+                                    out string requestMethod,
+                                    out bool isMatch,
+                                    out bool isPartialEntry,
+                                    out bool isRawResourceMetaSet,
+                                    out string searchParameterHash,
+                                    out byte[] rawResourceBytes,
+                                    out bool isInvisible,
+                                    out bool isHistory);
+
+                                if (isInvisible)
+                                {
+                                    continue;
+                                }
+
+                                if (matchCount >= mainQueryOptions.MaxItemCount && isMatch)
+                                {
+                                    moreResults = true;
+                                    continue;
+                                }
+
+                                var rawResource = new Lazy<string>(() =>
+                                {
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+
+                                    if (string.IsNullOrEmpty(decompressedResource))
+                                    {
+                                        decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                        _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                    }
+
+                                    return decompressedResource;
+                                });
+
+                                if (isMatch)
+                                {
+                                    newContinuationType = resourceTypeId;
+                                    newContinuationId = resourceSurrogateId;
+                                    matchCount++;
+
+                                    matchedResources.Add(new SearchResultEntry(
+                                        new ResourceWrapper(
+                                            resourceId,
+                                            version.ToString(CultureInfo.InvariantCulture),
+                                            _model.GetResourceTypeName(resourceTypeId),
+                                            mainQueryOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                            new ResourceRequest(requestMethod),
+                                            resourceSurrogateId.ToLastUpdated(),
+                                            isDeleted,
+                                            null,
+                                            null,
+                                            null,
+                                            searchParameterHash,
+                                            resourceSurrogateId)
+                                        {
+                                            IsHistory = isHistory,
+                                        },
+                                        SearchEntryMode.Match));
+                                }
+                            }
+
+                            await reader.NextResultAsync(cancellationToken);
+
+                            ContinuationToken continuationToken = moreResults
+                                ? new ContinuationToken(
+                                    mainQueryOptions.Sort.Select(s =>
+                                        s.searchParameterInfo.Name switch
+                                        {
+                                            SearchParameterNames.ResourceType => (object)newContinuationType,
+                                            SearchParameterNames.LastUpdated => newContinuationId,
+                                            _ => null,
+                                        }).ToArray())
+                                : null;
+
+                            mainSearchResult = new SearchResult(
+                                matchedResources,
+                                continuationToken?.ToJson(),
+                                mainQueryOptions.Sort,
+                                mainQueryOptions.UnsupportedSearchParams);
+                        }
+                    }
+                },
+                _logger,
+                cancellationToken,
+                true);
+
+            // Step 5: Execute separate include query for the first page of matched results
+            var includedResources = new List<SearchResultEntry>();
+            string includesContinuationTokenString = null;
+
+            if (mainSearchResult.Results.Any())
+            {
+                var matchedResults = mainSearchResult.Results
+                    .Where(r => r.SearchEntryMode == SearchEntryMode.Match)
+                    .ToList();
+
+                if (matchedResults.Any())
+                {
+                    var firstMatch = matchedResults.First().Resource;
+                    var lastMatch = matchedResults.Last().Resource;
+
+                    _logger.LogInformation(
+                        "SMART v2 two-query approach: Executing include query for resource range [{Min}, {Max}]",
+                        firstMatch.ResourceSurrogateId,
+                        lastMatch.ResourceSurrogateId);
+
+                    // Clone options for include query - preserve original expression with UNION scopes + includes
+                    var includeQueryOptions = new SqlSearchOptions(options);
+                    includeQueryOptions.IncludesContinuationToken = new IncludesContinuationToken(
+                        new object[]
+                        {
+                            _model.GetResourceTypeId(firstMatch.ResourceTypeName),
+                            firstMatch.ResourceSurrogateId,  // Min
+                            lastMatch.ResourceSurrogateId,   // Max
+                        }).ToJson();
+
+                    // SearchIncludeImpl will apply UNION scope logic constrained to this resource ID range
+                    var includesSearchResult = await SearchIncludeImpl(includeQueryOptions, cancellationToken);
+                    includedResources.AddRange(includesSearchResult.Results);
+                    includesContinuationTokenString = includesSearchResult.IncludesContinuationToken;
+                }
+            }
+
+            // Step 6: Merge matched and included resources
+            var allResults = new List<SearchResultEntry>();
+            allResults.AddRange(mainSearchResult.Results);
+            allResults.AddRange(includedResources);
+
+            bool isPartial = !string.IsNullOrEmpty(includesContinuationTokenString);
+
+            if (isPartial)
+            {
+                _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Incomplete,
+                        Core.Resources.TruncatedIncludeMessageForIncludes));
+            }
+
+            return new SearchResult(
+                allResults,
+                mainSearchResult.ContinuationToken,      // For match results pagination
+                mainSearchResult.SortOrder,
+                options.UnsupportedSearchParams,
+                mainSearchResult.SearchIssues,
+                includesContinuationTokenString);        // For include results pagination
         }
 
         private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
