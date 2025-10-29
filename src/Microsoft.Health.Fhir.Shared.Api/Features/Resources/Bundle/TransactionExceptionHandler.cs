@@ -13,9 +13,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     internal static class TransactionExceptionHandler
     {
-        public static void ThrowTransactionException(string errorMessage, HttpStatusCode statusCode, OperationOutcome operationOutcome)
+        public static void ThrowTransactionException(string errorMessage, HttpStatusCode statusCode, OperationOutcome operationOutcome, bool cancelled)
         {
             List<OperationOutcomeIssue> operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
+
+            if (cancelled)
+            {
+                throw new FhirTransactionCancelledException(errorMessage, operationOutcomeIssues);
+            }
 
             throw new FhirTransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }

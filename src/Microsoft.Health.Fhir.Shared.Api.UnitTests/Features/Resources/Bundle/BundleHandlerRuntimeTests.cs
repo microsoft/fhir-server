@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
@@ -96,6 +97,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, null, BundleType.Batch));
+        }
+
+        [Fact]
+        public void IsTransactionCancelledByClient_WhenTrue()
+        {
+            const int timeWhenCustomerCancelledTheOperation = 4;
+            const int maxTransactionExecutionTimeInSeconds = 5;
+
+            var result = BundleHandlerRuntime.IsTransactionCancelledByClient(
+                TimeSpan.FromSeconds(timeWhenCustomerCancelledTheOperation),
+                new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTimeInSeconds },
+                new CancellationToken(canceled: true));
+
+            Assert.True(result);
+        }
+
+        [Theory]
+        [InlineData(false, 10, 5)]
+        [InlineData(true, 5, 5)]
+        public void IsTransactionCancelledByClient_WhenFalse(bool isCancelled, int transactionElapsedTime, int maxTransactionExecutionTime)
+        {
+            var result = BundleHandlerRuntime.IsTransactionCancelledByClient(
+                TimeSpan.FromSeconds(transactionElapsedTime),
+                new BundleConfiguration { MaxExecutionTimeInSeconds = maxTransactionExecutionTime },
+                new CancellationToken(canceled: isCancelled));
+
+            Assert.False(result);
         }
 
         private HttpContext GetHttpContext()

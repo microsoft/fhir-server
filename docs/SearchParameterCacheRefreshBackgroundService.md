@@ -9,7 +9,7 @@ This background service addresses the challenge of keeping SearchParameter cache
 ## How It Works
 
 1. **Initialization Wait**: The service waits for `SearchParametersInitializedNotification` before starting the refresh loop
-2. **Periodic Check**: Every configured interval (default: 1 minute), the service calls `ISearchParameterStatusManager.EnsureCacheFreshnessAsync()`
+2. **Periodic Check**: Every configured interval (default: 60 seconds), the service calls `ISearchParameterStatusManager.EnsureCacheFreshnessAsync()`
 3. **Efficient Database Check**: `EnsureCacheFreshnessAsync()` efficiently checks the database's max `LastUpdated` timestamp using optimized stored procedures and **returns a boolean**
 4. **Conditional Full Sync**: If cache is stale (returns `true`), the service calls `ISearchParameterOperations.GetAndApplySearchParameterUpdates()` for comprehensive SearchParameter lifecycle management
 5. **Error Resilience**: Continues running even if individual refresh attempts fail
@@ -37,20 +37,20 @@ Configure the refresh interval in your application settings:
 ```json
 {
   "Core": {
-    "SearchParameterCacheRefreshIntervalMinutes": 1
+    "SearchParameterCacheRefreshIntervalSeconds": 60
   }
 }
 ```
 
 ### Environment Variables
 ```
-Core__SearchParameterCacheRefreshIntervalMinutes=1
+Core__SearchParameterCacheRefreshIntervalSeconds=60
 ```
 
 ### Default Behavior
-- **Default Interval**: 1 minute
+- **Default Interval**: 60 seconds
 - **Minimum Interval**: Any positive integer
-- **Invalid Values**: 0 or negative values default to 1 minute
+- **Invalid Values**: 0 or negative values default to 1 second
 
 ## Registration
 

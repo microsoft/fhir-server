@@ -19,10 +19,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
     public sealed class BundleOrchestratorOperation : IBundleOrchestratorOperation
     {
-        private const int EscapeConditionInSeconds = 100;
         private const int DelayTimeInMilliseconds = 10;
 
         private static readonly BundleResourceContextComparer _contextComparer = new BundleResourceContextComparer();
+
+        private readonly int _maxExecutionTimeInSeconds;
 
         /// <summary>
         /// List of resource to be sent to the data layer.
@@ -59,11 +60,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private readonly ILogger<BundleOrchestrator> _logger;
 
-        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, ILogger<BundleOrchestrator> logger)
+        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, ILogger<BundleOrchestrator> logger, int maxExecutionTimeInSeconds = 100)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsGt(maxExecutionTimeInSeconds, 0, nameof(maxExecutionTimeInSeconds));
 
             Id = Guid.NewGuid();
             Type = type;
@@ -82,6 +84,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
             _mergeAsyncTask = null;
             _dataStore = null;
+
+            _maxExecutionTimeInSeconds = maxExecutionTimeInSeconds;
         }
 
         public Guid Id { get; private set; }
@@ -206,6 +210,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 InitializeMergeTaskSafe(dataStore: null, cancellationToken);
             }
+            catch (OperationCanceledException oce)
+            {
+                SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
+
+                _logger.LogWarning(oce, "Bundle Operation {Id}. Canceled while releasing a resource from a Bundle Orchestrator Operation: {ErrorMessage}", Id, oce.Message);
+                throw;
+            }
             catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
@@ -259,7 +270,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             try
             {
                 // 1 - Wait for pending resources to be appended to the operation.
-                using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(EscapeConditionInSeconds)))
+                using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_maxExecutionTimeInSeconds)))
                 {
                     var escapeConditionCancellationToken = cancellationTokenSource.Token;
                     do
@@ -270,7 +281,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                             // It gives an additional level of security limiting this looping from running forever.
                             SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
 
-                            _logger.LogError($"Escape condition reached. Looping running for at least {EscapeConditionInSeconds} seconds.");
+                            _logger.LogError($"Escape condition reached. Looping running for at least {_maxExecutionTimeInSeconds} seconds.");
                             escapeConditionCancellationToken.ThrowIfCancellationRequested();
                         }
 
@@ -334,7 +345,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
 
-                _logger.LogError(oce, "Bundle Operation {Id}. Bundle Orchestrator Operation canceled: {ErrorMessage}", Id, oce.Message);
+                _logger.LogWarning(oce, "Bundle Operation {Id}. Bundle Orchestrator Operation canceled: {ErrorMessage}", Id, oce.Message);
                 throw;
             }
             catch (Exception ex)

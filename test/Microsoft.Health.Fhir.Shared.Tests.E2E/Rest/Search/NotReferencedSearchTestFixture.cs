@@ -22,7 +22,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public string Tag { get; private set; }
 
-        public Observation Observation { get; private set; }
+        public Observation ObservationSubject { get; private set; }
+
+        public Observation ObservationPerformer { get; private set; }
+
+        public Encounter Encounter { get; private set; }
 
         public Patient[] Patients { get; private set; }
 
@@ -31,12 +35,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Creates a unique code for searches
             Tag = Guid.NewGuid().ToString();
 
-            Patients = await TestFhirClient.CreateResourcesAsync<Patient>(3, Tag);
+            Patients = await TestFhirClient.CreateResourcesAsync<Patient>(5, Tag);
 
-            Observation = await TestFhirClient.CreateAsync<Observation>(PopulateObservation(new Observation(), Patients[0], Tag));
+            ObservationSubject = PopulateObservation(new Observation(), Tag);
+            ObservationSubject.Subject = new ResourceReference(KnownResourceTypes.Patient + "/" + Patients[0].Id);
+            ObservationSubject = await TestFhirClient.CreateAsync<Observation>(ObservationSubject);
+
+            ObservationPerformer = PopulateObservation(new Observation(), Tag);
+            ObservationPerformer.Performer = new List<ResourceReference>()
+            {
+                new ResourceReference(KnownResourceTypes.Patient + "/" + Patients[1].Id),
+            };
+            ObservationPerformer = await TestFhirClient.CreateAsync<Observation>(ObservationPerformer);
+
+            Encounter = await TestFhirClient.CreateAsync(PopulateEncounter(new Encounter(), Patients[2], Tag));
         }
 
-        private static Observation PopulateObservation(Observation observation, Patient patient, string tag)
+        private static Observation PopulateObservation(Observation observation, string tag)
         {
             observation.Status = ObservationStatus.Final;
             observation.Code = new CodeableConcept
@@ -61,9 +76,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 },
             };
-            observation.Subject = new ResourceReference(KnownResourceTypes.Patient + "/" + patient.Id);
 
             return observation;
+        }
+
+        private static Encounter PopulateEncounter(Encounter encounter, Patient patient, string tag)
+        {
+            encounter.Meta = new Meta
+            {
+                Tag = new List<Coding>
+                {
+                    new Coding
+                    {
+                        Code = tag,
+                        System = "http://fhir-server-test/tag",
+                    },
+                },
+            };
+
+#if R5
+            encounter.Class = new List<CodeableConcept>()
+            {
+                new CodeableConcept
+                {
+                    Coding = new List<Coding>
+                        {
+                            new Coding
+                            {
+                                Code = "test",
+                                System = "test",
+                            },
+                        },
+                },
+            };
+            encounter.Status = EncounterStatus.Completed;
+#else
+            encounter.Class = new Coding
+            {
+                Code = "test",
+                System = "test",
+            };
+            encounter.Status = Encounter.EncounterStatus.Arrived;
+#endif
+
+            encounter.Subject = new ResourceReference(KnownResourceTypes.Patient + "/" + patient.Id);
+
+            return encounter;
         }
     }
 }

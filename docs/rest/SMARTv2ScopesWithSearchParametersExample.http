@@ -1,0 +1,687 @@
+# SMART v2 Scopes Example
+# This file demonstrates the new SMART v2 granular permission model
+# Please note that to use this file for local testing
+# you must make an update in the appsettings.json
+# FhirServer:Security:Authorization:ScopesClaim = "scope"
+# Due to the in-memory Identity Provider using "scope"
+# as the claim name for scopes, which is not the default
+
+@hostname = localhost:44348
+
+### Test rest client - verify server is running
+https://{{hostname}}/metadata
+
+### Get the globalAdminServicePrincipal to verify scopes not enforced, and to be able to POST test data
+# @name adminBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### POST test data for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+< ./Data/SmartCompartmentResources.json
+
+##################################################################
+### SMART v2 SEARCH Permission Tests
+##################################################################
+
+### Get token with SMART v2 Search permission for all resource types
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s
+
+### Should succeed and return compartment resources for smartUserClient
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Observation compartment resources for smartUserClient
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return a Observation compartment resources for smartUserClient
+GET https://{{hostname}}/Observation?code=http://loinc.org|4548-4&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}/Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return DiagnosticReport compartment resources for smartUserClient
+GET https://{{hostname}}/DiagnosticReport
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation,Patient,Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+
+########################################################################################################################################
+### Get token with SMART v2 Search permission for Observation with specific code and status, and patients with specific name and gender, and practitioners with specific name and gender
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s?code=http://loinc.org|55233-1%26status=final patient/Patient.s?name=smartUserClient%26gender=male patient/Practitioner.s?name=practitionerA%26gender=male
+
+### Should succeed and return only Observation with specific code and status and Patient and Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return single Observation with matching code and status
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Patient compartment resources for smartUserClient
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return nothing
+GET https://{{hostname}}/Observation?code=http://loinc.org|4548-4&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Practitioner with specific name and gender
+GET https://{{hostname}}/Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation,Patient,Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+########################################################################################################################################
+### Get token with SMART v2 Search permission for Observation with specific code and status, and patients with specific name and gender, Practioner
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s?code=http://loinc.org|55233-1%26status=final patient/Patient.s?name=smartUserClient%26gender=male patient/Practitioner.s
+
+### Should succeed and return only Observation with specific code and status and Patient and Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return single Observation with matching code and status
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Patient compartment resources for smartUserClient
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return nothing
+GET https://{{hostname}}/Observation?code=http://loinc.org|4548-4&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Practitioners compartment resources for smartUserClient
+GET https://{{hostname}}/Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation,Patient,Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+########################################################################################################################################
+### Get token with SMART v2 Search permission for Observation with loinc code and patients
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s?code=http://loinc.org|55233-1 patient/Patient.s
+
+### Should succeed and return all compartment resources for smartUserClient
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return all Observations with code compartment resources for smartUserClient
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Patient compartment resources for smartUserClient
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return single Observation with specific loinc code and status final
+GET https://{{hostname}}/Observation?code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation,Patient compartment resources for smartUserClient
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+########################################################################################################################################
+### Get token with SMART v2 Search permission for Observation with loinc code and status
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s?code=http://loinc.org|55233-1%26status=final
+
+### Should succeed and return single Observation with specific code and status
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return single Observation with specific code and status
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should throw 401 as Patient not in scope
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return nothing
+GET https://{{hostname}}/Observation?code=http://loinc.org|4548-4&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation compartment resources for smartUserClient
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+########################################################################################################################################
+### Get token with SMART v2 Search permission for all resource types with other granular access too
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s patient/Observation.s?code=http://loinc.org|55233-1%26status=final patient/Patient.s?name=smartUserClient%26gender=male patient/Practitioner.s
+
+
+### Should succeed and return compartment resources for smartUserClient
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Observation compartment resources for smartUserClient
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return a Observation compartment resources for smartUserClient
+GET https://{{hostname}}/Observation?code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}/Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation,Patient,Practitioner compartment resources for smartUserClient
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner&_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+########################################################################################################################################
+### Get token with SMART v2 Search permission for all types with _tag search parameter 8d245743-e7ff-425d-b065-33e8886c60e8
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s patient/*.s?_tag=8d245743-e7ff-425d-b065-33e8886c60e8
+
+
+### Should succeed and return all resources with given tag in compartment resources for smartUserClient
+### But should not return smart-diagnosticreport-A3 as it has different tag
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return all Observations in compartment resources for smartUserClient
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Patient with specific name compartment resources for smartUserClient
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return DiagnosticReporttient with specific tag compartment resources for smartUserClient
+### But should not return smart-diagnosticreport-A3 as it has different tag
+GET https://{{hostname}}/DiagnosticReport
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return a Observation with tag
+GET https://{{hostname}}/Observation?code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation,Patient, Practitioner with tag in compartment resources for smartUserClient
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+########################################################################################################################################
+### Get token with SMART v2 Search permission for Observation with specific code and status, and all resourde types with type filter as Specimen,Observation
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s?code=http://loinc.org|55233-1%26status=final patient/*.s?_type=Specimen,Observation
+
+### Should succeed and return only Specimen,Observation
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return all Observations in compartment resources for smartUserClient
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return nothing as Patient not in scope
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Specimen
+GET https://{{hostname}}/Specimen
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return specific Observation with specific loinc code and status=final
+GET https://{{hostname}}/Observation?code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+########################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s?_type=Observation,Encounter
+
+### Should succeed and return only Specimen,Observation
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return all Observations in compartment resources for smartUserClient
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return nothing as Patient not in scope
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Specimen
+GET https://{{hostname}}/Specimen
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return specific Observation with specific loinc code and status=final
+GET https://{{hostname}}/Observation?code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+
+########################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s?_type=Observation,DiagnosticReport%26tag=8d245743-e7ff-425d-b065-33e8886c60e8
+
+### Should succeed and return only DiagnosticReport,Observation
+GET https://{{hostname}}?_count=100
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return all Observations in compartment resources for smartUserClient
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return nothing as Patient not in scope
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return DiagnosticReport but not smart-diagnosticreport-A3 as it has different tag
+GET https://{{hostname}}/DiagnosticReport
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return specific Observation with specific loinc code and status=final
+GET https://{{hostname}}/Observation?code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return only Observation
+GET https://{{hostname}}?_type=Observation,Patient,Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Get Bundle for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+< ./Data/BundleForGets.json
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s
+
+### Should return patient, 2 observations, 1 practitioner
+GET https://{{hostname}}/Observation?_include=*:*
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 2 observations
+GET https://{{hostname}}/Observation?_include=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 2 observations, 1 practitioner
+GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 2 observations, 1 practitioner
+GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner&_include=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observations, 1 practitioner B, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observations, 2 practitioners B and C, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=MedicationRequest:requester&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.s patient/Observation.s?code=http://loinc.org|55233-1%26status=final
+
+### Should return patient, 1 observation with code, no Practitioner as not in scope
+GET https://{{hostname}}/Observation?_include=*:*
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observation with code
+GET https://{{hostname}}/Observation?_include=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 1 observation with code, no patient, no Practitioner as not in scope
+GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observation with code, no Practitioner as not in scope
+GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner&_include=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/MedicationDispense.s patient/MedicationRequest.s patient/Organization.s patient/Patient.s patient/Observation.s?code=http://loinc.org|55233-1 patient/Practitioner.s?gender=female
+
+### Should return patient, 1 observation with code, no Practitioner as no female practitioner in compartment
+GET https://{{hostname}}/Observation?_include=*:*
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 2 observation with code
+GET https://{{hostname}}/Observation?_include=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observation with code and status final
+GET https://{{hostname}}/Observation?_include=Observation:subject&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 2 observation with code, no patient, no Practitioner as no female practitioner in compartment
+GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 2 observation with code, no Practitioner as no female practitioner in compartment
+GET https://{{hostname}}/Observation?_include=Observation:performer:Practitioner&_include=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observations, No practitioner B as its a male practitioner, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observations, No practitioner B as its a male practitioner but includes Practitioner C, Organization, MedicationDispense, MedicationRequest
+GET https://{{hostname}}/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=MedicationRequest:requester&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#################################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s
+
+### Should include patient smartUserClient, and all the resources that reference the patient directly such as Observation, Encounter and Group.
+GET https://{{hostname}}/Patient?_revinclude=*:*&_id=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 2 observation
+GET https://{{hostname}}/Patient?_revinclude=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should include patient smartUserClient, and the resource Encounter if that references the patient directly.
+GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_id=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should include patient smartUserClient, and the resources Encounter and 2 Observations if those reference the patient directly.
+GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_revinclude=Observation:patient&_id=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should include resource MedicationRequest if that references the patient directly and no Patient
+GET https://{{hostname}}/MedicationRequest?_revinclude=MedicationDispense:prescription:MedicationRequest&_id=smart-medicationrequest-smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 2 observations, 1 practitioner
+GET https://{{hostname}}/MedicationRequest?_revinclude:iterate=MedicationDispense:prescription:MedicationRequest
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.s patient/Observation.s?code=http://loinc.org|55233-1%26status=final
+
+### Should include patient smartUserClient, and 1 Observation with code and status final if that references the patient directly.
+GET https://{{hostname}}/Patient?_revinclude=*:*&_id=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return patient, 1 observation with code and status final
+GET https://{{hostname}}/Patient?_revinclude=Observation:subject
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should include patient smartUserClient only and no Encounter as not in scope
+GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_id=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should include 1 patient and 1 Observation with code and status final only and no Encounter as not in scope
+GET https://{{hostname}}/Patient?_revinclude=Encounter:patient&_revinclude=Observation:patient&_id=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Unauthhorized as MedicationRequest not in scope
+GET https://{{hostname}}/MedicationRequest?_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Unauthhorized as MedicationRequest not in scope
+GET https://{{hostname}}/MedicationRequest?_include=MedicationRequest:patient&_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.s
+
+### Should succeed and return Observations for smartUserClient
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return Observations for smartUserClient with code and status=final
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient&code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient.organization.address-city=Seattle
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}?_type=Patient,Device&_has:Observation:subject:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._type=Patient&subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+#############################################################################################################################################
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.s?status=registered patient/Patient.s patient/DiagnosticReport.s?status=final
+
+### Should succeed and return 1 Observation for smartUserClient
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return nothing
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient&code=http://loinc.org|55233-1&status=final
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return 1 DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient.organization.address-city=Seattle
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should succeed and return 1 DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}?_type=Patient,Device&_has:Observation:subject:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return Patient
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=http://loinc.org|55233-1
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Should return 1 DiagnosticReport
+GET https://{{hostname}}/DiagnosticReport?subject:Patient._type=Patient&subject:Patient._tag=8d245743-e7ff-425d-b065-33e8886c60e8
+Authorization: Bearer {{searchBearer.response.body.access_token}}

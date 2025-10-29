@@ -400,6 +400,9 @@
     <value>fhirUser claim value of {0} is not valid. fhirUser claim must be a valid URL.</value>
     <comment>{0} is the provided value in the fhirUser claim.</comment>
   </data>
+  <data name="MixedSMARTV1AndV2ScopesAreNotAllowed" xml:space="preserve">
+    <value>Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. </value>
+  </data>
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>
@@ -437,5 +440,17 @@
   </data>
   <data name="ConditionalCreateResourceAlreadyExists" xml:space="preserve">
     <value>The resource already exists.</value>
+  </data>
+  <data name="ExpandInvalidResourceId" xml:space="preserve">
+    <value>The resource id must not be null or empty.</value>
+  </data>
+  <data name="ExpandMissingRequiredParameter" xml:space="preserve">
+    <value>The 'url' or 'valueSet' parameter must be provided</value>
+  </data>
+  <data name="ExpandInvalidParameter" xml:space="preserve">
+    <value>One or more invalid parameters are found: {0}</value>
+  </data>
+  <data name="ExpandInvalidParameterCount" xml:space="preserve">
+    <value>The number of the parameter must not be more than one: {0}</value>
   </data>
 </root>

@@ -23,24 +23,27 @@ function Set-FhirServerApiApplicationRoles {
 
     Set-StrictMode -Version Latest
     
-    # Get current AzureAd context
+    # Get current Microsoft Graph context
     try {
-        Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
+        $context = Get-MgContext -ErrorAction Stop
+        if (-not $context) {
+            throw "No context found"
+        }
     } 
     catch {
-        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
-    Write-Host "Persisting Roles to AAD application"
+    Write-Host "Persisting Roles to Microsoft Graph application"
 
-    $azureAdApplication = Get-AzureADApplication -Filter "AppId eq '$ApiAppId'"
+    $mgApplication = Get-MgApplication -Filter "AppId eq '$ApiAppId'"
 
     $appRolesToDisable = $false
     $appRolesToEnable = $false
     $desiredAppRoles = @()
 
     foreach ($role in $AppRoles) {
-        $existingAppRole = $azureAdApplication.AppRoles | Where-Object Value -eq $role
+        $existingAppRole = $mgApplication.AppRoles | Where-Object Value -eq $role
         
         if($existingAppRole) {
             $id = $existingAppRole.Id
@@ -59,17 +62,17 @@ function Set-FhirServerApiApplicationRoles {
         }
     }
 
-    if (!($azureAdApplication.PsObject.Properties.Name -eq "AppRoles")) {
+    if (!($mgApplication.PsObject.Properties.Name -eq "AppRoles")) {
         $appRolesToEnable = $true
     }
     else {
-        foreach ($diff in Compare-Object -ReferenceObject $desiredAppRoles -DifferenceObject $azureAdApplication.AppRoles -Property "Id") {
+        foreach ($diff in Compare-Object -ReferenceObject $desiredAppRoles -DifferenceObject $mgApplication.AppRoles -Property "Id") {
             switch ($diff.SideIndicator) {
                 "<=" {
                     $appRolesToEnable = $true
                 }
                 "=>" {
-                    ($azureAdApplication.AppRoles | Where-Object Id -eq $diff.Id).IsEnabled = $false
+                    ($mgApplication.AppRoles | Where-Object Id -eq $diff.Id).IsEnabled = $false
                     $appRolesToDisable = $true
                 }
             }
@@ -79,11 +82,11 @@ function Set-FhirServerApiApplicationRoles {
     if ($appRolesToEnable -or $appRolesToDisable) {
         if ($appRolesToDisable) {
             Write-Host "Disabling old appRoles"
-            Set-AzureADApplication -ObjectId $azureAdApplication.objectId -appRoles $azureAdApplication.AppRoles | Out-Null
+            Update-MgApplication -ApplicationId $mgApplication.Id -AppRoles $mgApplication.AppRoles | Out-Null
         }
 
         # Update app roles 
         Write-Host "Updating appRoles"
-        Set-AzureADApplication -ObjectId $azureAdApplication.objectId -appRoles $desiredAppRoles | Out-Null
+        Update-MgApplication -ApplicationId $mgApplication.Id -AppRoles $desiredAppRoles | Out-Null
     }
 }

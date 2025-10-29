@@ -12,19 +12,22 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ProfileValidator : IProfileValidator
     {
+        private readonly TimeSpan _validatatorRefresh = TimeSpan.FromMinutes(30);
         private readonly IResourceResolver _resolver;
-        private ILogger<ProfileValidator> _logger;
+        private readonly ILogger<ProfileValidator> _logger;
+        private readonly int _maxExpansionSize;
+
+        private Validator _validator;
+        private DateTime _lastValidatorRefresh = DateTime.MinValue;
 
         public ProfileValidator(
             IProvideProfilesForValidation profilesResolver,
@@ -39,7 +42,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
-                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
+                int cacheDuration = options.Value.CacheDurationInSeconds <= 0 ? ValidateOperationConfiguration.DefaultCacheDurationInSeconds : options.Value.CacheDurationInSeconds;
+                _maxExpansionSize = options.Value.MaxExpansionSize <= 0 ? ValidateOperationConfiguration.DefaultMaxExpansionSize : options.Value.MaxExpansionSize;
+
+                _logger.LogInformation(
+                    "Creating ProfileValidator with: CacheDuration {CacheDurationInSeconds}; and MaxExpansionSize {MaxExpansionSize}.",
+                    cacheDuration,
+                    _maxExpansionSize);
+
+                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), cacheDuration), profilesResolver);
             }
             catch (Exception)
             {
@@ -50,9 +61,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private Validator GetValidator()
         {
+            if (_validator != null && (DateTime.UtcNow - _lastValidatorRefresh) < _validatatorRefresh)
+            {
+                return _validator;
+            }
+
+            _logger.LogInformation("Refreshing validator");
+            _lastValidatorRefresh = DateTime.UtcNow;
+
             var expanderSettings = new ValueSetExpanderSettings
             {
-                MaxExpansionSize = 20000, // Set your desired max expansion size here
+                MaxExpansionSize = _maxExpansionSize, // Set your desired max expansion size here
             };
 
             var terminologyService = new LocalTerminologyService(_resolver.AsAsync(), expanderSettings);
@@ -66,9 +85,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 TerminologyService = terminologyService,
             };
 
-            var validator = new Validator(ctx);
+            _validator = new Validator(ctx);
 
-            return validator;
+            return _validator;
         }
 
         public OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null)

@@ -10,9 +10,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Dom;
 using EnsureThat;
-using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -20,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -29,37 +28,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     [JobTypeId((int)JobType.ReindexProcessing)]
     public class ReindexProcessingJob : IJob
     {
-        private ILogger<ReindexOrchestratorJob> _logger;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private JobInfo _jobInfo;
-        private ReindexProcessingJobResult _reindexProcessingJobResult;
-        private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
-        private IQueueClient _queueClient;
-        private const int MaxTimeoutRetries = 3;
-        private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(MaxTimeoutRetries, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ILogger<ReindexProcessingJob> _logger;
+
+        private JobInfo _jobInfo;
+        private ReindexProcessingJobResult _reindexProcessingJobResult;
+        private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
+        private const int MaxTimeoutRetries = 3;
+
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
-            ILoggerFactory loggerFactory,
-            IQueueClient queueClient,
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
-            IResourceWrapperFactory resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            ISearchParameterOperations searchParameterOperations,
+            ILogger<ReindexProcessingJob> logger)
         {
-            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _logger = loggerFactory.CreateLogger<ReindexOrchestratorJob>();
             _searchServiceFactory = searchServiceFactory;
-            _queueClient = queueClient;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
+            _searchParameterOperations = searchParameterOperations;
+            _logger = logger;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -67,20 +68,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             _jobInfo = jobInfo;
-            _reindexProcessingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
+            _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
+
+            ValidateSearchParametersHash(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
 
             await ProcessQueryAsync(cancellationToken);
 
-            _jobInfo.Data = _reindexProcessingJobResult.SucceededResourceCount += _reindexProcessingJobResult.FailedResourceCount;
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
+        }
+
+        private void ValidateSearchParametersHash(JobInfo jobInfo, ReindexProcessingJobDefinition jobDefinition, CancellationToken cancellationToken)
+        {
+            string currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
+
+            // If the hash is different, we need to fail job as this means something has changed unexpectedly.
+            // This ensures that the processing job always uses the latest search parameters and we do not complete job incorrectly.
+
+            if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
+            {
+                _logger.LogJobError(
+                    jobInfo,
+                    "Search parameters for resource type {ResourceType} have changed since the Reindex Job was created. Job definition hash: '{CurrentHash}', In-memory hash: '{JobHash}'.",
+                    jobDefinition.ResourceType,
+                    jobDefinition.ResourceTypeSearchParameterHashMap,
+                    currentResourceTypeHash);
+
+                string message = "Search Parameter hash does not match. Resubmit reindex job to try again.";
+
+                // Create error object to provide structured error information
+                var errorObject = new
+                {
+                    message = message,
+                    resourceType = jobDefinition.ResourceType,
+                    jobDefinitionHash = jobDefinition.ResourceTypeSearchParameterHashMap,
+                    currentHash = currentResourceTypeHash,
+                    jobId = jobInfo.Id,
+                    groupId = jobInfo.GroupId,
+                };
+
+                throw new ReindexProcessingJobSoftException(message, errorObject, isCustomerCaused: true);
+            }
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Count, _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery.ToString()),
                 Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
             };
 
@@ -123,9 +157,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (Exception ex)
                 {
                     var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
-                    var reindexJobException = new ReindexJobException(message, ex);
-                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}, job id: {Id}, group id: {GroupId}.", _reindexProcessingJobDefinition.ResourceType, _jobInfo.Id, _jobInfo.GroupId);
-                    _reindexProcessingJobResult.Error = reindexJobException.Message + " : " + ex.Message;
+                    var reindexJobException = new ReindexProcessingJobSoftException(message, ex);
+                    _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _reindexProcessingJobDefinition.ResourceType);
                     LogReindexProcessingJobErrorMessage();
 
                     throw reindexJobException;
@@ -137,32 +170,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
             var result = JsonConvert.SerializeObject(_reindexProcessingJobResult);
-            _logger.LogInformation($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}. ReindexProcessing Job Result: {result}.");
+            _logger.LogJobInformation(_jobInfo, $"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}. ReindexProcessing Job Result: {result}.");
         }
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
         {
+            if (_reindexProcessingJobDefinition == null)
+            {
+                throw new InvalidOperationException("_reindexProcessingJobDefinition cannot be null during processing.");
+            }
+
             long resourceCount = 0;
             try
             {
                 SearchResult result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken));
-                resourceCount += result?.TotalCount ?? 0;
-                _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
-                if (result?.MaxResourceSurrogateId > 0)
+                if (result == null)
                 {
-                    // reindex has more work to do at this point
-                    if (result?.MaxResourceSurrogateId > 0)
-                    {
-                        if (result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId)
-                        {
-                            // We need to create a child query to finish processing the reindex job
-                            _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
-                            _reindexProcessingJobDefinition.ResourceCount.ContinuationToken = result.ContinuationToken;
+                    throw new OperationFailedException($"Search service returned null search result.", HttpStatusCode.InternalServerError);
+                }
 
-                            var generatedJobId = await EnqueueChildQueryProcessingJobAsync(cancellationToken);
-                            _logger.LogInformation("Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}", _jobInfo.Id, _jobInfo.GroupId, generatedJobId[0]);
-                        }
-                    }
+                resourceCount = result.TotalCount ?? 0;
+                _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition.SearchParameterUrls;
+                _jobInfo.Data = resourceCount;
+
+                if (resourceCount > _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery)
+                {
+                    _logger.LogJobWarning(
+                        _jobInfo,
+                        "Reindex: number of resources is higher than the original limit. Current count: {CurrentCount}. Original limit: {OriginalLimit}",
+                        resourceCount,
+                        _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery);
                 }
 
                 var dictionary = new Dictionary<string, string>
@@ -174,19 +211,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    try
-                    {
-                        if (result != null)
-                        {
-                            _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
-                            _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Reindex processing job error occurred recording progress. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
-                        throw;
-                    }
+                    _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
+                    _logger.LogJobInformation(_jobInfo, "Reindex processing job complete. Current number of resources indexed by this job: {Progress}.", _reindexProcessingJobResult.SucceededResourceCount);
                 }
             }
             catch (SqlException sqlEx)
@@ -202,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // If we've hit max retries for timeouts, fail the job
                     if (_reindexProcessingJobResult.TimeoutCount >= MaxTimeoutRetries)
                     {
-                        _logger.LogError("Maximum SQL timeout retries ({MaxRetries}) reached. Job id: {Id}, group id: {GroupId}.", MaxTimeoutRetries, _jobInfo.Id, _jobInfo.GroupId);
+                        _logger.LogJobError(_jobInfo, "Maximum SQL timeout retries ({MaxRetries}) reached.", MaxTimeoutRetries);
 
                         _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
                         _reindexProcessingJobResult.FailedResourceCount = resourceCount;
@@ -211,14 +237,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     // Otherwise log a warning and return without throwing (allowing a retry)
-                    _logger.LogWarning("SQL timeout occurred during reindex processing - retry {RetryCount} of {MaxRetries}. Job id: {Id}", _reindexProcessingJobResult.TimeoutCount, MaxTimeoutRetries, _jobInfo.Id);
+                    _logger.LogJobWarning(_jobInfo, "SQL timeout occurred during reindex processing - retry {RetryCount} of {MaxRetries}.", _reindexProcessingJobResult.TimeoutCount, MaxTimeoutRetries);
                     _jobInfo.Status = JobStatus.Created;
 
                     return;
                 }
 
                 // For non-timeout SQL errors, throw an exception to fail the job
-                _logger.LogError(sqlEx, "SQL error occurred during reindex processing. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
+                _logger.LogJobError(sqlEx, _jobInfo, "SQL error occurred during reindex processing.");
                 _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
 
@@ -226,63 +252,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (FhirException ex)
             {
-                _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: true", _jobInfo.Id);
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: false", _jobInfo.Id);
+                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
-            }
-        }
-
-        private async Task<IReadOnlyList<long>> EnqueueChildQueryProcessingJobAsync(CancellationToken cancellationToken)
-        {
-            var definitions = new List<string>
-            {
-                // Finish mapping to processing job
-                JsonConvert.SerializeObject(_reindexProcessingJobDefinition),
-            };
-
-            try
-            {
-                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
-                    .Select(_ => _.Id)
-                    .OrderBy(_ => _)
-                    .ToList();
-                return jobIds;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to enqueue child jobs.");
-                _reindexProcessingJobResult.Error = ex.Message;
-
-                // Replace RetriableJobException with in-place retry logic
-                int retryCount = 3;
-                for (int i = 0; i < retryCount; i++)
-                {
-                    try
-                    {
-                        var retryJobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
-                            .Select(_ => _.Id)
-                            .OrderBy(_ => _)
-                            .ToList();
-                        return retryJobIds;
-                    }
-                    catch
-                    {
-                        if (i == retryCount - 1)
-                        {
-                            throw; // Rethrow the exception after exhausting retries
-                        }
-                    }
-                }
-
-                throw; // This line should never be reached
             }
         }
 
@@ -338,6 +318,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
+        }
+
+        private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)
+        {
+            return JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
         }
     }
 }

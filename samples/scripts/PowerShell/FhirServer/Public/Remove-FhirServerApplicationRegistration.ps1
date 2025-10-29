@@ -20,30 +20,33 @@ function Remove-FhirServerApplicationRegistration {
 
     Set-StrictMode -Version Latest
     
-    # Get current AzureAd context
+    # Get current Microsoft Graph context
     try {
-        $session = Get-AzureADCurrentSessionInfo -ErrorAction Stop
+        $context = Get-MgContext -ErrorAction Stop
+        if (-not $context) {
+            throw "No context found"
+        }
     } 
     catch {
-        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
     $appReg = $null
 
     if ($AppId) {
-        $appReg = Get-AzureADApplication -Filter "AppId eq '$AppId'"
+        $appReg = Get-MgApplication -Filter "AppId eq '$AppId'"
         if (!$appReg) {
             Write-Host "Application with AppId = $AppId was not found."
             return
         }
     }
     else {
-        $appReg = Get-AzureADApplication -Filter "identifierUris/any(uri:uri eq '$IdentifierUri')"
+        $appReg = Get-MgApplication -Filter "identifierUris/any(uri:uri eq '$IdentifierUri')"
         if (!$appReg) {
             Write-Host "Application with IdentifierUri = $IdentifierUri was not found."
             return
         }
     }
 
-    Remove-AzureADApplication -ObjectId $appReg.ObjectId
+    Remove-MgApplication -ApplicationId $appReg.Id
 }

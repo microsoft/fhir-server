@@ -28,5 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         bool TryGet(string key, out T value);
 
         bool Remove(string key);
+
+        void Clear();
     }
 }

@@ -393,7 +393,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 arg.Any(x => x.Item1 == "ct" && x.Item2 == continuationToken);
         }
 
-#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenStorageAccountConnectionDidNotChange_WhenExecuted_ThenJobShouldBeCompleted()
         {
@@ -506,7 +505,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Canceled, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
-#endif
 
         [Fact]
         public async Task GivenSearchHadIssues_WhenExecuted_ThenIssuesAreRecorded()

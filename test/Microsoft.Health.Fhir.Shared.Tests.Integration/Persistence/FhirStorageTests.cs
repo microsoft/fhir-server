@@ -313,7 +313,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAResource_WhenUpserting_ThenTheNewResourceHasMetaSet()
         {
@@ -340,7 +339,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Assert.NotEqual(versionId, deserialized.VersionId);
             }
         }
-#endif
 
         [Fact(Skip = "Not valid for merge")]
         public async Task GivenASavedResource_WhenUpserting_ThenRawResourceVersionIsSetOrMetaSetIsSetToFalse()

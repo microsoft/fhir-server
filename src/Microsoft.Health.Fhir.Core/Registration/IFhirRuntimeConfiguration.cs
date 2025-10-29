@@ -33,5 +33,10 @@ namespace Microsoft.Health.Fhir.Core.Registration
         /// Supports the query cache HTTP header.
         /// </summary>
         bool IsQueryCacheSupported { get; }
+
+        /// <summary>
+        /// Search Service's support for surrogate ID ranging.
+        /// </summary>
+        bool IsSurrogateIdRangingSupported { get; }
     }
 }

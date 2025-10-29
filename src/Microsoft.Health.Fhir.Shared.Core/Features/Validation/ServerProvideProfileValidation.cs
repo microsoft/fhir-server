@@ -25,6 +25,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -33,15 +34,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// <summary>
     /// Provides profiles by fetching them from the server.
     /// </summary>
-    public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation
+    public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation, IDisposable
     {
         private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
+
+        private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
+        private readonly FhirMemoryCache<Resource> _resourcesByUri;
         private readonly IMediator _mediator;
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
-        private object _lockSummaries = new object();
         private ILogger<ServerProvideProfileValidation> _logger;
 
         public ServerProvideProfileValidation(
@@ -60,50 +63,64 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _validateOperationConfig = options.Value;
             _mediator = mediator;
             _logger = logger;
+
+            _resourcesByUri = new FhirMemoryCache<Resource>(
+                nameof(ServerProvideProfileValidation),
+                50,
+                TimeSpan.FromDays(1000),
+                _logger,
+                limitType: FhirCacheLimitType.Count);
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
 
         public void Refresh()
         {
-            _logger.LogInformation("Refreshing profiles");
+            _logger.LogInformation("Marking profiles for refresh");
             _expirationTime = DateTime.UtcNow.AddMilliseconds(-1);
-            ListSummaries();
         }
 
-        public IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true, bool disablePull = false)
+        private async Task<IEnumerable<ArtifactSummary>> ListSummariesAsync(CancellationToken cancellationToken, bool resetStatementIfNew = true, bool disablePull = false)
         {
-            if (disablePull)
+            if (disablePull || _expirationTime >= DateTime.UtcNow)
             {
                 return _summaries;
             }
 
-            lock (_lockSummaries)
+            await _cacheSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                if (_expirationTime < DateTime.UtcNow)
+                if (_expirationTime >= DateTime.UtcNow)
                 {
-                    _logger.LogDebug("Profile cache expired, updating.");
-
-                    var oldHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
-                    var result = System.Threading.Tasks.Task.Run(() => GetSummaries()).GetAwaiter().GetResult();
-                    _summaries = result;
-                    var newHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
-                    _expirationTime = DateTime.UtcNow.AddSeconds(_validateOperationConfig.CacheDurationInSeconds);
-
-                    if (newHash != oldHash)
-                    {
-                        _logger.LogDebug("New Profiles found.");
-                        System.Threading.Tasks.Task.Run(() => _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles))).GetAwaiter().GetResult();
-                    }
-
-                    _logger.LogDebug("Profiles updated.");
+                    return _summaries;
                 }
 
+                _logger.LogDebug("Profile cache expired, updating.");
+
+                _resourcesByUri.Clear();
+
+                var oldHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
+                var result = await GetSummariesAsync(cancellationToken);
+                _summaries = result;
+                var newHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
+                _expirationTime = DateTime.UtcNow.AddSeconds(_validateOperationConfig.CacheDurationInSeconds);
+
+                if (newHash != oldHash)
+                {
+                    _logger.LogDebug("New Profiles found.");
+                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
+                }
+
+                _logger.LogDebug("Profiles updated.");
                 return _summaries;
+            }
+            finally
+            {
+                _cacheSemaphore.Release();
             }
         }
 
-        private async Task<List<ArtifactSummary>> GetSummaries()
+        private async Task<List<ArtifactSummary>> GetSummariesAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, ArtifactSummary>();
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
@@ -121,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                                 queryParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, ct));
                             }
 
-                            var searchResult = await searchService.Value.SearchAsync(type, queryParameters, CancellationToken.None);
+                            var searchResult = await searchService.Value.SearchAsync(type, queryParameters, cancellationToken);
                             foreach (var searchItem in searchResult.Results)
                             {
                                 using (var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(searchItem.Resource.RawResource.Data)))
@@ -156,11 +173,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
         }
 
-        private static Resource LoadBySummary(ArtifactSummary summary)
+        private Resource LoadBySummary(ArtifactSummary summary)
         {
             if (summary == null)
             {
                 return null;
+            }
+
+            if (_resourcesByUri.TryGet(summary.ResourceUri, out Resource resource))
+            {
+                return resource;
             }
 
             using (var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(summary.Origin)))
@@ -170,8 +192,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     if (navStream.Current != null)
                     {
-                        // TODO: Cache this parsed resource, to prevent parsing again and again
-                        var resource = navStream.Current.ToPoco<Resource>();
+                        resource = navStream.Current.ToPoco<Resource>();
+                        _resourcesByUri.TryAdd(summary.ResourceUri, resource);
                         return resource;
                     }
                 }
@@ -180,21 +202,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return null;
         }
 
-        public Resource ResolveByCanonicalUri(string uri)
+        public async Task<Resource> ResolveByCanonicalUriAsync(string uri)
         {
-            var summary = ListSummaries().ResolveByCanonicalUri(uri);
+            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByCanonicalUri(uri);
             return LoadBySummary(summary);
         }
 
-        public Resource ResolveByUri(string uri)
+        public async Task<Resource> ResolveByUriAsync(string uri)
         {
-            var summary = ListSummaries().ResolveByUri(uri);
+            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByUri(uri);
             return LoadBySummary(summary);
         }
 
-        public IEnumerable<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
+        public async Task<IEnumerable<string>> GetSupportedProfilesAsync(string resourceType, CancellationToken cancellationToken, bool disableCacheRefresh = false)
         {
-            IEnumerable<ArtifactSummary> summary = ListSummaries(false, disableCacheRefresh);
+            IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(cancellationToken, false, disableCacheRefresh);
             return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                 .Where(x =>
                     {
@@ -221,6 +243,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                .Select(x => x.ResourceUri).ToList().ForEach(url => sb.Append(url));
 
             return sb.ToString().ComputeHash();
+        }
+
+        public void Dispose()
+        {
+            _resourcesByUri?.Dispose();
+            _cacheSemaphore?.Dispose();
         }
     }
 }

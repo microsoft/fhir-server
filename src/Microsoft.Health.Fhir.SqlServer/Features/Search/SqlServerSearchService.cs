@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
@@ -71,6 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
+        private readonly IFhirDataStore _fhirDataStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
         private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
@@ -86,6 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
+            SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
@@ -102,13 +105,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
+            EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _fhirDataStore = fhirDataStore;
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
+            _queryGeneratorFactory = queryGeneratorFactory;
             _partitionEliminationRewriter = partitionEliminationRewriter;
             _compartmentSearchRewriter = compartmentSearchRewriter;
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
@@ -316,22 +322,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
                         }
 
-                        Expression lastUpdatedExpression = null;
-                        if (!optimize)
-                        {
-                            lastUpdatedExpression = Expression.GreaterThan(fieldName, null, keyValue);
-                        }
-                        else
-                        {
-                            if (sortOrder == SortOrder.Ascending)
-                            {
-                                lastUpdatedExpression = Expression.GreaterThan(fieldName, null, keyValue);
-                            }
-                            else
-                            {
-                                lastUpdatedExpression = Expression.LessThan(fieldName, null, keyValue);
-                            }
-                        }
+                        Expression lastUpdatedExpression = !optimize
+                            ? Expression.GreaterThan(fieldName, null, keyValue)
+                            : sortOrder == SortOrder.Ascending
+                                ? Expression.GreaterThan(fieldName, null, keyValue)
+                                : Expression.LessThan(fieldName, null, keyValue);
 
                         var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
                         searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
@@ -376,6 +371,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
                             sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                         }
+                        else if (await TryHandleSimpleResourceReadAsync(expression, clonedSearchOptions, _fhirDataStore, cancellationToken) is SearchResult simpleReadResult)
+                        {
+                            // Simple resource read was handled directly via FhirDataStore.GetAsync
+                            _logger.LogInformation("Handled simple resource read directly via FhirDataStore.GetAsync");
+                            searchResult = simpleReadResult;
+                            return;
+                        }
                         else
                         {
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
@@ -387,6 +389,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
+                                _queryGeneratorFactory,
                                 reuseQueryPlans,
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
@@ -527,14 +530,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         if (matchCount == clonedSearchOptions.MaxItemCount - 1 && isSortValueNeeded)
                                         {
                                             var tempSortValue = reader.GetValue(SortValueColumnName);
-                                            if ((tempSortValue as DateTime?) != null)
-                                            {
-                                                sortValue = (tempSortValue as DateTime?).Value.ToString("o");
-                                            }
-                                            else
-                                            {
-                                                sortValue = tempSortValue.ToString();
-                                            }
+                                            sortValue = (tempSortValue as DateTime?) != null ? (tempSortValue as DateTime?).Value.ToString("o") : tempSortValue.ToString();
                                         }
 
                                         matchCount++;
@@ -712,6 +708,104 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
+        /// Attempts to populate a SqlCommand to use the ReadResource stored procedure for simple resource reads by ID.
+        /// This provides better performance than the generated SQL for simple resource lookups.
+        /// </summary>
+        /// <param name="expression">The SQL root expression to analyze</param>
+        /// <param name="searchOptions">The search options</param>
+        /// <param name="command">The SQL command to populate</param>
+        /// <returns>True if the command was populated for a simple resource read, false otherwise</returns>
+        private bool TryPopulateReadResourceCommand(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlCommand command)
+        {
+            // Only use ReadResource stored proc for simple cases
+            if (searchOptions.CountOnly ||
+                searchOptions.IncludeCount != 0 ||
+                searchOptions.Sort?.Count > 0 ||
+                expression.SearchParamTableExpressions.Count > 0 ||
+                expression.ResourceTableExpressions.Count != 2) // Should have exactly ResourceType and Id
+            {
+                return false;
+            }
+
+            // For versioned reads, we need ResourceVersionTypes to include History, but we still want the optimization
+            // when searching for a single resource by ID. Note: The ReadResource stored procedure supports a @version
+            // parameter, but specific version numbers are not currently passed through the search parameter system.
+            // For now, we allow the optimization for history searches but always pass NULL for version (latest version).
+            // TODO: Future enhancement could extract specific version information if available.
+            bool isHistorySearch = searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History);
+            bool isLatestOnly = searchOptions.ResourceVersionTypes == ResourceVersionType.Latest;
+
+            if (!isLatestOnly && !isHistorySearch)
+            {
+                // Only allow Latest or searches that include History (for versioned reads)
+                return false;
+            }
+
+            // Find ResourceType and Id expressions
+            SearchParameterExpression resourceTypeExpression = null;
+            SearchParameterExpression resourceIdExpression = null;
+
+            foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
+            {
+                if (searchParamExpression.Parameter.Code == SearchParameterNames.ResourceType)
+                {
+                    resourceTypeExpression = searchParamExpression;
+                }
+                else if (searchParamExpression.Parameter.Code == SearchParameterNames.Id)
+                {
+                    resourceIdExpression = searchParamExpression;
+                }
+            }
+
+            // Must have both ResourceType and Id expressions
+            if (resourceTypeExpression == null || resourceIdExpression == null)
+            {
+                return false;
+            }
+
+            // Extract resource type and id values
+            if (!TryExtractSimpleStringValue(resourceTypeExpression.Expression, out string resourceTypeName) ||
+                !TryExtractSimpleStringValue(resourceIdExpression.Expression, out string resourceId))
+            {
+                return false;
+            }
+
+            // Get resource type ID
+            if (!_model.TryGetResourceTypeId(resourceTypeName, out short resourceTypeId))
+            {
+                return false;
+            }
+
+            // Populate command to use ReadResource stored procedure
+            command.CommandType = CommandType.StoredProcedure;
+            command.CommandText = "dbo.ReadResource";
+            command.Parameters.AddWithValue("@resourceTypeId", resourceTypeId);
+            command.Parameters.AddWithValue("@resourceId", resourceId);
+            command.Parameters.AddWithValue("@version", DBNull.Value); // null for latest version
+
+            return true;
+        }
+
+        /// <summary>
+        /// Attempts to extract a simple string value from an expression (e.g., StringExpression).
+        /// </summary>
+        /// <param name="expression">The expression to analyze</param>
+        /// <param name="value">The extracted string value</param>
+        /// <returns>True if a simple string value was extracted, false otherwise</returns>
+        private static bool TryExtractSimpleStringValue(Expression expression, out string value)
+        {
+            value = null;
+
+            if (expression is StringExpression stringExpression)
+            {
+                value = stringExpression.Value;
+                return !string.IsNullOrEmpty(value);
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Searches for resources by their type and surrogate id and optionally a searchParamHash and will return resources
         /// </summary>
         /// <param name="resourceType">The resource type to search</param>
@@ -810,11 +904,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return (sqlDataReader.GetInt64(1), sqlDataReader.GetInt64(2));
         }
 
-        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken, bool? activeOnly = false)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
-            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
+            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up, activeOnly, _schemaInformation);
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
             LogSqlCommand(sqlCommand);
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
@@ -1036,6 +1130,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (searchOptions.CountOnly)
             {
                 _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
+
+                // Check if we have surrogate ID range hints - if so, use the optimized range count
+                if (searchOptions.QueryHints != null &&
+                    searchOptions.QueryHints.Any(h => h.Param == KnownQueryParameterNames.StartSurrogateId) &&
+                    searchOptions.QueryHints.Any(h => h.Param == KnownQueryParameterNames.EndSurrogateId))
+                {
+                    long startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+                    long endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+
+                    int count = await GetResourceCountBySurrogateIdRangeAsync(
+                        resourceTypeId,
+                        startId,
+                        endId,
+                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
+                        cancellationToken);
+
+                    var searchResult = new SearchResult(count, Array.Empty<Tuple<string, string>>());
+                    searchResult.ReindexResult = new SearchResultReindex()
+                    {
+                        Count = count,
+                        StartResourceSurrogateId = startId,
+                        EndResourceSurrogateId = endId,
+                    };
+
+                    _logger.LogInformation("Count for reindex by range: Resource Type={ResourceType} StartId={StartId} EndId={EndId} Count={Count}", resourceType, startId, endId, count);
+
+                    return searchResult;
+                }
+
+                // Fall back to the original method if no range hints are provided
                 return await SearchForReindexSurrogateIdsBySearchParamHashAsync(resourceTypeId, searchOptions.MaxItemCount, cancellationToken, searchParameterHash);
             }
 
@@ -1045,45 +1169,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             long queryStartId = globalStartId;
 
             SearchResult results = null;
-            IReadOnlyList<(long StartId, long EndId)> ranges;
 
-            do
+            // Search within the surrogate ID range
+            results = await SearchBySurrogateIdRange(
+                resourceType,
+                globalStartId,
+                globalEndId,
+                null,
+                null,
+                cancellationToken,
+                searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+
+            if (results.Results.Any())
             {
-                // Get surrogate ID ranges
-                ranges = await GetSurrogateIdRanges(resourceType, queryStartId, globalEndId, searchOptions.MaxItemCount, 10, true, cancellationToken);
-
-                // Order the ranges by start id as they come back unordered. This ensures records aren't skipped during reindex.
-                ranges = ranges.OrderBy(x => x.StartId).ToList();
-
-                foreach (var range in ranges)
-                {
-                    // Search within the surrogate ID range
-                    results = await SearchBySurrogateIdRange(
-                        resourceType,
-                        range.StartId,
-                        range.EndId,
-                        null,
-                        null,
-                        cancellationToken,
-                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
-
-                    if (results.Results.Any())
-                    {
-                        results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
-                        _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
-                        return results;
-                    }
-
-                    _logger.LogInformation("For Reindex, empty data page encountered. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, range.StartId, range.EndId);
-                }
-
-                // If no resources are found in the group of surrogate id ranges, move forward the starting point.
-                if (ranges.Any())
-                {
-                    queryStartId = ranges.Max(x => x.EndId) + 1;
-                }
+                results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
+                return results;
             }
-            while (ranges.Any()); // Repeat until there are no more ranges to scan. Needed to advance through large contigous history.
 
             // Return empty result when no resources are found in the given range provided by queryHints.
             _logger.LogInformation("No surrogate ID ranges found containing data. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, globalStartId, globalEndId);
@@ -1223,6 +1325,76 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return searchResult;
         }
 
+        /// <summary>
+        /// Gets the count of resources within a specific surrogate ID range.
+        /// </summary>
+        /// <param name="resourceTypeId">The resource type ID</param>
+        /// <param name="startId">The lower bound surrogate ID (inclusive)</param>
+        /// <param name="endId">The upper bound surrogate ID (inclusive)</param>
+        /// <param name="searchParamHash">Optional search parameter hash filter</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The count of resources within the specified range</returns>
+        private async Task<int> GetResourceCountBySurrogateIdRangeAsync(
+            short resourceTypeId,
+            long startId,
+            long endId,
+            string searchParamHash,
+            CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
+
+            if (!string.IsNullOrWhiteSpace(searchParamHash))
+            {
+                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+                sqlCommand.Parameters.AddWithValue("@StartId", startId);
+                sqlCommand.Parameters.AddWithValue("@EndId", endId);
+                sqlCommand.Parameters.AddWithValue("@SearchParamHash", searchParamHash);
+
+                sqlCommand.CommandText = @"
+            SELECT COUNT(*) 
+            FROM dbo.Resource 
+            WHERE ResourceTypeId = @ResourceTypeId 
+              AND ResourceSurrogateId >= @StartId 
+              AND ResourceSurrogateId <= @EndId
+              AND IsHistory = 0 
+              AND IsDeleted = 0
+              AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
+            }
+            else
+            {
+                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+                sqlCommand.Parameters.AddWithValue("@StartId", startId);
+                sqlCommand.Parameters.AddWithValue("@EndId", endId);
+
+                sqlCommand.CommandText = @"
+            SELECT COUNT(*) 
+            FROM dbo.Resource 
+            WHERE ResourceTypeId = @ResourceTypeId 
+              AND ResourceSurrogateId >= @StartId 
+              AND ResourceSurrogateId <= @EndId
+              AND IsHistory = 0 
+              AND IsDeleted = 0";
+            }
+
+            LogSqlCommand(sqlCommand);
+
+            int count = 0;
+            await _sqlRetryService.ExecuteSql(
+                sqlCommand,
+                async (cmd, cancel) =>
+                {
+                    var result = await cmd.ExecuteScalarAsync(cancel);
+                    count = Convert.ToInt32(result);
+                    return;
+                },
+                _logger,
+                null,
+                cancellationToken);
+
+            return count;
+        }
+
         private int GetReindexCommandTimeout()
         {
             return Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 1200);
@@ -1347,6 +1519,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
                                 _schemaInformation,
+                                _queryGeneratorFactory,
                                 _reuseQueryPlans.IsEnabled(_sqlRetryService),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException);
@@ -1532,6 +1705,144 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        /// <summary>
+        /// Attempts to handle simple resource read requests directly via FhirDataStore.GetAsync
+        /// instead of generating SQL queries for better performance.
+        /// </summary>
+        /// <param name="expression">The SQL root expression to analyze</param>
+        /// <param name="searchOptions">Search options for the request</param>
+        /// <param name="fhirDataStore">The FHIR data store instance</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>SearchResult if this was a simple resource read, null otherwise</returns>
+        private static async Task<SearchResult> TryHandleSimpleResourceReadAsync(SqlRootExpression expression, SqlSearchOptions searchOptions, IFhirDataStore fhirDataStore, CancellationToken cancellationToken)
+        {
+            // Only optimize for non-count queries without sorting or includes operations
+            if (searchOptions.CountOnly ||
+                searchOptions.IncludeTotal != TotalType.None ||
+                searchOptions.IsIncludesOperation)
+            {
+                return null;
+            }
+
+            // Only optimize for Latest or History-inclusive searches (versioned reads)
+            if (searchOptions.ResourceVersionTypes != ResourceVersionType.Latest &&
+                !searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History))
+            {
+                return null;
+            }
+
+            // Ensure we have exactly two resource table expressions (one for resource type, one for resource ID)
+            if (expression.ResourceTableExpressions.Count != 2 ||
+                expression.SearchParamTableExpressions.Count > 0)
+            {
+                return null;
+            }
+
+            // Extract resource type and ID from the expressions
+            if (!TryExtractResourceTypeAndId(expression, out string resourceType, out string resourceId, out string versionId))
+            {
+                return null;
+            }
+
+            // If requesting history, but not specific id, then this is not a simple read.
+            if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) && string.IsNullOrEmpty(versionId))
+            {
+                return null;
+            }
+
+            try
+            {
+                // Create ResourceKey with proper version handling
+                var resourceKey = string.IsNullOrEmpty(versionId)
+                    ? new ResourceKey(resourceType, resourceId)
+                    : new ResourceKey(resourceType, resourceId, versionId);
+
+                // Use FhirDataStore.GetAsync to retrieve the resource
+                var resourceWrapper = await fhirDataStore.GetAsync(resourceKey, cancellationToken);
+
+                if (resourceWrapper == null)
+                {
+                    // Resource not found - return empty search result
+                    return new SearchResult(0, searchOptions.UnsupportedSearchParams);
+                }
+
+                // Convert to SearchResultEntry
+                var searchResultEntry = new SearchResultEntry(resourceWrapper, SearchEntryMode.Match);
+                var results = new List<SearchResultEntry> { searchResultEntry };
+
+                return new SearchResult(results, null, null, searchOptions.UnsupportedSearchParams);
+            }
+            catch
+            {
+                // If anything goes wrong, fall back to SQL generation
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to extract resource type and ID from a simple resource read expression.
+        /// </summary>
+        /// <param name="expression">The SQL root expression to analyze</param>
+        /// <param name="resourceType">The extracted resource type</param>
+        /// <param name="resourceId">The extracted resource ID</param>
+        /// <param name="versionId">The extracted version ID (if any)</param>
+        /// <returns>True if extraction was successful, false otherwise</returns>
+        private static bool TryExtractResourceTypeAndId(SqlRootExpression expression, out string resourceType, out string resourceId, out string versionId)
+        {
+            resourceType = null;
+            resourceId = null;
+            versionId = null;
+
+            // Find resource type and ID expressions in ResourceTableExpressions
+            SearchParameterExpression resourceTypeExpression = null;
+            SearchParameterExpression resourceIdExpression = null;
+
+            foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
+            {
+                if (searchParamExpression.Parameter.Name == SearchParameterNames.ResourceType)
+                {
+                    resourceTypeExpression = searchParamExpression;
+                }
+                else if (searchParamExpression.Parameter.Name == SearchParameterNames.Id)
+                {
+                    resourceIdExpression = searchParamExpression;
+                }
+            }
+
+            if (resourceTypeExpression == null || resourceIdExpression == null)
+            {
+                return false;
+            }
+
+            // Extract simple string values
+            if (!TryExtractSimpleStringValue(resourceTypeExpression.Expression, out resourceType) ||
+                !TryExtractSimpleStringValue(resourceIdExpression.Expression, out string fullResourceId))
+            {
+                return false;
+            }
+
+            // Parse version from ID if present (format: "Patient/123/_history/456")
+            if (fullResourceId.Contains("/_history/", StringComparison.Ordinal))
+            {
+                var parts = fullResourceId.Split(["/_history/"], StringSplitOptions.None);
+                if (parts.Length == 2)
+                {
+                    resourceId = parts[0];
+                    versionId = parts[1];
+                }
+                else
+                {
+                    resourceId = fullResourceId;
+                }
+            }
+            else
+            {
+                resourceId = fullResourceId;
+            }
+
+            return !string.IsNullOrEmpty(resourceType) && !string.IsNullOrEmpty(resourceId);
         }
 
         private class ResourceSearchParamStats
@@ -1726,13 +2037,14 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             private readonly ParameterDefinition<int> _rangeSize = new ParameterDefinition<int>("@RangeSize", global::System.Data.SqlDbType.Int, false);
             private readonly ParameterDefinition<int?> _numberOfRanges = new ParameterDefinition<int?>("@NumberOfRanges", global::System.Data.SqlDbType.Int, true);
             private readonly ParameterDefinition<bool?> _up = new ParameterDefinition<bool?>("@Up", global::System.Data.SqlDbType.Bit, true);
+            private readonly ParameterDefinition<bool?> _activeOnly = new ParameterDefinition<bool?>("@ActiveOnly", global::System.Data.SqlDbType.Bit, true);
 
             internal GetResourceSurrogateIdRangesProcedure()
                 : base("dbo.GetResourceSurrogateIdRanges")
             {
             }
 
-            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up)
+            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up, bool? activeOnly, SchemaInformation schemaInformation)
             {
                 sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
                 sqlCommand.CommandText = "dbo.GetResourceSurrogateIdRanges";
@@ -1742,6 +2054,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
                 _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
                 _up.AddParameter(sqlCommand.Parameters, up);
+
+                if (schemaInformation.Current >= (int)SchemaVersion.V97)
+                {
+                    _activeOnly.AddParameter(sqlCommand.Parameters, activeOnly);
+                }
             }
         }
     }

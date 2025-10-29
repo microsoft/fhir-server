@@ -24,5 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public BulkDeleteJobConfiguration BulkDelete { get; set; } = new BulkDeleteJobConfiguration();
 
         public BulkUpdateJobConfiguration BulkUpdate { get; set; } = new BulkUpdateJobConfiguration();
+
+        public TerminologyConfiguration Terminology { get; set; } = new TerminologyConfiguration();
     }
 }
