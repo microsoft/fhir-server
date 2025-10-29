@@ -146,9 +146,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var primaryKeyParameter = (SearchParameterExpression)expression.ResourceTableExpressions[primaryKeyValueIndex];
 
+            if (primaryKeyParameter.Expression is not BinaryExpression existingPrimaryKeyBinaryExpression)
+            {
+                // The primary key parameter is not a simple binary expression (e.g., SMART v2 include seeding uses an IN clause).
+                // Partition elimination only applies to continuation token ranges, so leave the expression unchanged.
+                return expression;
+            }
+
             (short? singleAllowedResourceTypeId, BitArray allowedTypes) = TypeConstraintVisitor.Instance.Visit(expression, _model);
 
-            var existingPrimaryKeyBinaryExpression = (BinaryExpression)primaryKeyParameter.Expression;
             var existingPrimaryKeyValue = (PrimaryKeyValue)existingPrimaryKeyBinaryExpression.Value;
 
             SearchParameterExpression newSearchParameterExpression;

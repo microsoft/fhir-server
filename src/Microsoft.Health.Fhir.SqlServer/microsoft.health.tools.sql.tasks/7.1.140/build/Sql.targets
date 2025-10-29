@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <IntermediateOutputPath Condition=" '$(IntermediateOutputPath)' == '' ">$(MSBuildThisFileDirectory)obj\$(Configuration)</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvailableItemName Include="TInitSqlScript" />
+    <AvailableItemName Include="TSqlScript" />
+    <AvailableItemName Include="SqlScript" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <GenerateFullScriptsInputs Include="@(TInitSqlScript)"/>
+    <GenerateFullScriptsInputs Include="@(TSqlScript)"/>
+    <GenerateFullScriptsInputs Include="@(SqlScript)"/>
+    <GenerateFullScriptsOutputs Include="$(GeneratedFullScriptPath)" />
+  </ItemGroup>
+
+  <Target Name="GenerateFullSqlScript" BeforeTargets="CollectGenerateFilesInputs" Inputs="@(GenerateFullScriptsInputs)" Outputs="@(GenerateFullScriptsOutputs)">
+    <GenerateFullScript
+        IntermediateOutputPath="$(IntermediateOutputPath)"
+        OutputFile="$(GeneratedFullScriptPath)"
+        TInitSqlScript="@(TInitSqlScript)"
+        TSqlScript="@(TSqlScript)"
+        SqlScript="@(SqlScript)" />
+  </Target>
+
+  <UsingTask TaskName="GenerateFullScript" AssemblyFile="netstandard2.1\Microsoft.Health.Tools.Sql.Tasks.dll" Condition="'$(MSBuildRuntimeType)' == 'Core' Or '$(MSBuildRuntimeType)' == 'Mono'"/>
+  <UsingTask TaskName="GenerateFullScript" AssemblyFile="net462\Microsoft.Health.Tools.Sql.Tasks.dll" Condition="'$(MSBuildRuntimeType)' == 'Full'"/>
+
+</Project>

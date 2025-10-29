@@ -1078,6 +1078,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindIncludeLimit(SearchOptions context)
         {
+            _includeCteIds ??= new List<string>();
+            _includeFromCteIds ??= new List<string>();
+            _includeLimitCtesByResourceType ??= new Dictionary<string, List<string>>();
+
             StringBuilder.Append("SELECT DISTINCT TOP (")
                 .Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false))
                 .Append(") T1, Sid1, IsMatch, ");

@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -52,6 +54,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (!first)
                 {
                     context.StringBuilder.AppendLine(")");
+                }
+            }
+
+            context.StringBuilder.AppendLine(")");
+
+            return context;
+        }
+
+        public override SearchParameterQueryGeneratorContext VisitIn<T>(InExpression<T> expression, SearchParameterQueryGeneratorContext context)
+        {
+            if (typeof(T) != typeof(PrimaryKeyValue))
+            {
+                throw new InvalidOperationException($"Unexpected value type {typeof(T)} for primary key IN expression.");
+            }
+
+            var primaryKeyValues = expression.Values.Cast<PrimaryKeyValue>().ToArray();
+
+            context.StringBuilder.AppendLine("(");
+            using (context.StringBuilder.Indent())
+            {
+                for (int i = 0; i < primaryKeyValues.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        context.StringBuilder.AppendLine();
+                        context.StringBuilder.Append("OR ");
+                    }
+
+                    var primaryKey = primaryKeyValues[i];
+
+                    context.StringBuilder.Append("(");
+                    VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, null, primaryKey.ResourceTypeId, includeInParameterHash: false);
+                    context.StringBuilder.Append(" AND ");
+                    VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceSurrogateId, null, primaryKey.ResourceSurrogateId, includeInParameterHash: false);
+                    context.StringBuilder.Append(")");
                 }
             }
 

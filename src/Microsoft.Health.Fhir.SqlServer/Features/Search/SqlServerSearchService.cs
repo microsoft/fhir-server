@@ -1891,26 +1891,68 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                 if (matchedResults.Any())
                 {
-                    var firstMatch = matchedResults.First().Resource;
-                    var lastMatch = matchedResults.Last().Resource;
+                    var matchedResourceWrappers = matchedResults.Select(r => r.Resource).ToList();
+
+                    long minId = matchedResourceWrappers.Min(r => r.ResourceSurrogateId);
+                    long maxId = matchedResourceWrappers.Max(r => r.ResourceSurrogateId);
+
+                    Expression matchSeedExpression;
+                    if (_schemaInformation.Current >= SchemaVersionConstants.PartitionedTables)
+                    {
+                        var primaryKeys = matchedResourceWrappers
+                            .Select(r => new PrimaryKeyValue(_model.GetResourceTypeId(r.ResourceTypeName), r.ResourceSurrogateId))
+                            .Distinct()
+                            .ToList();
+
+                        matchSeedExpression = Expression.SearchParameter(
+                            SqlSearchParameters.PrimaryKeyParameter,
+                            Expression.In(SqlFieldName.PrimaryKey, null, primaryKeys));
+                    }
+                    else
+                    {
+                        var surrogateIds = matchedResourceWrappers
+                            .Select(r => r.ResourceSurrogateId)
+                            .Distinct()
+                            .ToList();
+
+                        matchSeedExpression = Expression.SearchParameter(
+                            SqlSearchParameters.ResourceSurrogateIdParameter,
+                            Expression.In(SqlFieldName.ResourceSurrogateId, null, surrogateIds));
+                    }
+
+                    // SMART v2 include scope filtering is handled by the include-specific predicates (AllowedResourceTypesByScope) and
+                    // the match seed ensures we only evaluate includes for the resources returned by the main query. Reapplying the
+                    // original scope expression here would inadvertently re-restrict includes to the match resource type (for example,
+                    // Observation), preventing the referenced Patient from materializing. Therefore the include query uses only the
+                    // match seed expression.
+                    var baseExpression = matchSeedExpression;
+
+                    var includeOnlyOptions = new SqlSearchOptions(options)
+                    {
+                        Expression = baseExpression,
+                        SkipAppendIntersectionWithPredecessor = true,
+                    };
+
+                    var includeExpression = (SqlRootExpression)CreateDefaultSearchExpression(baseExpression, includeOnlyOptions, applyCompartmentRewrites: false, applySmartCompartmentRewrites: false)
+                        ?.AcceptVisitor(IncludesOperationRewriter.Instance)
+                        ?? SqlRootExpression.WithResourceTableExpressions();
+
+#pragma warning disable CA1849 // Temporary instrumentation while isolating SMART include scope regression
+                    File.WriteAllText(Path.Combine(Path.GetTempPath(), $"include-expression-{Guid.NewGuid():N}.txt"), includeExpression.ToString());
+#pragma warning restore CA1849
 
                     _logger.LogInformation(
-                        "SMART v2 two-query approach: Executing include query for resource range [{Min}, {Max}]",
-                        firstMatch.ResourceSurrogateId,
-                        lastMatch.ResourceSurrogateId);
+                        "SMART v2 include query: Executing for match set ({Count} resources), surrogate IDs range [{Min}, {Max}]",
+                        matchedResourceWrappers.Count,
+                        minId,
+                        maxId);
 
-                    // Clone options for include query - preserve original expression with UNION scopes + includes
-                    var includeQueryOptions = new SqlSearchOptions(options);
-                    includeQueryOptions.IncludesContinuationToken = new IncludesContinuationToken(
-                        new object[]
-                        {
-                            _model.GetResourceTypeId(firstMatch.ResourceTypeName),
-                            firstMatch.ResourceSurrogateId,  // Min
-                            lastMatch.ResourceSurrogateId,   // Max
-                        }).ToJson();
-
-                    // SearchIncludeImpl will apply UNION scope logic constrained to this resource ID range
-                    var includesSearchResult = await SearchIncludeImpl(includeQueryOptions, cancellationToken);
+                    var includesSearchResult = await ExecuteSmartV2IncludeQuery(
+                        includeExpression,
+                        includeOnlyOptions,
+                        minId,
+                        maxId,
+                        cancellationToken);
                     includedResources.AddRange(includesSearchResult.Results);
                     includesContinuationTokenString = includesSearchResult.IncludesContinuationToken;
                 }
@@ -1942,13 +1984,23 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 includesContinuationTokenString);        // For include results pagination
         }
 
-        private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions)
+        private SqlRootExpression CreateDefaultSearchExpression(Expression rootExpression, SqlSearchOptions searchOptions, bool applyCompartmentRewrites = true, bool applySmartCompartmentRewrites = true)
         {
-            return (SqlRootExpression)rootExpression
-                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
-                .AcceptVisitor(_compartmentSearchRewriter)
-                .AcceptVisitor(_smartCompartmentSearchRewriter)
-                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
+            var expression = rootExpression
+                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance);
+
+            if (applyCompartmentRewrites)
+            {
+                expression = expression?.AcceptVisitor(_compartmentSearchRewriter);
+            }
+
+            if (applySmartCompartmentRewrites)
+            {
+                expression = expression?.AcceptVisitor(_smartCompartmentSearchRewriter);
+            }
+
+            return (SqlRootExpression)expression
+                ?.AcceptVisitor(DateTimeEqualityRewriter.Instance)
                 .AcceptVisitor(FlatteningRewriter.Instance)
                 .AcceptVisitor(UntypedReferenceRewriter.Instance)
                 .AcceptVisitor(_sqlRootExpressionRewriter)
@@ -1968,6 +2020,148 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 .AcceptVisitor(NumericRangeRewriter.Instance)
                 .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
+        }
+
+        private async Task<SearchResult> ExecuteSmartV2IncludeQuery(
+            SqlRootExpression expression,
+            SqlSearchOptions includeOptions,
+            long minResourceSurrogateId,
+            long maxResourceSurrogateId,
+            CancellationToken cancellationToken)
+        {
+            await CreateStats(expression, cancellationToken);
+            SearchResult searchResult = null;
+
+            await _sqlRetryService.ExecuteSql(
+                async (connection, cancellationToken, sqlException) =>
+                {
+                    using (SqlCommand sqlCommand = connection.CreateCommand())
+                    {
+                        sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                        var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+                        EnableTimeAndIoMessageLogging(stringBuilder, connection);
+
+                        var queryGenerator = new SqlQueryGenerator(
+                            stringBuilder,
+                            new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
+                            _model,
+                            _schemaInformation,
+                            _queryGeneratorFactory,
+                            _reuseQueryPlans.IsEnabled(_sqlRetryService),
+                            includeOptions.IsAsyncOperation,
+                            sqlException);
+
+                        expression.AcceptVisitor(queryGenerator, includeOptions);
+                        SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+
+                        var queryText = stringBuilder.ToString();
+                        var queryHash = _queryHashCalculator.CalculateHash(queryText);
+                        _logger.LogInformation("SMART v2 include query hash: {QueryHash}", queryHash);
+#pragma warning disable CA2100
+                        sqlCommand.CommandText = queryText;
+#pragma warning restore CA2100
+                        LogSqlCommand(sqlCommand);
+
+                        using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                        {
+                            var moreResults = false;
+                            var includedResources = new List<SearchResultEntry>(includeOptions.IncludeCount);
+
+                            while (await reader.ReadAsync(cancellationToken))
+                            {
+                                ReadWrapper(
+                                    reader,
+                                    false,
+                                    out short resourceTypeId,
+                                    out string resourceId,
+                                    out int version,
+                                    out bool isDeleted,
+                                    out long resourceSurrogateId,
+                                    out string requestMethod,
+                                    out bool isMatch,
+                                    out bool isPartialEntry,
+                                    out bool isRawResourceMetaSet,
+                                    out string searchParameterHash,
+                                    out byte[] rawResourceBytes,
+                                    out bool isInvisible,
+                                    out bool isHistory);
+
+                                if (isInvisible)
+                                {
+                                    continue;
+                                }
+
+                                if (includedResources.Count < includeOptions.IncludeCount)
+                                {
+                                    var rawResource = new Lazy<string>(() =>
+                                    {
+                                        using var stream = new MemoryStream(rawResourceBytes);
+                                        var decompressed = _compressedRawResourceConverter.ReadCompressedRawResource(stream);
+                                        if (string.IsNullOrEmpty(decompressed))
+                                        {
+                                            decompressed = MissingResourceFactory.CreateJson(
+                                                resourceId,
+                                                _model.GetResourceTypeName(resourceTypeId),
+                                                "warning",
+                                                "incomplete");
+                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                        }
+
+                                        return decompressed;
+                                    });
+
+                                    includedResources.Add(new SearchResultEntry(
+                                        new ResourceWrapper(
+                                            resourceId,
+                                            version.ToString(CultureInfo.InvariantCulture),
+                                            _model.GetResourceTypeName(resourceTypeId),
+                                            includeOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json,                                             isMetaSet: isRawResourceMetaSet),
+                                            new ResourceRequest(requestMethod),
+                                            resourceSurrogateId.ToLastUpdated(),
+                                            isDeleted,
+                                            null,
+                                            null,
+                                            null,
+                                            searchParameterHash,
+                                            resourceSurrogateId) { IsHistory = isHistory },
+                                        SearchEntryMode.Include));
+                                }
+                                else
+                                {
+                                    moreResults = true;
+                                }
+                            }
+
+                            await reader.NextResultAsync(cancellationToken);
+                            IncludesContinuationToken nextToken = null;
+                            if (moreResults && includedResources.Count > 0)
+                            {
+                                _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
+                                nextToken = new IncludesContinuationToken(
+                                    new object[]
+                                    {
+                                        _model.GetResourceTypeId(includedResources[0].Resource.ResourceTypeName),
+                                        minResourceSurrogateId, maxResourceSurrogateId,
+                                        _model.GetResourceTypeId(includedResources[^1].Resource.ResourceTypeName),
+                                        includedResources[^1].Resource.ResourceSurrogateId,
+                                    });
+                            }
+
+                            searchResult = new SearchResult(
+                                includedResources,
+                                null,
+                                includeOptions.Sort,
+                                includeOptions.UnsupportedSearchParams,
+                                null,
+                                nextToken?.ToJson());
+                        }
+                    }
+                },
+                _logger,
+                cancellationToken,
+                true);
+
+            return searchResult;
         }
 
         /// <summary>
