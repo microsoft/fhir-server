@@ -134,6 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.AppendLine(")");
+                bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
                 StringBuilder.AppendLine("DECLARE @FilteredDataSmartV2Union AS TABLE (T1 smallint, Sid1 bigint)");
                 StringBuilder.AppendLine(";WITH");
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
@@ -144,10 +145,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             // Union expressions for smart v2 scopes with search parameters needs to be handled differently
                             AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
-                            sb.AppendLine();
-                            sb.AppendLine($"INSERT INTO @FilteredDataSmartV2Union SELECT T1, Sid1 FROM cte{_tableExpressionCounter}");
-                            AddOptionClause();
-                            sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredDataSmartV2Union)");
+                            if (hasIncludeExpressions)
+                            {
+                                sb.AppendLine();
+                                sb.AppendLine($"INSERT INTO @FilteredDataSmartV2Union SELECT T1, Sid1 FROM cte{_tableExpressionCounter}");
+                                AddOptionClause();
+                                sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredDataSmartV2Union)");
+                            }
+
                             _smartV2UnionVisited = true;
                         }
                         else
