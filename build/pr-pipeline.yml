@@ -163,6 +163,19 @@ stages:
       nspName: 'nsp-$(ResourceGroupName)'
       nspProfile: 'default'
 
+- stage: associateKeyVaultNsp
+  displayName: 'Associate KeyVault with NSP'
+  dependsOn:
+  - setupEnvironment
+  - createNsp
+  jobs:
+  - template: ./jobs/associate-keyvault-nsp.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      keyVaultName: '$(DeploymentEnvironmentName)-ts'
+      nspName: 'nsp-$(ResourceGroupName)'
+      nspProfile: 'default'
+
 - stage: deploySqlServer
   displayName: 'Deploy SQLServer'
   dependsOn:
