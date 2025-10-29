@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.Api
         {
             _httpContext = new DefaultHttpContext();
             _requestDelegate = Substitute.For<RequestDelegate>();
-            _middleware = new SearchPostReroutingMiddleware(_requestDelegate);
+            _middleware = new SearchPostReroutingMiddleware(_requestDelegate, new NullLogger<SearchPostReroutingMiddleware>());
         }
 
         [Theory]
@@ -64,7 +65,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.Api
                 _httpContext.Response.Body.Position = 0;
                 using var reader = new StreamReader(_httpContext.Response.Body);
                 var body = reader.ReadToEnd();
-                Assert.Equal(ApiResources.ContentTypeFormUrlEncodedExpected, body);
+                var expectedString = ApiResources.ContentTypeFormUrlEncodedExpected.Replace("\"", "\\\"");
+                expectedString = $"\"{expectedString}\"";
+                Assert.Contains(expectedString, body);
                 Assert.Equal((int)HttpStatusCode.BadRequest, _httpContext.Response.StatusCode);
             }
         }
