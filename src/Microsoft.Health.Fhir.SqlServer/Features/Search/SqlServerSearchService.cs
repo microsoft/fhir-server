@@ -1920,25 +1920,85 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             Expression.In(SqlFieldName.ResourceSurrogateId, null, surrogateIds));
                     }
 
-                    // SMART v2 include scope filtering is handled by the include-specific predicates (AllowedResourceTypesByScope) and
-                    // the match seed ensures we only evaluate includes for the resources returned by the main query. Reapplying the
-                    // original scope expression here would inadvertently re-restrict includes to the match resource type (for example,
-                    // Observation), preventing the referenced Patient from materializing. Therefore the include query uses only the
-                    // match seed expression.
-                    var baseExpression = matchSeedExpression;
+                    // Build a custom SqlRootExpression for the include-only query.
+                    // We need to avoid the compartment rewriters which add main-query type restrictions.
+                    // Strategy: Extract include expressions and SMART scope predicates for included resource types.
 
+                    // Extract include table expressions from the fully-processed main query expression
+                    var includeTableExpressions = expression.SearchParamTableExpressions
+                        .Where(t => t.Kind == SearchParamTableExpressionKind.Include)
+                        .ToList();
+
+                    // Determine what resource types will be produced by the includes
+                    var includedResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var includeTableExpr in includeTableExpressions)
+                    {
+                        if (includeTableExpr.Predicate is IncludeExpression includeExpr)
+                        {
+                            foreach (var resourceType in includeExpr.Produces)
+                            {
+                                includedResourceTypes.Add(resourceType);
+                            }
+                        }
+                    }
+
+                    // Extract SMART scope predicate tables for the included resource types
+                    // These are the search param tables (Normal kind) that contain SMART scope filters
+                    // We need to remove main-query type restrictions from these predicates
+                    var scopePredicateTables = new List<SearchParamTableExpression>();
+                    foreach (var table in expression.SearchParamTableExpressions
+                        .Where(t => t.Kind == SearchParamTableExpressionKind.Normal && t.Predicate != null))
+                    {
+                        // Remove the type restriction that constrains to the main query resource type
+                        // These predicates are typically structured as: AND(UNION(...), _type=MainQueryType)
+                        // We want to keep the UNION (which has scope filters) but remove the _type restriction
+                        // Determine main query resource type from the first matched resource
+                        string mainQueryResourceType = matchedResourceWrappers.FirstOrDefault()?.ResourceTypeName;
+                        var modifiedPredicate = mainQueryResourceType != null
+                            ? RemoveMainQueryTypeRestriction(table.Predicate, mainQueryResourceType)
+                            : table.Predicate;
+
+                        if (modifiedPredicate != null)
+                        {
+                            scopePredicateTables.Add(new SearchParamTableExpression(
+                                table.QueryGenerator,
+                                modifiedPredicate,
+                                table.Kind));
+                        }
+                    }
+
+                    // Build list of table expressions for the include query
+                    var includeSearchParamTables = new List<SearchParamTableExpression>();
+
+                    // Add match seed as the primary filter (constrains to matched resources)
+                    includeSearchParamTables.Add(new SearchParamTableExpression(
+                        queryGenerator: null,
+                        predicate: matchSeedExpression,
+                        kind: SearchParamTableExpressionKind.All));
+
+                    // Add scope predicate tables (these have SMART granular scope filters)
+                    includeSearchParamTables.AddRange(scopePredicateTables);
+
+                    // Add the include table expressions (these have AllowedResourceTypesByScope set)
+                    includeSearchParamTables.AddRange(includeTableExpressions);
+
+                    // Build the SqlRootExpression and apply IncludesOperationRewriter
+                    // This rewriter sets up the proper CTE structure for include queries
+                    var includeRootExpression = new SqlRootExpression(
+                        includeSearchParamTables,
+                        expression.ResourceTableExpressions);
+
+                    includeRootExpression = (SqlRootExpression)includeRootExpression
+                        .AcceptVisitor(IncludesOperationRewriter.Instance);
+
+                    // Create options for the include query execution
                     var includeOnlyOptions = new SqlSearchOptions(options)
                     {
-                        Expression = baseExpression,
                         SkipAppendIntersectionWithPredecessor = true,
                     };
 
-                    var includeExpression = (SqlRootExpression)CreateDefaultSearchExpression(baseExpression, includeOnlyOptions, applyCompartmentRewrites: false, applySmartCompartmentRewrites: false)
-                        ?.AcceptVisitor(IncludesOperationRewriter.Instance)
-                        ?? SqlRootExpression.WithResourceTableExpressions();
-
 #pragma warning disable CA1849 // Temporary instrumentation while isolating SMART include scope regression
-                    File.WriteAllText(Path.Combine(Path.GetTempPath(), $"include-expression-{Guid.NewGuid():N}.txt"), includeExpression.ToString());
+                    File.WriteAllText(Path.Combine(Path.GetTempPath(), $"include-expression-{Guid.NewGuid():N}.txt"), includeRootExpression.ToString());
 #pragma warning restore CA1849
 
                     _logger.LogInformation(
@@ -1948,7 +2008,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         maxId);
 
                     var includesSearchResult = await ExecuteSmartV2IncludeQuery(
-                        includeExpression,
+                        includeRootExpression,
                         includeOnlyOptions,
                         minId,
                         maxId,
@@ -2300,6 +2360,69 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             }
 
             return !string.IsNullOrEmpty(resourceType) && !string.IsNullOrEmpty(resourceId);
+        }
+
+        /// <summary>
+        /// Removes type restrictions for the main query resource type from a predicate expression.
+        /// SMART scope predicates are structured as: AND(UNION(...scope filters...), _type=MainQueryType)
+        /// For include queries, we want to keep the UNION but remove the main query type restriction.
+        /// </summary>
+        private static Expression RemoveMainQueryTypeRestriction(Expression predicate, string mainQueryResourceType)
+        {
+            if (predicate is MultiaryExpression multiaryExpr && multiaryExpr.MultiaryOperation == MultiaryOperator.And)
+            {
+                // Look for a type restriction that matches the main query type
+                var filteredExpressions = new List<Expression>();
+                foreach (var expr in multiaryExpr.Expressions)
+                {
+                    // Skip _type restrictions for the main query resource type
+                    if (IsTypeRestriction(expr, mainQueryResourceType))
+                    {
+                        continue;
+                    }
+
+                    filteredExpressions.Add(expr);
+                }
+
+                // If we filtered out expressions, return the remaining ones
+                if (filteredExpressions.Count != multiaryExpr.Expressions.Count)
+                {
+                    if (filteredExpressions.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    if (filteredExpressions.Count == 1)
+                    {
+                        return filteredExpressions[0];
+                    }
+
+                    return Expression.And(filteredExpressions.ToArray());
+                }
+            }
+
+            return predicate;
+        }
+
+        /// <summary>
+        /// Checks if an expression is a type restriction for a specific resource type.
+        /// Matches: _type = 'ResourceType'
+        /// </summary>
+        private static bool IsTypeRestriction(Expression expr, string resourceType)
+        {
+            if (expr is SearchParameterExpression searchParamExpr &&
+                searchParamExpr.Parameter?.Name == SearchParameterNames.ResourceType)
+            {
+                // Check if it's a StringExpression with the main query type
+                if (searchParamExpr.Expression is StringExpression stringExpr &&
+                    stringExpr.Value != null &&
+                    string.Equals(stringExpr.Value, resourceType, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private class ResourceSearchParamStats
