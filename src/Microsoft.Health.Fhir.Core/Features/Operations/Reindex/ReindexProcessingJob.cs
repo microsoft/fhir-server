@@ -372,7 +372,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var parallelOptions = new ParallelOptions
             {
                 CancellationToken = cancellationToken,
-                MaxDegreeOfParallelism = Environment.ProcessorCount, // Use all available cores
+                MaxDegreeOfParallelism = 8,
             };
 
             try
