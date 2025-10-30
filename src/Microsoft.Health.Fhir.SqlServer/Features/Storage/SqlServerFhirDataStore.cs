@@ -968,11 +968,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var inputMetaStartIndex = inputData.IndexOf("\"meta\":", StringComparison.Ordinal);
             var existingMetaStartIndex = existingData.IndexOf("\"meta\":", StringComparison.Ordinal);
 
-            var inputMeta = inputData.GetJsonSection(inputMetaStartIndex);
-            var existingMeta = existingData.GetJsonSection(existingMetaStartIndex);
+            var inputDataWithoutMeta = inputData;
+            var existingDataWithoutMeta = existingData;
 
-            var inputDataWithoutMeta = inputData.Replace(inputMeta, string.Empty, StringComparison.Ordinal);
-            var existingDataWithoutMeta = existingData.Replace(existingMeta, string.Empty, StringComparison.Ordinal);
+            if (inputMetaStartIndex != -1)
+            {
+                var inputMeta = inputData.GetJsonSection(inputMetaStartIndex);
+                inputDataWithoutMeta = inputData.Replace(inputMeta, string.Empty, StringComparison.Ordinal);
+            }
+
+            if (existingMetaStartIndex != -1)
+            {
+                var existingMeta = existingData.GetJsonSection(existingMetaStartIndex);
+                existingDataWithoutMeta = existingData.Replace(existingMeta, string.Empty, StringComparison.Ordinal);
+            }
 
             return inputDataWithoutMeta.Equals(existingDataWithoutMeta, StringComparison.Ordinal);
         }

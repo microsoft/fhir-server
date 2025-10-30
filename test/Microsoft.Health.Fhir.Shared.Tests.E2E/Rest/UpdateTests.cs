@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
-        public async Task GivenTheResource_WhenUpdatingMetadataWithSilentMetaHeader_ThenNoHistoricalRecordIsCreated()
+        public async Task GivenTheResource_WhenUpdatingMetadataWithMetaHistoryParameterFalse_ThenNoHistoricalRecordIsCreated()
         {
             // Arrange: Create a resource
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 createdResource,
                 ifMatchHeaderETag: null,
                 provenanceHeader: null,
-                silentMeta: true);
+                metaHistory: false);
 
             // Assert: Historical record should not be created (version and lastUpdated remain change)
             Observation updatedResource = updateResponse.Resource;
@@ -334,7 +334,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
-        public async Task GivenTheResource_WhenUpdatingMetadataWithSilentMetaHeaderFalse_ThenHistoricalRecordIsCreated()
+        public async Task GivenTheResource_WhenUpdatingMetadataWithMetaHistoryParameterTrue_ThenHistoricalRecordIsCreated()
         {
             // Arrange: Create a resource
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 createdResource,
                 ifMatchHeaderETag: null,
                 provenanceHeader: null,
-                silentMeta: false);
+                metaHistory: true);
 
             // Assert: Historical record should be created (version and lastUpdated change)
             Observation updatedResource = updateResponse.Resource;
@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
-        public async Task GivenTheResource_WhenUpdatingMetadataAndContentWithSilentMetaHeader_ThenHistoricalRecordIsCreated()
+        public async Task GivenTheResource_WhenUpdatingMetadataAndContentWithMetaHistoryParameterFalse_ThenHistoricalRecordIsCreated()
         {
             // Arrange: Create a resource
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
@@ -384,7 +384,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 createdResource,
                 ifMatchHeaderETag: null,
                 provenanceHeader: null,
-                silentMeta: true);
+                metaHistory: false);
 
             // Assert: Historical record should be created (version and lastUpdated change)
             Observation updatedResource = updateResponse.Resource;
