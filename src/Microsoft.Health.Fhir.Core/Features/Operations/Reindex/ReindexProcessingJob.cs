@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -67,13 +69,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
+            var totalStopwatch = Stopwatch.StartNew();
+            _logger.LogJobInformation(jobInfo, "ReindexProcessingJob started for JobId={JobId}", jobInfo.Id);
+
             _jobInfo = jobInfo;
             _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
+            var validationStopwatch = Stopwatch.StartNew();
             ValidateSearchParametersHash(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
+            validationStopwatch.Stop();
+            _logger.LogJobInformation(jobInfo, "Validation completed in {ElapsedMs}ms", validationStopwatch.ElapsedMilliseconds);
 
             await ProcessQueryAsync(cancellationToken);
+
+            totalStopwatch.Stop();
+            _logger.LogJobInformation(
+                jobInfo,
+                "ReindexProcessingJob completed for JobId={JobId}. Total time: {TotalMs}ms, Resources processed: {ResourceCount}",
+                jobInfo.Id,
+                totalStopwatch.ElapsedMilliseconds,
+                _reindexProcessingJobResult.SucceededResourceCount);
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
@@ -113,6 +129,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
         {
+            var stopwatch = Stopwatch.StartNew();
+            _logger.LogJobInformation(
+                _jobInfo,
+                "Starting search query for ResourceType={ResourceType}, StartId={StartId}, EndId={EndId}",
+                _reindexProcessingJobDefinition.ResourceType,
+                searchResultReindex?.StartResourceSurrogateId,
+                searchResultReindex?.EndResourceSurrogateId);
+
             var queryParametersList = new List<Tuple<string, string>>()
             {
                 Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
@@ -152,13 +176,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, false, cancellationToken, true);
+                    var searchStopwatch = Stopwatch.StartNew();
+                    var result = await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, false, cancellationToken, true);
+                    searchStopwatch.Stop();
+
+                    stopwatch.Stop();
+                    _logger.LogJobInformation(
+                        _jobInfo,
+                        "Search query completed in {ElapsedMs}ms (SQL query: {SqlMs}ms). Results: {ResultCount}, TotalCount: {TotalCount}",
+                        stopwatch.ElapsedMilliseconds,
+                        searchStopwatch.ElapsedMilliseconds,
+                        result?.Results?.Count() ?? 0,
+                        result?.TotalCount ?? 0);
+
+                    return result;
                 }
                 catch (Exception ex)
                 {
+                    stopwatch.Stop();
                     var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
                     var reindexJobException = new ReindexProcessingJobSoftException(message, ex);
-                    _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _reindexProcessingJobDefinition.ResourceType);
+                    _logger.LogJobError(ex, _jobInfo, "Search query failed after {ElapsedMs}ms for resource type {ResourceType}.", stopwatch.ElapsedMilliseconds, _reindexProcessingJobDefinition.ResourceType);
                     LogReindexProcessingJobErrorMessage();
 
                     throw reindexJobException;
@@ -180,10 +218,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new InvalidOperationException("_reindexProcessingJobDefinition cannot be null during processing.");
             }
 
+            var totalStopwatch = Stopwatch.StartNew();
             long resourceCount = 0;
             try
             {
+                var searchStopwatch = Stopwatch.StartNew();
+                _logger.LogJobInformation(_jobInfo, "Starting GetResourcesToReindexAsync...");
+
                 SearchResult result = await _timeoutRetries.ExecuteAsync(async () => await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken));
+                searchStopwatch.Stop();
+                _logger.LogJobInformation(_jobInfo, "GetResourcesToReindexAsync completed in {ElapsedMs}ms", searchStopwatch.ElapsedMilliseconds);
+
                 if (result == null)
                 {
                     throw new OperationFailedException($"Search service returned null search result.", HttpStatusCode.InternalServerError);
@@ -207,16 +252,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     { _reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap },
                 };
 
+                var processStopwatch = Stopwatch.StartNew();
+                _logger.LogJobInformation(
+                    _jobInfo,
+                    "Starting ProcessSearchResultsAsync for {ResourceCount} resources with batch size {BatchSize}...",
+                    result.Results.Count(),
+                    _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite);
+
                 await _timeoutRetries.ExecuteAsync(async () => await ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                processStopwatch.Stop();
+
+                _logger.LogJobInformation(
+                    _jobInfo,
+                    "ProcessSearchResultsAsync completed in {ElapsedMs}ms ({ResourcesPerSecond} resources/sec)",
+                    processStopwatch.ElapsedMilliseconds,
+                    processStopwatch.ElapsedMilliseconds > 0 ? (result.Results.Count() * 1000.0 / processStopwatch.ElapsedMilliseconds).ToString("F2") : "N/A");
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     _reindexProcessingJobResult.SucceededResourceCount += (long)result?.Results.Count();
-                    _logger.LogJobInformation(_jobInfo, "Reindex processing job complete. Current number of resources indexed by this job: {Progress}.", _reindexProcessingJobResult.SucceededResourceCount);
+                    totalStopwatch.Stop();
+                    _logger.LogJobInformation(
+                        _jobInfo,
+                        "ProcessQueryAsync completed successfully. Total time: {TotalMs}ms, Search: {SearchMs}ms, Processing: {ProcessMs}ms, Resources indexed: {ResourceCount}",
+                        totalStopwatch.ElapsedMilliseconds,
+                        searchStopwatch.ElapsedMilliseconds,
+                        processStopwatch.ElapsedMilliseconds,
+                        _reindexProcessingJobResult.SucceededResourceCount);
                 }
             }
             catch (SqlException sqlEx)
             {
+                totalStopwatch.Stop();
+                _logger.LogJobError(sqlEx, _jobInfo, "ProcessQueryAsync failed after {ElapsedMs}ms with SQL exception", totalStopwatch.ElapsedMilliseconds);
                 LogReindexProcessingJobErrorMessage();
 
                 // Check if this is a timeout exception
@@ -252,14 +320,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (FhirException ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
+                totalStopwatch.Stop();
+                _logger.LogJobError(ex, _jobInfo, "ProcessQueryAsync failed after {ElapsedMs}ms with FhirException", totalStopwatch.ElapsedMilliseconds);
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
+                totalStopwatch.Stop();
+                _logger.LogJobError(ex, _jobInfo, "ProcessQueryAsync failed after {ElapsedMs}ms with unexpected exception", totalStopwatch.ElapsedMilliseconds);
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
                 _reindexProcessingJobResult.FailedResourceCount = resourceCount;
@@ -280,7 +350,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(results, nameof(results));
 
-            var updateSearchIndices = new List<ResourceWrapper>();
+            var totalStopwatch = Stopwatch.StartNew();
 
             // This should never happen, but in case it does, we will set a low default to ensure we don't get stuck in loop
             if (batchSize == 0)
@@ -288,29 +358,82 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 batchSize = 500;
             }
 
-            foreach (var entry in results.Results)
+            var extractionStopwatch = Stopwatch.StartNew();
+            var resultsList = results.Results.ToList();
+            _logger.LogJobInformation(
+                _jobInfo,
+                "Starting parallel search parameter extraction for {ResultCount} resources...",
+                resultsList.Count);
+
+            // Use ConcurrentBag for thread-safe collection
+            var updateSearchIndices = new ConcurrentBag<ResourceWrapper>();
+
+            // Parallel processing of search parameter extraction
+            var parallelOptions = new ParallelOptions
             {
-                if (!resourceTypeSearchParameterHashMap.TryGetValue(entry.Resource.ResourceTypeName, out string searchParamHash))
-                {
-                    searchParamHash = string.Empty;
-                }
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = Environment.ProcessorCount, // Use all available cores
+            };
 
-                entry.Resource.SearchParameterHash = searchParamHash;
-                _resourceWrapperFactory.Update(entry.Resource);
-                updateSearchIndices.Add(entry.Resource);
-
-                if (cancellationToken.IsCancellationRequested)
+            try
+            {
+                Parallel.ForEach(resultsList, parallelOptions, entry =>
                 {
-                    return;
-                }
+                    if (!resourceTypeSearchParameterHashMap.TryGetValue(entry.Resource.ResourceTypeName, out string searchParamHash))
+                    {
+                        searchParamHash = string.Empty;
+                    }
+
+                    entry.Resource.SearchParameterHash = searchParamHash;
+                    _resourceWrapperFactory.Update(entry.Resource);
+                    updateSearchIndices.Add(entry.Resource);
+                });
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogJobInformation(_jobInfo, "Search parameter extraction cancelled");
+                return;
+            }
+
+            extractionStopwatch.Stop();
+            _logger.LogJobInformation(
+                _jobInfo,
+                "Search parameter extraction completed in {ElapsedMs}ms for {ResourceCount} resources ({ResourcesPerSecond} resources/sec)",
+                extractionStopwatch.ElapsedMilliseconds,
+                updateSearchIndices.Count,
+                extractionStopwatch.ElapsedMilliseconds > 0 ? (updateSearchIndices.Count * 1000.0 / extractionStopwatch.ElapsedMilliseconds).ToString("F2") : "N/A");
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                for (int i = 0; i < updateSearchIndices.Count; i += batchSize)
+                var batchCount = 0;
+                var updateSearchIndicesList = updateSearchIndices.ToList();
+                var totalBatches = (int)Math.Ceiling((double)updateSearchIndicesList.Count / batchSize);
+
+                for (int i = 0; i < updateSearchIndicesList.Count; i += batchSize)
                 {
-                    var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
+                    var batch = updateSearchIndicesList.GetRange(i, Math.Min(batchSize, updateSearchIndicesList.Count - i));
+                    batchCount++;
+
+                    var batchStopwatch = Stopwatch.StartNew();
+                    _logger.LogJobInformation(
+                        _jobInfo,
+                        "Starting batch {BatchNumber}/{TotalBatches}: updating {BatchSize} resources (indices {StartIndex}-{EndIndex})...",
+                        batchCount,
+                        totalBatches,
+                        batch.Count,
+                        i,
+                        i + batch.Count - 1);
+
                     await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken);
+                    batchStopwatch.Stop();
+
+                    _logger.LogJobInformation(
+                        _jobInfo,
+                        "Batch {BatchNumber}/{TotalBatches} completed in {ElapsedMs}ms ({ResourcesPerSecond} resources/sec)",
+                        batchCount,
+                        totalBatches,
+                        batchStopwatch.ElapsedMilliseconds,
+                        batchStopwatch.ElapsedMilliseconds > 0 ? (batch.Count * 1000.0 / batchStopwatch.ElapsedMilliseconds).ToString("F2") : "N/A");
 
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -318,6 +441,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
+
+            totalStopwatch.Stop();
+            _logger.LogJobInformation(
+                _jobInfo,
+                "ProcessSearchResultsAsync completed. Total time: {TotalMs}ms, Extraction: {ExtractionMs}ms, DB updates: {DbMs}ms, Resources: {ResourceCount}",
+                totalStopwatch.ElapsedMilliseconds,
+                extractionStopwatch.ElapsedMilliseconds,
+                totalStopwatch.ElapsedMilliseconds - extractionStopwatch.ElapsedMilliseconds,
+                updateSearchIndices.Count);
         }
 
         private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)
