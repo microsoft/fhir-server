@@ -65,26 +65,88 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Sort expression by query composition logic. <see cref="UnionExpression"/> always is the first expression to be processed, other expressions will follow it.
+        /// Identifies if a <see cref="SearchParamTableExpression"/> contains a <see cref="UnionExpression"/> with SmartV2 flag.
+        /// </summary>
+        /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
+        public static bool HasSmartV2UnionExpression(this SearchParamTableExpression expression)
+        {
+            return ContainsSmartV2UnionFlag(expression.Predicate);
+        }
+
+        /// <summary>
+        /// Sort expression by query composition logic. <see cref="UnionExpression"/> always is the first expression to be processed
+        /// with SmartV2 union expressions appearing at the end of all union expressions, followed by other expressions.
         /// </summary>
         /// <param name="expressions">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static IReadOnlyList<SearchParamTableExpression> SortExpressionsByQueryLogic(this IReadOnlyList<SearchParamTableExpression> expressions)
         {
-            List<SearchParamTableExpression> newTableExpressionSequence = new List<SearchParamTableExpression>(capacity: expressions.Count);
+            var regularUnions = new List<SearchParamTableExpression>();
+            var smartV2Unions = new List<SearchParamTableExpression>();
+            var nonUnions = new List<SearchParamTableExpression>();
 
             foreach (SearchParamTableExpression tableExpression in expressions)
             {
                 if (tableExpression.HasUnionAllExpression())
                 {
-                    newTableExpressionSequence.Insert(0, tableExpression);
+                    if (tableExpression.HasSmartV2UnionExpression())
+                    {
+                        smartV2Unions.Add(tableExpression);
+                    }
+                    else
+                    {
+                        regularUnions.Add(tableExpression);
+                    }
                 }
                 else
                 {
-                    newTableExpressionSequence.Add(tableExpression);
+                    nonUnions.Add(tableExpression);
                 }
             }
 
-            return newTableExpressionSequence;
+            // Combine in the desired order: regular unions first, then SmartV2 unions, then non-unions
+            var result = new List<SearchParamTableExpression>(capacity: expressions.Count);
+            result.AddRange(regularUnions);
+            result.AddRange(smartV2Unions);
+            result.AddRange(nonUnions);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get Count of all Union All Expressions.
+        /// </summary>
+        /// <param name="expressions">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
+        public static int GetCountOfUnionAllExpressions(this IReadOnlyList<SearchParamTableExpression> expressions)
+        {
+            return expressions.Count(tableExpression => tableExpression.HasUnionAllExpression());
+        }
+
+        /// <summary>
+        /// Recursively checks whether the given expression or any of its descendant expressions
+        /// has the <see cref="Expression.IsSmartV2UnionExpressionForScopesSearchParameters"/> flag set to true.
+        /// </summary>
+        /// <param name="expression">The root expression to search.</param>
+        /// <returns>True if any expression in the tree has the flag; otherwise, false.</returns>
+        private static bool ContainsSmartV2UnionFlag(Expression expression)
+        {
+            if (expression == null)
+            {
+                return false;
+            }
+
+            // If this expression has the flag, return true.
+            if (expression.IsSmartV2UnionExpressionForScopesSearchParameters)
+            {
+                return true;
+            }
+
+            // Check if expression can contain child expressions.
+            if (expression is IExpressionsContainer container)
+            {
+                return container.Expressions.Any(ContainsSmartV2UnionFlag);
+            }
+
+            return false;
         }
     }
 }

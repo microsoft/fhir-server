@@ -135,13 +135,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.AppendLine(")");
                 bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+
+                // Find number of union expressions
+                int numberOfUnionExpressions = expression.SearchParamTableExpressions.GetCountOfUnionAllExpressions();
                 StringBuilder.AppendLine("DECLARE @FilteredDataSmartV2Union AS TABLE (T1 smallint, Sid1 bigint)");
                 StringBuilder.AppendLine(";WITH");
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
                     if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
                     {
-                        if (ContainsSmartV2UnionFlag(unionExpression))
+                        numberOfUnionExpressions--;
+                        if (tableExpression.HasSmartV2UnionExpression())
                         {
                             // Union expressions for smart v2 scopes with search parameters needs to be handled differently
                             AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
@@ -160,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
                         }
 
-                        if (allOtherRemainingExpressions != null)
+                        if (allOtherRemainingExpressions != null && numberOfUnionExpressions == 0)
                         {
                             StringBuilder.AppendLine(", ");
                             AppendNewTableExpression(sb, allOtherRemainingExpressions, ++_tableExpressionCounter, context);
@@ -1413,6 +1417,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append(")");
 
+            // check for a previous union all, and if so, join the new union all with the previous one
+            if (_unionAggregateCTEIndex > -1)
+            {
+                var prevUnionAggregateTableName = TableExpressionName(_unionAggregateCTEIndex);
+                var currentUnionAggregateTableName = TableExpressionName(_tableExpressionCounter);
+
+                StringBuilder.Append(", ");
+                StringBuilder.AppendLine();
+                StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+                using (StringBuilder.Indent())
+                {
+                    StringBuilder.Append("SELECT ").Append(prevUnionAggregateTableName + ".T1, ").Append(prevUnionAggregateTableName + ".Sid1")
+                    .AppendLine()
+                    .Append("FROM ").Append(prevUnionAggregateTableName)
+                    .AppendLine()
+                    .Append(_joinShift).Append("JOIN ").Append(currentUnionAggregateTableName)
+                    .Append(" ON ").Append(prevUnionAggregateTableName + ".T1").Append(" = ").Append(currentUnionAggregateTableName + ".T1")
+                    .Append(" AND ").Append(prevUnionAggregateTableName + ".Sid1").Append(" = ").Append(currentUnionAggregateTableName + ".Sid1")
+                    .AppendLine();
+                }
+
+                StringBuilder.Append(")");
+            }
+
             _unionVisited = true;
             _firstChainAfterUnionVisited = false;
         }
@@ -1669,34 +1698,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     _hasIdentifier = true;
                 }
             }
-        }
-
-        /// <summary>
-        /// Recursively checks whether the given expression or any of its descendant expressions
-        /// has the <see cref="Expression.IsSmartV2UnionExpressionForScopesSearchParameters"/> flag set to true.
-        /// </summary>
-        /// <param name="expression">The root expression to search.</param>
-        /// <returns>True if any expression in the tree has the flag; otherwise, false.</returns>
-        private static bool ContainsSmartV2UnionFlag(Expression expression)
-        {
-            if (expression == null)
-            {
-                return false;
-            }
-
-            // If this expression has the flag, return true.
-            if (expression.IsSmartV2UnionExpressionForScopesSearchParameters)
-            {
-                return true;
-            }
-
-            // Check if expression can contain child expressions.
-            if (expression is IExpressionsContainer container)
-            {
-                return container.Expressions.Any(ContainsSmartV2UnionFlag);
-            }
-
-            return false;
         }
 
         private static SortContext GetSortRelatedDetails(SearchOptions context)
