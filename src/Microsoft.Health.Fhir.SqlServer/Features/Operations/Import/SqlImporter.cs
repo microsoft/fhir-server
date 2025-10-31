@@ -90,6 +90,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             var newErrors = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
             errors.AddRange(newErrors);
+            
+            // Abort import on first constraint violation to avoid wasting compute resources
+            // Constraint violations are identified by checking if the error message contains constraint-related keywords
+            if (newErrors.Any(e => e.Contains("constraint violation", StringComparison.OrdinalIgnoreCase) || 
+                                    e.Contains("Database constraint", StringComparison.OrdinalIgnoreCase)))
+            {
+                _logger.LogWarning("Constraint violation detected during import. Aborting further processing to conserve resources.");
+                throw new InvalidOperationException("Import aborted due to constraint violation. See error logs for details.");
+            }
+            
             var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();
             return (validResources.Count - newErrors.Count, totalBytes);
