@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
             var result = JsonConvert.SerializeObject(_reindexProcessingJobResult);
-            _logger.LogJobInformation(_jobInfo, $"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}. ReindexProcessing Job Result: {result}.");
+            _logger.LogJobInformation(_jobInfo, "ReindexProcessingJob Error: Current ReindexJobRecord: {ReindexJobRecord}. ReindexProcessing Job Result: {Result}.", ser, result);
         }
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
@@ -280,6 +280,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         processStopwatch.ElapsedMilliseconds,
                         _reindexProcessingJobResult.SucceededResourceCount);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                totalStopwatch.Stop();
+                _logger.LogJobInformation(_jobInfo, "ProcessQueryAsync cancelled after {ElapsedMs}ms", totalStopwatch.ElapsedMilliseconds);
+                _jobInfo.Status = JobStatus.Cancelled;
             }
             catch (SqlException sqlEx)
             {
