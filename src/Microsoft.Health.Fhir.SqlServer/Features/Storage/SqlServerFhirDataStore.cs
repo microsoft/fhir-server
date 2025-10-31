@@ -811,47 +811,228 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
+            var overallStopwatch = Stopwatch.StartNew();
+            var resourceCount = resources.Count;
+
+            _logger.LogInformation(
+                "BulkUpdateSearchParameterIndicesAsync started. ResourceCount={ResourceCount}",
+                resourceCount);
+
             int? failedResourceCount;
             try
             {
                 // This logic relies on surrogate id in ResourceWrapper populated using database values
+                var wrapperStopwatch = Stopwatch.StartNew();
                 var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
+                wrapperStopwatch.Stop();
 
-                using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
+                using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams")
+                {
+                    CommandType = CommandType.StoredProcedure,
+                    CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count),
+                };
+
+                _logger.LogInformation(
+                    "BulkUpdateSearchParameterIndicesAsync: MergeWrapper creation completed. " +
+                    "ResourceCount={ResourceCount}, WrapperCount={WrapperCount}, ElapsedMs={ElapsedMs}",
+                    resourceCount,
+                    mergeWrappers.Count,
+                    wrapperStopwatch.ElapsedMilliseconds);
+
+                // Track parameter generation timing
+                var parameterStopwatch = Stopwatch.StartNew();
+
+                var resourceListSw = Stopwatch.StartNew();
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                resourceListSw.Stop();
+
+                var writeClaimsSw = Stopwatch.StartNew();
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                writeClaimsSw.Stop();
+
+                var referenceParamsSw = Stopwatch.StartNew();
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                referenceParamsSw.Stop();
+
+                var tokenParamsSw = Stopwatch.StartNew();
                 new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                tokenParamsSw.Stop();
+
+                var tokenTextSw = Stopwatch.StartNew();
                 new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                tokenTextSw.Stop();
+
+                var stringParamsSw = Stopwatch.StartNew();
                 new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                stringParamsSw.Stop();
+
+                var uriParamsSw = Stopwatch.StartNew();
                 new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                uriParamsSw.Stop();
+
+                var numberParamsSw = Stopwatch.StartNew();
                 new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                numberParamsSw.Stop();
+
+                var quantityParamsSw = Stopwatch.StartNew();
                 new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                quantityParamsSw.Stop();
+
+                var dateTimeParamsSw = Stopwatch.StartNew();
                 new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParams").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                dateTimeParamsSw.Stop();
+
+                var refTokenCompositeSw = Stopwatch.StartNew();
+                new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(
+                    cmd.Parameters,
+                    new ReferenceTokenCompositeSearchParamListRowGenerator(
+                        _model,
+                        new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                refTokenCompositeSw.Stop();
+
+                var tokenTokenCompositeSw = Stopwatch.StartNew();
+                new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(
+                    cmd.Parameters,
+                    new TokenTokenCompositeSearchParamListRowGenerator(
+                        _model,
+                        new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                tokenTokenCompositeSw.Stop();
+
+                var tokenDateTimeCompositeSw = Stopwatch.StartNew();
+                new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(
+                    cmd.Parameters,
+                    new TokenDateTimeCompositeSearchParamListRowGenerator(
+                        _model,
+                        new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                tokenDateTimeCompositeSw.Stop();
+
+                var tokenQuantityCompositeSw = Stopwatch.StartNew();
+                new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(
+                    cmd.Parameters,
+                    new TokenQuantityCompositeSearchParamListRowGenerator(
+                        _model,
+                        new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                tokenQuantityCompositeSw.Stop();
+
+                var tokenStringCompositeSw = Stopwatch.StartNew();
+                new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(
+                    cmd.Parameters,
+                    new TokenStringCompositeSearchParamListRowGenerator(
+                        _model,
+                        new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                tokenStringCompositeSw.Stop();
+
+                var tokenNumberNumberCompositeSw = Stopwatch.StartNew();
+                new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(
+                    cmd.Parameters,
+                    new TokenNumberNumberCompositeSearchParamListRowGenerator(
+                        _model,
+                        new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap),
+                        _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                tokenNumberNumberCompositeSw.Stop();
+
+                parameterStopwatch.Stop();
+
+                var tvpLogMessage =
+                    "BulkUpdateSearchParameterIndicesAsync: TVP parameter generation completed. " +
+                    "TotalElapsedMs={TotalMs}, ResourceList={ResourceListMs}ms, WriteClaims={WriteClaimsMs}ms, " +
+                    "ReferenceParams={ReferenceMs}ms, TokenParams={TokenMs}ms, TokenText={TokenTextMs}ms, " +
+                    "StringParams={StringMs}ms, UriParams={UriMs}ms, NumberParams={NumberMs}ms, " +
+                    "QuantityParams={QuantityMs}ms, DateTimeParams={DateTimeMs}ms, " +
+                    "RefTokenComposite={RefTokenMs}ms, TokenTokenComposite={TokenTokenMs}ms, " +
+                    "TokenDateTimeComposite={TokenDateTimeMs}ms, TokenQuantityComposite={TokenQuantityMs}ms, " +
+                    "TokenStringComposite={TokenStringMs}ms, TokenNumberNumberComposite={TokenNumberNumberMs}ms";
+
+                _logger.LogInformation(
+                    tvpLogMessage,
+                    parameterStopwatch.ElapsedMilliseconds,
+                    resourceListSw.ElapsedMilliseconds,
+                    writeClaimsSw.ElapsedMilliseconds,
+                    referenceParamsSw.ElapsedMilliseconds,
+                    tokenParamsSw.ElapsedMilliseconds,
+                    tokenTextSw.ElapsedMilliseconds,
+                    stringParamsSw.ElapsedMilliseconds,
+                    uriParamsSw.ElapsedMilliseconds,
+                    numberParamsSw.ElapsedMilliseconds,
+                    dateTimeParamsSw.ElapsedMilliseconds,
+                    quantityParamsSw.ElapsedMilliseconds,
+                    refTokenCompositeSw.ElapsedMilliseconds,
+                    tokenTokenCompositeSw.ElapsedMilliseconds,
+                    tokenDateTimeCompositeSw.ElapsedMilliseconds,
+                    tokenQuantityCompositeSw.ElapsedMilliseconds,
+                    tokenStringCompositeSw.ElapsedMilliseconds,
+                    tokenNumberNumberCompositeSw.ElapsedMilliseconds);
+
+                var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int)
+                {
+                    Direction = ParameterDirection.Output,
+                };
                 cmd.Parameters.Add(failedResourcesParam);
+
+                var sqlExecutionSw = Stopwatch.StartNew();
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                sqlExecutionSw.Stop();
+
                 failedResourceCount = (int)failedResourcesParam.Value;
+
+                _logger.LogInformation(
+                    "BulkUpdateSearchParameterIndicesAsync: SQL execution completed. " +
+                    "FailedResourceCount={FailedCount}, SqlExecutionMs={SqlMs}, " +
+                    "CommandTimeout={CommandTimeout}s",
+                    failedResourceCount,
+                    sqlExecutionSw.ElapsedMilliseconds,
+                    cmd.CommandTimeout);
             }
             catch (SqlException e)
             {
-                _logger.LogError(e, "Error from SQL database on reindex.");
+                overallStopwatch.Stop();
+                var sqlErrorMessage =
+                    "BulkUpdateSearchParameterIndicesAsync: Error from SQL database on reindex. " +
+                    "ResourceCount={ResourceCount}, ElapsedMs={ElapsedMs}, ErrorCode={ErrorCode}";
+                _logger.LogError(e, sqlErrorMessage, resourceCount, overallStopwatch.ElapsedMilliseconds, e.Number);
+                throw;
+            }
+            catch (Exception e)
+            {
+                overallStopwatch.Stop();
+                var errorMessage =
+                    "BulkUpdateSearchParameterIndicesAsync: Unexpected error occurred. " +
+                    "ResourceCount={ResourceCount}, ElapsedMs={ElapsedMs}";
+                _logger.LogError(e, errorMessage, resourceCount, overallStopwatch.ElapsedMilliseconds);
                 throw;
             }
 
             if (failedResourceCount != 0)
             {
+                overallStopwatch.Stop();
                 string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
                 string userAction = Core.Resources.ReindexingUserAction;
-                _logger.LogError("{Error}", message);
+                var conflictMessage =
+                    "BulkUpdateSearchParameterIndicesAsync: Version conflict detected during reindex. " +
+                    "FailedResourceCount={FailedCount}, TotalResourceCount={TotalCount}, " +
+                    "ElapsedMs={ElapsedMs}, Message={Message}";
+                _logger.LogError(conflictMessage, failedResourceCount, resourceCount, overallStopwatch.ElapsedMilliseconds, message);
                 throw new PreconditionFailedException(message + " " + userAction);
             }
+
+            overallStopwatch.Stop();
+            _logger.LogInformation(
+                "BulkUpdateSearchParameterIndicesAsync completed successfully. " +
+                "ResourceCount={ResourceCount}, TotalElapsedMs={TotalMs}, " +
+                "AvgTimePerResourceMs={AvgMs}",
+                resourceCount,
+                overallStopwatch.ElapsedMilliseconds,
+                resourceCount > 0 ? overallStopwatch.ElapsedMilliseconds / (double)resourceCount : 0);
         }
 
         private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
