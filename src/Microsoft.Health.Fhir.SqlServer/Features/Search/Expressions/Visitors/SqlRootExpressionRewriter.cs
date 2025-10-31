@@ -81,6 +81,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitChained(ChainedExpression expression, int context) => ConvertNonMultiary(expression);
 
+        public override Expression VisitTrustedResourceIdList(TrustedResourceIdListExpression expression, int context)
+        {
+            // TrustedResourceIdListExpression is handled directly by SqlQueryGenerator and should not be processed by search param table expressions
+            // Return it as a resource expression so it can be passed to the SQL generator directly
+            return SqlRootExpression.WithResourceTableExpressions((SearchParameterExpressionBase)expression);
+        }
+
         private SqlRootExpression ConvertNonMultiary(Expression expression)
         {
             if (TryGetSearchParamTableExpressionQueryGenerator(expression, out var generator, out var kind))
@@ -95,6 +102,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private bool TryGetSearchParamTableExpressionQueryGenerator(Expression expression, out SearchParamTableExpressionQueryGenerator searchParamTableExpressionGenerator, out SearchParamTableExpressionKind kind)
         {
+            // TrustedResourceIdListExpression should be handled directly by SqlQueryGenerator, not through the search param table expression factory
+            // Skip processing it here so it can be passed through as a resource expression
+            if (expression is TrustedResourceIdListExpression)
+            {
+                searchParamTableExpressionGenerator = null;
+                kind = default;
+                return false;
+            }
+
             searchParamTableExpressionGenerator = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory);
             switch (searchParamTableExpressionGenerator)
             {
