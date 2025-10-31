@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;Something went wrong while validating resource at index {0}&quot;..
+        /// </summary>
+        internal static string ExceptionWhileResourceValidation {
+            get {
+                return ResourceManager.GetString("ExceptionWhileResourceValidation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The execution timeout expired from SQL Server..
         /// </summary>
         internal static string ExecutionTimeoutExpired {
@@ -151,6 +160,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ReferenceTokenCompositeSearchParam CodeOverflow2 constraint violation..
+        /// </summary>
+        internal static string ReferenceTokenCompositeSearchParamCodeOverflow2 {
+            get {
+                return ResourceManager.GetString("ReferenceTokenCompositeSearchParamCodeOverflow2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource with type {0} and ID {1} is not available..
         /// </summary>
         internal static string ResourceNotAvailable {
@@ -201,6 +219,60 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string SqlExceptionOccurredWhenFetchingResourceChanges {
             get {
                 return ResourceManager.GetString("SqlExceptionOccurredWhenFetchingResourceChanges", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to TokenDateTimeCompositeSearchParam CodeOverflow1 constraint violation..
+        /// </summary>
+        internal static string TokenDateTimeCompositeSearchParamCodeOverflow1 {
+            get {
+                return ResourceManager.GetString("TokenDateTimeCompositeSearchParamCodeOverflow1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to TokenNumberNumberCompositeSearchParam CodeOverflow1 constraint violation..
+        /// </summary>
+        internal static string TokenNumberNumberCompositeSearchParamCodeOverflow1 {
+            get {
+                return ResourceManager.GetString("TokenNumberNumberCompositeSearchParamCodeOverflow1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to TokenQuantityCompositeSearchParam CodeOverflow1 constraint violation..
+        /// </summary>
+        internal static string TokenQuantityCompositeSearchParamCodeOverflow1 {
+            get {
+                return ResourceManager.GetString("TokenQuantityCompositeSearchParamCodeOverflow1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to TokenSearchParam CodeOverflow constraint violation..
+        /// </summary>
+        internal static string TokenSearchParamCodeOverflow {
+            get {
+                return ResourceManager.GetString("TokenSearchParamCodeOverflow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to TokenStringCompositeSearchParam CodeOverflow1 constraint violation..
+        /// </summary>
+        internal static string TokenStringCompositeSearchParamCodeOverflow1 {
+            get {
+                return ResourceManager.GetString("TokenStringCompositeSearchParamCodeOverflow1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to TokenTokenCompositeSearchParam CodeOverflow constraint violation..
+        /// </summary>
+        internal static string TokenTokenCompositeSearchParamCodeOverflow {
+            get {
+                return ResourceManager.GetString("TokenTokenCompositeSearchParamCodeOverflow", resourceCulture);
             }
         }
         
