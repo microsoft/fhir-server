@@ -33,10 +33,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             List<SearchParameterExpressionBase> resourceExpressions = null;
             List<SearchParamTableExpression> tableExpressions = null;
+            TrustedResourceIdListExpression trustedResourceIdList = null;
 
             for (var i = 0; i < expression.Expressions.Count; i++)
             {
                 Expression childExpression = expression.Expressions[i];
+
+                // Handle TrustedResourceIdListExpression specially - it should be passed through unchanged
+                if (childExpression is TrustedResourceIdListExpression trustedList)
+                {
+                    trustedResourceIdList = trustedList;
+                    continue;
+                }
 
                 if (TryGetSearchParamTableExpressionQueryGenerator(childExpression, out SearchParamTableExpressionQueryGenerator tableExpressionGenerator, out SearchParamTableExpressionKind tableExpressionKind))
                 {
@@ -49,6 +57,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     resourceExpressions?.Add((SearchParameterExpressionBase)childExpression);
                 }
+            }
+
+            // If we have a TrustedResourceIdListExpression, return it as-is so it can be handled by SqlQueryGenerator
+            if (trustedResourceIdList != null)
+            {
+                return trustedResourceIdList;
             }
 
             if (tableExpressions == null)
