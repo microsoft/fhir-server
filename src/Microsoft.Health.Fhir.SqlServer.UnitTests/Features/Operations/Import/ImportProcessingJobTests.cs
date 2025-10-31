@@ -399,6 +399,73 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             return inputData;
         }
 
+        [Fact]
+        public async Task GivenImportInput_WhenConstraintViolationOccurs_ThenImportShouldAbort()
+        {
+            ImportProcessingJobDefinition inputData = GetInputData();
+
+            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
+            IImporter importer = Substitute.For<IImporter>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IMediator mediator = Substitute.For<IMediator>();
+            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
+
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
+
+                    Task loadTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // Simulate loading a resource
+                            var wrapper = new ResourceWrapper("id", "1", "Patient", null, null, null, null, null);
+                            var resource = new ImportResource(0, 0, 100, false, false, false, wrapper);
+                            await resourceChannel.Writer.WriteAsync(resource);
+                        }
+                        finally
+                        {
+                            resourceChannel.Writer.Complete();
+                        }
+                    });
+
+                    return (resourceChannel, loadTask);
+                });
+
+            // Simulate constraint violation by throwing InvalidOperationException with constraint violation message
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<ImportProcessingProgress>(callInfo =>
+                {
+                    throw new InvalidOperationException("Import aborted due to constraint violation. See error logs for details.");
+                });
+
+            importErrorStoreFactory.InitializeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(importErrorStore);
+
+            ImportProcessingJob job = new ImportProcessingJob(
+                                    mediator,
+                                    queueClient,
+                                    loader,
+                                    importer,
+                                    importErrorStoreFactory,
+                                    contextAccessor,
+                                    loggerFactory,
+                                    auditLogger);
+
+            var jobInfo = GetJobInfo(inputData, null);
+            jobInfo.Id = 1;
+            jobInfo.GroupId = 1;
+            jobInfo.Status = JobStatus.Running;
+
+            // Verify that import aborts with constraint violation
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
         private static JobInfo GetJobInfo(ImportProcessingJobDefinition data, ImportProcessingJobResult result)
         {
             var jobInfo = new JobInfo
