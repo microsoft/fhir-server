@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private void CompleteOperation(IBundleOrchestratorOperation bundleOperation)
         {
-            if (_bundleOrchestrator == null)
+            if (_bundleOrchestrator == null || bundleOperation == null)
             {
                 return;
             }
