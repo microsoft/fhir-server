@@ -83,9 +83,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitTrustedResourceIdList(TrustedResourceIdListExpression expression, int context)
         {
-            // TrustedResourceIdListExpression is handled directly by SqlQueryGenerator and should not be processed by search param table expressions
-            // Return it as a resource expression so it can be passed to the SQL generator directly
-            return SqlRootExpression.WithResourceTableExpressions((SearchParameterExpressionBase)expression);
+            // TrustedResourceIdListExpression is handled directly by SqlQueryGenerator and should not be wrapped
+            // in SqlRootExpression. Return it unchanged so it can be passed through to the SQL generator.
+            return expression;
         }
 
         private SqlRootExpression ConvertNonMultiary(Expression expression)
