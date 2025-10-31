@@ -195,6 +195,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 destination = new List<TDestination>();
                 for (int j = 0; j < count; j++)
                 {
+                    if ((TDestination)source[j] is TrustedResourceIdListExpression)
+                    {
+                        // Skip TrustedResourceIdListExpression when copying to resource expressions
+                        continue;
+                    }
+
                     destination.Add((TDestination)source[j]);
                 }
             }
