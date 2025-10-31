@@ -414,6 +414,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Extracts constraint violation details from SQL exception and creates error message with resource context.
         /// This approach avoids duplicating constraint validation logic between C# and SQL.
         /// </summary>
+        /// <param name="sqlException">The SQL exception containing constraint violation details</param>
+        /// <param name="resources">The list of resources being imported when the constraint violation occurred</param>
+        /// <returns>A formatted error message string with constraint details and resource context</returns>
         private string ExtractConstraintViolationDetails(SqlException sqlException, IReadOnlyList<ImportResource> resources)
         {
             // SQL Server constraint violation error message typically contains:
@@ -431,11 +434,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             string constraintType = "unknown";
             string constraintName = "unknown";
             
+            // Try to extract constraint name using common patterns (both single and double quotes)
+            var constraintNamePattern = @"constraint [""']([^""']+)[""']";
+            
             if (errorMessage.Contains("CHECK constraint", StringComparison.OrdinalIgnoreCase))
             {
                 constraintType = "CHECK constraint";
-                // Try to extract constraint name
-                var match = Regex.Match(errorMessage, @"constraint ""([^""]+)""", RegexOptions.IgnoreCase);
+                var match = Regex.Match(errorMessage, constraintNamePattern, RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
                     constraintName = match.Groups[1].Value;
@@ -444,7 +449,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else if (errorMessage.Contains("FOREIGN KEY constraint", StringComparison.OrdinalIgnoreCase))
             {
                 constraintType = "FOREIGN KEY constraint";
-                var match = Regex.Match(errorMessage, @"constraint ""([^""]+)""", RegexOptions.IgnoreCase);
+                var match = Regex.Match(errorMessage, constraintNamePattern, RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
                     constraintName = match.Groups[1].Value;
@@ -453,7 +458,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else if (errorMessage.Contains("PRIMARY KEY constraint", StringComparison.OrdinalIgnoreCase))
             {
                 constraintType = "PRIMARY KEY constraint";
-                var match = Regex.Match(errorMessage, @"constraint '([^']+)'", RegexOptions.IgnoreCase);
+                var match = Regex.Match(errorMessage, constraintNamePattern, RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
                     constraintName = match.Groups[1].Value;
