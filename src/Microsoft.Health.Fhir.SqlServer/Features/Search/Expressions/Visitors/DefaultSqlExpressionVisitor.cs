@@ -24,5 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public virtual TOutput VisitTable(SearchParamTableExpression searchParamTableExpression, TContext context) => default;
 
         public virtual TOutput VisitSqlChainLink(SqlChainLinkExpression sqlChainLinkExpression, TContext context) => default;
+
+        public override TOutput VisitTrustedResourceIdList(TrustedResourceIdListExpression expression, TContext context) => default;
     }
 }

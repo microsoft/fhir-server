@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
+        private const string LocalConnectionString = "server=(local);user=sa;password=1111_aaaa;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         private readonly string _initialConnectionString;
@@ -86,6 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
         {
             _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
+            _initialConnectionString = LocalConnectionString;
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
@@ -294,6 +295,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
 
+            var granularScopeIncludesService = new GranularScopeIncludesService(sqlServerFhirModel, NullLogger<GranularScopeIncludesService>.Instance);
+
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
                 _fhirDataStore,
@@ -311,6 +314,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
+                granularScopeIncludesService,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();

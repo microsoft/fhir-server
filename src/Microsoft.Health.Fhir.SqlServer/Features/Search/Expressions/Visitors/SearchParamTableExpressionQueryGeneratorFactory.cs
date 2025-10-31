@@ -198,6 +198,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return NotReferencedQueryGenerator.Instance;
         }
 
+        public SearchParamTableExpressionQueryGenerator VisitTrustedResourceIdList(TrustedResourceIdListExpression expression, object context)
+        {
+            // TrustedResourceIdListExpression is handled specially in SqlQueryGenerator.VisitTrustedResourceIdList()
+            // This method should not be called in normal query generation flow
+            throw new InvalidOperationException("TrustedResourceIdListExpression should be handled directly by SqlQueryGenerator");
+        }
+
         private SearchParamTableExpressionQueryGenerator VisitExpressionsContainer(IExpressionsContainer expression, object context)
         {
             foreach (var childExpression in expression.Expressions)

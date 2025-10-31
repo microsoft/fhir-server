@@ -59,6 +59,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public virtual TOutput VisitNotReferenced(NotReferencedExpression expression, TContext context) => default;
 
+        public virtual TOutput VisitTrustedResourceIdList(TrustedResourceIdListExpression expression, TContext context) => default;
+
         private TOutput VisitExpressionsContainer(IExpressionsContainer expression, TContext context)
         {
             TOutput result = default;

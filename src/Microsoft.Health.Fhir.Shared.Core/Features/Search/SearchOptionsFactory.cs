@@ -598,6 +598,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _logger.LogWarning("Unable to log search parameters. Error: {Exception}", e.ToString());
             }
 
+            // Detect if we have granular scopes with includes/revinclude
+            bool hasIncludes = searchParams.Include?.Any() == true || searchParams.RevInclude?.Any() == true;
+            bool hasGranularScopes = _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true;
+
+            if (hasGranularScopes && hasIncludes)
+            {
+                searchOptions.HasGranularScopesWithIncludes = true;
+            }
+
             return searchOptions;
         }
 
@@ -661,10 +670,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
                 {
-                    if (expression.TargetResourceType != null && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                    // For wildcard includes/revinclude, skip the SourceResourceType check since * is not a real resource type
+                    // The scope filtering is already applied via AllowedResourceTypesByScope in ParseInclude
+                    if (!expression.WildCard)
                     {
-                        _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
-                        return null;
+                        string resourceTypeToCheck = expression.Reversed ? expression.SourceResourceType : expression.TargetResourceType;
+                        if (resourceTypeToCheck != null && !allowedResourceTypesByScope.Contains(resourceTypeToCheck))
+                        {
+                            _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
+                            return null;
+                        }
                     }
 
                     if (!expression.Produces.Any())
@@ -760,15 +775,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
-                // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
-                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
-                {
-                    if (searchParams.Include.Any() || searchParams.RevInclude.Any())
-                    {
-                        throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
-                    }
-                }
-
                 bool allowAllResourceTypes = false;
                 var clinicalScopeResources = new List<ResourceType>();
                 var finalSmartSearchExpressions = new List<Expression>();
@@ -784,11 +790,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         // This should get ANDed with main query and be applied as a common search parameter across all resource types
                         if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
                         {
-                            // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
+                            // Note: include and revinclude in searchParameters with granular scopes are now supported
+                            // via the two-query approach (HasGranularScopesWithIncludes flag handling)
+                            // Only chained parameters should be rejected as they require special handling
                             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
                             {
                                 bool containsComplexParam = restriction.SearchParameters.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
-                                if (containsComplexParam || restriction.SearchParameters.Include.Any() || restriction.SearchParameters.RevInclude.Any())
+                                if (containsComplexParam)
                                 {
                                     throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
                                 }
@@ -815,15 +823,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // If search parameters are defined in the restriction, add them to searchParams.
                     if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
                     {
-                        // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
-                        if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
-                        {
-                            bool containsComplexParam = restriction.SearchParameters.Parameters.Any(param => ExpressionParser.ContainsChainOrReverseParameter(param.Item1));
-                            if (containsComplexParam || restriction.SearchParameters.Include.Any() || restriction.SearchParameters.RevInclude.Any())
-                            {
-                                throw new BadRequestException(string.Format(Core.Resources.IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters));
-                            }
-                        }
+                        // Note: Chained, include and revinclude in searchParameters with granular scopes are now supported
+                        // via the two-query approach (HasGranularScopesWithIncludes flag handling)
+                        // Only chained parameters should be rejected as they require special handling
 
                         var andedSmartSmartSearchExpressions = new List<Expression>();
                         foreach (var param in restriction.SearchParameters.Parameters)

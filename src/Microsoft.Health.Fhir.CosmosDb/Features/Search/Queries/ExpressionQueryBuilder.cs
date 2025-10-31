@@ -403,6 +403,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             throw new NotImplementedException(Resources.NotReferecedNotImplemented);
         }
 
+        public object VisitTrustedResourceIdList(TrustedResourceIdListExpression expression, Context context)
+        {
+            throw new NotImplementedException("TrustedResourceIdListExpression is only used with SQL Server backend");
+        }
+
         private static string GetFieldName(IFieldExpression fieldExpression, Context state)
         {
             string overrideValue = state.FieldNameOverride?.Invoke(fieldExpression.FieldName, fieldExpression.ComponentIndex);

@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
+            HasGranularScopesWithIncludes = other.HasGranularScopesWithIncludes;
         }
 
         /// <summary>
@@ -174,6 +175,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
         /// </summary>
         public bool SkipAppendIntersectionWithPredecessor { get; set; }
+
+        /// <summary>
+        /// Flag indicating this search has granular SMART v2 scopes with includes/revinclude.
+        /// This requires special two-query handling instead of single-query approach.
+        /// </summary>
+        public bool HasGranularScopesWithIncludes { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

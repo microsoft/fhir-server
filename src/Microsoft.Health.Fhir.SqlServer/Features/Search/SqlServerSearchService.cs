@@ -73,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly GranularScopeIncludesService _granularScopeIncludesService;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
         private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
@@ -95,6 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
+            GranularScopeIncludesService granularScopeIncludesService,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -107,10 +109,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(granularScopeIncludesService, nameof(granularScopeIncludesService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _fhirDataStore = fhirDataStore;
+            _granularScopeIncludesService = granularScopeIncludesService;
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
@@ -345,6 +349,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (clonedSearchOptions.CountOnly)
             {
                 // if we're only returning a count, discard any _include parameters since included resources are not counted.
+                searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
+            }
+
+            // Handle granular scopes with includes/revinclude via two-query approach
+            List<IncludeExpression> includeExpressions = null;
+            List<IncludeExpression> revIncludeExpressions = null;
+
+            if (clonedSearchOptions.HasGranularScopesWithIncludes)
+            {
+                _logger.LogInformation("Detected granular scopes with includes/revinclude - preparing for two-query approach");
+
+                // Extract includes/revinclude expressions before removing them
+                includeExpressions = ExtractIncludeExpressions(searchExpression, false);
+                revIncludeExpressions = ExtractIncludeExpressions(searchExpression, true);
+
+                // Remove includes from the main query - they'll be executed separately
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
@@ -673,6 +693,61 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 true); // this enables reads from replicas
 
             _logger.LogInformation("Search completed in {ElapsedMilliseconds}ms, query cache enabled: {QueryCacheEnabled}.", stopwatch.ElapsedMilliseconds, reuseQueryPlans);
+
+            // Execute includes query for granular scopes if needed
+            if (clonedSearchOptions.HasGranularScopesWithIncludes &&
+                searchResult != null &&
+                searchResult.Results.Any() &&
+                (includeExpressions.Count > 0 || revIncludeExpressions.Count > 0))
+            {
+                _logger.LogInformation("Executing includes query for granular scope search with {MatchCount} results", searchResult.Results.Count());
+
+                try
+                {
+                    // Extract match results (those from the main search)
+                    var matchResults = searchResult.Results.Where(r => r.SearchEntryMode == SearchEntryMode.Match).ToList();
+
+                    // Call the includes service to find related resources
+                    var (includedResources, includesTruncated, includesContinuationToken) =
+                        await _granularScopeIncludesService.PerformIncludeQueriesAsync(
+                            matchResults,
+                            includeExpressions,
+                            revIncludeExpressions,
+                            clonedSearchOptions,
+                            (opts, ct) => SearchImpl(opts, false, ct),
+                            cancellationToken);
+
+                    _logger.LogInformation(
+                        "Includes query returned {IncludeCount} resources, truncated: {IsTruncated}",
+                        includedResources.Count,
+                        includesTruncated);
+
+                    // Merge results: combine match results with included results
+                    var allResults = new List<SearchResultEntry>(searchResult.Results);
+                    allResults.AddRange(includedResources);
+
+                    // Create new SearchResult with merged results and includes continuation token
+                    searchResult = new SearchResult(
+                        allResults,
+                        searchResult.ContinuationToken,
+                        searchResult.SortOrder,
+                        searchResult.UnsupportedSearchParameters,
+                        null,
+                        includesContinuationToken);
+
+                    _logger.LogInformation(
+                        "Merged search results: {TotalCount} total resources ({MatchCount} matches + {IncludeCount} includes)",
+                        allResults.Count,
+                        searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match),
+                        allResults.Count - searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error executing includes query for granular scope search");
+                    throw;
+                }
+            }
+
             return searchResult;
         }
 
@@ -1845,6 +1920,24 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return !string.IsNullOrEmpty(resourceType) && !string.IsNullOrEmpty(resourceId);
         }
 
+        /// <summary>
+        /// Extracts IncludeExpression instances from the search expression tree.
+        /// </summary>
+        /// <param name="expression">The expression to search</param>
+        /// <param name="reversed">If true, extract revinclude (Reversed=true); if false, extract include (Reversed=false)</param>
+        /// <returns>Collection of matching IncludeExpression instances</returns>
+        private static List<IncludeExpression> ExtractIncludeExpressions(Expression expression, bool reversed)
+        {
+            if (expression == null)
+            {
+                return new List<IncludeExpression>();
+            }
+
+            var visitor = new IncludeExpressionCollector(reversed);
+            expression.AcceptVisitor(visitor, null);
+            return visitor.CollectedExpressions;
+        }
+
         private class ResourceSearchParamStats
         {
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
@@ -2025,6 +2118,31 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 {
                     logger.LogWarning(ex, "ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Internal visitor that collects IncludeExpression instances based on their Reversed flag.
+        /// </summary>
+        private class IncludeExpressionCollector : DefaultExpressionVisitor<object, object>
+        {
+            private readonly bool _reversed;
+
+            public IncludeExpressionCollector(bool reversed)
+            {
+                _reversed = reversed;
+            }
+
+            public List<IncludeExpression> CollectedExpressions { get; } = new List<IncludeExpression>();
+
+            public override object VisitInclude(IncludeExpression expression, object context)
+            {
+                if (expression.Reversed == _reversed)
+                {
+                    CollectedExpressions.Add(expression);
+                }
+
+                return base.VisitInclude(expression, context);
             }
         }
 

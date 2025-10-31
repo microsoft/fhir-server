@@ -492,6 +492,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.AppendLine("),");
         }
 
+        /// <summary>
+        /// Handles <see cref="TrustedResourceIdListExpression"/>, which represents resource IDs that have already been
+        /// filtered by compartment, smart compartment, and scope restrictions. These IDs should not be further filtered
+        /// by scope or compartment restrictions in the includes query.
+        ///
+        /// This method generates SQL that will be used as the starting point for include/revinclude queries.
+        /// The trusted IDs bypass all filtering logic and are used directly to find referenced resources.
+        /// </summary>
+        public override object VisitTrustedResourceIdList(TrustedResourceIdListExpression expression, SearchOptions context)
+        {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull(context, nameof(context));
+
+            // Create a CTE that represents the trusted resource IDs
+            // This will be used as the starting point for includes/revinclude expressions
+            StringBuilder.AppendLine(";WITH");
+            StringBuilder.AppendLine("cte0 AS (SELECT T1, Sid1 FROM (VALUES");
+
+            // Add each trusted resource ID as a row in the VALUES clause
+            bool isFirst = true;
+            foreach (var resourceId in expression.ResourceIds)
+            {
+                if (!isFirst)
+                {
+                    StringBuilder.AppendLine(",");
+                }
+
+                StringBuilder.Append("  (CAST(").Append(Parameters.AddParameter(resourceId.ResourceTypeId, includeInHash: true))
+                    .Append(" AS smallint), CAST(").Append(Parameters.AddParameter(resourceId.ResourceSurrogateId, includeInHash: true))
+                    .Append(" AS bigint))");
+
+                isFirst = false;
+            }
+
+            StringBuilder.AppendLine();
+            StringBuilder.AppendLine(") AS T(T1, Sid1))");
+
+            // Return null to indicate we've handled the expression at the top level
+            return null;
+        }
+
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
             var tableAlias = "predecessorTable";

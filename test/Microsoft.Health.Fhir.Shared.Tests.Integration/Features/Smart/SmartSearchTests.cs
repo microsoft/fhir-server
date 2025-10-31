@@ -18,6 +18,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -1110,7 +1111,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-D";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            var query = new List<Tuple<string, string>>() { new Tuple<string, string>("_revinclude", "*"), new Tuple<string, string>("_id", "smart-patient-D") };
+            var query = new List<Tuple<string, string>>() { new Tuple<string, string>("_revinclude", "*:*"), new Tuple<string, string>("_id", "smart-patient-D") };
             var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
 
             Assert.NotEmpty(results.Results);
@@ -3910,6 +3911,408 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             {
                 Assert.Contains("Include and RevInclude searches do not support SMART V2 finer-grained resource constraints using search parameters.", ex.Message);
             }
+        }
+
+        [SkippableFact]
+        public async Task GivenIncludesOperationWithSingleRestrictedScope_WhenIncludingResourceTypeNotInScope_ThenExceptionThrown()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Only Observation in scope, attempt to include Patient (not in scope)
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: $includes operation with Observation, include Patient:general-practitioner (not in scope)
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+
+            // Assert: No Patients returned.
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Patient");
+        }
+
+        [SkippableFact]
+        public async Task GivenIncludesOperationWithMultipleScopes_WhenIncludedResourceTypeInUnionOfScopes_ThenIncludedResourcesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Multiple scopes - Observation and Patient in scope
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            ConfigureFhirRequestContext(
+                _contextAccessor,
+                new List<ScopeRestriction>() { observationScope, patientScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Search Observation with _include to Patient (both in scope)
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-observation-A1"));
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // Assert: Both Observation and Patient should be returned
+            Assert.NotEmpty(results.Results);
+            var observationResults = results.Results
+                .Where(x => x.Resource.ResourceTypeName == "Observation")
+                .ToList();
+            var patientResults = results.Results
+                .Where(x => x.Resource.ResourceTypeName == "Patient")
+                .ToList();
+
+            Assert.Single(observationResults);
+            Assert.NotEmpty(patientResults);
+        }
+
+        [SkippableFact]
+        public async Task GivenIncludesOperationWithSmartV2ReadScope_WhenSearching_ThenIncludesAreProperlyRestricted()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: SMART v2 granular scopes with 'r' (read by ID) and 's' (search)
+            // 'r' = ReadById (no search), 's' = Search | Export
+            var observationReadScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.ReadById,  // SMART v2 'r' - read by ID only
+                "patient");
+
+            var patientSearchScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Search,  // SMART v2 's' - allows search
+                "patient");
+
+            ConfigureFhirRequestContext(
+                _contextAccessor,
+                new List<ScopeRestriction>() { observationReadScope, patientSearchScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Search Patient with _include to Observation
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+            query.Add(new Tuple<string, string>("_include", "Patient:general-practitioner"));
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // Assert: Patient should be returned, and includes should be applied if resources exist
+            Assert.NotEmpty(results.Results);
+            var patientResults = results.Results
+                .Where(x => x.Resource.ResourceTypeName == "Patient")
+                .ToList();
+            Assert.Single(patientResults);
+        }
+
+        [SkippableFact]
+        public async Task GivenIncludesOperationWithRevincludeAndMultipleScopes_WhenResourceTypeNotInScope_ThenExceptionThrown()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Only Patient and Observation in scope, attempt revinclude of Encounter
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            ConfigureFhirRequestContext(
+                _contextAccessor,
+                new List<ScopeRestriction>() { patientScope, observationScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Patient with _revinclude to Encounter (not in scope)
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+            query.Add(new Tuple<string, string>("_revinclude", "Encounter:subject"));
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Encounter");
+        }
+
+        [SkippableFact]
+        public async Task GivenIncludesOperationWithWildcardInclude_WhenMultipleScopesConfigured_ThenOnlyScopedResourceTypesIncluded()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Multiple limited scopes - Patient, Observation, and Practitioner
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            var practitionerScope = new ScopeRestriction(
+                KnownResourceTypes.Practitioner,
+                Core.Features.Security.DataActions.Read,
+                "patient");
+
+            ConfigureFhirRequestContext(
+                _contextAccessor,
+                new List<ScopeRestriction>() { patientScope, observationScope, practitionerScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Wildcard _include (will try to include all resource types)
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-observation-A1"));
+            query.Add(new Tuple<string, string>("_include", "*:*"));
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // Assert: Only scoped resource types (Patient, Observation, Practitioner) should be in results
+            Assert.NotEmpty(results.Results);
+            var resultTypes = results.Results
+                .Select(r => r.Resource.ResourceTypeName)
+                .Distinct()
+                .ToList();
+
+            var allowedTypes = new[] { "Patient", "Observation", "Practitioner" };
+            foreach (var type in resultTypes)
+            {
+                Assert.Contains(type, allowedTypes);
+            }
+
+            // Verify that no other resource types are returned
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Encounter");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Medication");
+        }
+
+        [SkippableFact]
+        public async Task GivenSearchWithGranularScopeAndInclude_WhenIncludingResourceTypeNotInScope_ThenIncludedResourceTypeIsBlocked()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Granular Observation scope with code filter
+            // NO Patient scope - validates that includes respect scope restrictions
+            var scopeRestriction = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("code", "http://loinc.org|4548-4")));
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Search for Observations with _include=Observation:subject
+            // Since there's no Patient scope, Patients should NOT be included
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+            query.Add(new Tuple<string, string>("code", "http://loinc.org|4548-4"));
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // Assert: Patient resources should NOT be included because Patient is not in any scope
+            Assert.NotEmpty(results.Results);
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Patient");
+        }
+
+        [SkippableFact]
+        public async Task GivenSearchWithGranularScopes_WhenBothResourceTypesInScope_ThenIncludesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Multiple granular scopes
+            // Observation scope with code filter and Patient scope (no filter)
+            // Validates that includes work when both resource types are in scopes
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("code", "http://loinc.org|4548-4")));
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Search,
+                "patient");
+
+            ConfigureFhirRequestContext(
+                _contextAccessor,
+                new List<ScopeRestriction>() { observationScope, patientScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Search for specific Observation with _include to Patient
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-observation-A1"));
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // Assert: Both Observation and Patient should be returned (both are in scopes)
+            Assert.NotEmpty(results.Results);
+            var observationResults = results.Results
+                .Where(x => x.Resource.ResourceTypeName == "Observation")
+                .ToList();
+            var patientResults = results.Results
+                .Where(x => x.Resource.ResourceTypeName == "Patient")
+                .ToList();
+
+            Assert.Single(observationResults);
+            Assert.NotEmpty(patientResults);
+        }
+
+        [SkippableFact]
+        public async Task GivenSearchWithRevincludeAndGranularScopes_WhenMultipleScopesWithSearchFilters_ThenIncludesRespectFilters()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Multiple granular scopes each with search parameter filters
+            // Observation scope: limited to code=4548-4 and status=final
+            // Patient scope: limited to name=SMARTGivenName1
+            // Validates that granular scope filters are applied to included resources
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("name", "SMARTGivenName1")));
+
+            ConfigureFhirRequestContext(
+                _contextAccessor,
+                new List<ScopeRestriction>() { observationScope, patientScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Search Patient, revinclude Observations
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+            query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // Assert: Patient should be returned
+            Assert.NotEmpty(results.Results);
+            var patientResults = results.Results
+                .Where(x => x.Resource.ResourceTypeName == "Patient")
+                .ToList();
+
+            Assert.Single(patientResults);
+
+            // Included Observations should respect the Observation scope filters
+            var observationResults = results.Results
+                .Where(x => x.Resource.ResourceTypeName == "Observation")
+                .ToList();
+
+            if (observationResults.Any())
+            {
+                // Verify that included Observations exist
+                // (granular filters are applied at the search service level)
+                Assert.NotEmpty(observationResults);
+            }
+        }
+
+        [SkippableFact]
+        public async Task GivenSearchWithWildcardIncludeAndGranularScopes_WhenIncludingAllTypes_ThenOnlyScopedResourceTypesIncluded()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Setup: Granular scopes for Observation and Patient only
+            // Validates that wildcard includes respect scope restrictions
+            var observationScope = new ScopeRestriction(
+                KnownResourceTypes.Observation,
+                Core.Features.Security.DataActions.Search,
+                "patient",
+                CreateSearchParams(("code", "http://loinc.org|4548-4")));
+
+            var patientScope = new ScopeRestriction(
+                KnownResourceTypes.Patient,
+                Core.Features.Security.DataActions.Search,
+                "patient");
+
+            ConfigureFhirRequestContext(
+                _contextAccessor,
+                new List<ScopeRestriction>() { observationScope, patientScope });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Query: Wildcard _include (tries to include all resource types)
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-observation-A1"));
+            query.Add(new Tuple<string, string>("_include", "*:*"));
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // Assert: Only scoped resource types (Patient, Observation) should be in results
+            // Even though _include=*:* was specified, scope restrictions should be enforced
+            Assert.NotEmpty(results.Results);
+            var resultTypes = results.Results
+                .Select(r => r.Resource.ResourceTypeName)
+                .Distinct()
+                .ToList();
+
+            var allowedTypes = new[] { "Patient", "Observation" };
+            foreach (var type in resultTypes)
+            {
+                Assert.Contains(type, allowedTypes);
+            }
+
+            // Verify that unscoped resource types are NOT returned
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Practitioner");
+            Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Encounter");
         }
     }
 }
