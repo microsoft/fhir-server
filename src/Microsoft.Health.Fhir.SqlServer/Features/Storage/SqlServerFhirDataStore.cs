@@ -11,6 +11,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -409,6 +410,74 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results;
         }
 
+        /// <summary>
+        /// Extracts constraint violation details from SQL exception and creates error message with resource context.
+        /// This approach avoids duplicating constraint validation logic between C# and SQL.
+        /// </summary>
+        private string ExtractConstraintViolationDetails(SqlException sqlException, IReadOnlyList<ImportResource> resources)
+        {
+            // SQL Server constraint violation error message typically contains:
+            // - The constraint name
+            // - The table name
+            // - The conflicting key value (if available)
+            string errorMessage = sqlException.Message;
+            
+            // Extract relevant constraint information from error message
+            // Common patterns in SQL constraint violation messages:
+            // "The INSERT statement conflicted with the FOREIGN KEY constraint..."
+            // "The INSERT statement conflicted with the CHECK constraint..."
+            // "Violation of PRIMARY KEY constraint..."
+            
+            string constraintType = "unknown";
+            string constraintName = "unknown";
+            
+            if (errorMessage.Contains("CHECK constraint", StringComparison.OrdinalIgnoreCase))
+            {
+                constraintType = "CHECK constraint";
+                // Try to extract constraint name
+                var match = System.Text.RegularExpressions.Regex.Match(errorMessage, @"constraint ""([^""]+)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    constraintName = match.Groups[1].Value;
+                }
+            }
+            else if (errorMessage.Contains("FOREIGN KEY constraint", StringComparison.OrdinalIgnoreCase))
+            {
+                constraintType = "FOREIGN KEY constraint";
+                var match = System.Text.RegularExpressions.Regex.Match(errorMessage, @"constraint ""([^""]+)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    constraintName = match.Groups[1].Value;
+                }
+            }
+            else if (errorMessage.Contains("PRIMARY KEY constraint", StringComparison.OrdinalIgnoreCase))
+            {
+                constraintType = "PRIMARY KEY constraint";
+                var match = System.Text.RegularExpressions.Regex.Match(errorMessage, @"constraint '([^']+)'", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    constraintName = match.Groups[1].Value;
+                }
+            }
+            
+            // Build informative error message with resource context
+            var resourceInfo = resources.Count == 1 
+                ? $"resource at index {resources[0].Index}" 
+                : $"batch of {resources.Count} resources (indices {resources.First().Index} to {resources.Last().Index})";
+            
+            var detailedError = $"Database constraint violation ({constraintType}: {constraintName}) in {resourceInfo}. " +
+                               $"SQL Error: {errorMessage}";
+            
+            _logger.LogError("Constraint violation during import: {ConstraintType} {ConstraintName} for {ResourceInfo}", 
+                constraintType, constraintName, resourceInfo);
+            
+            // Serialize error for the first resource in the batch (since we're aborting on first error)
+            return _importErrorSerializer.Serialize(
+                resources.First().Index, 
+                detailedError,
+                resources.First().Offset);
+        }
+
         internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             if (resources.Count == 0) // do not go to the database
@@ -429,6 +498,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
+                    
+                    // Handle constraint violations - abort import on first constraint error
+                    if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.ConstraintViolation)
+                    {
+                        _logger.LogWarning(e, $"Constraint violation on {nameof(ImportResourcesInternalAsync)} resources={{Resources}}", resources.Count);
+                        
+                        // Extract constraint details from SQL error message
+                        var constraintError = ExtractConstraintViolationDetails(sqlEx, resources);
+                        
+                        // Return errors for all resources in the batch to abort import
+                        return new List<string> { constraintError };
+                    }
+                    
                     if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < maxRetries)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
@@ -473,23 +555,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var loaded = new List<ImportResource>();
                 var conflicts = new List<ImportResource>();
 
-                // Check for constraint violations
-                var constraintCheckresults = ValidateConstraintViolations(resources);
-
-                // Check if there are any conflicts while constraint checks
-                if (constraintCheckresults.Conflicts.Any())
-                {
-                    conflicts.AddRange(constraintCheckresults.Conflicts);
-                }
-
-                // 2. Subsequent processing should only operate on the validated resources.
-                if (!constraintCheckresults.ValidResources.Any())
-                {
-                    return (loaded, conflicts); // All resources had conflicts, so we can stop here.
-                }
-
-                // 3. Shadow the 'resources' variable to ensure the rest of the method uses the validated list.
-                resources = constraintCheckresults.ValidResources;
+                // Note: Constraint validation is now performed by SQL database.
+                // If a constraint violation occurs, it will be caught as a SqlException
+                // with error code 547, and we will handle it in the catch block above.
 
                 if (importMode == ImportMode.InitialLoad)
                 {
