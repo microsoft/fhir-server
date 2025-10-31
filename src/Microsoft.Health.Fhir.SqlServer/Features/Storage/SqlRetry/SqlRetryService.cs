@@ -460,19 +460,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                 conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                logger.LogDebug($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                logger.LogDebug($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds. Connection ID: {conn.ClientConnectionId}. ");
                 if (sw.Elapsed.TotalSeconds > 1)
                 {
-                    logSB.AppendLine($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                    logSB.AppendLine($"Retrieved {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds. Connection ID: {conn.ClientConnectionId}. ");
                     logger.LogWarning(logSB.ToString());
                 }
 
                 sw = Stopwatch.StartNew();
                 await conn.OpenAsync(cancel);
-                logger.LogDebug($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                logger.LogDebug($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds. Connection ID: {conn.ClientConnectionId}. ");
                 if (sw.Elapsed.TotalSeconds > 1)
                 {
-                    logSB.AppendLine($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds.");
+                    logSB.AppendLine($"Opened {isReadOnlyConnection}connection to the database in {sw.Elapsed.TotalSeconds} seconds. Connection ID: {conn.ClientConnectionId}. ");
                     logger.LogWarning(logSB.ToString());
                 }
 
