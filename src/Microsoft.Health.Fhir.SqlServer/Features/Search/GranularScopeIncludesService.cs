@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             // Build list of trusted resource IDs (already filtered by the first query)
             var trustedResourceIds = matchResourceKeys
-                .Select(key => new TrustedResourceIdListExpression.ResourceId(
+                .Select(key => new ResourceId(
                     GetResourceTypeId(key.ResourceTypeName),
                     key.ResourceSurrogateId))
                 .ToList();
