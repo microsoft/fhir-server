@@ -435,7 +435,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 constraintType = "CHECK constraint";
                 // Try to extract constraint name
-                var match = System.Text.RegularExpressions.Regex.Match(errorMessage, @"constraint ""([^""]+)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var match = Regex.Match(errorMessage, @"constraint ""([^""]+)""", RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
                     constraintName = match.Groups[1].Value;
@@ -444,7 +444,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else if (errorMessage.Contains("FOREIGN KEY constraint", StringComparison.OrdinalIgnoreCase))
             {
                 constraintType = "FOREIGN KEY constraint";
-                var match = System.Text.RegularExpressions.Regex.Match(errorMessage, @"constraint ""([^""]+)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var match = Regex.Match(errorMessage, @"constraint ""([^""]+)""", RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
                     constraintName = match.Groups[1].Value;
@@ -453,7 +453,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else if (errorMessage.Contains("PRIMARY KEY constraint", StringComparison.OrdinalIgnoreCase))
             {
                 constraintType = "PRIMARY KEY constraint";
-                var match = System.Text.RegularExpressions.Regex.Match(errorMessage, @"constraint '([^']+)'", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var match = Regex.Match(errorMessage, @"constraint '([^']+)'", RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
                     constraintName = match.Groups[1].Value;
