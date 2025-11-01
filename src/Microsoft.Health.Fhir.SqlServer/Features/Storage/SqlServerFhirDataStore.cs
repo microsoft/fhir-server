@@ -956,8 +956,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.Ordinal);
             if (startIndex == -1)
             {
-                // I think this should be a warning because it happens every time a resource is deleted. Maybe even info.
-                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")}");
+                // This happens during normal operations (e.g., resource deletion) and is not an error condition.
+                _logger.LogInformation($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")}");
                 return string.Empty;
             }
 
@@ -965,7 +965,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var endIndex = json.IndexOf('"', startIndex);
             if (endIndex == -1)
             {
-                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")}");
+                _logger.LogInformation($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")}");
                 return string.Empty;
             }
 
