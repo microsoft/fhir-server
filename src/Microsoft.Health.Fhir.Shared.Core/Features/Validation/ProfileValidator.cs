@@ -89,8 +89,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 TerminologyService = terminologyService,
             };
 
-            // Append cid-0 constraint to ignore list (FHIR R4+ spec error: references non-existent "name" property)
-            if (_modelInfoProvider.Version >= FhirSpecification.R4)
+            // Append cid-0 constraint to ignore list (FHIR R4/R4B spec error: references non-existent "name" property)
+            // This issue is fixed in R5+
+            if (_modelInfoProvider.Version is FhirSpecification.R4 or FhirSpecification.R4B)
             {
                 ctx.ConstraintsToIgnore = ctx.ConstraintsToIgnore is { Length: > 0 }
                     ? ctx.ConstraintsToIgnore.Append("cid-0").ToArray()

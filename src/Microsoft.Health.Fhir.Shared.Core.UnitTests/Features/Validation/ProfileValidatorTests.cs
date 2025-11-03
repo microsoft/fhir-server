@@ -43,10 +43,9 @@ public class ProfileValidatorTests
     [Theory]
     [InlineData(FhirSpecification.R4)]
     [InlineData(FhirSpecification.R4B)]
-    [InlineData(FhirSpecification.R5)]
-    public void GivenR4OrLaterFhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsIgnored(FhirSpecification version)
+    public void GivenR4OrR4BFhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsIgnored(FhirSpecification version)
     {
-        // Arrange
+        // Arrange - cid-0 spec error only in R4 and R4B (fixed in R5+)
         var modelInfoProvider = MockModelInfoProviderBuilder.Create(version).Build();
         var validator = new ProfileValidator(_profilesResolver, _options, _logger, modelInfoProvider);
 
@@ -59,11 +58,13 @@ public class ProfileValidatorTests
         Assert.Contains("cid-0", internalValidator.Settings.ConstraintsToIgnore);
     }
 
-    [Fact]
-    public void GivenStu3FhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsNotIgnored()
+    [Theory]
+    [InlineData(FhirSpecification.Stu3)]
+    [InlineData(FhirSpecification.R5)]
+    public void GivenStu3OrR5FhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsNotIgnored(FhirSpecification version)
     {
-        // Arrange
-        var modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.Stu3).Build();
+        // Arrange - cid-0 spec error does not apply to STU3 (no ChargeItemDefinition) or R5 (issue fixed)
+        var modelInfoProvider = MockModelInfoProviderBuilder.Create(version).Build();
         var validator = new ProfileValidator(_profilesResolver, _options, _logger, modelInfoProvider);
 
         // Act
