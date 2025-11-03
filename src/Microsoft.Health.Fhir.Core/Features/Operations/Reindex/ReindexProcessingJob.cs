@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -368,23 +367,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var resultsList = results.Results.ToList();
             _logger.LogJobInformation(
                 _jobInfo,
-                "Starting parallel search parameter extraction for {ResultCount} resources...",
+                "Starting search parameter extraction for {ResultCount} resources...",
                 resultsList.Count);
 
-            // Use ConcurrentBag for thread-safe collection
-            var updateSearchIndices = new ConcurrentBag<ResourceWrapper>();
-
-            // Parallel processing of search parameter extraction
-            var parallelOptions = new ParallelOptions
-            {
-                CancellationToken = cancellationToken,
-                MaxDegreeOfParallelism = 8,
-            };
+            // Use List for collection
+            var updateSearchIndices = new List<ResourceWrapper>();
 
             try
             {
-                Parallel.ForEach(resultsList, parallelOptions, entry =>
+                foreach (var entry in resultsList)
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogJobInformation(_jobInfo, "Search parameter extraction cancelled");
+                        return;
+                    }
+
                     if (!resourceTypeSearchParameterHashMap.TryGetValue(entry.Resource.ResourceTypeName, out string searchParamHash))
                     {
                         searchParamHash = string.Empty;
@@ -393,7 +391,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     entry.Resource.SearchParameterHash = searchParamHash;
                     _resourceWrapperFactory.Update(entry.Resource);
                     updateSearchIndices.Add(entry.Resource);
-                });
+                }
             }
             catch (OperationCanceledException)
             {
