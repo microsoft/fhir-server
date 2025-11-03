@@ -127,8 +127,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
-        internal IResourceDeserializer ResourceDeserializer { get; private set; }
-
         internal static string GetDatabaseName(string test = null)
         {
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
@@ -238,8 +236,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
-            ResourceDeserializer = Substitute.For<IResourceDeserializer>();
-
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
@@ -254,8 +250,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation),
-                ResourceDeserializer);
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
@@ -420,11 +415,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(TestSqlHashCalculator))
             {
                 return SqlQueryHashCalculator as TestSqlHashCalculator;
-            }
-
-            if (serviceType == typeof(ResourceDeserializer))
-            {
-                return ResourceDeserializer as ResourceDeserializer;
             }
 
             return null;

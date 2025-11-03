@@ -66,7 +66,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private readonly IResourceDeserializer _resourceDeserializer;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
         private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -86,8 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient,
-            IResourceDeserializer resourceDeserializer)
+            SqlStoreClient storeClient)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -103,7 +101,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
