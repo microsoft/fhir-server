@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly IResourceResolver _resolver;
         private readonly ILogger<ProfileValidator> _logger;
         private readonly int _maxExpansionSize;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         private Validator _validator;
         private DateTime _lastValidatorRefresh = DateTime.MinValue;
@@ -32,13 +33,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public ProfileValidator(
             IProvideProfilesForValidation profilesResolver,
             IOptions<ValidateOperationConfiguration> options,
-            ILogger<ProfileValidator> logger)
+            ILogger<ProfileValidator> logger,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _logger = logger;
+            _modelInfoProvider = modelInfoProvider;
 
             try
             {
@@ -71,12 +75,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             var expanderSettings = new ValueSetExpanderSettings
             {
-                MaxExpansionSize = _maxExpansionSize, // Set your desired max expansion size here
+                MaxExpansionSize = _maxExpansionSize,
             };
 
             var terminologyService = new LocalTerminologyService(_resolver.AsAsync(), expanderSettings);
 
-            var ctx = new ValidationSettings()
+            var ctx = new ValidationSettings
             {
                 ResourceResolver = _resolver,
                 GenerateSnapshot = true,
@@ -85,8 +89,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 TerminologyService = terminologyService,
             };
 
-            _validator = new Validator(ctx);
+            // Append cid-0 constraint to ignore list (FHIR R4+ spec error: references non-existent "name" property)
+            if (_modelInfoProvider.Version >= FhirSpecification.R4)
+            {
+                ctx.ConstraintsToIgnore = ctx.ConstraintsToIgnore is { Length: > 0 }
+                    ? ctx.ConstraintsToIgnore.Append("cid-0").ToArray()
+                    : ["cid-0"];
+            }
 
+            _validator = new Validator(ctx);
             return _validator;
         }
 
