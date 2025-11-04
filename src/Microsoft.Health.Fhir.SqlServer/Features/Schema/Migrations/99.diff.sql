@@ -1,6 +1,6 @@
-﻿--DROP PROCEDURE dbo.EnqueueJobs
+--DROP PROCEDURE dbo.EnqueueJobs
 GO
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @Status tinyint = NULL, @Result varchar(max) = NULL, @StartDate datetime = NULL, @ReturnJobs bit = 1
+CREATE OR ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @Status tinyint = NULL, @Result varchar(max) = NULL, @StartDate datetime = NULL, @ReturnJobs bit = 1
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'

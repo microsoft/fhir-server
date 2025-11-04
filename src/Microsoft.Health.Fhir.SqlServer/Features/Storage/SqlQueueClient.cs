@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
             }
-            catch (SqlException sqlEx) when (forceOneActiveJobGroup && sqlEx.State == 127)
+            catch (SqlException sqlEx) when ((forceOneActiveJobGroup && sqlEx.State == 127) || sqlEx.State == 128)
             {
                 throw new JobConflictException(sqlEx.Message);
             }
