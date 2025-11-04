@@ -27,7 +27,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenNewJobs_WhenEnqueueJobs_ThenCreatedJobsShouldBeReturned = 16,
         GivenNewJobsWithSameQueueType_WhenEnqueueWithForceOneActiveJobGroup_ThenSecondJobShouldNotBeEnqueued,
         GivenJobsWithSameDefinition_WhenEnqueue_ThenOnlyOneJobShouldBeEnqueued,
-        GivenJobsWithSameDefinition_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect,
+        GivenJobs_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect,
+        GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued,
         GivenJobsEnqueue_WhenDequeue_ThenAllJobsShouldBeReturned,
         GivenJobWithExpiredHeartbeat_WhenDequeue_ThenJobWithResultShouldBeReturned,
         GivenRunningJobCancelled_WhenHeartbeat_ThenCancelRequestedShouldBeReturned,
@@ -100,9 +101,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenJobsWithSameDefinition_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect()
+        public async Task GivenJobs_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect()
         {
-            byte queueType = (byte)TestQueueType.GivenJobsWithSameDefinition_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect;
+            byte queueType = (byte)TestQueueType.GivenJobs_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect;
 
             long groupId = new Random().Next(int.MinValue, int.MaxValue);
             IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, groupId, false, CancellationToken.None);
@@ -113,6 +114,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(groupId, jobInfos.First().GroupId);
             Assert.Equal(groupId, jobInfos.Last().GroupId);
+        }
+
+        [Fact]
+        public async Task GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued()
+        {
+            byte queueType = (byte)TestQueueType.GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued;
+
+            string[] definitions = new[] { "job1" };
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, definitions, null, false, CancellationToken.None);
+            await _queueClient.CancelJobByGroupIdAsync(queueType, jobInfos.First().GroupId, CancellationToken.None);
+
+            definitions = new[] { "job2" };
+            await Assert.ThrowsAsync<JobConflictException>(async () => await _queueClient.EnqueueAsync(queueType, definitions, jobInfos.First().GroupId, false, CancellationToken.None));
         }
 
         [Fact]
