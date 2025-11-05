@@ -1,0 +1,67 @@
+parameters:
+- name: resourceGroup
+  type: string
+- name: keyVaultName
+  type: string
+- name: nspName
+  type: string
+- name: nspProfile
+  type: string
+  default: 'default'
+
+jobs:
+- job: associateKeyVaultNsp
+  displayName: 'Associate KeyVault with NSP'
+  pool:
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: AzurePowerShell@5
+    displayName: 'Associate KeyVault with Network Security Perimeter'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $resourceGroupName = "${{ parameters.resourceGroup }}"
+        $keyVaultName = "${{ parameters.keyVaultName }}"
+        $nspName = "${{ parameters.nspName }}"
+        $nspProfile = "${{ parameters.nspProfile }}"
+        
+        Write-Host "Associating KeyVault $keyVaultName with Network Security Perimeter: $nspName"
+        
+        # Check if KeyVault exists
+        $keyVault = Get-AzKeyVault -VaultName $keyVaultName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
+        
+        if ($keyVault) {
+            Write-Host "KeyVault $keyVaultName found, proceeding with NSP association"
+            
+            $associationName = "keyvault-$keyVaultName-association"
+                
+            Write-Host "Creating NSP association using external ARM template..."
+            Write-Host "NSP Name: $nspName"
+            Write-Host "KeyVault Name: $keyVaultName"
+            Write-Host "Association Name: $associationName"
+                
+            $templateParameters = @{
+                'nspName' = $nspName
+                'resourceName' = $keyVaultName
+                'resourceType' = 'Microsoft.KeyVault/vaults'
+                'associationName' = $associationName
+                'accessMode' = 'Learning'
+                'nspProfile' = $nspProfile
+            }
+                
+            # Deploy using external template
+            $nspDeploymentResult = New-AzResourceGroupDeployment `
+              -ResourceGroupName $resourceGroupName `
+              -Name "$keyVaultName-keyvault-nsp-association" `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+              -TemplateParameterObject $templateParameters `
+              -Verbose
+                
+            Write-Host "Successfully associated KeyVault with NSP using external ARM template"
+            Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+        } else {
+            Write-Warning "KeyVault $keyVaultName not found in resource group $resourceGroupName"
+        }

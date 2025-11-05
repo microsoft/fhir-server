@@ -163,6 +163,19 @@ stages:
       nspName: 'nsp-$(ResourceGroupName)'
       nspProfile: 'default'
 
+- stage: associateKeyVaultNsp
+  displayName: 'Associate KeyVault with NSP'
+  dependsOn:
+  - setupEnvironment
+  - createNsp
+  jobs:
+  - template: ./jobs/associate-keyvault-nsp.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      keyVaultName: '$(DeploymentEnvironmentName)-ts'
+      nspName: 'nsp-$(ResourceGroupName)'
+      nspProfile: 'default'
+
 - stage: deploySqlServer
   displayName: 'Deploy SQLServer'
   dependsOn:
@@ -413,6 +426,24 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR5)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
+- stage: aggregateCoverage
+  displayName: 'Aggregate All Coverage Reports'
+  dependsOn:
+  - BuildUnitTests
+  - testStu3
+  - testR4
+  - testR4B
+  - testR5
+  condition: succeeded()
+  jobs:
+  - job: AggregateCoverage
+    displayName: 'Aggregate coverage from all test types and versions'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/aggregate-coverage.yml
+
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
@@ -420,6 +451,7 @@ stages:
   - testR4
   - testR4B
   - testR5
+  condition: succeeded()
   jobs:
   - template: ./jobs/cleanup.yml
 

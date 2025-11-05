@@ -9,3 +9,6 @@
     LastUpdated             datetimeoffset(7)           NOT NULL,
     IsPartiallySupported    bit                         NOT NULL
 )
+
+CREATE NONCLUSTERED INDEX IX_LastUpdated
+ON dbo.SearchParam (LastUpdated)
