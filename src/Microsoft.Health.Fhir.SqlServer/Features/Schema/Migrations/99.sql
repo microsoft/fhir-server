@@ -5125,8 +5125,8 @@ BEGIN TRY
                               AND (B.CodeOverflow1 = A.CodeOverflow1
                                    OR B.CodeOverflow1 IS NULL
                                       AND A.CodeOverflow1 IS NULL)
-                              AND B.Text2 = A.Text2
-                              AND (B.TextOverflow2 = A.TextOverflow2
+                              AND B.Text2 COLLATE Latin1_General_CI_AI = A.Text2
+                              AND (B.TextOverflow2 COLLATE Latin1_General_CI_AI = A.TextOverflow2
                                    OR B.TextOverflow2 IS NULL
                                       AND A.TextOverflow2 IS NULL))
     OPTION (HASH JOIN);
@@ -5144,8 +5144,8 @@ BEGIN TRY
                           AND (B.CodeOverflow1 = A.CodeOverflow1
                                OR B.CodeOverflow1 IS NULL
                                   AND A.CodeOverflow1 IS NULL)
-                          AND B.Text2 COLLATE Latin1_General_100_CI_AI_SC = A.Text2
-                          AND (B.TextOverflow2 COLLATE Latin1_General_100_CI_AI_SC = A.TextOverflow2
+                          AND B.Text2 COLLATE Latin1_General_CI_AI = A.Text2
+                          AND (B.TextOverflow2 COLLATE Latin1_General_CI_AI = A.TextOverflow2
                                OR B.TextOverflow2 IS NULL
                                   AND A.TextOverflow2 IS NULL));
     INSERT INTO @TokenStringCompositeSearchParamsInsert (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
