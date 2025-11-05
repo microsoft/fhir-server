@@ -108,6 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             _rootExpression = expression;
 
+            var visitedInclude = false;
             if (expression.SearchParamTableExpressions.Count > 0)
             {
                 if (expression.ResourceTableExpressions.Count > 0)
@@ -133,9 +134,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.AppendLine(")");
+                bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
                 StringBuilder.AppendLine("DECLARE @FilteredDataSmartV2Union AS TABLE (T1 smallint, Sid1 bigint)");
                 StringBuilder.AppendLine(";WITH");
-                var visitedInclude = false;
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
                     if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
@@ -144,10 +145,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             // Union expressions for smart v2 scopes with search parameters needs to be handled differently
                             AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
-                            sb.AppendLine();
-                            sb.AppendLine($"INSERT INTO @FilteredDataSmartV2Union SELECT T1, Sid1 FROM cte{_tableExpressionCounter}");
-                            AddOptionClause();
-                            sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredDataSmartV2Union)");
+                            if (hasIncludeExpressions)
+                            {
+                                sb.AppendLine();
+                                sb.AppendLine($"INSERT INTO @FilteredDataSmartV2Union SELECT T1, Sid1 FROM cte{_tableExpressionCounter}");
+                                AddOptionClause();
+                                sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredDataSmartV2Union)");
+                            }
+
                             _smartV2UnionVisited = true;
                         }
                         else
@@ -183,7 +188,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
-            AddHash();
+            if (!visitedInclude)
+            {
+                AddHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
+            }
 
             string resourceTableAlias = "r";
             bool selectingFromResourceTable;

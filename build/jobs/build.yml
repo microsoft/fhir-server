@@ -47,24 +47,19 @@ steps:
       arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
   - task: reportgenerator@5
-    displayName: 'aggregate code coverage'
+    displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
     inputs:
       reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
-  - task: PublishCodeCoverageResults@1
-    displayName: 'publish code coverage'
+  
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish unit test coverage artifact'
     condition: succeededOrFailed()
     inputs:
-      codeCoverageTool: 'Cobertura'
-      failIfCoverageEmpty: true
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish Cobertura.xml'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      artifactName: 'IntegrationTests'
+      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      artifactName: 'Coverage_UnitTests'
       artifactType: 'container'
 
 - ${{ if eq(parameters.packageArtifacts, 'true') }}:

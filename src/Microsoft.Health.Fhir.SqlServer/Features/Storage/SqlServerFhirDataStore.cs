@@ -21,6 +21,7 @@ using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -28,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -192,6 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var prevResourceId = string.Empty;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
+                var metaHistory = true;
                 var resource = resourceExt.Wrapper;
                 var setAsHistory = prevResourceId == resource.ResourceId; // this assumes that first resource version is the latest one
                 //// negative versions are historical by definition
@@ -298,6 +301,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                             continue;
                         }
+                        else if (!resourceExt.MetaHistory && ChangesAreOnlyInMetadata(resource, existingResource))
+                        {
+                            metaHistory = false;
+                        }
                     }
 
                     existingVersion = int.Parse(existingResource.Version);
@@ -307,6 +314,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         resource.Version = versionPlusOne;
                     }
 
+                    // This is not part of the above check to cover the case of importing data in version order.
                     if (resource.Version == versionPlusOne)
                     {
                         hasVersionToCompare = true;
@@ -339,7 +347,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory && metaHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
@@ -949,6 +957,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        private static bool ChangesAreOnlyInMetadata(ResourceWrapper inputWrapper, ResourceWrapper existingWrapper)
+        {
+            var inputData = inputWrapper.RawResource.Data;
+            var existingData = existingWrapper.RawResource.Data;
+
+            var inputMetaStartIndex = inputData.IndexOf("\"meta\":", StringComparison.Ordinal);
+            var existingMetaStartIndex = existingData.IndexOf("\"meta\":", StringComparison.Ordinal);
+
+            var inputDataWithoutMeta = inputData;
+            var existingDataWithoutMeta = existingData;
+
+            if (inputMetaStartIndex != -1)
+            {
+                var inputMeta = inputData.GetJsonSection(inputMetaStartIndex);
+                inputDataWithoutMeta = inputData.Replace(inputMeta, string.Empty, StringComparison.Ordinal);
+            }
+
+            if (existingMetaStartIndex != -1)
+            {
+                var existingMeta = existingData.GetJsonSection(existingMetaStartIndex);
+                existingDataWithoutMeta = existingData.Replace(existingMeta, string.Empty, StringComparison.Ordinal);
+            }
+
+            return inputDataWithoutMeta.Equals(existingDataWithoutMeta, StringComparison.Ordinal);
+        }
+
         // This method relies on current raw resource string formatting, i.e. no extra spaces.
         // This logic should be removed once "resource.meta not available" bug is fixed.
         private string GetJsonValue(string json, string propName, bool isExisting)
@@ -957,7 +991,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (startIndex == -1)
             {
                 // I think this should be a warning because it happens every time a resource is deleted. Maybe even info.
-                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
+                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")}");
                 return string.Empty;
             }
 
@@ -965,7 +999,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var endIndex = json.IndexOf('"', startIndex);
             if (endIndex == -1)
             {
-                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
+                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")}");
                 return string.Empty;
             }
 
