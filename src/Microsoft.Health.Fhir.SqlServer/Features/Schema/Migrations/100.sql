@@ -2105,8 +2105,7 @@ BEGIN TRY
                            FROM   dbo.JobQueue
                            WHERE  QueueType = @QueueType
                                   AND JobId = @GroupId
-                                  AND (Status = 4
-                                       OR CancelRequested = 1))
+                                  AND CancelRequested = 1)
                 RAISERROR ('The specified job group is cancelled', 18, 128);
             SET @MaxJobId = isnull((SELECT   TOP 1 JobId
                                     FROM     dbo.JobQueue

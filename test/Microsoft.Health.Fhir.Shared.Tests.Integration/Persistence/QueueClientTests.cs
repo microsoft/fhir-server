@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _queueClient.CancelJobByGroupIdAsync(queueType, jobInfos.First().GroupId, CancellationToken.None);
 
             definitions = new[] { "job2" };
-            await Assert.ThrowsAsync<JobConflictException>(async () => await _queueClient.EnqueueAsync(queueType, definitions, jobInfos.First().GroupId, false, CancellationToken.None));
+            await Assert.ThrowsAsync<OperationCancelledException>(async () => await _queueClient.EnqueueAsync(queueType, definitions, jobInfos.First().GroupId, false, CancellationToken.None));
         }
 
         [Fact]

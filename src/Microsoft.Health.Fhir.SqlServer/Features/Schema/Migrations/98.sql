@@ -711,7 +711,7 @@ CREATE TABLE dbo.SearchParam (
 );
 
 CREATE NONCLUSTERED INDEX IX_LastUpdated
-    ON dbo.SearchParam(LastUpdated)
+    ON dbo.SearchParam(LastUpdated);
 
 CREATE TABLE dbo.StringSearchParam (
     ResourceTypeId      SMALLINT       NOT NULL,
