@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued()
         {
             byte queueType = (byte)TestQueueType.GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued;
