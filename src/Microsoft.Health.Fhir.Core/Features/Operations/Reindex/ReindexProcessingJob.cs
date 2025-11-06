@@ -144,6 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap;
+            searchParameterHash ??= string.Empty;
 
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {

@@ -547,6 +547,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             string searchParameterHash = string.Empty;
             _reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out searchParameterHash);
 
+            // Ensure searchParameterHash is never null - for Cosmos DB scenarios, this will be empty string
+            searchParameterHash ??= string.Empty;
+
             if (ignoreSearchParamHash)
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
