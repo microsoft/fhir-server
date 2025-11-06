@@ -99,6 +99,7 @@ BEGIN TRY
                     AND B.ClaimTypeId = A.ClaimTypeId
                     AND B.ClaimValue = A.ClaimValue
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.ResourceWriteClaim A
@@ -121,6 +122,7 @@ BEGIN TRY
                     AND B.ClaimTypeId = A.ClaimTypeId
                     AND B.ClaimValue = A.ClaimValue
               )
+      OPTION (HASH JOIN)
 
   -- ReferenceSearchParam - Incremental update pattern
   INSERT INTO @ReferenceSearchParamsCurrent
@@ -143,6 +145,7 @@ BEGIN TRY
                     AND (B.ReferenceResourceTypeId = A.ReferenceResourceTypeId OR B.ReferenceResourceTypeId IS NULL AND A.ReferenceResourceTypeId IS NULL)
                     AND B.ReferenceResourceId = A.ReferenceResourceId
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.ReferenceSearchParam A WITH (INDEX = 1)
@@ -171,6 +174,7 @@ BEGIN TRY
                     AND (B.ReferenceResourceTypeId = A.ReferenceResourceTypeId OR B.ReferenceResourceTypeId IS NULL AND A.ReferenceResourceTypeId IS NULL)
                     AND B.ReferenceResourceId = A.ReferenceResourceId
               )
+      OPTION (HASH JOIN)
 
   -- TokenSearchParam - Incremental update pattern
   INSERT INTO @TokenSearchParamsCurrent
@@ -193,6 +197,7 @@ BEGIN TRY
                     AND B.Code = A.Code
                     AND (B.CodeOverflow = A.CodeOverflow OR B.CodeOverflow IS NULL AND A.CodeOverflow IS NULL)
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.TokenSearchParam A WITH (INDEX = 1)
@@ -221,6 +226,7 @@ BEGIN TRY
                     AND B.Code = A.Code
                     AND (B.CodeOverflow = A.CodeOverflow OR B.CodeOverflow IS NULL AND A.CodeOverflow IS NULL)
               )
+      OPTION (HASH JOIN)
 
   -- TokenStringCompositeSearchParam - Incremental update pattern
   INSERT INTO @TokenStringCompositeSearchParamsCurrent
@@ -242,9 +248,10 @@ BEGIN TRY
                     AND (B.SystemId1 = A.SystemId1 OR B.SystemId1 IS NULL AND A.SystemId1 IS NULL)
                     AND B.Code1 = A.Code1
                     AND (B.CodeOverflow1 = A.CodeOverflow1 OR B.CodeOverflow1 IS NULL AND A.CodeOverflow1 IS NULL)
-                    AND B.Text2 = A.Text2
-                    AND (B.TextOverflow2 = A.TextOverflow2 OR B.TextOverflow2 IS NULL AND A.TextOverflow2 IS NULL)
+                    AND B.Text2 COLLATE Latin1_General_CI_AI = A.Text2
+                    AND (B.TextOverflow2 COLLATE Latin1_General_CI_AI = A.TextOverflow2 OR B.TextOverflow2 IS NULL AND A.TextOverflow2 IS NULL)
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.TokenStringCompositeSearchParam A WITH (INDEX = 1)
@@ -257,8 +264,8 @@ BEGIN TRY
                   AND (B.SystemId1 = A.SystemId1 OR B.SystemId1 IS NULL AND A.SystemId1 IS NULL)
                   AND B.Code1 = A.Code1
                   AND (B.CodeOverflow1 = A.CodeOverflow1 OR B.CodeOverflow1 IS NULL AND A.CodeOverflow1 IS NULL)
-                  AND B.Text2 COLLATE Latin1_General_100_CI_AI_SC = A.Text2
-                  AND (B.TextOverflow2 COLLATE Latin1_General_100_CI_AI_SC = A.TextOverflow2 OR B.TextOverflow2 IS NULL AND A.TextOverflow2 IS NULL)
+                  AND B.Text2 COLLATE Latin1_General_CI_AI = A.Text2
+                  AND (B.TextOverflow2 COLLATE Latin1_General_CI_AI = A.TextOverflow2 OR B.TextOverflow2 IS NULL AND A.TextOverflow2 IS NULL)
             )
 
   INSERT INTO @TokenStringCompositeSearchParamsInsert
@@ -277,6 +284,7 @@ BEGIN TRY
                     AND B.Text2 = A.Text2
                     AND (B.TextOverflow2 = A.TextOverflow2 OR B.TextOverflow2 IS NULL AND A.TextOverflow2 IS NULL)
               )
+      OPTION (HASH JOIN)
 			  
   -- TokenText - Incremental update pattern
   INSERT INTO @TokenTextsCurrent
@@ -297,6 +305,7 @@ BEGIN TRY
                     AND B.SearchParamId = A.SearchParamId
                     AND B.Text = A.Text
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.TokenText A WITH (INDEX = 1)
@@ -321,6 +330,7 @@ BEGIN TRY
                     AND B.SearchParamId = A.SearchParamId
                     AND B.Text = A.Text
               )
+      OPTION (HASH JOIN)
 
   -- StringSearchParam - Incremental update pattern
   INSERT INTO @StringSearchParamsCurrent
@@ -344,6 +354,7 @@ BEGIN TRY
                     AND B.IsMin = A.IsMin
                     AND B.IsMax = A.IsMax
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.StringSearchParam A WITH (INDEX = 1)
@@ -374,6 +385,7 @@ BEGIN TRY
                     AND B.IsMin = A.IsMin
                     AND B.IsMax = A.IsMax
               )
+      OPTION (HASH JOIN)
 
   -- UriSearchParam - Incremental update pattern
   INSERT INTO @UriSearchParamsCurrent
@@ -394,6 +406,7 @@ BEGIN TRY
                     AND B.SearchParamId = A.SearchParamId
                     AND B.Uri = A.Uri
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.UriSearchParam A WITH (INDEX = 1)
@@ -418,6 +431,7 @@ BEGIN TRY
                     AND B.SearchParamId = A.SearchParamId
                     AND B.Uri = A.Uri
               )
+      OPTION (HASH JOIN)
               
   -- NumberSearchParam - Incremental update pattern
   INSERT INTO @NumberSearchParamsCurrent
@@ -440,6 +454,7 @@ BEGIN TRY
                     AND (B.LowValue = A.LowValue OR B.LowValue IS NULL AND A.LowValue IS NULL)
                     AND (B.HighValue = A.HighValue OR B.HighValue IS NULL AND A.HighValue IS NULL)
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.NumberSearchParam A WITH (INDEX = 1)
@@ -468,6 +483,7 @@ BEGIN TRY
                     AND (B.LowValue = A.LowValue OR B.LowValue IS NULL AND A.LowValue IS NULL)
                     AND (B.HighValue = A.HighValue OR B.HighValue IS NULL AND A.HighValue IS NULL)
               )
+      OPTION (HASH JOIN)
               
   -- QuantitySearchParam - Incremental update pattern
   INSERT INTO @QuantitySearchParamsCurrent
@@ -492,6 +508,7 @@ BEGIN TRY
                     AND (B.LowValue = A.LowValue OR B.LowValue IS NULL AND A.LowValue IS NULL)
                     AND (B.HighValue = A.HighValue OR B.HighValue IS NULL AND A.HighValue IS NULL)
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.QuantitySearchParam A WITH (INDEX = 1)
@@ -524,6 +541,7 @@ BEGIN TRY
                     AND (B.LowValue = A.LowValue OR B.LowValue IS NULL AND A.LowValue IS NULL)
                     AND (B.HighValue = A.HighValue OR B.HighValue IS NULL AND A.HighValue IS NULL)
               )
+      OPTION (HASH JOIN)
 
   -- DateTimeSearchParam - Incremental update pattern
   INSERT INTO @DateTimeSearchParamsCurrent
@@ -548,6 +566,7 @@ BEGIN TRY
                     AND B.IsMin = A.IsMin
                     AND B.IsMax = A.IsMax
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.DateTimeSearchParam A WITH (INDEX = 1)
@@ -580,6 +599,7 @@ BEGIN TRY
                     AND B.IsMin = A.IsMin
                     AND B.IsMax = A.IsMax
               )
+      OPTION (HASH JOIN)
 
   -- ReferenceTokenCompositeSearchParam - Incremental update pattern
   INSERT INTO @ReferenceTokenCompositeSearchParamsCurrent
@@ -605,6 +625,7 @@ BEGIN TRY
                     AND B.Code2 = A.Code2
                     AND (B.CodeOverflow2 = A.CodeOverflow2 OR B.CodeOverflow2 IS NULL AND A.CodeOverflow2 IS NULL)
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.ReferenceTokenCompositeSearchParam A WITH (INDEX = 1)
@@ -639,6 +660,7 @@ BEGIN TRY
                     AND B.Code2 = A.Code2
                     AND (B.CodeOverflow2 = A.CodeOverflow2 OR B.CodeOverflow2 IS NULL AND A.CodeOverflow2 IS NULL)
               )
+      OPTION (HASH JOIN)
 
   -- TokenTokenCompositeSearchParam - Incremental update pattern
   INSERT INTO @TokenTokenCompositeSearchParamsCurrent
@@ -664,6 +686,7 @@ BEGIN TRY
                     AND B.Code2 = A.Code2
                     AND (B.CodeOverflow2 = A.CodeOverflow2 OR B.CodeOverflow2 IS NULL AND A.CodeOverflow2 IS NULL)
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.TokenTokenCompositeSearchParam A WITH (INDEX = 1)
@@ -698,6 +721,7 @@ BEGIN TRY
                     AND B.Code2 = A.Code2
                     AND (B.CodeOverflow2 = A.CodeOverflow2 OR B.CodeOverflow2 IS NULL AND A.CodeOverflow2 IS NULL)
               )
+      OPTION (HASH JOIN)
               
   -- TokenDateTimeCompositeSearchParam - Incremental update pattern
   INSERT INTO @TokenDateTimeCompositeSearchParamsCurrent
@@ -723,6 +747,7 @@ BEGIN TRY
                     AND B.EndDateTime2 = A.EndDateTime2
                     AND B.IsLongerThanADay2 = A.IsLongerThanADay2
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.TokenDateTimeCompositeSearchParam A WITH (INDEX = 1)
@@ -757,6 +782,7 @@ BEGIN TRY
                     AND B.EndDateTime2 = A.EndDateTime2
                     AND B.IsLongerThanADay2 = A.IsLongerThanADay2
               )
+      OPTION (HASH JOIN)
 
   -- TokenQuantityCompositeSearchParam - Incremental update pattern
   INSERT INTO @TokenQuantityCompositeSearchParamsCurrent
@@ -784,6 +810,7 @@ BEGIN TRY
                     AND (B.LowValue2 = A.LowValue2 OR B.LowValue2 IS NULL AND A.LowValue2 IS NULL)
                     AND (B.HighValue2 = A.HighValue2 OR B.HighValue2 IS NULL AND A.HighValue2 IS NULL)
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.TokenQuantityCompositeSearchParam A WITH (INDEX = 1)
@@ -822,6 +849,7 @@ BEGIN TRY
                     AND (B.LowValue2 = A.LowValue2 OR B.LowValue2 IS NULL AND A.LowValue2 IS NULL)
                     AND (B.HighValue2 = A.HighValue2 OR B.HighValue2 IS NULL AND A.HighValue2 IS NULL)
               )
+      OPTION (HASH JOIN)
   
     -- TokenNumberNumberCompositeSearchParam - Incremental update pattern
   INSERT INTO @TokenNumberNumberCompositeSearchParamsCurrent
@@ -851,6 +879,7 @@ BEGIN TRY
                     AND (B.HighValue3 = A.HighValue3 OR B.HighValue3 IS NULL AND A.HighValue3 IS NULL)
                     AND B.HasRange = A.HasRange
               )
+      OPTION (HASH JOIN)
 
   DELETE FROM A
     FROM dbo.TokenNumberNumberCompositeSearchParam A WITH (INDEX = 1)
@@ -893,6 +922,7 @@ BEGIN TRY
                     AND (B.HighValue3 = A.HighValue3 OR B.HighValue3 IS NULL AND A.HighValue3 IS NULL)
                     AND B.HasRange = A.HasRange
               )
+      OPTION (HASH JOIN)
 
   -- Next, insert all the new search params.
   INSERT INTO dbo.ResourceWriteClaim 
@@ -905,7 +935,7 @@ BEGIN TRY
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion
       FROM @ReferenceSearchParamsInsert
 
-          INSERT INTO dbo.TokenSearchParam 
+  INSERT INTO dbo.TokenSearchParam 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
       FROM @TokenSearchParamsInsert
@@ -981,3 +1011,4 @@ BEGIN CATCH
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
+GO
