@@ -2104,7 +2104,7 @@ BEGIN TRY
                AND EXISTS (SELECT *
                            FROM   dbo.JobQueue
                            WHERE  QueueType = @QueueType
-                                  AND GroupId = @GroupId
+                                  AND JobId = @GroupId
                                   AND (Status = 4
                                        OR CancelRequested = 1))
                 RAISERROR ('The specified job group is cancelled', 18, 128);
