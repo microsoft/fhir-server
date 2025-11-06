@@ -3335,7 +3335,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
 
             // Verify that Patient is NOT included (because there's no Patient scope)
-            // Verify that smart-observation-A2 (with different code) is NOT included and male Practioner is not included
+            // Verify that smart-observation-A2 (with different code) is NOT included and male Practitioner is not included
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Patient");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
@@ -3691,6 +3691,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var observationResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Observation").ToList();
 
             // Observations matching the scope should be present
+            Assert.NotEmpty(observationResults);
+            Assert.Contains(observationResults, r => r.Resource.ResourceId == "smart-observation-A1");
 
             // Check Encounter results - should only include those with status=finished AND class=IMP
             var encounterResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Encounter").ToList();

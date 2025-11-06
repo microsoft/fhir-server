@@ -551,13 +551,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (specialCaseTableName.Equals(VLatest.Resource))
                     {
                         AppendDeletedClause(delimited, context.ResourceVersionTypes);
-
-                        // Check if this is an _id search parameter for compartment search
-                        if (IsIdSearchParameter(searchParamTableExpression.Predicate))
-                        {
-                            // Add type expression for compartment searches with _id
-                            // AddTypeExpressionForCompartmentId(delimited, context);
-                        }
                     }
 
                     if (searchParamTableExpression.Predicate != null)
@@ -1740,43 +1733,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private static bool IsPrimaryKeySort(SearchOptions searchOptions)
         {
             return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
-        }
-
-        /// <summary>
-        /// Checks if the predicate is specifically for the _id search parameter
-        /// </summary>
-        private static bool IsIdSearchParameter(Expression predicate)
-        {
-            if (predicate is SearchParameterExpression searchParamExpression)
-            {
-                return string.Equals(searchParamExpression.Parameter.Code, SearchParameterNames.Id, StringComparison.Ordinal);
-            }
-
-            // Handle nested expressions (like MultiaryExpression)
-            if (predicate is MultiaryExpression multiaryExpression)
-            {
-                // Check if all expressions in the multiary are for _id
-                return multiaryExpression.Expressions.All(expr =>
-                    expr is SearchParameterExpression searchExpr &&
-                    string.Equals(searchExpr.Parameter.Code, SearchParameterNames.Id, StringComparison.Ordinal));
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Adds a type expression for compartment searches when _id is used
-        /// </summary>
-        private void AddTypeExpressionForCompartmentId(IndentedStringBuilder.DelimitedScope delimited, SearchOptions context)
-        {
-            // Check if we have a compartment expression in the context
-            delimited.BeginDelimitedElement();
-
-            // Add ResourceTypeId filter based on compartment type
-            var compartmentTypeId = Model.GetResourceTypeId("Patient");
-            StringBuilder.Append(VLatest.Resource.ResourceTypeId, null)
-                .Append(" = ")
-                .Append(Parameters.AddParameter(VLatest.Resource.ResourceTypeId, compartmentTypeId, true));
         }
 
         internal bool IsSortValueNeeded(SearchOptions context)

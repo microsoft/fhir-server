@@ -1880,18 +1880,23 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         continue;
                     }
 
-                    var searchParamId = (short)0;
+                    var searchParamIds = new HashSet<short>();
                     var resourceTypeIds = new HashSet<short>();
 
                     if (tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiExp)
                     {
                         // Recursively process all expressions, including nested MultiaryExpressions and UnionExpressions
-                        ProcessExpressionRecursively(multiExp, model, ref searchParamId, resourceTypeIds);
+                        ProcessExpressionRecursively(multiExp, model, searchParamIds, resourceTypeIds);
                     }
 
                     if (tableExpression.ChainLevel == 1 && tableExpression.Predicate is SearchParameterExpression searchExpression)
                     {
-                        searchParamId = model.GetSearchParamId(searchExpression.Parameter.Url);
+                        var searchParamId = model.GetSearchParamId(searchExpression.Parameter.Url);
+                        if (searchParamId != 0)
+                        {
+                            searchParamIds.Add(searchParamId);
+                        }
+
                         var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
                         if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
                         {
@@ -1905,7 +1910,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         }
                     }
 
-                    if (searchParamId != 0)
+                    // Create stats for all search parameter IDs found in this table expression
+                    foreach (var searchParamId in searchParamIds)
                     {
                         foreach (var resourceTypeId in resourceTypeIds)
                         {
@@ -1921,14 +1927,14 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             /// <summary>
             /// Recursively processes expressions to handle nested MultiaryExpressions and UnionExpressions
             /// </summary>
-            private static void ProcessExpressionRecursively(Expression expression, SqlServerFhirModel model, ref short searchParamId, HashSet<short> resourceTypeIds)
+            private static void ProcessExpressionRecursively(Expression expression, SqlServerFhirModel model, HashSet<short> searchParamIds, HashSet<short> resourceTypeIds)
             {
                 switch (expression)
                 {
                     case MultiaryExpression multiaryExpression:
                         foreach (var innerExpression in multiaryExpression.Expressions)
                         {
-                            ProcessExpressionRecursively(innerExpression, model, ref searchParamId, resourceTypeIds);
+                            ProcessExpressionRecursively(innerExpression, model, searchParamIds, resourceTypeIds);
                         }
 
                         break;
@@ -1936,7 +1942,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     case UnionExpression unionExpression:
                         foreach (var unionPart in unionExpression.Expressions)
                         {
-                            ProcessExpressionRecursively(unionPart, model, ref searchParamId, resourceTypeIds);
+                            ProcessExpressionRecursively(unionPart, model, searchParamIds, resourceTypeIds);
                         }
 
                         break;
@@ -1949,7 +1955,10 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         else if (parameterExpression.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName &&
                                  parameterExpression.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
                         {
-                            model.TryGetSearchParamId(parameterExpression.Parameter.Url, out searchParamId);
+                            if (model.TryGetSearchParamId(parameterExpression.Parameter.Url, out var searchParamId) && searchParamId != 0)
+                            {
+                                searchParamIds.Add(searchParamId);
+                            }
                         }
 
                         break;
