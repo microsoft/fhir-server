@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var delayMultiplier = Math.Max(1, _operationsConfiguration.Reindex.ReindexDelayMultiplier);
                 _logger.LogInformation("Reindex job with Id: {Id} waiting for {DelaySeconds} second(s) before processing as configured by SearchParameterCacheRefreshIntervalSeconds and ReindexDelayMultiplier.", _jobInfo.Id, delaySeconds * delayMultiplier);
 
-                await Task.Delay(TimeSpan.FromSeconds(delaySeconds) * delayMultiplier, cancellationToken);
+                // await Task.Delay(TimeSpan.FromSeconds(delaySeconds) * delayMultiplier, cancellationToken);
 
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
@@ -528,8 +528,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // The results of the SQL query will determine how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
                 // When this function returns, it knows what the next starting value to use in searching for the next block of results and will use that as the queryStatus starting point
 
-                var startId = queryStatus.StartResourceSurrogateId > 0 ? queryStatus.StartResourceSurrogateId.ToString() : searchResultReindex?.StartResourceSurrogateId.ToString();
-                var endId = queryStatus.EndResourceSurrogateId > 0 ? queryStatus.EndResourceSurrogateId.ToString() : searchResultReindex?.EndResourceSurrogateId.ToString();
+                var startId = queryStatus.StartResourceSurrogateId > 0 ? queryStatus.StartResourceSurrogateId.ToString() : searchResultReindex.StartResourceSurrogateId.ToString();
+                var endId = queryStatus.EndResourceSurrogateId > 0 ? queryStatus.EndResourceSurrogateId.ToString() : searchResultReindex.EndResourceSurrogateId.ToString();
 
                 queryParametersList.AddRange(new[]
                 {
