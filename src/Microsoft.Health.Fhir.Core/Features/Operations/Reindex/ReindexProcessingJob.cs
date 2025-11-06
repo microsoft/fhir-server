@@ -107,6 +107,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     groupId = jobInfo.GroupId,
                 };
 
+                _reindexProcessingJobResult.FailedResourceCount = jobDefinition.ResourceCount.Count;
+
                 throw new ReindexProcessingJobSoftException(message, errorObject, isCustomerCaused: true);
             }
         }
@@ -141,12 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, _reindexProcessingJobDefinition.ResourceCount.ContinuationToken));
             }
 
-            string searchParameterHash = string.Empty;
-
-            if (string.IsNullOrEmpty(_reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap))
-            {
-                searchParameterHash = string.Empty;
-            }
+            string searchParameterHash = _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap;
 
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {

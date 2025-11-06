@@ -43,7 +43,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             decimal progress = 0;
             decimal rounded = 0;
-            long totalResourceCount = job.ResourceCounts?.Sum(entry => entry.Value.Count) ?? 0;
+            long totalResourceCount;
+
+            if (job.Status == OperationStatus.Completed)
+            {
+                totalResourceCount = job.Count;
+            }
+            else
+            {
+                totalResourceCount = job.ResourceCounts?.Sum(entry => entry.Value.Count) ?? 0;
+            }
 
             if (totalResourceCount > 0 && job.Progress > 0)
             {
@@ -55,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 progress = 0;
             }
 
-            if (rounded == 100.0M && totalResourceCount != job.Progress)
+            if (rounded == 100.0M && totalResourceCount > job.Progress)
             {
                 rounded = 99.9M;
             }
