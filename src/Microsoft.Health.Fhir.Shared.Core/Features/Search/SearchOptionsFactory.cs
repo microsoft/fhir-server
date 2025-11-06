@@ -455,7 +455,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // Don't add the smart compartment twice. this is a patch for bug number AB#152447.
                     if (!searchExpressions.Any(e => e.ValueInsensitiveEquals(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null))))
                     {
-                        searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, resourceTypesString));
                     }
                 }
                 else

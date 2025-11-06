@@ -88,7 +88,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     }
                 }
 
-                var compartmentSearchExpressionsGrouped = new List<Expression>();
                 var searchParamAndResourceTypeExpressions = new List<Expression>();
                 var finalCompartmentSearchExpressions = new List<Expression>();
 
@@ -96,44 +95,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 {
                     foreach (var grouping in searchParameterInfoList)
                     {
-                        // When we're searching more than 1 compartment resource type (i.e. Patient/abc/*) the search parameters need to list the applicable resource types
-                        if (compartmentResourceTypesToSearch.Count > 1)
-                        {
-                            Expression innerExpression = grouping.Value.ResourceTypes.Count > 1 ? Expression.In(FieldName.TokenCode, null, grouping.Value.ResourceTypes) : Expression.StringEquals(FieldName.TokenCode, null, grouping.Value.ResourceTypes.FirstOrDefault(), false);
-                            SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
-                                resourceTypeSearchParameter,
-                                innerExpression);
+                        // Always add the applicable resource types
+                        Expression innerExpression = grouping.Value.ResourceTypes.Count > 1 ? Expression.In(FieldName.TokenCode, null, grouping.Value.ResourceTypes) : Expression.StringEquals(FieldName.TokenCode, null, grouping.Value.ResourceTypes.FirstOrDefault(), false);
+                        SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
+                            resourceTypeSearchParameter,
+                            innerExpression);
 
-                            searchParamAndResourceTypeExpressions.Add(Expression.SearchParameter(searchParameterInfoList[grouping.Key].searchParameterInfo, resourceTypesExpression));
-                        }
-                        else
-                        {
-                            var expr = Expression.SearchParameter(
-                                   grouping.Value.searchParameterInfo,
-                                   Expression.And(
-                                       Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
-                                       Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
-                            compartmentSearchExpressionsGrouped.Add(expr);
-                        }
+                        searchParamAndResourceTypeExpressions.Add(Expression.SearchParameter(searchParameterInfoList[grouping.Key].searchParameterInfo, resourceTypesExpression));
+                    }
+
+                    if (searchParamAndResourceTypeExpressions.Any())
+                    {
+                        // Get the ORed expression of search parameter + resource type expressions
+                        // Then AND with the compartment type and id to ensure we only get resources in the compartment
+                        var oredExpression = Expression.Or(searchParamAndResourceTypeExpressions);
+                        finalCompartmentSearchExpressions.Add(Expression.And(
+                                oredExpression,
+                                Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
+                                Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
+                        return finalCompartmentSearchExpressions;
                     }
                 }
                 else
                 {
-                    compartmentSearchExpressionsGrouped.Add(expression);
+                    finalCompartmentSearchExpressions.Add(expression);
                 }
 
-                if (searchParamAndResourceTypeExpressions.Any())
-                {
-                    // Get the ORed expression of search parameter + resource type expressions
-                    var oredExpression = Expression.Or(searchParamAndResourceTypeExpressions);
-                    finalCompartmentSearchExpressions.Add(Expression.And(
-                            oredExpression,
-                            Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
-                            Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
-                    return finalCompartmentSearchExpressions;
-                }
-
-                return compartmentSearchExpressionsGrouped;
+                return finalCompartmentSearchExpressions;
             }
             else
             {
