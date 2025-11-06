@@ -29,7 +29,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override Expression VisitCompartment(CompartmentSearchExpression expression, object context)
         {
             var compartmentSearchExpressionsGrouped = BuildCompartmentSearchExpressionsGroup(expression);
-            return Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
+
+            Expression compartmentExpression = null;
+
+            if (compartmentSearchExpressionsGrouped.Count > 1)
+            {
+                compartmentExpression = Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
+            }
+            else if (compartmentSearchExpressionsGrouped.Count == 1)
+            {
+                compartmentExpression = compartmentSearchExpressionsGrouped[0];
+            }
+
+            return compartmentExpression;
         }
 
         internal List<Expression> BuildCompartmentSearchExpressionsGroup(CompartmentSearchExpression expression)
