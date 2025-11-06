@@ -30,18 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             var compartmentSearchExpressionsGrouped = BuildCompartmentSearchExpressionsGroup(expression);
 
-            Expression compartmentExpression = null;
-
-            if (compartmentSearchExpressionsGrouped.Count > 1)
-            {
-                compartmentExpression = Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
-            }
-            else if (compartmentSearchExpressionsGrouped.Count == 1)
-            {
-                compartmentExpression = compartmentSearchExpressionsGrouped[0];
-            }
-
-            return compartmentExpression;
+            // SQL query should start with Compartment search expression query but since Union expressions are pulled at the top
+            // Return a Union expression of all compartment search expressions
+            return Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
         }
 
         internal List<Expression> BuildCompartmentSearchExpressionsGroup(CompartmentSearchExpression expression)
