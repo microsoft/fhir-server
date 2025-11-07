@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (SqlException sqlEx) when (sqlEx.State == 128)
             {
                 _logger.LogError(sqlEx, "EnqueueAsync failed due to job orchestrator being cancelled.");
-                throw new OperationCancelledException("Job has been cancelled.", sqlEx);
+                throw new OperationCanceledException("Job has been cancelled.", sqlEx);
             }
         }
 
