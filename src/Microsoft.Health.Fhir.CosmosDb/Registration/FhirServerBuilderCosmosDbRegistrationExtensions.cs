@@ -252,9 +252,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsImplementedInterfaces();
 
-            services.Add<CompartmentSearchRewriter>()
+            services.Add<CosmosCompartmentSearchRewriter>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsService<CompartmentSearchRewriter>();
 
             services.Add<SmartCompartmentSearchRewriter>()
                 .Singleton()

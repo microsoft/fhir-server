@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             // First a collection of any resources which refer to the smart user
             // we use the CompartmentSearchRewriter to get this list as it matches what we want
-            var expressionList = _compartmentSearchRewriter.BuildCompartmentSearchExpressionsGroup(expression);
+            var expressionList = _compartmentSearchRewriter.BuildCompartmentSearchExpressionsGroup(expression).ToList();
 
             // Second the smart user's own resource
             expressionList.Add(
