@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         }
 
         [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithoutVanityUrl_ThenVanityUrlDefaultsToBaseUrl()
+        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithoutVanityUrl_ThenVanityUrlIsNull()
         {
             // Arrange
             var config = new FhirServerInstanceConfiguration();
@@ -140,11 +140,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             // Assert
             Assert.True(config.IsInitialized);
             Assert.Equal(new Uri(baseUriString), config.BaseUri);
-            Assert.Equal(new Uri(baseUriString), config.VanityUrl);
+            Assert.Null(config.VanityUrl);
         }
 
         [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithInvalidVanityUrlString_ThenNoExceptionThrownAndNotInitialized()
+        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithInvalidVanityUrlString_ThenVanityUrlRemainsNull()
         {
             // Arrange
             var config = new FhirServerInstanceConfiguration();
@@ -154,10 +154,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             // Act - Should not throw
             config.Initialize(baseUriString, invalidVanityUrlString);
 
-            // Assert - Should remain uninitialized since base URI parsing failed (vanity URL validation doesn't fail initialization)
+            // Assert - Should initialize with base URI but vanity URL remains null due to invalid string
             Assert.True(config.IsInitialized);
             Assert.Equal(new Uri(baseUriString), config.BaseUri);
-            Assert.Equal(new Uri(baseUriString), config.VanityUrl);
+            Assert.Null(config.VanityUrl);
         }
     }
 }

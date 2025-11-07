@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Fact]
-        public async Task GivenAnHttpRequestWithoutVanityUrlHeader_WhenExecutingFhirRequestContextMiddleware_ThenDefaultVanityUrlShouldBeBaseUri()
+        public async Task GivenAnHttpRequestWithoutVanityUrlHeader_WhenExecutingFhirRequestContextMiddleware_ThenVanityUrlShouldBeNull()
         {
             HttpContext httpContext = CreateHttpContext();
 
@@ -90,13 +90,54 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
 
-            Assert.True(httpContext.Response.Headers.TryGetValue("x-ms-vanity-url", out StringValues value));
-            Assert.Equal(new StringValues("https://localhost:30/stu3/"), value);
+            // Verify that vanity URL is NOT set in response headers when not provided in request
+            Assert.False(httpContext.Response.Headers.TryGetValue("x-ms-vanity-url", out _));
 
-            // Verify that vanity URL defaults to base URI in instance configuration
+            // Verify that vanity URL is null in instance configuration
             Assert.True(instanceConfiguration.IsInitialized);
-            Assert.Equal(new Uri("https://localhost:30/stu3/"), instanceConfiguration.VanityUrl);
-            Assert.Equal(new Uri("https://localhost:30/stu3/"), instanceConfiguration.BaseUri);
+            Assert.Null(instanceConfiguration.VanityUrl);
+            Assert.NotNull(instanceConfiguration.BaseUri);
+        }
+
+        [Theory]
+        [InlineData("127.0.0.1")]
+        [InlineData("::1")]
+        [InlineData("localhost")]
+        [InlineData("192.168.1.1")]
+        [InlineData("10.0.0.1")]
+        [InlineData("172.16.0.1")]
+        public async Task GivenALoopbackOrLocalRequest_WhenExecutingFhirRequestContextMiddleware_ThenInstanceConfigurationShouldNotBeInitialized(string host)
+        {
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Host = new HostString(host, 30);
+
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
+            string Provider() => Guid.NewGuid().ToString();
+
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
+
+            // Verify that instance configuration was NOT initialized for loopback/local requests
+            Assert.False(instanceConfiguration.IsInitialized);
+        }
+
+        [Fact]
+        public async Task GivenAnExternalHostRequest_WhenExecutingFhirRequestContextMiddleware_ThenInstanceConfigurationShouldBeInitialized()
+        {
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Host = new HostString("api.example.com", 443);
+
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
+            string Provider() => Guid.NewGuid().ToString();
+
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
+
+            // Verify that instance configuration WAS initialized for external requests
+            Assert.True(instanceConfiguration.IsInitialized);
+            Assert.NotNull(instanceConfiguration.BaseUri);
         }
 
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)

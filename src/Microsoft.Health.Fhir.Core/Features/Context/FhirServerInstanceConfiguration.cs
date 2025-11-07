@@ -40,12 +40,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         /// <summary>
         /// Gets the vanity URI of the FHIR server instance.
-        /// If not explicitly set, defaults to the base URI.
+        /// Returns null if not explicitly set.
         /// Populated on first HTTP request and cached for the lifetime of the application.
         /// </summary>
         public Uri VanityUrl
         {
-            get => _cachedVanityUrl ?? _cachedBaseUri;
+            get => _cachedVanityUrl;
             private set => _cachedVanityUrl = value;
         }
 

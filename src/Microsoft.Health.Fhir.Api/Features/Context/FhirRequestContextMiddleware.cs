@@ -68,7 +68,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 // Initialize the global instance configuration on first request (thread-safe, idempotent)
                 // This ensures background services have access to base URI and vanity URL even when there's no active HTTP context
                 // Note this is set only once per application lifetime. If vanity URL changes, a restart is required to pick up the new value.
-                if (!instanceConfiguration.IsInitialized)
+                // Skip initialization if the request is from a loopback/local IP to avoid using health check requests
+                if (!instanceConfiguration.IsInitialized && !IsLoopbackOrLocalRequest(context.Request.Host.Host))
                 {
                     instanceConfiguration.Initialize(baseUriInString, vanityUrlString);
                 }
@@ -108,6 +109,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);
+        }
+
+        /// <summary>
+        /// Determines if the request is from a loopback or local IP address.
+        /// This is used to exclude health check requests from initializing the instance configuration.
+        /// </summary>
+        /// <param name="host">The host name or IP address from the request.</param>
+        /// <returns>True if the host is a loopback or local IP address; otherwise, false.</returns>
+        private static bool IsLoopbackOrLocalRequest(string host)
+        {
+            if (string.IsNullOrEmpty(host))
+            {
+                return false;
+            }
+
+            // Remove port if present
+            var hostOnly = host.Split(':')[0];
+
+            // Check for common loopback/local identifiers
+            if (hostOnly.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                hostOnly.Equals("127.0.0.1", StringComparison.Ordinal) ||
+                hostOnly.Equals("::1", StringComparison.Ordinal) || // IPv6 loopback
+                hostOnly.StartsWith("127.", StringComparison.Ordinal) || // 127.x.x.x range
+                hostOnly.StartsWith("192.168.", StringComparison.Ordinal) || // Private network
+                hostOnly.StartsWith("10.", StringComparison.Ordinal) || // Private network
+                hostOnly.StartsWith("172.1", StringComparison.Ordinal)) // 172.16.x.x - 172.31.x.x private range
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
