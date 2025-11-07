@@ -16,7 +16,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     /// <summary>
     /// Provides methods to extract resource types, search parameters, and search parameter types from a FHIR capability statement.
     /// </summary>
-    public class CapabilityStatementExtractor
+    /// <example>
+    /// Usage example:
+    /// <code>
+    /// var extractor = new CapabilityStatementExtractor();
+    /// var resourceTypes = extractor.GetResourceTypes(capabilityStatement);
+    /// var patientSearchParams = extractor.GetSearchParametersForResource(capabilityStatement, "Patient");
+    /// foreach (var param in patientSearchParams)
+    /// {
+    ///     Console.WriteLine($"Parameter: {param.Name}, Type: {param.Type}");
+    /// }
+    /// </code>
+    /// </example>
+    public class CapabilityStatementExtractor : ICapabilityStatementExtractor
     {
         /// <summary>
         /// Extracts all resource types from the capability statement.

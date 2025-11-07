@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     [Trait(Traits.Category, Categories.Operations)]
     public class CapabilityStatementExtractorTests
     {
-        private readonly CapabilityStatementExtractor _extractor;
+        private readonly ICapabilityStatementExtractor _extractor;
 
         public CapabilityStatementExtractorTests()
         {
