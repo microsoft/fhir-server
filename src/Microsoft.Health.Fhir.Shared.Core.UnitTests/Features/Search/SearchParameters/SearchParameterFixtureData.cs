@@ -70,7 +70,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             types = types.Where(x => !searchValueConverterExclusions.Contains(x));
 #endif
 
-            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
+            var requestContextAccessor = new FhirRequestContextAccessor();
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(new Uri("https://localhost/"));
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfig);
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 

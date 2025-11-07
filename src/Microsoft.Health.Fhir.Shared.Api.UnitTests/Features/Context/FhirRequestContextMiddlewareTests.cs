@@ -45,22 +45,68 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             HttpContext httpContext = CreateHttpContext();
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var instanceConfiguration = Substitute.For<IFhirServerInstanceConfiguration>();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
             string Provider() => expectedRequestId;
 
-            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
 
             Assert.True(httpContext.Response.Headers.TryGetValue("X-Request-Id", out StringValues value));
             Assert.Equal(new StringValues(expectedRequestId), value);
         }
 
-        private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)
+        [Fact]
+        public async Task GivenAnHttpRequestWithVanityUrlHeader_WhenExecutingFhirRequestContextMiddleware_ThenVanityUrlHeaderShouldBeSetInResponseAndInstanceConfiguration()
         {
+            const string expectedVanityUrl = "https://custom.example.com/fhir/";
+
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Headers["x-ms-vanity-url"] = expectedVanityUrl;
+
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
             string Provider() => Guid.NewGuid().ToString();
 
-            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
+
+            Assert.True(httpContext.Response.Headers.TryGetValue("x-ms-vanity-url", out StringValues value));
+            Assert.Equal(new StringValues(expectedVanityUrl), value);
+
+            // Verify that vanity URL was stored in instance configuration
+            Assert.True(instanceConfiguration.IsInitialized);
+            Assert.Equal(new Uri(expectedVanityUrl), instanceConfiguration.VanityUrl);
+        }
+
+        [Fact]
+        public async Task GivenAnHttpRequestWithoutVanityUrlHeader_WhenExecutingFhirRequestContextMiddleware_ThenDefaultVanityUrlShouldBeBaseUri()
+        {
+            HttpContext httpContext = CreateHttpContext();
+
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
+            string Provider() => Guid.NewGuid().ToString();
+
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
+
+            Assert.True(httpContext.Response.Headers.TryGetValue("x-ms-vanity-url", out StringValues value));
+            Assert.Equal(new StringValues("https://localhost:30/stu3/"), value);
+
+            // Verify that vanity URL defaults to base URI in instance configuration
+            Assert.True(instanceConfiguration.IsInitialized);
+            Assert.Equal(new Uri("https://localhost:30/stu3/"), instanceConfiguration.VanityUrl);
+            Assert.Equal(new Uri("https://localhost:30/stu3/"), instanceConfiguration.BaseUri);
+        }
+
+        private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)
+        {
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var instanceConfiguration = Substitute.For<IFhirServerInstanceConfiguration>();
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
+            string Provider() => Guid.NewGuid().ToString();
+
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
 
             Assert.NotNull(fhirRequestContextAccessor.RequestContext);
 

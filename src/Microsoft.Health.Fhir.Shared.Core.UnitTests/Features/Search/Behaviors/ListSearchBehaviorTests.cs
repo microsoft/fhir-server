@@ -109,7 +109,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenARequest_WhenNoListQuery_QueriesUnchanged()
         {
-            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor()));
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig));
 
             string guid1 = Guid.NewGuid().ToString();
             string guid2 = Guid.NewGuid().ToString();
@@ -139,7 +140,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenARequest_WhenListValueMissing_EmptyResultsReturned()
         {
-            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor()));
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            var behavior = new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig));
 
             IReadOnlyList<Tuple<string, string>> list =
             new[]
@@ -164,8 +166,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenARequest_WhenListValueExistsButValueNotFound_EmptyResponseReturned()
         {
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             var behavior =
-                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor()));
+                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig));
 
             IReadOnlyList<Tuple<string, string>> list =
             new[]
@@ -193,8 +196,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenARequest_WhenListValueFound_ExpectedIdQueriesAdded()
         {
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             var behavior =
-                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor()));
+                new ListSearchPipeBehavior(_searchOptionsFactory, _bundleFactory, _scopedDataStore, Deserializers.ResourceDeserializer, new ReferenceSearchValueParser(new FhirRequestContextAccessor(), instanceConfig));
 
             IReadOnlyList<Tuple<string, string>> list = new[] { Tuple.Create("_list", "existing-list") };
             var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list, false);

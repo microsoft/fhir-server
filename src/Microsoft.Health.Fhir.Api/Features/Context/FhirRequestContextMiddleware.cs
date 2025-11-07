@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -32,7 +33,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
+        public async Task Invoke(
+            HttpContext context,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IFhirServerInstanceConfiguration instanceConfiguration,
+            CorrelationIdProvider correlationIdProvider)
         {
             HttpRequest request = context.Request;
 
@@ -50,6 +55,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.QueryString);
 
             string correlationId = correlationIdProvider.Invoke();
+            string vanityUrlString = null;
+
+            try
+            {
+                // Check if X-MS-VANITY-URL header is present in the request
+                if (context.Request.Headers.TryGetValue(KnownHeaders.VanityUrl, out var vanityUrlHeader) && !string.IsNullOrEmpty(vanityUrlHeader))
+                {
+                    vanityUrlString = vanityUrlHeader.ToString();
+                }
+
+                // Initialize the global instance configuration on first request (thread-safe, idempotent)
+                // This ensures background services have access to base URI and vanity URL even when there's no active HTTP context
+                // Note this is set only once per application lifetime. If vanity URL changes, a restart is required to pick up the new value.
+                if (!instanceConfiguration.IsInitialized)
+                {
+                    instanceConfiguration.Initialize(baseUriInString, vanityUrlString);
+                }
+            }
+            catch (Exception)
+            {
+                // Carry on. Any jobs depending on instance configuration will fail later if initialization was unsuccessful.
+            }
+
+            // Set vanity URL in response headers (from request header or default to base URI)
+            if (!string.IsNullOrEmpty(vanityUrlString))
+            {
+                context.Response.Headers[KnownHeaders.VanityUrl] = vanityUrlString;
+            }
 
             // https://www.hl7.org/fhir/http.html#custom
             // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
@@ -59,12 +92,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
 
             var fhirRequestContext = new FhirRequestContext(
-                method: request.Method,
-                uriString: uriInString,
-                baseUriString: baseUriInString,
-                correlationId: correlationId,
-                requestHeaders: context.Request.Headers,
-                responseHeaders: context.Response.Headers);
+            method: request.Method,
+            uriString: uriInString,
+            baseUriString: baseUriInString,
+            correlationId: correlationId,
+            requestHeaders: context.Request.Headers,
+            responseHeaders: context.Response.Headers);
 
             context.Response.Headers[KnownHeaders.RequestId] = correlationId;
             context.Response.Headers[XContentTypeOptions] = XContentTypeOptionsValue;

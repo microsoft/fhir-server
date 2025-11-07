@@ -32,7 +32,8 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         public ResourceWrapperParser()
         {
             var fhirRequestContextAccessor = new ExecutableRequestContextAccessor();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor);
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration);
             var modelInfoProvider = new VersionSpecificModelInfoProvider();
             ModelInfoProvider.SetProvider(modelInfoProvider);
 
@@ -92,7 +93,8 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         private static List<ITypedElementToSearchValueConverter> MakeConverters(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, ICodeSystemResolver codeSystemResolver)
         {
             var fhirTypedElementConverters = new List<ITypedElementToSearchValueConverter>();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor);
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration);
 
             fhirTypedElementConverters.Add(new AddressToStringSearchValueConverter());
             fhirTypedElementConverters.Add(new BooleanToTokenSearchValueConverter());

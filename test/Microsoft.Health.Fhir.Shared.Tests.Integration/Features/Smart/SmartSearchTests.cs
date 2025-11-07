@@ -1140,7 +1140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 .GetTypes()
                 .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
-            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
+            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor(), new FhirServerInstanceConfiguration());
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 
