@@ -58,29 +58,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
                 foreach (var compartmentResourceType in compartmentResourceTypesToSearch)
                 {
-                    var searchParamExpressionsForResourceType = new List<SearchParameterExpression>();
                     if (CompartmentDefinitionManager.Value.TryGetSearchParams(compartmentResourceType, parsedCompartmentType, out HashSet<string> compartmentSearchParameters))
                     {
                         foreach (var compartmentSearchParameter in compartmentSearchParameters)
                         {
                             if (SearchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
                             {
-                                searchParamExpressionsForResourceType.Add(
-                                    Expression.SearchParameter(sp, Expression.And(Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false), Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false))));
-                            }
-                        }
-                    }
+                                var searchParamExpression = Expression.SearchParameter(
+                                    sp,
+                                    Expression.And(
+                                        Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false),
+                                        Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false)));
 
-                    foreach (var expr in searchParamExpressionsForResourceType)
-                    {
-                        string searchParamUrl = expr.Parameter.Url.ToString();
-                        if (compartmentSearchExpressions.TryGetValue(searchParamUrl, out var resourceTypeList))
-                        {
-                            resourceTypeList.ResourceTypes.Add(compartmentResourceType);
-                        }
-                        else
-                        {
-                            compartmentSearchExpressions[searchParamUrl] = (expr, new HashSet<string> { compartmentResourceType });
+                                string searchParamUrl = sp.Url.ToString();
+                                if (compartmentSearchExpressions.TryGetValue(searchParamUrl, out var resourceTypeList))
+                                {
+                                    resourceTypeList.ResourceTypes.Add(compartmentResourceType);
+                                }
+                                else
+                                {
+                                    compartmentSearchExpressions[searchParamUrl] = (searchParamExpression, new HashSet<string> { compartmentResourceType });
+                                }
+                            }
                         }
                     }
                 }
