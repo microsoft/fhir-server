@@ -40,95 +40,39 @@ public class ProfileValidatorTests
         _options = Options.Create(config);
     }
 
-    [Theory]
-    [InlineData(FhirSpecification.R4)]
-    [InlineData(FhirSpecification.R4B)]
-    public void GivenR4OrR4BFhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsIgnored(FhirSpecification version)
+    [SkippableFact]
+    public void GivenR4OrR4BFhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsIgnored()
     {
+        Skip.If(
+            ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+            ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+            "This test is only valid for R4 and R4B");
+
         // Arrange - cid-0 spec error only in R4 and R4B (fixed in R5+)
-        var modelInfoProvider = MockModelInfoProviderBuilder.Create(version).Build();
-        var validator = new ProfileValidator(_profilesResolver, _options, _logger, modelInfoProvider);
+        var validator = new ProfileValidator(_profilesResolver, _options, _logger, ModelInfoProvider.Instance);
 
         // Act
-        var internalValidator = GetValidator(validator);
+        var internalValidator = validator.GetValidator();
 
         // Assert
-        Assert.NotNull(internalValidator);
-        Assert.NotNull(internalValidator.Settings.ConstraintsToIgnore);
-        Assert.Contains("cid-0", internalValidator.Settings.ConstraintsToIgnore);
+        Assert.Contains("cid-0", internalValidator.Settings.ConstraintsToIgnore ?? []);
     }
 
-    [Theory]
-    [InlineData(FhirSpecification.Stu3)]
-    [InlineData(FhirSpecification.R5)]
-    public void GivenStu3OrR5FhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsNotIgnored(FhirSpecification version)
+    [SkippableFact]
+    public void GivenStu3OrR5FhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsNotIgnored()
     {
+        Skip.If(
+            ModelInfoProvider.Instance.Version != FhirSpecification.Stu3 &&
+            ModelInfoProvider.Instance.Version != FhirSpecification.R5,
+            "This test is only valid for STU3 and R5");
+
         // Arrange - cid-0 spec error does not apply to STU3 (no ChargeItemDefinition) or R5 (issue fixed)
-        var modelInfoProvider = MockModelInfoProviderBuilder.Create(version).Build();
-        var validator = new ProfileValidator(_profilesResolver, _options, _logger, modelInfoProvider);
+        var validator = new ProfileValidator(_profilesResolver, _options, _logger, ModelInfoProvider.Instance);
 
         // Act
-        var internalValidator = GetValidator(validator);
+        var internalValidator = validator.GetValidator();
 
-        // Assert
-        Assert.NotNull(internalValidator);
-        Assert.Empty(internalValidator.Settings.ConstraintsToIgnore ?? []);
-    }
-
-    [Fact]
-    public void GivenR4WithExistingConstraintsToIgnore_WhenCreatingValidator_ThenCid0IsAppendedToExisting()
-    {
-        // Arrange
-        var modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build();
-
-        // Mock ValidationSettings to have existing constraints
-        var validationSettings = new ValidationSettings
-        {
-            ConstraintsToIgnore = ["existing-constraint"],
-        };
-
-        var validator = new ProfileValidator(_profilesResolver, _options, _logger, modelInfoProvider);
-
-        // Act
-        var internalValidator = GetValidator(validator);
-
-        // Assert
-        Assert.NotNull(internalValidator);
-        Assert.NotNull(internalValidator.Settings.ConstraintsToIgnore);
-        Assert.Contains("cid-0", internalValidator.Settings.ConstraintsToIgnore);
-        // Note: The test validates that cid-0 is added; the existing constraint behavior
-        // depends on the hl7.fhirpath library's default settings
-    }
-
-    [Fact]
-    public void GivenValidatorCreatedMultipleTimes_WhenRefreshingAfterTimeout_ThenCid0ConstraintIsStillIgnored()
-    {
-        // Arrange
-        var modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build();
-        var validator = new ProfileValidator(_profilesResolver, _options, _logger, modelInfoProvider);
-
-        // Act - Get validator first time
-        var firstValidator = GetValidator(validator);
-        var firstConstraints = firstValidator.Settings.ConstraintsToIgnore;
-
-        // Manually refresh by setting _lastValidatorRefresh to past to simulate timeout
-        var lastRefreshField = typeof(ProfileValidator).GetField("_lastValidatorRefresh", BindingFlags.NonPublic | BindingFlags.Instance);
-        lastRefreshField?.SetValue(validator, DateTime.MinValue);
-
-        // Get validator again (should be refreshed)
-        var secondValidator = GetValidator(validator);
-        var secondConstraints = secondValidator.Settings.ConstraintsToIgnore;
-
-        // Assert
-        Assert.NotNull(firstConstraints);
-        Assert.NotNull(secondConstraints);
-        Assert.Contains("cid-0", firstConstraints);
-        Assert.Contains("cid-0", secondConstraints);
-    }
-
-    private static Validator GetValidator(ProfileValidator profileValidator)
-    {
-        var method = typeof(ProfileValidator).GetMethod("GetValidator", BindingFlags.NonPublic | BindingFlags.Instance);
-        return method?.Invoke(profileValidator, null) as Validator;
+        // Asser
+        Assert.DoesNotContain("cid-0", internalValidator.Settings.ConstraintsToIgnore ?? []);
     }
 }

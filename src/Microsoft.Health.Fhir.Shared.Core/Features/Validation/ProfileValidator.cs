@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
         }
 
-        private Validator GetValidator()
+        internal Validator GetValidator()
         {
             if (_validator != null && (DateTime.UtcNow - _lastValidatorRefresh) < _validatatorRefresh)
             {
