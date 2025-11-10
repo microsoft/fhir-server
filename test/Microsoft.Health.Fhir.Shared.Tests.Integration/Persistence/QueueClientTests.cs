@@ -124,6 +124,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             string[] definitions = new[] { "job1" };
             IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, definitions, null, false, CancellationToken.None);
+
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
+
             await _queueClient.CancelJobByGroupIdAsync(queueType, jobInfos.First().GroupId, CancellationToken.None);
 
             definitions = new[] { "job2" };
