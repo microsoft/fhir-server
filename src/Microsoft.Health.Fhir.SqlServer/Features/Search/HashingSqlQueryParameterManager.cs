@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var first = true;
             foreach (var param in parameters)
             {
-                stringBuilder.Append($"{(first ? " smartParams=" : ",")}{param}");
+                stringBuilder.Append($"{(first ? " params=" : ",")}{param}");
                 first = false;
             }
         }
