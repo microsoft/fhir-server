@@ -1,9 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
+using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -93,12 +95,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
 
             var fhirRequestContext = new FhirRequestContext(
-            method: request.Method,
-            uriString: uriInString,
-            baseUriString: baseUriInString,
-            correlationId: correlationId,
-            requestHeaders: context.Request.Headers,
-            responseHeaders: context.Response.Headers);
+                method: request.Method,
+                uriString: uriInString,
+                baseUriString: baseUriInString,
+                correlationId: correlationId,
+                requestHeaders: context.Request.Headers,
+                responseHeaders: context.Response.Headers);
 
             context.Response.Headers[KnownHeaders.RequestId] = correlationId;
             context.Response.Headers[XContentTypeOptions] = XContentTypeOptionsValue;
@@ -124,8 +126,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 return false;
             }
 
-            // Remove port if present
-            var hostOnly = host.Split(':')[0];
+            // Remove brackets if present (IPv6 addresses may be wrapped in brackets in Host headers)
+            var hostOnly = host.TrimStart('[').TrimEnd(']');
+
+            // Remove port if present. IPv6 addresses have colons in the address itself,
+            // so we need to be careful. Only remove port for IPv4:port format (single colon).
+            if (hostOnly.Contains(':', StringComparison.Ordinal))
+            {
+                var colonCount = hostOnly.Count(c => c == ':');
+                if (colonCount == 1)
+                {
+                    // Single colon - likely IPv4:port format, remove port
+                    hostOnly = hostOnly.Split(':')[0];
+                }
+
+                // If multiple colons, this is IPv6 address - keep as is
+            }
 
             // Check for common loopback/local identifiers
             if (hostOnly.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
@@ -134,9 +150,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 hostOnly.StartsWith("127.", StringComparison.Ordinal) || // 127.x.x.x range
                 hostOnly.StartsWith("192.168.", StringComparison.Ordinal) || // Private network
                 hostOnly.StartsWith("10.", StringComparison.Ordinal) || // Private network
-                hostOnly.StartsWith("172.1", StringComparison.Ordinal)) // 172.16.x.x - 172.31.x.x private range
+                (hostOnly.StartsWith("172.", StringComparison.Ordinal) && IsIn172PrivateRange(hostOnly))) // Private 172.16.0.0/12
             {
                 return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsIn172PrivateRange(string host)
+        {
+            if (IPAddress.TryParse(host, out var ip))
+            {
+                var bytes = ip.GetAddressBytes();
+                return bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31;
             }
 
             return false;

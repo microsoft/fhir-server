@@ -65,20 +65,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         {
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
 
-            if (Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri))
+            if (Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri) &&
+                Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
             {
-                // Use Interlocked.CompareExchange to ensure only one thread successfully initializes
-                if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
-                {
-                    // We won the race - set the values
-                    BaseUri = baseUri;
+                // We won the race - set the values
+                BaseUri = baseUri;
 
-                    // If vanityUrlString is provided and valid, set it
-                    if (!string.IsNullOrWhiteSpace(vanityUrlString) &&
-                        Uri.TryCreate(vanityUrlString, UriKind.Absolute, out Uri vanityUrl))
-                    {
-                        VanityUrl = vanityUrl;
-                    }
+                // If vanityUrlString is provided and valid, set it
+                if (!string.IsNullOrWhiteSpace(vanityUrlString) &&
+                    Uri.TryCreate(vanityUrlString, UriKind.Absolute, out Uri vanityUrl))
+                {
+                    VanityUrl = vanityUrl;
                 }
 
                 // If _initialized was already 1, another thread beat us to it, so we do nothing

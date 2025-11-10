@@ -61,6 +61,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             const string expectedVanityUrl = "https://custom.example.com/fhir/";
 
             HttpContext httpContext = CreateHttpContext();
+
+            // Use an external host to ensure instance configuration is initialized (not loopback)
+            httpContext.Request.Host = new HostString("api.example.com", 443);
             httpContext.Request.Headers["x-ms-vanity-url"] = expectedVanityUrl;
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -82,6 +85,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         public async Task GivenAnHttpRequestWithoutVanityUrlHeader_WhenExecutingFhirRequestContextMiddleware_ThenVanityUrlShouldBeNull()
         {
             HttpContext httpContext = CreateHttpContext();
+
+            // Use an external host to ensure instance configuration is initialized (not loopback)
+            httpContext.Request.Host = new HostString("api.example.com", 443);
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
