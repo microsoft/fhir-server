@@ -113,34 +113,29 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Services
             return Task.CompletedTask;
         }
 
-        private static Task RegisterScopesAsync(
+        private static async Task RegisterScopesAsync(
             IOpenIddictScopeManager scopeManager,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(scopeManager, nameof(scopeManager));
 
-            var scopes = DevelopmentIdentityProviderRegistrationExtensions.AllowedScopes
-                .Concat(DevelopmentIdentityProviderRegistrationExtensions.GenerateSmartClinicalScopes())
-                .ToList();
-            scopes.ForEach(
-                async scope =>
-                {
-                    if (await scopeManager.FindByNameAsync(scope) is null)
-                    {
-                        await scopeManager.CreateAsync(
-                           new OpenIddictScopeDescriptor
-                           {
-                               Name = scope,
-                               Resources =
-                               {
-                                    scope,
-                               },
-                           },
-                           cancellationToken);
-                    }
-                });
+            // Only register the base allowed scopes, not the 6000+ SMART clinical scopes
+            // SMART scopes will be validated dynamically via event handlers
+            var baseScopes = DevelopmentIdentityProviderRegistrationExtensions.AllowedScopes.ToList();
 
-            return Task.CompletedTask;
+            foreach (var scope in baseScopes)
+            {
+                if (await scopeManager.FindByNameAsync(scope, cancellationToken) is null)
+                {
+                    await scopeManager.CreateAsync(
+                        new OpenIddictScopeDescriptor
+                        {
+                            Name = scope,
+                            Resources = { scope },
+                        },
+                        cancellationToken);
+                }
+            }
         }
     }
 }
