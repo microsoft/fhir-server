@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.UpdateResourceSearchParams
+ALTER PROCEDURE dbo.UpdateResourceSearchParams
     @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY

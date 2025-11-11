@@ -13,6 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
     {
         DateTime CreationTime { get; }
 
+        DateTime LatestUpdate { get; }
+
+        TimeSpan ElapsedTime { get; }
+
         int CurrentExpectedNumberOfResources { get; }
 
         Guid Id { get; }
@@ -30,5 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken);
 
         void Cancel(string reason);
+
+        void Clear();
     }
 }

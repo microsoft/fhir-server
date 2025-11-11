@@ -185,6 +185,31 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 
                                 return default;
                             }));
+
+                        // Dynamically validate SMART scopes without pre-registering all 6000+
+                        options.AddEventHandler<OpenIddictServerEvents.ValidateAuthorizationRequestContext>(builder =>
+                            builder.UseInlineHandler(context =>
+                            {
+                                if (!string.IsNullOrEmpty(context.Request.Scope))
+                                {
+                                    var scopes = context.Request.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                    var validScopes = new HashSet<string>(AllowedScopes, StringComparer.OrdinalIgnoreCase);
+                                    var smartScopePattern = GenerateSmartClinicalScopes();
+
+                                    foreach (var scope in scopes)
+                                    {
+                                        if (!validScopes.Contains(scope) && !smartScopePattern.Contains(scope))
+                                        {
+                                            context.Reject(
+                                                error: OpenIddictConstants.Errors.InvalidScope,
+                                                description: $"The scope '{scope}' is not supported.");
+                                            return default;
+                                        }
+                                    }
+                                }
+
+                                return default;
+                            }));
                     });
 
                 services.AddAuthentication(options =>

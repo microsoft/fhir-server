@@ -114,6 +114,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 
                 doesOperationOutcomeHaveError = true;
 
+                _logger.LogError(exception, "An unhandled exception occurred while processing the request");
+
                 await ExecuteResultAsync(context, result);
             }
             finally

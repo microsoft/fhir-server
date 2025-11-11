@@ -41,6 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         private readonly object _lock;
 
         /// <summary>
+        /// Logger.
+        /// </summary>
+        private readonly ILogger<BundleOrchestrator> _logger;
+
+        /// <summary>
         /// Expected number of resources to be persisted.
         /// </summary>
         private int _currentExpectedNumberOfResources;
@@ -56,9 +61,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         private IFhirDataStore _dataStore;
 
         /// <summary>
-        /// Logger.
+        /// Indicates if the operation has been cleared.
         /// </summary>
-        private readonly ILogger<BundleOrchestrator> _logger;
+        private bool _cleared;
 
         public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, ILogger<BundleOrchestrator> logger, int maxExecutionTimeInSeconds = 100)
         {
@@ -70,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             Id = Guid.NewGuid();
             Type = type;
             Label = label;
-            CreationTime = DateTime.UtcNow;
+            CreationTime = LatestUpdate = DateTime.UtcNow;
             Status = BundleOrchestratorOperationStatus.Open;
 
             OriginalExpectedNumberOfResources = expectedNumberOfResources;
@@ -107,10 +112,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         public DateTime CreationTime { get; private set; }
 
+        public DateTime LatestUpdate { get; private set; }
+
+        public TimeSpan ElapsedTime => LatestUpdate - CreationTime;
+
         public BundleOrchestratorOperationStatus Status { get; private set; }
 
         public async Task<UpsertOutcome> AppendResourceAsync(ResourceWrapperOperation resource, IFhirDataStore dataStore, CancellationToken cancellationToken)
         {
+            CheckForClearedOperations();
+
             DataStoreOperationIdentifier identifier = null;
             try
             {
@@ -140,54 +151,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 DataStoreOperationOutcome dataStoreOperationOutcome;
 
-                // Attempt 1: Retrieve from the list of merged records, the one with the same identifier from current thread.
-                if (!ingestedResources.TryGetValue(identifier, out dataStoreOperationOutcome))
+                try
                 {
-                    // Attemp 2: Edge case scenario:
-                    // Under racing conditions, it's possible that the same record (<resourceType>/<id>) is present in two bundles running at the same time.
-                    // One record is updated first than the second, increasing the version of the record, and then updated once more by the second bundle.
-                    // As the version is higher than the expected, the local identifier in the current thread does not match, and an alternative search for
-                    // the combination <resourceType>/<id> is required.
-                    var ingestedResourcesById = ingestedResources.Where(i => i.Key.ResourceType == identifier.ResourceType && i.Key.Id == identifier.Id).ToList();
-
-                    int countOfResourcesFound = ingestedResourcesById.Count;
-                    if (countOfResourcesFound == 1)
+                    // Attempt 1: Retrieve from the list of merged records, the one with the same identifier from current thread.
+                    if (!ingestedResources.TryGetValue(identifier, out dataStoreOperationOutcome))
                     {
-                        // Edge Case scenario: resource was updated by another bundle concurrently, but it was also updated by the current bundle, increasing its version.
-                        _logger.LogWarning($"Edge Case scenario: resource was updated by another request concurrently.");
-                        dataStoreOperationOutcome = ingestedResourcesById[0].Value;
-                    }
-                    else if (countOfResourcesFound == 0)
-                    {
-                        _logger.LogWarning(
-                            "Bundle Operation {Id}. There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
-                            Id,
-                            nameof(DataStoreOperationOutcome),
-                            _resources.Count,
-                            ingestedResources?.Count);
+                        // Attemp 2: Edge case scenario:
+                        // Under racing conditions, it's possible that the same record (<resourceType>/<id>) is present in two bundles running at the same time.
+                        // One record is updated first than the second, increasing the version of the record, and then updated once more by the second bundle.
+                        // As the version is higher than the expected, the local identifier in the current thread does not match, and an alternative search for
+                        // the combination <resourceType>/<id> is required.
+                        var ingestedResourcesById = ingestedResources.Where(i => i.Key.ResourceType == identifier.ResourceType && i.Key.Id == identifier.Id).ToList();
 
-                        throw new BundleOrchestratorException($"There wasn't a valid instance of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource. This is not an expected scenario.");
-                    }
-                    else // (countOfResourcesFound > 1)
-                    {
-                        _logger.LogWarning(
-                            "Bundle Operation {Id}. More than two instances of '{ClassName}' for the same resource were found. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted. {ResourceFound} outcomes were found for the same resource.",
-                            Id,
-                            nameof(DataStoreOperationOutcome),
-                            _resources.Count,
-                            ingestedResources?.Count,
-                            countOfResourcesFound);
+                        int countOfResourcesFound = ingestedResourcesById.Count;
+                        if (countOfResourcesFound == 1)
+                        {
+                            // Edge Case scenario: resource was updated by another bundle concurrently, but it was also updated by the current bundle, increasing its version.
+                            _logger.LogWarning($"Edge Case scenario: resource was updated by another request concurrently.");
+                            dataStoreOperationOutcome = ingestedResourcesById[0].Value;
+                        }
+                        else if (countOfResourcesFound == 0)
+                        {
+                            _logger.LogWarning(
+                                "Bundle Operation {Id}. There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
+                                Id,
+                                nameof(DataStoreOperationOutcome),
+                                _resources.Count,
+                                ingestedResources?.Count);
 
-                        throw new BundleOrchestratorException($"More than two instances of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource were found. This is not an expected scenario.");
+                            throw new BundleOrchestratorException($"There wasn't a valid instance of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource. This is not an expected scenario.");
+                        }
+                        else // (countOfResourcesFound > 1)
+                        {
+                            _logger.LogWarning(
+                                "Bundle Operation {Id}. More than two instances of '{ClassName}' for the same resource were found. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted. {ResourceFound} outcomes were found for the same resource.",
+                                Id,
+                                nameof(DataStoreOperationOutcome),
+                                _resources.Count,
+                                ingestedResources?.Count,
+                                countOfResourcesFound);
+
+                            throw new BundleOrchestratorException($"More than two instances of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource were found. This is not an expected scenario.");
+                        }
                     }
+
+                    if (!dataStoreOperationOutcome.IsOperationSuccessful)
+                    {
+                        throw dataStoreOperationOutcome.Exception;
+                    }
+
+                    return dataStoreOperationOutcome.UpsertOutcome;
                 }
-
-                if (!dataStoreOperationOutcome.IsOperationSuccessful)
+                finally
                 {
-                    throw dataStoreOperationOutcome.Exception;
+                    _resources.TryRemove(identifier, out _);
                 }
-
-                return dataStoreOperationOutcome.UpsertOutcome;
             }
             else
             {
@@ -198,6 +216,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         public async Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken)
         {
+            CheckForClearedOperations();
+
             try
             {
                 if (!_resources.Any())
@@ -226,6 +246,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
 
             await _mergeAsyncTask;
+        }
+
+        public void Clear()
+        {
+            // This class does not implement IDisposable, as Tasks do not need to be disposed (always).
+            // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
+            // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
+
+            _resources.Clear();
+            _cleared = true;
         }
 
         public void Cancel(string reason)
@@ -260,7 +290,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 // '_mergeAsyncTask' should be initialize only once per Back Orchestrator Operation.
                 if (_mergeAsyncTask == null)
                 {
+                    CheckForClearedOperations();
+
                     _mergeAsyncTask = MergeAsync(cancellationToken);
+                }
+            }
+        }
+
+        private void CheckForClearedOperations()
+        {
+            lock (_lock)
+            {
+                if (_cleared)
+                {
+                    throw new BundleOrchestratorException($"Bundle Operation '{Id}'. Bundle Orchestrator Operation was already cleared. No further resources can be appended or released.");
                 }
             }
         }
@@ -270,9 +313,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             try
             {
                 // 1 - Wait for pending resources to be appended to the operation.
-                using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_maxExecutionTimeInSeconds)))
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    var escapeConditionCancellationToken = cancellationTokenSource.Token;
+                    cts.CancelAfter(TimeSpan.FromSeconds(_maxExecutionTimeInSeconds));
+                    CancellationToken escapeConditionCancellationToken = cts.Token;
+
                     do
                     {
                         if (escapeConditionCancellationToken.IsCancellationRequested)
@@ -285,11 +330,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                             escapeConditionCancellationToken.ThrowIfCancellationRequested();
                         }
 
-                        cancellationToken.ThrowIfCancellationRequested();
+                        escapeConditionCancellationToken.ThrowIfCancellationRequested();
 
-                        await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, cancellationToken);
+                        await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, escapeConditionCancellationToken);
                     }
-                    while (_resources.Count != CurrentExpectedNumberOfResources);
+                    while (_resources.Count != CurrentExpectedNumberOfResources && !escapeConditionCancellationToken.IsCancellationRequested);
+
+                    escapeConditionCancellationToken.ThrowIfCancellationRequested();
                 }
 
                 if (CurrentExpectedNumberOfResources == 0)
@@ -385,6 +432,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     throw new BundleOrchestratorException($"Bundle Operation {Id}. Invalid status change. Current status '{Status}'. Suggested status '{suggestedStatus}'.");
                 }
+
+                LatestUpdate = DateTime.UtcNow;
             }
         }
     }

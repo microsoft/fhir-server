@@ -621,6 +621,114 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                     new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "system", new Hl7.Fhir.Rest.SearchParams("active", "true")),
                 },
             };
+
+            // URL-encoded scopes with %2f (for Azure Entra ID compatibility)
+            // Basic test with %2f in scope separator
+            yield return new object[] { "patient%2fPatient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient") } };
+
+            // Multiple scopes with %2f
+            yield return new object[]
+            {
+                "patient%2fPatient.read patient%2fObservation.read",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                },
+            };
+
+            // V2 format with %2f
+            yield return new object[] { "patient%2fPatient.rs", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient") } };
+
+            // V2 format with multiple permissions and %2f
+            yield return new object[] { "patient%2fPatient.cruds", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Create | DataActions.Update | DataActions.Delete | DataActions.ReadById | DataActions.Search | DataActions.Export, "patient") } };
+
+            // Wildcard with %2f
+            yield return new object[]
+            {
+                "user%2f*.*",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                },
+            };
+
+            // System scope with %2f
+            yield return new object[] { "system%2fPatient.all", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Search | DataActions.Write | DataActions.Export | DataActions.Create | DataActions.Update | DataActions.Delete, "system") } };
+
+            // %2f with search parameters (granular scopes)
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?code=44501",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "44501")),
+                },
+            };
+
+            // %2f with multiple search parameters
+            yield return new object[]
+            {
+                "patient%2fPatient.rs?name=john&gender=male",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("name", "john").Add("gender", "male")),
+                },
+            };
+
+            // %2f with URL-encoded parameters (http URLs with encoded forward slashes in search params)
+            yield return new object[]
+            {
+                "patient%2fObservation.rs?code=http:%2f%2floinc.org|4454-1",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "http://loinc.org|4454-1")),
+                },
+            };
+
+            // Mixed: some scopes with %2f, some with regular / separator
+            yield return new object[]
+            {
+                "patient%2fPatient.read user/Observation.write",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read | DataActions.Export | DataActions.Search, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Write | DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                },
+            };
+
+            // Multiple scopes with different separators and %2f in search parameters
+            yield return new object[]
+            {
+                "patient%2fObservation.s?code=http:%2f%2floinc.org|4454-1&status=final patient/Patient.rs?name=john",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Observation", DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("code", "http://loinc.org|4454-1").Add("status", "final")),
+                    new ScopeRestriction("Patient", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient", new Hl7.Fhir.Rest.SearchParams("name", "john")),
+                },
+            };
+
+            // V2 granular with %2f
+            yield return new object[]
+            {
+                "user%2fPatient.cud patient%2fObservation.rs",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Create | DataActions.Update | DataActions.Delete, "user"),
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "patient"),
+                },
+            };
+
+            // Complex example with %2f in scope separator and %2f in URL search parameters
+            yield return new object[]
+            {
+                "user%2fPatient.cruds?name=Smith&birthdate=ge2000 user%2fObservation.rs?category=vital-signs&code=http:%2f%2floinc.org|85354-9",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Create | DataActions.ReadById | DataActions.Update | DataActions.Delete | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("name", "Smith").Add("birthdate", "ge2000")),
+                    new ScopeRestriction("Observation", DataActions.ReadById | DataActions.Search | DataActions.Export, "user", new Hl7.Fhir.Rest.SearchParams("category", "vital-signs").Add("code", "http://loinc.org|85354-9")),
+                },
+            };
         }
 
         public static IEnumerable<object[]> GetMixedTestScopes()
