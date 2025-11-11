@@ -49,6 +49,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version O
     ResourceId,
     Version
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource
@@ -62,6 +63,7 @@ INCLUDE -- We want the query in UpsertResource, which is done with UPDLOCK AND H
     IsDeleted
 )
 WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON dbo.Resource
@@ -70,5 +72,6 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
     ResourceSurrogateId
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 GO
