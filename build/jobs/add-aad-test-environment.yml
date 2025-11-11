@@ -12,31 +12,25 @@ steps:
     azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
-      Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
-      Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Verbose -Scope CurrentUser
+      # Install only required Microsoft Graph modules for better performance
+      # Use AllowClobber to handle any version conflicts
+      Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Applications -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Users -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
 
-      $module = Get-Module -Name AzureAD
+      $module = Get-Module -Name Microsoft.Graph.Authentication
       Write-Host $module.version
 
       $tenantId = "$(tenant-id)"
 
-      # Get admin token
-
+      # Set up Microsoft Graph authentication
       $username = "$(tenant-admin-service-principal-name)"
       $clientId = "$(tenant-admin-service-principal-id)"
       $password_raw =  "$(tenant-admin-service-principal-password)"
       $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
-      $adminCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
-
-      $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
-      $resource = "https://graph.windows.net/"
-
-      $body = @{
-          grant_type = "client_credentials"
-          client_id  = $clientId
-          client_secret = $password_raw
-          resource   = $resource
-      }
+      $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
 
       # If a deleted keyvault with purge protection exists, try to restore it.
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
@@ -54,22 +48,13 @@ steps:
       }
       Write-Host "Restored keyvaults"
 
-      try 
-      {
-          Write-Host "Getting access token"
-          $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-      }
-      catch 
-      {
-          Write-Error $_.ErrorDetails
-      }
-      Write-Host "Got access token"
+      # Connect to Microsoft Graph using client credentials
+      Write-Host "Connecting to Microsoft Graph"
+      Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential
 
-      Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
-
-      Write-Host "Connected to Azure AD"
+      Write-Host "Connected to Microsoft Graph"
       Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
       Write-Host "Imported modules"
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password
+      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password

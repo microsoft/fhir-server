@@ -20,6 +20,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleTransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\DocRefOperationTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\DocRefOperationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\ExpandOperationTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\ExpandOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />

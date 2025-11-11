@@ -1,0 +1,42 @@
+parameters:
+- name: resourceGroup
+  type: string
+- name: nspName
+  type: string
+- name: nspProfile
+  type: string
+  default: 'default'
+
+jobs:
+- job: 'provisionNsp'
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: AzurePowerShell@5
+    displayName: 'Create Network Security Perimeter'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $resourceGroup = "${{ parameters.resourceGroup }}"
+        $nspName = "${{ parameters.nspName }}"
+        $nspProfile = "${{ parameters.nspProfile }}"
+
+        Write-Host "Creating Network Security Perimeter"
+        Write-Host "Resource Group: $resourceGroup"
+        Write-Host "NSP Name: $nspName"
+        Write-Host "NSP Profile: $nspProfile"
+
+        # Get the location of the resource group
+        $resourceGroupDetails = Get-AzResourceGroup -Name $resourceGroup
+        $location = $resourceGroupDetails.Location
+
+        $templateParameters = @{
+            nspName = $nspName
+            nspProfile = $nspProfile
+            location = $location
+        }
+
+        New-AzResourceGroupDeployment -ResourceGroupName $resourceGroup -Name "$nspName-nsp-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-template.json -TemplateParameterObject $templateParameters -Verbose

@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly OperationsConfiguration _operationConfiguration;
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly ImplementationGuidesConfiguration _implementationGuidesConfiguration;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
 
         public OperationDefinitionController(
@@ -45,18 +46,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> featureConfig,
             IOptions<CoreFeatureConfiguration> coreFeatureConfig,
+            IOptions<ImplementationGuidesConfiguration> implementationGuidesConfig,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value, nameof(operationsConfig));
             EnsureArg.IsNotNull(featureConfig?.Value, nameof(featureConfig));
             EnsureArg.IsNotNull(coreFeatureConfig?.Value, nameof(coreFeatureConfig));
+            EnsureArg.IsNotNull(implementationGuidesConfig?.Value, nameof(implementationGuidesConfig));
             EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
 
             _mediator = mediator;
             _operationConfiguration = operationsConfig.Value;
             _featureConfiguration = featureConfig.Value;
             _coreFeatureConfiguration = coreFeatureConfig.Value;
+            _implementationGuidesConfiguration = implementationGuidesConfig.Value;
             _fhirRuntimeConfiguration = fhirRuntimeConfiguration;
         }
 
@@ -177,6 +181,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.Includes);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.DocRefOperationDefinition, Name = RouteNames.DocRefOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> DocRefOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.DocRef);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ExpandOperationDefinition, Name = RouteNames.ExpandDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> ExpandOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.ValueSetExpand);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -221,6 +241,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     break;
                 case OperationsConstants.Includes:
                     operationEnabled = _coreFeatureConfiguration.SupportsIncludes;
+                    break;
+                case OperationsConstants.DocRef:
+                    operationEnabled = _implementationGuidesConfiguration.USCore?.EnableDocRef ?? false;
+                    break;
+                case OperationsConstants.ValueSetExpand:
+                    operationEnabled = _operationConfiguration.Terminology?.EnableExpand ?? false;
                     break;
                 default:
                     break;

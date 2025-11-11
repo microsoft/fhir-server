@@ -20,6 +20,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -106,6 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             fhirJsonParser,
                             statistics,
                             _logger,
+                            _bundleConfiguration,
                             ct);
 
                         DetectNeedToRefreshProfiles(resourceExecutionContext.ResourceType);
@@ -116,14 +118,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                     catch (OperationCanceledException ex)
                     {
-                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out
-                        _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
+                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out.
+                        _logger.LogWarning(ex, "Bundle request timed out. Elapsed time {TotalElapsedMilliseconds}ms. Error: {ErrorMessage}", watch.Elapsed.TotalMilliseconds, ex.Message);
                     }
-                    catch (FhirTransactionFailedException ex)
+                    catch (BaseFhirTransactionException ex)
                     {
-                        if (ex.IsErrorCausedDueClientFailure())
+                        if (ex is FhirTransactionCancelledException tce)
                         {
-                            _logger.LogWarning(ex, $"BundleHandler - Failed transaction. Error caused due a client failure. Cancelling Bundle Orchestrator Operation. HttpStatusCode: {ex.ResponseStatusCode}");
+                            // Handles client cancelled operations.
+                            _logger.LogWarning(tce, $"BundleHandler - Failed transaction. Error caused due an external cancellation. Canceling Bundle Orchestrator Operation. HttpStatusCode: {tce.ResponseStatusCode}");
+                            statistics.MarkBundleAsCancelled();
+                        }
+                        else if (ex is FhirTransactionFailedException tfe && tfe.IsErrorCausedDueClientFailure())
+                        {
+                            // Handles client failures.
+                            _logger.LogWarning(tfe, $"BundleHandler - Failed transaction. Error caused due a client failure. Cancelling Bundle Orchestrator Operation. HttpStatusCode: {tfe.ResponseStatusCode}");
                             statistics.MarkBundleAsFailedDueClientError();
                         }
                         else
@@ -152,15 +161,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
+
+                    // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
+                    // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
+
                     await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
                 {
-                    FhirTransactionFailedException ftfe = age.InnerExceptions.Where(e => e is FhirTransactionFailedException).FirstOrDefault() as FhirTransactionFailedException;
-                    if (ftfe != null)
+                    BaseFhirTransactionException fte = age.InnerExceptions.Where(e => e is BaseFhirTransactionException).FirstOrDefault() as BaseFhirTransactionException;
+                    if (fte != null)
                     {
                         // If one of the exceptions raised is a FhirTransactionFailedException, then keep its origin.
-                        ExceptionDispatchInfo.Capture(ftfe).Throw();
+                        ExceptionDispatchInfo.Capture(fte).Throw();
                     }
 
                     _logger.LogError(age, "Multiple failures while processing bundle in parallel. Error: {ErrorMessage}", age.Message);
@@ -168,19 +181,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 catch (Exception ex)
                 {
-                    if (ex is FhirTransactionFailedException)
+                    if (ex is BaseFhirTransactionException)
                     {
-                        // If one the exception raised is a FhirTransactionFailedException, then keep its origin.
+                        // If one the exception raised is a FHIR Transaction Exception, then keep its origin.
                         throw;
                     }
 
                     _logger.LogError(ex, "Failure while processing bundle in parallel. Error: {ErrorMessage}", ex.Message);
                     throw;
                 }
-
-                _bundleOrchestrator.CompleteOperation(bundleOperation);
+                finally
+                {
+                    CompleteOperation(bundleOperation);
+                }
 
                 return throttledEntryComponent;
+            }
+        }
+
+        private void CompleteOperation(IBundleOrchestratorOperation bundleOperation)
+        {
+            if (_bundleOrchestrator == null || bundleOperation == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _bundleOrchestrator.CompleteOperation(bundleOperation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "BundleHandler - Failure while completing bundle orchestrator operation. It'll not block the bundle execution. Error: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -254,6 +286,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             FhirJsonParser fhirJsonParser,
             BundleHandlerStatistics statistics,
             ILogger<BundleHandler> logger,
+            BundleConfiguration bundleConfiguration,
             CancellationToken cancellationToken)
         {
             EntryComponent entryComponent;
@@ -374,7 +407,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     resourceExecutionContext.Context.HttpContext.Request.Method,
                     resourceExecutionContext.Context.HttpContext.Request.Path);
 
-                TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
+                TransactionExceptionHandler.ThrowTransactionException(
+                    errorMessage,
+                    httpStatusCode,
+                    (OperationOutcome)entryComponent.Response.Outcome,
+                    cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, bundleConfiguration, cancellationToken));
             }
 
             responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;

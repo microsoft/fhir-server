@@ -189,7 +189,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         internal static async Task SendNotification<T>(JobStatus status, JobInfo info, long succeeded, long failed, long bytes, ImportMode importMode, FhirRequestContext context, ILogger<T> logger, IAuditLogger auditLogger, IMediator mediator)
         {
-            logger.LogJobInformation(info, "SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", succeeded, failed);
+            // This statement is used as part of telemetry to indicate how many resources were processed as part of the import job.
+            // Please do not remove without checking with the FHIR team.
+            logger.LogJobInformation(
+                info,
+                "Import Statistics / ImportMode: {ImportMode} / SucceededResources: {SucceededResources} / FailedResources: {FailedResources}",
+                importMode == ImportMode.IncrementalLoad ? ImportMode.IncrementalLoad.ToString() : ImportMode.InitialLoad.ToString(),
+                succeeded,
+                failed);
 
             if (importMode == ImportMode.IncrementalLoad)
             {

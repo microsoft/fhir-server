@@ -3,13 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 #if !Stu3 && !R4 && !R4B
@@ -19,6 +23,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
@@ -91,6 +96,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             // Setup the search parameters.
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
+            _searchParameterExpressionParser
+                .Parse(Arg.Any<SearchParameterInfo>(), Arg.Any<SearchModifier>(), Arg.Any<string>())
+                .Returns(Substitute.For<Expression>());
 
             // Parse the expression.
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value));
@@ -332,6 +340,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             }
         }
 
+        [Theory]
+        [MemberData(nameof(GetNotReferencedExpressions))]
+        public void GivenNotReferenced_WhenParsing_ThenExpressionIsReturned(string value, NotReferencedExpression expected)
+        {
+            _searchParameterDefinitionManager.GetSearchParameter("Encounter", "subject").Returns(expected.ReferenceSearchParameter);
+            var actual = _expressionParser.ParseNotReferenced(value);
+
+            Assert.Equal(expected.SourceResourceType, actual.SourceResourceType);
+            Assert.Equal(expected.ReferenceSearchParameter, actual.ReferenceSearchParameter);
+            Assert.Equal(expected.WildCard, actual.WildCard);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetNotReferencedExceptionTypes))]
+        public void GivenNotReferencedWithInvalidValue_WhenParsing_ThenExceptionIsThrown(string value, string expectedMessage)
+        {
+            _searchParameterDefinitionManager.GetSearchParameters("invalid").Throws(new ResourceNotSupportedException("invalid"));
+            _searchParameterDefinitionManager.GetSearchParameter("Patient", "invalid").Throws(new SearchParameterNotSupportedException("Patient", "invalid"));
+
+            try
+            {
+                _expressionParser.ParseNotReferenced(value);
+            }
+            catch (FhirException e)
+            {
+                Assert.Contains(expectedMessage, e.Issues.First().Diagnostics);
+            }
+        }
+
         private SearchParameterInfo SetupSearchParameter(ResourceType resourceType, string paramName)
         {
             SearchParameterInfo searchParameter = new SearchParameter
@@ -374,6 +411,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             _searchParameterExpressionParser.Parse(searchParameter, null, value).Returns(expectedExpression);
 
             return expectedExpression;
+        }
+
+        public static IEnumerable<object[]> GetNotReferencedExpressions()
+        {
+            yield return new object[] { "Encounter:subject", new NotReferencedExpression(new SearchParameterInfo("test", "test"), "Encounter", false) };
+            yield return new object[] { "Patient:*", new NotReferencedExpression(null, "Patient", true) };
+            yield return new object[] { "*:*", new NotReferencedExpression(null, null, true) };
+        }
+
+        public static IEnumerable<object[]> GetNotReferencedExceptionTypes()
+        {
+            yield return new object[] { "*:subject", Core.Resources.NotReferencedParameterWildcardType };
+            yield return new object[] { "invalid", Core.Resources.NotReferencedParameterNoSeparator };
+            yield return new object[] { "invalid:invalid:invalid", Core.Resources.NotReferencedParameterMultipleSeperators };
+            yield return new object[] { "Patient:invalid", string.Format(Core.Resources.SearchParameterNotSupported, "invalid", "Patient") };
+            yield return new object[] { "invalid:subject", string.Format(Core.Resources.ResourceNotSupported, "invalid") };
         }
     }
 }

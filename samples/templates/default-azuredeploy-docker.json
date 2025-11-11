@@ -242,9 +242,16 @@
         },
         "networkSecurityPerimeterProfileName": {
             "type": "string",
-            "defaultValue": "defaultProfile",
+            "defaultValue": "default",
             "metadata": {
                 "description": "Name of the Network Security Perimeter profile to create."
+            }
+        },
+        "isNspExisting": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Set to true if the Network Security Perimeter already exists. If false, a new NSP will be created."
             }
         }
     },
@@ -790,6 +797,7 @@
             "apiVersion": "2023-07-01-preview",
             "name": "[variables('networkSecurityPerimeterName')]",
             "location": "[resourceGroup().location]",
+            "condition": "[not(parameters('isNspExisting'))]",
             "properties": {
                 "displayName": "[concat('NSP for ', parameters('serviceName'))]"
             }
@@ -798,6 +806,7 @@
             "type": "Microsoft.Network/networkSecurityPerimeters/profiles",
             "apiVersion": "2023-07-01-preview",
             "name": "[concat(variables('networkSecurityPerimeterName'), '/', parameters('networkSecurityPerimeterProfileName'))]",
+            "condition": "[not(parameters('isNspExisting'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]"
             ],
@@ -810,9 +819,9 @@
             "apiVersion": "2023-07-01-preview",
             "name": "[concat(variables('networkSecurityPerimeterName'), '/keyvault-', uniqueString(variables('serviceName')))]",
             "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
+                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
             ],
             "properties": {
                 "privateLinkResource": {
@@ -827,7 +836,7 @@
         {
             "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
             "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/sqlserver-', uniqueString(variables('sqlServerDerivedName')))]",
+            "name": "[concat(variables('networkSecurityPerimeterName'), '/sqlserver-', variables('sqlServerDerivedName'), '-association')]",
             "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'), equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
@@ -857,26 +866,6 @@
             "properties": {
                 "privateLinkResource": {
                     "id": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-                },
-                "profile": {
-                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
-                },
-                "accessMode": "Learning"
-            }
-        },
-        {
-            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
-            "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/cosmosdb-', uniqueString(variables('serviceName')))]",
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
-                "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]",
-                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
-            ],
-            "properties": {
-                "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
                 },
                 "profile": {
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"

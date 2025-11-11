@@ -52,6 +52,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _latestSearchParams = DateTimeOffset.MinValue;
         }
 
+        /// <summary>
+        /// Ensures the search parameter cache is fresh by validating against the database max LastUpdated timestamp.
+        /// Uses configurable time-based intervals to balance freshness with performance.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>True if cache was stale and needs full refresh, false if cache is up to date</returns>
+        public async Task<bool> EnsureCacheFreshnessAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Get max LastUpdated from database efficiently
+                var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
+
+                // Check if our cache is stale
+                if (maxDbLastUpdated > _latestSearchParams)
+                {
+                    _logger.LogInformation(
+                        "Search parameter cache is stale. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}. Cache refresh needed.",
+                        _latestSearchParams,
+                        maxDbLastUpdated);
+
+                    return true; // Cache is stale - caller should perform full refresh
+                }
+                else
+                {
+                    _logger.LogDebug(
+                        "Search parameter cache is up to date. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}.",
+                        _latestSearchParams,
+                        maxDbLastUpdated);
+
+                    return false; // Cache is fresh - no action needed
+                }
+            }
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogWarning(ex, "SearchParameter cache refresh was canceled. Will retry on next scheduled interval.");
+                throw;
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Timeout Exception during search parameter cache validation. Assuming cache is stale to trigger refresh.");
+
+                // When in doubt, assume cache is stale - better to do unnecessary work than miss updates
+                return true;
+            }
+        }
+
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
@@ -221,6 +268,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             if (!updatedSearchParameterStatus.Any())
             {
+                // Even when there are no updates to apply, we need to update our cache timestamp
+                // to reflect that we've successfully synchronized with the database
+                await UpdateCacheTimestampAsync(cancellationToken);
+                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Updated cache timestamp.");
                 return;
             }
 
@@ -251,12 +302,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
-            if (updatedSearchParameterStatus.Any())
-            {
-                _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
-            }
+            await UpdateCacheTimestampAsync(cancellationToken);
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+        }
+
+        /// <summary>
+        /// Updates the cache timestamp to indicate that a full cache refresh has been completed successfully.
+        /// This prevents unnecessary cache refreshes when no new updates are available.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        private async Task UpdateCacheTimestampAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Get the current max LastUpdated from database and update our cache timestamp
+                var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
+                _latestSearchParams = maxDbLastUpdated;
+
+                _logger.LogDebug(
+                    "Updated SearchParameter cache timestamp to {CacheTimestamp} after successful refresh.",
+                    _latestSearchParams);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update cache timestamp after successful refresh. This may cause unnecessary cache refreshes.");
+
+                // Don't throw - this is not critical for functionality
+            }
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)

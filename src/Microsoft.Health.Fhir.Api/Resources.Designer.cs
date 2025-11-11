@@ -223,6 +223,42 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to One or more invalid parameters are found: {0}.
+        /// </summary>
+        public static string ExpandInvalidParameter {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The number of the parameter must not be more than one: {0}.
+        /// </summary>
+        public static string ExpandInvalidParameterCount {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameterCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The resource id must not be null or empty..
+        /// </summary>
+        public static string ExpandInvalidResourceId {
+            get {
+                return ResourceManager.GetString("ExpandInvalidResourceId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;url&apos; or &apos;valueSet&apos; parameter must be provided.
+        /// </summary>
+        public static string ExpandMissingRequiredParameter {
+            get {
+                return ResourceManager.GetString("ExpandMissingRequiredParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..
         /// </summary>
         public static string FailedHealthCheckMessage {
@@ -552,6 +588,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string MissingInputParams {
             get {
                 return ResourceManager.GetString("MissingInputParams", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. .
+        /// </summary>
+        public static string MixedSMARTV1AndV2ScopesAreNotAllowed {
+            get {
+                return ResourceManager.GetString("MixedSMARTV1AndV2ScopesAreNotAllowed", resourceCulture);
             }
         }
         

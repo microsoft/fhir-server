@@ -90,5 +90,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         internal const string CancelBulkUpdate = nameof(CancelBulkUpdate);
 
         internal const string BulkUpdateDefinition = nameof(BulkUpdateDefinition);
+
+        internal const string DocRef = nameof(DocRef);
+
+        internal const string DocRefOperationDefinition = nameof(DocRefOperationDefinition);
+
+        internal const string Expand = nameof(Expand);
+
+        internal const string ExpandById = nameof(ExpandById);
+
+        internal const string ExpandDefinition = nameof(ExpandDefinition);
     }
 }

@@ -1020,9 +1020,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenAnOperationOutcomeWarningIsReturnedInTheBundle()
         {
             Bundle bundle = await Client.SearchAsync("?_count=" + int.MaxValue);
+            Assert.NotEmpty(bundle.Entry);
 
-            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
-            Assert.Contains("exceeds limit", (string)bundle.Scalar("entry.resource.issue.diagnostics"));
+            var operationOutcome = bundle.Entry.First().Resource as OperationOutcome;
+            Assert.NotNull(operationOutcome);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Contains("exceeds limit", operationOutcome.Issue.First().Diagnostics);
         }
 
         [Fact]

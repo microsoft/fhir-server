@@ -1,4 +1,3 @@
-
 parameters:
 - name: version
   type: string
@@ -85,6 +84,7 @@ jobs:
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
+            isNspExisting = $true
         }
 
         if("${{ parameters.sql }}" -eq "true"){
@@ -108,6 +108,10 @@ jobs:
 
         Write-Host "Provisioning Resource Group"
         Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
+
+        # Set NSP name to match ARM template convention
+        $nspName = "nsp-$resourceGroupName"
+        $templateParameters["networkSecurityPerimeterName"] = $nspName
 
         # Check if a deployment with the specified name already exists
         $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
@@ -145,8 +149,37 @@ jobs:
               -Scope "/" `
               -PrincipalId $principalId `
               -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
-        }
 
+            # Associate CosmosDB with Network Security Perimeter using external template
+            Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
+            
+            $associationName = "cosmosdb-$webAppName-association"
+                
+            Write-Host "Creating NSP association using external ARM template..."
+            Write-Host "NSP Name: $nspName"
+            Write-Host "CosmosDB Account: $webAppName"
+            Write-Host "Association Name: $associationName"
+                
+            $templateParameters = @{
+                'nspName' = $nspName
+                'resourceName' = $webAppName
+                'resourceType' = 'Microsoft.DocumentDB/databaseAccounts'
+                'associationName' = $associationName
+                'accessMode' = 'Learning'
+                'nspProfile' = 'default'
+            }
+                
+            # Deploy using external template
+            $nspDeploymentResult = New-AzResourceGroupDeployment `
+              -ResourceGroupName $resourceGroupName `
+              -Name "$webAppName-cosmosdb-nsp-association" `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+              -TemplateParameterObject $templateParameters `
+              -Verbose
+                
+            Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
+            Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+        }
   - template: ./provision-healthcheck.yml
     parameters:
       webAppName: ${{ parameters.webAppName }}

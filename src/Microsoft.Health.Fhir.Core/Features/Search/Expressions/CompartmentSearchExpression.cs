@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override bool ValueInsensitiveEquals(Expression other)
         {
-            return other is CompartmentSearchExpression compartmentSearch && compartmentSearch.CompartmentType == CompartmentType;
+            return other is CompartmentSearchExpression compartmentSearch && compartmentSearch.CompartmentType == CompartmentType && compartmentSearch.CompartmentId == CompartmentId;
         }
     }
 }

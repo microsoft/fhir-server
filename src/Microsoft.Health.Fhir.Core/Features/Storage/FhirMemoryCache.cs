@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 {
     public sealed class FhirMemoryCache<T> : IFhirMemoryCache<T>, IDisposable
     {
-        private const int DefaultLimitSizeInBytes = 50 * 1024 * 1024;
+        private const int DefaultLimit = 50 * 1024 * 1024;
         private const int DefaultExpirationTimeInMinutes = 24 * 60;
         private const double DefaultCompactionPercentage = 0.05;
 
@@ -24,35 +24,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         private readonly MemoryCacheOptions _cacheOptions;
         private readonly TimeSpan _entryExpirationTime;
         private readonly bool _ignoreCase;
+        private readonly FhirCacheLimitType _limitType;
 
         private bool _disposed;
 
-        public FhirMemoryCache(string name, ILogger logger, bool ignoreCase = false)
+        public FhirMemoryCache(string name, ILogger logger, bool ignoreCase = false, FhirCacheLimitType limitType = FhirCacheLimitType.Byte)
             : this(
                 name,
-                limitSizeInBytes: DefaultLimitSizeInBytes,
+                sizeLimit: DefaultLimit,
                 entryExpirationTime: TimeSpan.FromMinutes(DefaultExpirationTimeInMinutes),
-                logger)
+                logger,
+                ignoreCase,
+                limitType: limitType)
         {
         }
 
         public FhirMemoryCache(
             string name,
-            long limitSizeInBytes,
+            long sizeLimit,
             TimeSpan entryExpirationTime,
             ILogger logger,
             bool ignoreCase = false,
-            double compactionPercentage = DefaultCompactionPercentage)
+            double compactionPercentage = DefaultCompactionPercentage,
+            FhirCacheLimitType limitType = FhirCacheLimitType.Byte)
         {
             EnsureArg.IsNotNull(name, nameof(name));
-            EnsureArg.IsGt(limitSizeInBytes, 0, nameof(limitSizeInBytes));
+            EnsureArg.IsGt(sizeLimit, 0, nameof(sizeLimit));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _cacheName = name;
 
             _cacheOptions = new MemoryCacheOptions()
             {
-                SizeLimit = limitSizeInBytes, // Sets the maximum size of the cache.
+                SizeLimit = sizeLimit, // Sets the maximum size of the cache.
                 CompactionPercentage = compactionPercentage, // Sets the amount the cache is compacted by when the maximum size is exceeded.
             };
 
@@ -61,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             _entryExpirationTime = entryExpirationTime;
             _logger = logger;
             _ignoreCase = ignoreCase;
+            _limitType = limitType;
 
             _disposed = false;
         }
@@ -212,40 +217,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             return false;
         }
 
+        public void Clear()
+        {
+            CheckDisposed();
+            _cache.Compact(1.0);
+        }
+
         public void Dispose()
         {
             Dispose(disposing: true);
         }
 
-        private static long SizeOfEntryInCache(string key, T value)
+        private long SizeOfEntryInCache(string key, T value)
         {
-            Type typeOfT = typeof(T);
+            if (_limitType == FhirCacheLimitType.Count)
+            {
+                return 1;
+            }
+            else if (_limitType == FhirCacheLimitType.Byte)
+            {
+                Type typeOfT = typeof(T);
 
-            int keySizeInBytes = ASCIIEncoding.Unicode.GetByteCount(key);
+                int keySizeInBytes = ASCIIEncoding.Unicode.GetByteCount(key);
 
-            int valueSizeInBytes = 0;
-            if (typeOfT == typeof(int))
-            {
-                valueSizeInBytes = sizeof(int);
-            }
-            else if (typeOfT == typeof(long))
-            {
-                valueSizeInBytes = sizeof(long);
-            }
-            else if (typeOfT == typeof(byte[]))
-            {
-                valueSizeInBytes = (value as byte[]).Length;
-            }
-            else if (typeOfT == typeof(string))
-            {
-                valueSizeInBytes = ASCIIEncoding.Unicode.GetByteCount(value.ToString());
+                int valueSizeInBytes = 0;
+                if (typeOfT == typeof(int))
+                {
+                    valueSizeInBytes = sizeof(int);
+                }
+                else if (typeOfT == typeof(long))
+                {
+                    valueSizeInBytes = sizeof(long);
+                }
+                else if (typeOfT == typeof(byte[]))
+                {
+                    valueSizeInBytes = (value as byte[]).Length;
+                }
+                else if (typeOfT == typeof(string))
+                {
+                    valueSizeInBytes = ASCIIEncoding.Unicode.GetByteCount(value.ToString());
+                }
+                else
+                {
+                    throw new InvalidOperationException("Unknown type to compute the size.");
+                }
+
+                return keySizeInBytes + valueSizeInBytes;
             }
             else
             {
-                throw new InvalidOperationException("Unknown type to compute the size.");
+                throw new InvalidOperationException("Unknown limit type for a memory cache.");
             }
-
-            return keySizeInBytes + valueSizeInBytes;
         }
 
         private static void SetEntryPolicy(ICacheEntry entry, MemoryCacheEntryOptions options)

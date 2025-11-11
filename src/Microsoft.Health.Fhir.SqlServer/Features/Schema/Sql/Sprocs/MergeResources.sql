@@ -76,6 +76,7 @@ BEGIN TRY
             AND B.Version = A.Version
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
+      -- If all resources being merged are already in the resource table with updated versions this is a retry and only search parameters need to be updated.
       IF @@rowcount = (SELECT count(*) FROM @Resources) SET @IsRetry = 1
 
       IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
@@ -123,6 +124,7 @@ BEGIN TRY
         DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
       SET @AffectedRows += @@rowcount
 
+      -- Cleanup search parameters for historical versions
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.ReferenceSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)

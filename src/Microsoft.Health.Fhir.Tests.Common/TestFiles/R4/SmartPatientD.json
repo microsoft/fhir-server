@@ -1,0 +1,820 @@
+{
+    "resourceType": "Bundle",
+    "id": "1eb6b09c8316564abe35fad9b948e021",
+    "type": "transaction",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-1",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-2",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-3",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-4",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-4"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-5",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-5"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-6",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-6"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-7",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-7"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-8",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-8"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-9",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345675"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-9"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-1",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-2",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-3",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-4",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-4"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-5",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-5"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-6",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-6"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-7",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-7"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-8",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-8"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "smart-device-9",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http://goodcare.org/devices/id",
+                        "value": "345676"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-9"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Organization",
+                "id": "smart-organization-D1",
+                "meta": {
+                    "versionId": "2",
+                    "lastUpdated": "2022-09-29T19:10:27.756+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "name": "Updated",
+                "address": [
+                    {
+                        "city": "Seattle"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-D1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Organization",
+                "id": "smart-organization-D2",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      Health Level Seven International\n      <br/>\n\t\t\t\t3300 Washtenaw Avenue, Suite 227\n      <br/>\n\t\t\t\tAnn Arbor, MI 48104\n      <br/>\n\t\t\t\tUSA\n      <br/>\n\t\t\t\t(+1) 734-677-7777 (phone)\n      <br/>\n\t\t\t\t(+1) 734-677-6622 (fax)\n      <br/>\n\t\t\t\tE-mail:  \n      <a href=\"mailto:hq@HL7.org\">hq@HL7.org</a>\n    \n    </div>"
+                },
+                "name": "Health Level Seven International",
+                "alias": [
+                    "HL7 International"
+                ],
+                "telecom": [
+                    {
+                        "system": "phone",
+                        "value": "(+1) 734-677-7777"
+                    },
+                    {
+                        "system": "fax",
+                        "value": "(+1) 734-677-6622"
+                    },
+                    {
+                        "system": "email",
+                        "value": "hq@HL7.org"
+                    }
+                ],
+                "address": [
+                    {
+                        "line": [
+                            "3300 Washtenaw Avenue, Suite 227"
+                        ],
+                        "city": "Ann Arbor",
+                        "state": "MI",
+                        "postalCode": "48104",
+                        "country": "USA"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-D2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "smart-patient-D",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:10:27.888+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "name": [
+                    {
+                        "family": "SMART",
+                        "given": [
+                            "SMARTGivenName1"
+                        ]
+                    }
+                ],
+                "birthDate": "1981-07-02",
+                "generalPractitioner": [
+                    {
+                        "reference": "Practitioner/smart-practitioner-D"
+                    }
+                ],
+                "managingOrganization": {
+                    "reference": "Organization/smart-organization-D1"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/smart-patient-D"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-observation-D1",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:10:27.911+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-patient-D"
+                },
+                "effectiveDateTime": "2008-04-10",
+                "performer": [
+                    {
+                        "reference": "Organization/smart-Organization-D1"
+                    },
+                    {
+                        "reference": "Practitioner/smart-practitioner-D"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-D1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "smart-observation-D2",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:10:27.918+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "429858000"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-patient-D"
+                },
+                "effectiveDateTime": "1977-09-01",
+                "performer": [
+                    {
+                        "reference": "Organization/smart-Organization-D1"
+                    },
+                    {
+                        "reference": "Practitioner/smart-practitioner-D"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-D2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "DiagnosticReport",
+                "id": "smart-diagnosticreport-D1",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:10:27.967+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-patient-D"
+                },
+                "result": [
+                    {
+                        "reference": "Observation/smart-Observation-D1"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "DiagnosticReport/smart-diagnosticreport-D1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "DiagnosticReport",
+                "id": "smart-diagnosticreport-D2",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:10:27.947+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "429858000"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-patient-D"
+                },
+                "result": [
+                    {
+                        "reference": "Observation/smart-Observation-D2"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "DiagnosticReport/smart-diagnosticreport-D2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationRequest",
+                "id": "smart-medicationrequest-D1",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:10:27.998+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "status": "completed",
+                "intent": "order",
+                "medicationCodeableConcept": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "16590-619-30"
+                        }
+                    ],
+                    "text": "Percocet tablet"
+                },
+                "subject": {
+                    "reference": "Patient/smart-patient-D"
+                },
+                "requester": {
+                    "reference": "Practitioner/smart-practitioner-D"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationRequest/smart-medicationrequest-D1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationDispense",
+                "id": "smart-medicationdispense-D1",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:10:28.022+00:00",
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+                        }
+                    ]
+                },
+                "status": "in-progress",
+                "medicationCodeableConcept": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "108505002"
+                        }
+                    ],
+                    "text": "Tramadol hydrochloride (substance)"
+                },
+                "subject": {
+                    "reference": "Patient/smart-patient-D"
+                },
+                "performer": [
+                    {
+                        "actor": {
+                            "reference": "Practitioner/smart-practitioner-D"
+                        }
+                    }
+                ],
+                "authorizingPrescription": [
+                    {
+                        "reference": "MedicationRequest/smart-medicationrequest-D1"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationDispense/smart-medicationdispense-D1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "id": "smart-encounter-D1",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-09-29T19:21:51.746+00:00"
+                },
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: f002</p><p><b>identifier</b>: v3251 (OFFICIAL)</p><p><b>status</b>: finished</p><p><b>class</b>: ambulatory (Details: http://terminology.hl7.org/CodeSystem/v3-DctCode code AMB = 'ambulatory', stated as 'ambulatory')</p><p><b>type</b>: Patient-initiated encounter <span>(Details : {SNOMED CT code '270427003' = 'Patient-initiated encounter', given as 'Patient-initiated encounter'})</span></p><p><b>priority</b>: Urgent <span>(Details : {SNOMED CT code '103391001' = 'Urgency', given as 'Urgent'})</span></p><p><b>subject</b>: <a>P. van de Heuvel</a></p><h3>Participants</h3><table><tr><td>-</td><td><b>Individual</b></td></tr><tr><td>*</td><td><a>M.I.M Versteegh</a></td></tr></table><p><b>length</b>: 140 min<span>(Details: UCUM code min = 'min')</span></p><p><b>reasonCode</b>: Partial lobectomy of lung <span>(Details : {SNOMED CT code '34068001' = 'Heart valve replacement', given as 'Partial lobectomy of lung'})</span></p><h3>Hospitalizations</h3><table><tr><td>-</td><td><b>PreAdmissionIdentifier</b></td><td><b>AdmitSource</b></td><td><b>DischargeDisposition</b></td></tr><tr><td>*</td><td>98682 (OFFICIAL)</td><td>Referral by radiologist <span>(Details : {SNOMED CT code '305997006' = 'Referral by radiologist', given as 'Referral by radiologist'})</span></td><td>Discharge to home <span>(Details : {SNOMED CT code '306689006' = 'Discharge to home', given as 'Discharge to home'})</span></td></tr></table><p><b>serviceProvider</b>: <a>BMC</a></p></div>"
+                },
+                "identifier": [
+                    {
+                        "use": "official",
+                        "system": "http://www.bmc.nl/zorgportal/identifiers/encounters",
+                        "value": "v3251"
+                    }
+                ],
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-DctCode",
+                    "code": "AMB",
+                    "display": "ambulatory"
+                },
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "270427003",
+                                "display": "Patient-initiated encounter"
+                            }
+                        ]
+                    }
+                ],
+                "priority": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "103391001",
+                            "display": "Urgent"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-patient-D",
+                    "display": "P. van de Heuvel"
+                },
+                "participant": [
+                    {
+                        "individual": {
+                            "reference": "Practitioner/smart-practitioner-D",
+                            "display": "M.I.M Versteegh"
+                        }
+                    }
+                ],
+                "length": {
+                    "value": 140,
+                    "unit": "min",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "min"
+                },
+                "reasonCode": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "34068001",
+                                "display": "Partial lobectomy of lung"
+                            }
+                        ]
+                    }
+                ],
+                "hospitalization": {
+                    "preAdmissionIdentifier": {
+                        "use": "official",
+                        "system": "http://www.bmc.nl/zorgportal/identifiers/pre-Ddmissions",
+                        "value": "98682"
+                    },
+                    "admitSource": {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "305997006",
+                                "display": "Referral by radiologist"
+                            }
+                        ]
+                    },
+                    "dischargeDisposition": {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "306689006",
+                                "display": "Discharge to home"
+                            }
+                        ]
+                    }
+                },
+                "serviceProvider": {
+                    "reference": "Organization/smart-organization-D2",
+                    "display": "BMC"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Encounter/smart-encounter-D1"
+            }
+        }
+    ]
+}	

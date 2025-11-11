@@ -223,6 +223,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                     if (typeId == (int)JobType.ReindexOrchestrator)
                     {
+                        // Create a mock CoreFeatureConfiguration for the test
+                        var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                        coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                        {
+                            SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                        });
+
+                        // Create a mock OperationsConfiguration for the test
+                        var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                        operationsConfig.Value.Returns(new OperationsConfiguration
+                        {
+                            Reindex = new ReindexJobConfiguration
+                            {
+                                ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                            },
+                        });
+
                         job = new ReindexOrchestratorJob(
                             _queueClient,
                             () => _searchService,
@@ -230,17 +247,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             ModelInfoProvider.Instance,
                             _searchParameterStatusManager,
                             _searchParameterOperations,
-                            NullLoggerFactory.Instance);
+                            _fixture.FhirRuntimeConfiguration,
+                            NullLoggerFactory.Instance,
+                            coreFeatureConfig,
+                            operationsConfig);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
                         Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
                         job = new ReindexProcessingJob(
                             () => _searchService,
-                            NullLoggerFactory.Instance,
-                            _queueClient,
                             fhirDataStoreScope,
-                            _resourceWrapperFactory);
+                            _resourceWrapperFactory,
+                            _searchParameterOperations,
+                            NullLogger<ReindexProcessingJob>.Instance);
                     }
                     else
                     {
@@ -1218,8 +1238,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var mediator = new Mediator(services);
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
 
-            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, _searchService.CreateMockScopeProviderFromScoped(), searchParameterComparer, NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                mediator,
+                _searchService.CreateMockScopeProviderFromScoped(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 

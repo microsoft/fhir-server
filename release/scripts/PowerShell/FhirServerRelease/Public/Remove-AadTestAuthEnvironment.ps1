@@ -35,15 +35,23 @@ function Remove-AadTestAuthEnvironment {
 
     Set-StrictMode -Version Latest
     
-    # Get current AzureAd context
+    # Get current Microsoft Graph context
     try {
-        $tenantInfo = Get-AzureADCurrentSessionInfo -ErrorAction Stop
+        $context = Get-MgContext -ErrorAction Stop
+        if (-not $context) {
+            throw "No Microsoft Graph session found"
+        }
+        # Get organization info to extract tenant domain
+        $organization = Get-MgOrganization | Select-Object -First 1
+        $tenantInfo = @{
+            TenantDomain = $organization.VerifiedDomains | Where-Object { $_.IsDefault -eq $true } | Select-Object -ExpandProperty Name
+        }
     } 
     catch {
-        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
+        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
     }
 
-    Write-Host "Tearing down test authorization environment for AAD"
+    Write-Host "Tearing down test authorization environment for Microsoft Graph"
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
@@ -60,26 +68,35 @@ function Remove-AadTestAuthEnvironment {
 
     if ($application) {
         Write-Host "Removing API application $fhirServiceAudience"
-        Remove-AzureAdApplication -ObjectId $application.Id | Out-Null
+        Remove-MgApplication -ApplicationId $application.Id | Out-Null
     }
 
     foreach ($user in $testAuthEnvironment.Users) {
         $upn = Get-UserUpn -EnvironmentName $EnvironmentName -UserId $user.Id -TenantDomain $tenantInfo.TenantDomain
-        $aadUser = Get-AzureAdUser -Filter "userPrincipalName eq '$upn'"
-
-        if ($aadUser) {
-            Write-Host "Removing user $upn"
-            Remove-AzureAdUser -ObjectId $aadUser.Objectid | Out-Null
+        try {
+            $mgUser = Get-MgUser -Filter "userPrincipalName eq '$upn'" -ErrorAction Stop
+            if ($mgUser) {
+                Write-Host "Removing user $upn"
+                Remove-MgUser -UserId $mgUser.Id | Out-Null
+            }
+        }
+        catch {
+            if ($_.Exception.Message -like "*does not exist*" -or $_.Exception.Message -like "*NotFound*") {
+                Write-Host "User $upn not found - skipping"
+            }
+            else {
+                Write-Warning "Error accessing user $upn : $($_.Exception.Message)"
+            }
         }
     }
 
     foreach ($clientApp in $testAuthEnvironment.ClientApplications) {
         $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id
-        $aadClientApplication = Get-AzureAdApplicationByDisplayName $displayName
+        $mgClientApplication = Get-AzureAdApplicationByDisplayName $displayName
         
-        if ($aadClientApplication) {
+        if ($mgClientApplication) {
             Write-Host "Removing application $displayName"
-            Remove-AzureAdApplication -ObjectId $aadClientApplication.Id | Out-Null
+            Remove-MgApplication -ApplicationId $mgClientApplication.Id | Out-Null
         }
     }
 }

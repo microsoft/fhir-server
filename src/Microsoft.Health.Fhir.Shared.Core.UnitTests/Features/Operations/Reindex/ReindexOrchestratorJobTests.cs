@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -19,9 +21,11 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
@@ -45,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private ISearchParameterStatusManager _searchParameterStatusmanager;
         private Func<ReindexOrchestratorJob> _reindexOrchestratorJobTaskFactory;
         private Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
-        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IQueueClient _queueClient = new TestQueueClient();
 
         private ISearchParameterDefinitionManager _searchDefinitionManager;
@@ -56,6 +60,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationToken = _cancellationTokenSource.Token;
             _searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
+
+            _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
             var job = CreateReindexJobRecord();
             List<SearchParameterInfo> searchParameterInfos = new List<SearchParameterInfo>()
@@ -93,20 +99,71 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
 
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+
             _reindexOrchestratorJobTaskFactory = () =>
-                 new ReindexOrchestratorJob(
+            {
+                // Create a mock CoreFeatureConfiguration for the test
+                var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                {
+                    SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                });
+
+                // Create a mock OperationsConfiguration for the test
+                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                operationsConfig.Value.Returns(new OperationsConfiguration
+                {
+                    Reindex = new ReindexJobConfiguration
+                    {
+                        ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                    },
+                });
+
+                return new ReindexOrchestratorJob(
                      _queueClient,
                      () => _searchService.CreateMockScope(),
                      _searchDefinitionManager,
                      ModelInfoProvider.Instance,
                      _searchParameterStatusmanager,
                      _searchParameterOperations,
-                     NullLoggerFactory.Instance);
+                     fhirRuntimeConfiguration,
+                     NullLoggerFactory.Instance,
+                     coreFeatureConfig,
+                     operationsConfig);
+            };
         }
 
-        [Fact]
-        public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
+        [Theory]
+        [InlineData(DataStore.SqlServer)]
+        [InlineData(DataStore.CosmosDb)]
+        public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed(DataStore dataStore)
         {
+            const int maxNumberOfResourcesPerQuery = 100;
+            const int startResourceSurrogateId = 1;
+            const int endResourceSurrogateId = 1000;
+            const string resourceTypeHash = "accountHash";
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(resourceTypeHash);
+
+            IFhirRuntimeConfiguration fhirRuntimeConfiguration = dataStore == DataStore.SqlServer ?
+                new AzureHealthDataServicesRuntimeConfiguration() :
+                new AzureApiForFhirRuntimeConfiguration();
+
+            _searchService.GetSurrogateIdRanges(
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(new List<(long, long)>
+                {
+                    (startResourceSurrogateId, endResourceSurrogateId),
+                });
+
             // Get one search parameter and configure it such that it needs to be reindexed
             var param = new SearchParameterInfo(
                 "Account",
@@ -149,30 +206,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Set up the factory for ReindexProcessingJob
             _reindexProcessingJobTaskFactory = () => new ReindexProcessingJob(
                 () => _searchService.CreateMockScope(),
-                NullLoggerFactory.Instance,
-                _queueClient,
                 () => fhirDataStore.CreateMockScope(),
-                resourceWrapperFactory);
+                resourceWrapperFactory,
+                _searchParameterOperations,
+                NullLogger<ReindexProcessingJob>.Instance);
 
             var reindexOrchestratorJobTaskFactory = () =>
-                new ReindexOrchestratorJob(
+            {
+                // Create a mock CoreFeatureConfiguration for the test
+                var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+                coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+                {
+                    SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
+                });
+
+                // Create a mock OperationsConfiguration for the test
+                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+                operationsConfig.Value.Returns(new OperationsConfiguration
+                {
+                    Reindex = new ReindexJobConfiguration
+                    {
+                        ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                    },
+                });
+
+                return new ReindexOrchestratorJob(
                     _queueClient,
                     () => _searchService.CreateMockScope(),
                     searchDefinitionManager,
                     ModelInfoProvider.Instance,
                     searchParameterStatusmanager,
                     _searchParameterOperations,
-                    NullLoggerFactory.Instance);
+                    fhirRuntimeConfiguration,
+                    NullLoggerFactory.Instance,
+                    coreFeatureConfig,
+                    operationsConfig);
+            };
 
             var expectedResourceType = "Account"; // Fix: Use the actual resource type
 
             // Fix: Create a proper ReindexJobRecord (this was the main issue)
             ReindexJobRecord job = new ReindexJobRecord(
-                new Dictionary<string, string>() { { "Account", "accountHash" } }, // Resource type hash map
+                new Dictionary<string, string>() { { "Account", resourceTypeHash } }, // Resource type hash map
                 new List<string>(), // No specific target resource types (will process all applicable)
                 new List<string>(), // No specific target search parameter types
                 new List<string>(), // No specific search parameter resource types
-                100); // Max resources per query
+                maxNumberOfResourcesPerQuery); // Max resources per query
 
             JobInfo jobInfo = new JobInfo()
             {
@@ -188,8 +267,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             mockSearchResult.ReindexResult = new SearchResultReindex()
             {
                 Count = _mockedSearchCount,
-                StartResourceSurrogateId = 1,
-                EndResourceSurrogateId = 1000,
+                StartResourceSurrogateId = startResourceSurrogateId,
+                EndResourceSurrogateId = endResourceSurrogateId,
             };
 
             // Setup search result for count queries
@@ -217,7 +296,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 false,
                 Arg.Any<CancellationToken>(),
                 true).
-                Returns(CreateSearchResult());
+                Returns(CreateSearchResult(resourceType: resourceTypeHash));
 
             // Execute the orchestrator job
             var orchestratorTask = reindexOrchestratorJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
@@ -225,32 +304,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Simulate processing job execution by running them in parallel
             _ = Task.Run(
                 async () =>
-            {
-                await Task.Delay(500, _cancellationToken); // Give orchestrator time to create jobs
-
-                // Get all processing jobs created by the orchestrator
-                var processingJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
-                var childJobs = processingJobs.Where(j => j.Id != jobInfo.Id).ToList();
-
-                // Execute each processing job
-                foreach (var childJob in childJobs)
                 {
-                    try
+                    await Task.Delay(5000, _cancellationToken); // Give orchestrator time to create jobs
+
+                    // Get all processing jobs created by the orchestrator
+                    var processingJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, true, _cancellationToken);
+                    var childJobs = processingJobs.Where(j => j.Id != jobInfo.Id).ToList();
+
+                    // Execute each processing job
+                    foreach (var childJob in childJobs)
                     {
-                        childJob.Status = JobStatus.Running;
-                        var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(childJob, _cancellationToken);
-                        childJob.Status = JobStatus.Completed;
-                        childJob.Result = result;
-                        await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                        try
+                        {
+                            childJob.Status = JobStatus.Running;
+                            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(childJob, _cancellationToken);
+                            childJob.Status = JobStatus.Completed;
+                            childJob.Result = result;
+                            await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            childJob.Status = JobStatus.Failed;
+                            childJob.Result = JsonConvert.SerializeObject(new { Error = ex.Message });
+                            await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        childJob.Status = JobStatus.Failed;
-                        childJob.Result = JsonConvert.SerializeObject(new { Error = ex.Message });
-                        await _queueClient.CompleteJobAsync(childJob, false, _cancellationToken);
-                    }
-                }
-            },
+                },
                 _cancellationToken);
 
             // Wait for orchestrator job to complete
@@ -288,6 +367,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCompletesWithNoWork()
         {
             var job = CreateReindexJobRecord();
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap.First().Value);
+
             JobInfo jobInfo = new JobInfo()
             {
                 Id = 3,
@@ -303,14 +385,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.False(jobs.Any());
         }
 
-        private SearchResult CreateSearchResult(string continuationToken = null, int resourceCount = 1)
+        private SearchResult CreateSearchResult(string resourceType, string continuationToken = null, int resourceCount = 1)
         {
             var resultList = new List<SearchResultEntry>();
 
             for (var i = 0; i < resourceCount; i++)
             {
                 var wrapper = Substitute.For<ResourceWrapper>();
+                var propertyInfo = wrapper.GetType().GetProperty("ResourceTypeName");
+                propertyInfo.SetValue(wrapper, resourceType);
+
                 var entry = new SearchResultEntry(wrapper);
+
                 resultList.Add(entry);
             }
 

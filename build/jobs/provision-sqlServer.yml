@@ -14,6 +14,9 @@ parameters:
 - name: deploymentName
   type: string
   default: ''
+- name: nspName
+  type: string
+  default: ''
 
 jobs:
 - job: 'provisionSql_${{ parameters.deploymentName }}'
@@ -34,6 +37,7 @@ jobs:
         $adminType = "${{ parameters.adminType }}"
         $resourceGroup = "${{ parameters.resourceGroup }}"
         $sqlServerName = "${{ parameters.sqlServerName }}".ToLower()
+        $nspName = "${{ parameters.nspName }}"
 
         if ($adminType -eq "userAssignedManagedIdentity" -and $adminUserAssignedManagedIdentityName -eq "") {
           Write-Error "adminUserAssignedManagedIdentityName must be provided when adminType is userAssignedManagedIdentity."
@@ -79,3 +83,38 @@ jobs:
 
         $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
         New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIp -EndIPAddress $agentIP
+
+        # Associate SQL Server with Network Security Perimeter if NSP name is provided
+        if (-not [string]::IsNullOrEmpty($nspName)) {
+          Write-Host "Associating SQL Server with Network Security Perimeter: $nspName"
+          
+          $associationName = "sqlserver-$sqlServerName-association"
+            
+          Write-Host "Creating NSP association using external ARM template..."
+          Write-Host "NSP Name: $nspName"
+          Write-Host "SQL Server: $sqlServerName"
+          Write-Host "Association Name: $associationName"
+            
+          $templateParameters = @{
+              'nspName' = $nspName
+              'resourceName' = $sqlServerName
+              'resourceType' = 'Microsoft.Sql/servers'
+              'associationName' = $associationName
+              'accessMode' = 'Learning'
+              'nspProfile' = 'default'
+          }
+            
+          # Deploy using external template
+          $nspDeploymentResult = New-AzResourceGroupDeployment `
+            -ResourceGroupName $resourceGroup `
+            -Name "$sqlServerName-nsp-association" `
+            -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+            -TemplateParameterObject $templateParameters `
+            -Verbose
+            
+          Write-Host "Successfully associated SQL Server with NSP using external ARM template"
+          Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+        }
+        else {
+          Write-Host "No NSP name provided, skipping NSP association"
+        }

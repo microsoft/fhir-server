@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using MediatR;
@@ -191,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                 .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description), });
 
-            _builder.SyncSearchParametersAsync();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 
@@ -246,7 +247,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                .Returns(new[] { new SearchParameterInfo("_type", "_type", SearchParamType.Token, description: "description"), });
 
-            _builder.SyncSearchParametersAsync();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 
@@ -256,11 +257,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingSupportedProfile_ThenSupportedProfilePresent()
+        public async System.Threading.Tasks.Task GivenAConformanceBuilder_WhenAddingSupportedProfile_ThenSupportedProfilePresent()
         {
             string profile = "coolProfile";
-            _supportedProfiles.GetSupportedProfiles("Account").Returns(new[] { profile });
-            _builder.PopulateDefaultResourceInteractions().SyncProfiles();
+            _supportedProfiles.GetSupportedProfilesAsync("Account", Arg.Any<CancellationToken>()).Returns(System.Threading.Tasks.Task.FromResult((IEnumerable<string>)new[] { profile }));
+            await _builder.PopulateDefaultResourceInteractions().SyncProfilesAsync(CancellationToken.None);
             ITypedElement statement = _builder.Build();
             string fhirPath = ModelInfoProvider.Version == FhirSpecification.Stu3
                 ? $"CapabilityStatement.profile.where(reference='{profile}').exists()"

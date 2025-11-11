@@ -11,6 +11,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         public int EntryLimit { get; set; } = 500;
 
+        public int MaxExecutionTimeInSeconds { get; set; } = 100;
+
         /// <summary>
         /// Gets or sets a value indicating whether bundle orchestrator is enabled or not.
         /// </summary>

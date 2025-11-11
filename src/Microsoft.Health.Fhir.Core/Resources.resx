@@ -248,6 +248,12 @@
     <value>The target resource type cannot be empty.</value>
     <comment>TargetResourceType is an optional parameter</comment>
   </data>
+  <data name="IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters" xml:space="preserve">
+    <value>Include, RevInclude and Chained searches do not support SMART V2 finer-grained resource constraints using search parameters.</value>
+  </data>
+  <data name="IncludeRevIncludeSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters" xml:space="preserve">
+    <value>Include and RevInclude searches do not support SMART V2 finer-grained resource constraints using search parameters.</value>
+  </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
@@ -794,8 +800,8 @@
   <data name="TooManyParameters" xml:space="preserve">
     <value>The incoming request has too many parameters. Reduce the number of parameters and resend the request.</value>
   </data>
-  <data name="NotReferencedParameterInvalidValue" xml:space="preserve">
-    <value>Not referenced only supports the value *:*</value>
+  <data name="NotReferencedParameterNoSeparator" xml:space="preserve">
+    <value>Not referenced requires a resource type and search field separated by a :</value>
   </data>
   <data name="JobNotReindexOrchestratorJob" xml:space="preserve">
     <value>Found job id '{0}', but it is a child job and not the primary reindex job.</value>
@@ -819,5 +825,26 @@
   <data name="CosmosDbRequestTimeout" xml:space="preserve">
     <value>Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load. Please increase RUs or reduce request rate.</value>
     <comment>Error message for Cosmos DB 408 RequestTimeout due to insufficient RUs or high load.</comment>
+  </data>
+  <data name="DocRefMissingRequiredParameter" xml:space="preserve">
+    <value>The '{0}' parameter must be provided.</value>
+  </data>
+  <data name="DocRefParameterNotSupported" xml:space="preserve">
+    <value>The '{0}' parameter is not supported.</value>
+  </data>
+  <data name="DocRefInvalidParameterCount" xml:space="preserve">
+    <value>The number of the '{0}' parameter should not be more than one.</value>
+  </data>
+  <data name="DocRefInvalidParameterValue" xml:space="preserve">
+    <value>The '{0}' parameter should not have more than one value, delimited by commas.</value>
+  </data>
+  <data name="ExpandInvalidParameterValue" xml:space="preserve">
+    <value>The value of '{0}' parameter is invalid.</value>
+  </data>
+  <data name="NotReferencedParameterMultipleSeperators" xml:space="preserve">
+    <value>Not Referenced only allows one :</value>
+  </data>
+  <data name="NotReferencedParameterWildcardType" xml:space="preserve">
+    <value>Not Referenced doesn't allow for a wildcard resource type with a specific search field</value>
   </data>
 </root>

@@ -387,9 +387,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 statistics.MarkBundleAsFailedDueClientError();
                 throw;
             }
+            catch (FhirTransactionCancelledException tce)
+            {
+                _logger.LogWarning(tce, "Cancelled operation while processing a transaction bundle: {ErrorMessage}.", tce.Message);
+                statistics.MarkBundleAsCancelled();
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ex, "Operation cancelled. Error while processing a bundle: {ErrorMessage}.", ex.Message);
+                    statistics.MarkBundleAsCancelled();
+                }
+                else
+                {
+                    _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
+                }
+
                 throw;
             }
             finally
@@ -713,7 +728,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
-                    TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
+                    TransactionExceptionHandler.ThrowTransactionException(
+                        errorMessage,
+                        httpStatusCode,
+                        (OperationOutcome)entryComponent.Response.Outcome,
+                        cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
@@ -863,6 +882,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Propagate Fine Grained Access Control to the new FHIR Request Context.
             newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = requestContext.AccessControlContext.ApplyFineGrainedAccessControl;
+            newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControlWithSearchParameters = requestContext.AccessControlContext.ApplyFineGrainedAccessControlWithSearchParameters;
 
             // Propagate bundle context information to inner requests.
             BundleResourceContext bundleResourceExecutionContext = new BundleResourceContext(

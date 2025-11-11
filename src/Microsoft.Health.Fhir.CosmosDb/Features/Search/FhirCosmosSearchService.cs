@@ -115,12 +115,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     .Aggregate(searchOptions.Expression, (e, rewriter) => e.AcceptVisitor(rewriter));
             }
 
-            // pull out the _include and _revinclude expressions.
+            // pull out the _include and _revinclude expressions, and extract SMART v2 scope expression if present
             bool hasIncludeOrRevIncludeExpressions = searchOptions.Expression.ExtractIncludeAndChainedExpressions(
                 out Expression expressionWithoutIncludes,
                 out IReadOnlyList<IncludeExpression> includeExpressions,
                 out IReadOnlyList<IncludeExpression> revIncludeExpressions,
-                out IReadOnlyList<ChainedExpression> chainedExpressions);
+                out IReadOnlyList<ChainedExpression> chainedExpressions,
+                out IReadOnlyList<UnionExpression> smartV2ScopeExpressions);
 
             if (hasIncludeOrRevIncludeExpressions)
             {
@@ -172,7 +173,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 null,
                 cancellationToken);
 
-            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(results, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, cancellationToken);
+            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(results, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, smartV2ScopeExpressions, cancellationToken);
 
             SearchResult searchResult = CreateSearchResult(
                 searchOptions,
@@ -607,6 +608,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             IReadOnlyCollection<IncludeExpression> includeExpressions,
             IReadOnlyCollection<IncludeExpression> revIncludeExpressions,
             int maxIncludeCount,
+            IReadOnlyList<UnionExpression> smartV2ScopeExpressions,
             CancellationToken cancellationToken)
         {
             if (matches.Count == 0 || (includeExpressions.Count == 0 && revIncludeExpressions.Count == 0))
@@ -629,78 +631,240 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     .Where(x => !matchIds.Contains(x))
                     .ToList();
 
-                foreach (IEnumerable<ResourceKey> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
+                // Check if we have SMART v2 granular scopes that require filtering
+                bool hasSmartGranularScopes = smartV2ScopeExpressions != null && smartV2ScopeExpressions.Any() &&
+                    _requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true;
+
+                if (hasSmartGranularScopes)
                 {
-                    // issue the requests in parallel
-                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(r, cancellationToken)).ToList();
-
-                    foreach (Task<ResourceWrapper> task in tasks)
+                    // Group references by resource type and apply SMART scope filtering via search queries
+                    foreach (var resourceTypeGroup in referencesToInclude.GroupBy(r => r.ResourceType))
                     {
-                        var resourceWrapper = (FhirCosmosResourceWrapper)await task;
+                        string resourceType = resourceTypeGroup.Key;
+                        Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, resourceType, out bool hasNoAccess);
 
-                        // Get Async always return latest resource, so no need to check for history flag.
-                        if (resourceWrapper != null && !resourceWrapper.IsDeleted)
+                        // Skip this resource type if no scope allows access
+                        if (hasNoAccess)
                         {
-                            includes.Add(resourceWrapper);
-                            if (includes.Count > maxIncludeCount)
+                            continue;
+                        }
+
+                        // Build expression: (resourceType = X AND _id IN (id1, id2, ...)) [AND smartScopeFilter]
+                        var resourceIds = resourceTypeGroup.Select(x => x.Id).ToList();
+                        Expression expression = Expression.And(
+                            Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, resourceType)),
+                            Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, resourceIds)));
+
+                        // Apply SMART scope filter if it exists (granular scopes)
+                        if (smartScopeFilter != null)
+                        {
+                            expression = Expression.And(expression, smartScopeFilter);
+                        }
+
+                        var includeSearchOptions = new SearchOptions
+                        {
+                            Expression = expression,
+                            Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
+                        };
+
+                        QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions);
+                        bool includesTruncated = !await ExecuteSubQueryAsync(includes, includeQuery, maxIncludeCount, includeSearchOptions, cancellationToken);
+
+                        if (includesTruncated)
+                        {
+                            return (includes, true);
+                        }
+                    }
+                }
+                else
+                {
+                    // No SMART granular scopes - use simple GetAsync for better performance
+                    foreach (IEnumerable<ResourceKey> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
+                    {
+                        // issue the requests in parallel
+                        var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(r, cancellationToken)).ToList();
+
+                        foreach (Task<ResourceWrapper> task in tasks)
+                        {
+                            var resourceWrapper = (FhirCosmosResourceWrapper)await task;
+
+                            // Get Async always return latest resource, so no need to check for history flag.
+                            if (resourceWrapper != null && !resourceWrapper.IsDeleted)
                             {
-                                return (includes, true);
+                                includes.Add(resourceWrapper);
+                                if (includes.Count > maxIncludeCount)
+                                {
+                                    return (includes, true);
+                                }
                             }
                         }
                     }
                 }
             }
 
-            bool includesTruncated = false;
+            bool revIncludesTruncated = false;
             if (revIncludeExpressions.Count > 0)
             {
                 // fetch in the resources to include from _revinclude parameters.
+
+                // Check if we have SMART v2 granular scopes that require filtering
+                bool hasSmartGranularScopes = smartV2ScopeExpressions != null && smartV2ScopeExpressions.Any() &&
+                    _requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true;
 
                 foreach (IncludeExpression revIncludeExpression in revIncludeExpressions)
                 {
                     // construct the expression resourceType = <SourceResourceType> AND (referenceSearchParameter = <MatchResourceType1, MatchResourceId1> OR referenceSearchParameter = <MatchResourceType2, MatchResourceId2> OR ...)
 
-                    SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
-                    SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
+                    if (hasSmartGranularScopes)
+                    {
+                        // SMART v2 granular scopes logic - apply filtering
+                        // Determine the target resource type(s) for this revinclude
+                        string[] targetResourceTypes = revIncludeExpression.SourceResourceType == "*"
+                            ? (revIncludeExpression.AllowedResourceTypesByScope != null && revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all")
+                                ? revIncludeExpression.AllowedResourceTypesByScope.ToArray()
+                                : null) // wildcard with no scope restrictions
+                            : new[] { revIncludeExpression.SourceResourceType };
 
-                    List<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName).ToList();
+                        // For wildcard includes (*:*), check SMART scope filter
+                        if (targetResourceTypes == null)
+                    {
+                        // Wildcard revinclude - apply the entire SMART scope expression if present
+                        Expression smartScopeFilter = smartV2ScopeExpressions != null && smartV2ScopeExpressions.Any()
+                            ? smartV2ScopeExpressions[0]
+                            : null;
 
-                    Expression referenceExpression = Expression.And(
-                        Expression.SearchParameter(
-                            referenceSearchParameter,
-                            Expression.Or(matchesGroupedByType
+                        SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
+                        List<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName).ToList();
+
+                        Expression referenceExpression = Expression.And(
+                            Expression.SearchParameter(
+                                referenceSearchParameter,
+                                Expression.Or(matchesGroupedByType
+                                        .Select(g =>
+                                            Expression.And(
+                                                Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                                Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList())),
+                            /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
+                            Expression.Not(Expression.Or(matchesGroupedByType
+                                .Select(g =>
+                                    Expression.And(
+                                        Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
+                                        Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList())));
+
+                        Expression expression = smartScopeFilter != null
+                            ? Expression.And(smartScopeFilter, referenceExpression)
+                            : referenceExpression;
+
+                        var revIncludeSearchOptions = new SearchOptions
+                        {
+                            Expression = expression,
+                            Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
+                        };
+
+                        QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
+                        revIncludesTruncated = !await ExecuteSubQueryAsync(includes, revIncludeQuery, maxIncludeCount, revIncludeSearchOptions, cancellationToken);
+                    }
+                    else
+                    {
+                        // Specific resource type(s) - check scope for each type
+                        foreach (string targetResourceType in targetResourceTypes)
+                        {
+                            Expression smartScopeFilter = GetSmartScopeFilterForResourceType(smartV2ScopeExpressions, targetResourceType, out bool hasNoAccess);
+
+                            // Skip this revinclude if no scope allows access to this resource type
+                            if (hasNoAccess)
+                            {
+                                continue;
+                            }
+
+                            SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, targetResourceType));
+                            SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
+                            List<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName).ToList();
+
+                            Expression referenceExpression = Expression.And(
+                                Expression.SearchParameter(
+                                    referenceSearchParameter,
+                                    Expression.Or(matchesGroupedByType
+                                            .Select(g =>
+                                                Expression.And(
+                                                    Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                                    Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList())),
+                                /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
+                                Expression.Not(Expression.Or(matchesGroupedByType
                                     .Select(g =>
                                         Expression.And(
-                                            Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
-                                            Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList())),
-                        /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
-                        Expression.Not(Expression.Or(matchesGroupedByType
-                            .Select(g =>
-                                Expression.And(
-                                    Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
-                                    Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList())));
+                                            Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
+                                            Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList())));
 
-                    Expression expression = referenceExpression;
+                            Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 
-                    // If source type is a not a wildcard, include the sourceTypeExpression in the subquery
-                    if (revIncludeExpression.SourceResourceType != "*")
-                    {
-                        expression = Expression.And(sourceTypeExpression, referenceExpression);
+                            // Apply SMART scope filter if it exists
+                            if (smartScopeFilter != null)
+                            {
+                                expression = Expression.And(expression, smartScopeFilter);
+                            }
+
+                            var revIncludeSearchOptions = new SearchOptions
+                            {
+                                Expression = expression,
+                                Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
+                            };
+
+                            QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
+                            revIncludesTruncated = !await ExecuteSubQueryAsync(includes, revIncludeQuery, maxIncludeCount, revIncludeSearchOptions, cancellationToken);
+                        }
                     }
-
-                    var revIncludeSearchOptions = new SearchOptions
+                    }
+                    else
                     {
-                        Expression = expression,
-                        Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
-                    };
+                        // No SMART v2 granular scopes - use original revinclude logic
+                        // Check SMART scopes
+                        SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
+                        if (revIncludeExpression.AllowedResourceTypesByScope != null && revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*")
+                        {
+                            sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, revIncludeExpression.AllowedResourceTypesByScope));
+                        }
 
-                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
+                        SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
 
-                    includesTruncated = !await ExecuteSubQueryAsync(includes, revIncludeQuery, maxIncludeCount, revIncludeSearchOptions, cancellationToken);
+                        List<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName).ToList();
+
+                        Expression referenceExpression = Expression.And(
+                            Expression.SearchParameter(
+                                referenceSearchParameter,
+                                Expression.Or(matchesGroupedByType
+                                        .Select(g =>
+                                            Expression.And(
+                                                Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                                Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList())),
+                            /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
+                            Expression.Not(Expression.Or(matchesGroupedByType
+                                .Select(g =>
+                                    Expression.And(
+                                        Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
+                                        Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList())));
+
+                        Expression expression = referenceExpression;
+
+                        // If source type is a not a wildcard, include the sourceTypeExpression in the subquery
+                        if ((revIncludeExpression.AllowedResourceTypesByScope != null && revIncludeExpression.AllowedResourceTypesByScope.Any() && !revIncludeExpression.AllowedResourceTypesByScope.Contains("all") && revIncludeExpression.SourceResourceType == "*") || revIncludeExpression.SourceResourceType != "*")
+                        {
+                            expression = Expression.And(sourceTypeExpression, referenceExpression);
+                        }
+
+                        var revIncludeSearchOptions = new SearchOptions
+                        {
+                            Expression = expression,
+                            Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
+                        };
+
+                        QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
+                        revIncludesTruncated = !await ExecuteSubQueryAsync(includes, revIncludeQuery, maxIncludeCount, revIncludeSearchOptions, cancellationToken);
+                    }
                 }
             }
 
-            return (includes, includesTruncated);
+            return (includes, revIncludesTruncated);
         }
 
         /// <summary>
@@ -790,6 +954,150 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Extracts the SMART scope filter expression for a specific resource type from the SMART v2 union expression.
+        /// Returns null if no filtering is needed (unrestricted access).
+        /// Returns a special "no access" expression if no scope allows access to this resource type (caller should skip the query).
+        /// Returns the filter expression if granular scopes exist for this resource type.
+        /// </summary>
+        private Expression GetSmartScopeFilterForResourceType(IReadOnlyList<UnionExpression> smartV2ScopeExpressions, string resourceType, out bool hasNoAccess)
+        {
+            hasNoAccess = false;
+
+            if (smartV2ScopeExpressions == null || !smartV2ScopeExpressions.Any())
+            {
+                return null;
+            }
+
+            // Check if SMART scopes should be applied
+            if (_requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl != true)
+            {
+                return null;
+            }
+
+            var scopeRestrictions = _requestContextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions;
+            if (scopeRestrictions == null || !scopeRestrictions.Any())
+            {
+                return null;
+            }
+
+            // Check if there's a scope for "all" resources (unrestricted access)
+            if (scopeRestrictions.Any(s => s.Resource == KnownResourceTypes.All && s.SearchParameters == null))
+            {
+                return null; // No filtering needed
+            }
+
+            // Check if there's an unrestricted scope for this specific resource type
+            var unrestrictedScope = scopeRestrictions.FirstOrDefault(s => s.Resource == resourceType && s.SearchParameters == null);
+            if (unrestrictedScope != null)
+            {
+                return null; // No filtering needed for this resource type
+            }
+
+            // Find granular scope(s) for this resource type
+            var granularScopes = scopeRestrictions.Where(s => s.Resource == resourceType && s.SearchParameters != null).ToList();
+            if (!granularScopes.Any())
+            {
+                // No scope allows access to this resource type - indicate caller should skip the query
+                hasNoAccess = true;
+                return null;
+            }
+
+            // Extract the filter expressions for this resource type from the union expression
+            var unionExpression = smartV2ScopeExpressions[0];
+            var resourceTypeFilters = new List<Expression>();
+
+            foreach (var expr in unionExpression.Expressions)
+            {
+                // Each expression in the union should be an AND expression containing resource type and search parameters
+                if (expr is MultiaryExpression andExpr && andExpr.MultiaryOperation == MultiaryOperator.And)
+                {
+                    // Recursively search for the resource type SearchParameterExpression
+                    var resourceTypeExpr = FindResourceTypeExpression(andExpr);
+
+                    if (resourceTypeExpr != null)
+                    {
+                        // Check if the resource type matches
+                        var matchesResourceType = CheckResourceTypeMatches(resourceTypeExpr.Expression, resourceType);
+                        if (matchesResourceType)
+                        {
+                            var singleScopeANDExpressions = new List<Expression>();
+
+                            // Extract just the search parameter filters (not the resource type)
+                            // We need to remove the entire sub-expression that contains the resource type filter
+                            foreach (MultiaryExpression child in andExpr.Expressions.OfType<MultiaryExpression>())
+                            {
+                                var searchParamFilters = child.Expressions.Where(e => !ContainsResourceTypeExpression(e)).ToList();
+                                if (searchParamFilters.Any())
+                                {
+                                    singleScopeANDExpressions.Add(searchParamFilters.Count == 1 ? searchParamFilters[0] : Expression.And(searchParamFilters.ToArray()));
+                                }
+                            }
+
+                            if (singleScopeANDExpressions.Count == 0)
+                            {
+                                continue;
+                            }
+
+                            resourceTypeFilters.Add(singleScopeANDExpressions.Count == 1 ? singleScopeANDExpressions[0] : Expression.And(singleScopeANDExpressions.ToArray()));
+                        }
+                    }
+                }
+            }
+
+            if (resourceTypeFilters.Count == 0)
+            {
+                return null;
+            }
+
+            // OR multiple different SCOPES for the same resource type
+            return resourceTypeFilters.Count == 1 ? resourceTypeFilters[0] : Expression.Or(resourceTypeFilters.ToArray());
+        }
+
+        /// <summary>
+        /// Recursively searches for a SearchParameterExpression with Parameter.Name == "_type" or "resourceType"
+        /// </summary>
+        private static SearchParameterExpression FindResourceTypeExpression(Expression expression)
+        {
+            if (expression is SearchParameterExpression spe && (spe.Parameter.Name == "_type" || spe.Parameter.Name == "resourceType"))
+            {
+                return spe;
+            }
+
+            if (expression is MultiaryExpression me)
+            {
+                foreach (var child in me.Expressions)
+                {
+                    var found = FindResourceTypeExpression(child);
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Recursively checks if an expression contains a resource type SearchParameterExpression
+        /// </summary>
+        private static bool ContainsResourceTypeExpression(Expression expression)
+        {
+            return FindResourceTypeExpression(expression) != null;
+        }
+
+        private static bool CheckResourceTypeMatches(Expression expression, string resourceType)
+        {
+            // Check if the expression matches the given resource type
+            if (expression is StringExpression strExpr && strExpr.Value == resourceType)
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

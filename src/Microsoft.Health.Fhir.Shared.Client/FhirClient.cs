@@ -168,19 +168,24 @@ namespace Microsoft.Health.Fhir.Client
             return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
-            where T : Resource
+        public Task<FhirResponse<Bundle>> ReadHistoryAsync(ResourceType resourceType, string resourceId, CancellationToken cancellationToken = default)
         {
-            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
+            return SearchAsync($"{resourceType}/{resourceId}/_history", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchHeaderETag, provenanceHeader, metaHistory, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchHeaderETag, provenanceHeader, metaHistory, cancellationToken);
+        }
+
+        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Put, uri)
@@ -197,6 +202,11 @@ namespace Microsoft.Health.Fhir.Client
             if (provenanceHeader != null)
             {
                 message.Headers.Add(ProvenanceHeader, provenanceHeader);
+            }
+
+            if (!metaHistory)
+            {
+                message.RequestUri = new Uri(message.RequestUri + (message.RequestUri.OriginalString.Contains('?', StringComparison.OrdinalIgnoreCase) ? "&" : "?") + "_meta-history=false", UriKind.Relative);
             }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
@@ -580,7 +590,7 @@ namespace Microsoft.Health.Fhir.Client
             {
                 await Task.Delay(TimeSpan.FromSeconds(1));
                 reindexJobResult = await CheckJobAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == ReindexParametersStatus)?.Value.ToString();
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name.Equals(ReindexParametersStatus, StringComparison.OrdinalIgnoreCase))?.Value.ToString();
             }
             while (!desiredStatus.Contains(currentStatus) && sw.Elapsed.TotalSeconds < maxSeconds);
             sw.Stop();
