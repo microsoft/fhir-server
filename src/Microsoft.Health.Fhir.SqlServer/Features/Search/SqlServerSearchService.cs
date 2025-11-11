@@ -1929,49 +1929,52 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             }
 
             /// <summary>
-            /// Simplified approach: Extract pairs by processing related expressions together
+            /// Extracts resource type and search parameter pairs, maintaining their proper relationships
             /// </summary>
             private static void ExtractResourceTypeSearchParamPairs(Expression expression, SqlServerFhirModel model, Dictionary<short, HashSet<short>> resourceTypeSearchParamPairs)
             {
                 if (expression is MultiaryExpression multiaryExpression)
                 {
-                    // Process each sub-expression to maintain proper context
-                    var contextPairs = new List<(HashSet<short> resourceTypes, HashSet<short> searchParams)>();
+                    // For a MultiaryExpression, collect resource types and search parameters that appear together
+                    var resourceTypeIds = new HashSet<short>();
+                    var searchParamIds = new HashSet<short>();
 
+                    // First pass: collect all resource types and search parameters in this multiary expression
                     foreach (var innerExpression in multiaryExpression.Expressions)
                     {
-                        ProcessExpressionForPairs(innerExpression, model, contextPairs);
+                        CollectResourceTypesAndSearchParams(innerExpression, model, resourceTypeIds, searchParamIds);
                     }
 
-                    // Associate resource types with search parameters from the same context
-                    foreach (var (resourceTypes, searchParams) in contextPairs)
+                    // If we found both resource types and search parameters in the same context, associate them
+                    if (resourceTypeIds.Count > 0 && searchParamIds.Count > 0)
                     {
-                        if (resourceTypes.Count > 0 && searchParams.Count > 0)
+                        foreach (var resourceTypeId in resourceTypeIds)
                         {
-                            foreach (var resourceTypeId in resourceTypes)
+                            if (!resourceTypeSearchParamPairs.TryGetValue(resourceTypeId, out var searchParams))
                             {
-                                if (!resourceTypeSearchParamPairs.TryGetValue(resourceTypeId, out HashSet<short> value))
-                                {
-                                    value = new HashSet<short>();
-                                    resourceTypeSearchParamPairs[resourceTypeId] = value;
-                                }
+                                searchParams = new HashSet<short>();
+                                resourceTypeSearchParamPairs[resourceTypeId] = searchParams;
+                            }
 
-                                foreach (var searchParamId in searchParams)
-                                {
-                                    value.Add(searchParamId);
-                                }
+                            foreach (var searchParamId in searchParamIds)
+                            {
+                                searchParams.Add(searchParamId);
                             }
                         }
                     }
 
-                    // Recursively process nested expressions
-                    foreach (var innerExpression in multiaryExpression.Expressions.Where(e => e is MultiaryExpression || e is UnionExpression))
+                    // Recursively process nested expressions (for complex cases)
+                    foreach (var innerExpression in multiaryExpression.Expressions)
                     {
-                        ExtractResourceTypeSearchParamPairs(innerExpression, model, resourceTypeSearchParamPairs);
+                        if (innerExpression is MultiaryExpression || innerExpression is UnionExpression)
+                        {
+                            ExtractResourceTypeSearchParamPairs(innerExpression, model, resourceTypeSearchParamPairs);
+                        }
                     }
                 }
                 else if (expression is UnionExpression unionExpression)
                 {
+                    // For union expressions, process each part separately to maintain distinct contexts
                     foreach (var unionPart in unionExpression.Expressions)
                     {
                         ExtractResourceTypeSearchParamPairs(unionPart, model, resourceTypeSearchParamPairs);
@@ -1979,29 +1982,42 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
             }
 
-            private static void ProcessExpressionForPairs(Expression expression, SqlServerFhirModel model, List<(HashSet<short> resourceTypes, HashSet<short> searchParams)> contextPairs)
+            /// <summary>
+            /// Collects resource types and search parameters from a single expression
+            /// </summary>
+            private static void CollectResourceTypesAndSearchParams(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds, HashSet<short> searchParamIds)
             {
-                var resourceTypes = new HashSet<short>();
-                var searchParams = new HashSet<short>();
-
-                if (expression is SearchParameterExpression parameterExpression)
+                switch (expression)
                 {
-                    if (parameterExpression.Parameter.Name == SearchParameterNames.ResourceType)
-                    {
-                        ExtractResourceTypeIds(parameterExpression.Expression, model, resourceTypes);
-                    }
-                    else if (parameterExpression.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName &&
-                             parameterExpression.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName &&
-                             model.TryGetSearchParamId(parameterExpression.Parameter.Url, out var searchParamId) && searchParamId != 0)
-                    {
-                        searchParams.Add(searchParamId);
-                    }
-                }
+                    case SearchParameterExpression parameterExpression:
+                        if (parameterExpression.Parameter.Name == SearchParameterNames.ResourceType)
+                        {
+                            ExtractResourceTypeIds(parameterExpression.Expression, model, resourceTypeIds);
+                        }
+                        else if (parameterExpression.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName &&
+                                 parameterExpression.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
+                        {
+                            if (model.TryGetSearchParamId(parameterExpression.Parameter.Url, out var searchParamId) && searchParamId != 0)
+                            {
+                                searchParamIds.Add(searchParamId);
+                            }
+                        }
 
-                // Only add to context if we found something relevant
-                if (resourceTypes.Count > 0 || searchParams.Count > 0)
-                {
-                    contextPairs.Add((resourceTypes, searchParams));
+                        break;
+
+                    case MultiaryExpression nestedMultiaryExpression:
+                        // Recursively collect from nested expressions
+                        foreach (var nestedExpression in nestedMultiaryExpression.Expressions)
+                        {
+                            CollectResourceTypesAndSearchParams(nestedExpression, model, resourceTypeIds, searchParamIds);
+                        }
+
+                        break;
+
+                    case UnionExpression nestedUnionExpression:
+                        // For nested unions, each part maintains separate context
+                        // Don't collect across union boundaries
+                        break;
                 }
             }
 
