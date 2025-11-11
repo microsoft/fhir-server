@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                 if (Uri.TryCreate(context?.FirstOrDefault(), UriKind.Absolute, out var uri)
                     && !string.IsNullOrEmpty(uri?.Fragment))
                 {
-                    var url = $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
+                    var url = $"{uri.Scheme}://{uri.Authority}{uri.AbsolutePath}";
                     var path = uri.Fragment.TrimStart('#');
                     var definition = await _resourceResolver.FindStructureDefinitionAsync(url);
                     var valueSetUrl = definition?.Snapshot?.Element?

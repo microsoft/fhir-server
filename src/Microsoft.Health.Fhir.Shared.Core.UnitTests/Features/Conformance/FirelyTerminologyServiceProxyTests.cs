@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             Assert.NotNull(context);
 
             var contextUri = new Uri(context);
-            var definitionUrl = $"{contextUri.Scheme}://{contextUri.Host}{contextUri.AbsolutePath}";
+            var definitionUrl = $"{contextUri.Scheme}://{contextUri.Authority}{contextUri.AbsolutePath}";
             var definitionPath = contextUri.Fragment?.TrimStart('#');
             var validContext = !string.IsNullOrEmpty(definitionUrl) && !string.IsNullOrEmpty(definitionPath);
             if (shouldUseContext && validContext)
@@ -493,6 +493,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                         Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.presentedForm.contentType"),
                     },
                     null,
+                },
+                new object[]
+                {
+                    // Valid context value with the context url with port number.
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org:1234/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.presentedForm.contentType"),
+                    },
+                    "http://acme.org/fhir/ValueSet/in-mimetypes-1",
                 },
             };
 
