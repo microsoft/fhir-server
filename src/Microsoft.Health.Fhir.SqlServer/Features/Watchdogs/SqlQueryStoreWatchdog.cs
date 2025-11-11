@@ -101,36 +101,36 @@ SELECT TOP (@TopCount)
     CAST(rs.avg_physical_io_reads AS BIGINT) AS avg_physical_reads,
     rs.count_executions,
     CAST((rs.avg_duration * rs.count_executions) / 1000.0 AS DECIMAL(18,2)) AS total_duration_ms,
-    STUFF((
-        SELECT DISTINCT ', ' + 
-            QUOTENAME(SCHEMA_NAME(o.schema_id)) + '.' + QUOTENAME(OBJECT_NAME(i.object_id)) + '.' + QUOTENAME(i.name)
-        FROM (
-            SELECT 
-                ref.value('(@Database)[1]', 'NVARCHAR(128)') AS database_name,
-                ref.value('(@Schema)[1]', 'NVARCHAR(128)') AS schema_name,
-                ref.value('(@Table)[1]', 'NVARCHAR(128)') AS table_name,
-                ref.value('(@Index)[1]', 'NVARCHAR(128)') AS index_name
+    (
+        SELECT DISTINCT STUFF((
+            SELECT DISTINCT ', ' + 
+                QUOTENAME(idx_refs.schema_name) + '.' + QUOTENAME(idx_refs.table_name) + '.' + QUOTENAME(idx_refs.index_name)
             FROM (
-                SELECT TRY_CAST(p.query_plan AS XML) AS plan_xml
-            ) AS plans
-            CROSS APPLY plan_xml.nodes('//RelOp//IndexScan//Object') AS indexes(ref)
-            WHERE ref.value('(@Index)[1]', 'NVARCHAR(128)') IS NOT NULL
-            UNION
-            SELECT 
-                ref.value('(@Database)[1]', 'NVARCHAR(128)') AS database_name,
-                ref.value('(@Schema)[1]', 'NVARCHAR(128)') AS schema_name,
-                ref.value('(@Table)[1]', 'NVARCHAR(128)') AS table_name,
-                ref.value('(@Index)[1]', 'NVARCHAR(128)') AS index_name
-            FROM (
-                SELECT TRY_CAST(p.query_plan AS XML) AS plan_xml
-            ) AS plans
-            CROSS APPLY plan_xml.nodes('//RelOp//IndexSeek//Object') AS indexes(ref)
-            WHERE ref.value('(@Index)[1]', 'NVARCHAR(128)') IS NOT NULL
-        ) AS idx_refs
-        INNER JOIN sys.objects o ON o.name = idx_refs.table_name AND SCHEMA_NAME(o.schema_id) = idx_refs.schema_name
-        INNER JOIN sys.indexes i ON i.object_id = o.object_id AND i.name = idx_refs.index_name
-        FOR XML PATH('')
-    ), 1, 2, '') AS indexes_used
+                SELECT 
+                    ref.value('(@Database)[1]', 'NVARCHAR(128)') AS database_name,
+                    ref.value('(@Schema)[1]', 'NVARCHAR(128)') AS schema_name,
+                    ref.value('(@Table)[1]', 'NVARCHAR(128)') AS table_name,
+                    ref.value('(@Index)[1]', 'NVARCHAR(128)') AS index_name
+                FROM (
+                    SELECT TRY_CAST(p.query_plan AS XML) AS plan_xml
+                ) AS plans
+                CROSS APPLY plan_xml.nodes('//RelOp//IndexScan//Object') AS indexes(ref)
+                WHERE ref.value('(@Index)[1]', 'NVARCHAR(128)') IS NOT NULL
+                UNION
+                SELECT 
+                    ref.value('(@Database)[1]', 'NVARCHAR(128)') AS database_name,
+                    ref.value('(@Schema)[1]', 'NVARCHAR(128)') AS schema_name,
+                    ref.value('(@Table)[1]', 'NVARCHAR(128)') AS table_name,
+                    ref.value('(@Index)[1]', 'NVARCHAR(128)') AS index_name
+                FROM (
+                    SELECT TRY_CAST(p.query_plan AS XML) AS plan_xml
+                ) AS plans
+                CROSS APPLY plan_xml.nodes('//RelOp//IndexSeek//Object') AS indexes(ref)
+                WHERE ref.value('(@Index)[1]', 'NVARCHAR(128)') IS NOT NULL
+            ) AS idx_refs
+            FOR XML PATH('')
+        ), 1, 2, '')
+    ) AS indexes_used
 FROM sys.query_store_query q
 INNER JOIN sys.query_store_query_text qt ON q.query_text_id = qt.query_text_id
 INNER JOIN sys.query_store_plan p ON q.query_id = p.query_id
