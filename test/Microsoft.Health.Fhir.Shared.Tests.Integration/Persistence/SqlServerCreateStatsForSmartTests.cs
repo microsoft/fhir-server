@@ -20,10 +20,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Dac.Model;
 using Microsoft.VisualStudio.TestPlatform.Utilities;
 using NSubstitute;
-using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
@@ -37,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
-        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public SqlServerCreateStatsForSmartTests(FhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
@@ -68,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_include", "Observation:subject"));
             query.Add(new Tuple<string, string>("identifier", "test"));
-            var results = await _fixture.SearchService.SearchAsync("Observation", query, CancellationToken.None);
+            await _fixture.SearchService.SearchAsync("Observation", query, CancellationToken.None);
 
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");

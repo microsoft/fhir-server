@@ -1801,11 +1801,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
             foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
             {
-                if (searchParamExpression.Parameter.Code == SearchParameterNames.ResourceType)
+                if (searchParamExpression.Parameter.Name == SearchParameterNames.ResourceType)
                 {
                     resourceTypeExpression = searchParamExpression;
                 }
-                else if (searchParamExpression.Parameter.Code == SearchParameterNames.Id)
+                else if (searchParamExpression.Parameter.Name == SearchParameterNames.Id)
                 {
                     resourceIdExpression = searchParamExpression;
                 }
@@ -2014,7 +2014,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                         break;
 
-                    case UnionExpression nestedUnionExpression:
+                    case UnionExpression:
                         // For nested unions, each part maintains separate context
                         // Don't collect across union boundaries
                         break;

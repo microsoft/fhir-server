@@ -780,7 +780,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                            results.Results,
                            r => r.Resource.ResourceId == "smart-practitioner-B");
 
-            /*This is true because we are returning universal Organization resources even when they are not part of compartment of requested Practioner.*/
+            /*This is true because we are returning universal Organization resources even when they are not part of compartment of requested Practitioner.*/
             Assert.Contains(
                            results.Results,
                            r => r.Resource.ResourceId == "smart-organization-B1");
@@ -1872,7 +1872,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
-        public async Task GivenSmartV2PatientPractionerAndObservationScopeWithFilters_WhenSearching_ThenResultsAreReturnAsExpected()
+        public async Task GivenSmartV2PatientPractitionerAndObservationScopeWithFilters_WhenSearching_ThenResultsAreReturnAsExpected()
         {
             Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
@@ -1881,7 +1881,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             /*
              * scopes = patient/patient.s patient/Practitioner.s?gender=male&name=practitionerA patient/Observation.s?http://loinc.org|4548-4&status=final
-             * All patients and male Practioners with name practitionerA and Observations with code and final status are allowed
+             * All patients and male Practitioners with name practitionerA and Observations with code and final status are allowed
              */
             var scopeRestriction1 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
             var scopeRestriction2 = new ScopeRestriction("Practitioner", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", "male"), ("name", "practitionerA")));
@@ -3402,7 +3402,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1" && r.Resource.ResourceTypeName == "Observation");
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-patient-A" && r.Resource.ResourceTypeName == "Patient");
 
-            // Verify that smart-observation-A2 (with different code) is NOT included and male Practioner is not included
+            // Verify that smart-observation-A2 (with different code) is NOT included and male Practitioner is not included
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2");
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
         }
@@ -3687,7 +3687,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotEmpty(patientResults);
             Assert.Contains(patientResults, r => r.Resource.ResourceId == "smart-patient-A");
 
-            // Should contain only Observations that match the scope filters (code 55233-1 and status=final)
+            // Should contain only Observations that match the scope filters (code http://loinc.org|4548-4 and status=final)
             var observationResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Observation").ToList();
 
             // Observations matching the scope should be present
@@ -3756,7 +3756,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotEmpty(patientResults);
             Assert.Contains(patientResults, r => r.Resource.ResourceId == "smart-patient-A");
 
-            // Should contain only Observations that match the scope filters (code 55233-1 and status=final)
+            // Should contain only Observations that match the scope filters (code http://loinc.org|4548-4 and status=final)
             var observationResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Observation").ToList();
             Assert.Single(observationResults);
 
@@ -3824,13 +3824,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotEmpty(patientResults);
             Assert.Contains(patientResults, r => r.Resource.ResourceId == "smart-patient-A");
 
-            // Should contain only Observations that match the scope filters (code 55233-1 and status=final)
+            // Should contain only Observations that match the scope filters (code http://loinc.org|4548-4 and status=final)
             var observationResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Observation").ToList();
             Assert.Single(observationResults);
             var observationA2result = observationResults.Where(o => o.Resource.ResourceId == "smart-observation-A2");
             Assert.Empty(observationA2result);
 
-            // Should only contain Encounters that match the scope filters (status=finished AND class=IMP)
+            // Should only contain Encounters that match the scope filters (status=finished)
             var encounterResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Encounter").ToList();
 
             Assert.NotEmpty(encounterResults);

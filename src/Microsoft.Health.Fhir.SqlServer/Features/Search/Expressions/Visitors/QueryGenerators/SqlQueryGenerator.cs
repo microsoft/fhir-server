@@ -418,9 +418,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         }
 
         /// <summary>
-        /// Helper method to track parameters added to _setToHash during method execution.
+        /// Marks parameters that were added after a specific point in time as SMART scope parameters.
         /// </summary>
-        /// <returns>List of new parameters added during the action execution.</returns>
+        /// <param name="parametersBefore">The set of parameters that existed before the operation.</param>
+        /// <returns>List of new parameters that were added and marked as SMART scope parameters.</returns>
         private List<SqlParameter> MarkNewParametersAsSmartScopeParameter(HashSet<SqlParameter> parametersBefore)
         {
             var parametersAfter = new HashSet<SqlParameter>(Parameters.ParametersToHash);
