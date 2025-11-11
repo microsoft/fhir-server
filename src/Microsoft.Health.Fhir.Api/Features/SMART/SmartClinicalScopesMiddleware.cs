@@ -173,6 +173,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         scopeClaims = scopeClaimsBuilder.ToString();
                     }
 
+                    // Decode URL-encoded forward slashes (%2f) to support Azure Entra ID scopes
+                    // Azure Entra ID doesn't allow '/' in scopes, so users encode them as '%2f'
+                    // We decode them here before processing with the regex
+                    scopeClaims = System.Uri.UnescapeDataString(scopeClaims);
+
                     var matches = ClinicalScopeRegEx.Matches(scopeClaims);
                     bool smartV1AccessLevelUsed = false;
                     bool smartV2AccessLevelUsed = false;
