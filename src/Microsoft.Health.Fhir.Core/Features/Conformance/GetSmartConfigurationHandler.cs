@@ -73,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                     ICollection<string> grantTypesSupported = new List<string>
                     {
+                        "authorization_code",
                         "client_credentials",
                     };
 
