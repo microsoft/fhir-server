@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                             if (hasIncludeExpressions)
                             {
-                                MarkNewParametersAsSmartScopeParameter(saveParameterState);
+                                MarkNewParametersAsSmartScopeParameter(saveParameterState.ToHashSet());
                             }
                         }
                         else

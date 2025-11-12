@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public HashSet<short> SearchParamIds => _searchParamIds;
 
-        public HashSet<SqlParameter> ParametersToHash => new HashSet<SqlParameter>(_setToHash);
+        public IReadOnlyCollection<SqlParameter> ParametersToHash => new HashSet<SqlParameter>(_setToHash);
 
         /// <summary>
         /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId. Do not add ResourceId to hash.

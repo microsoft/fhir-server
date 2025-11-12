@@ -3830,7 +3830,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var observationA2result = observationResults.Where(o => o.Resource.ResourceId == "smart-observation-A2");
             Assert.Empty(observationA2result);
 
-            // Should only contain Encounters that match the scope filters (status=finished)
+            // Should only contain Encounters that match the scope filters (status=triaged)
             var encounterResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Encounter").ToList();
 
             Assert.NotEmpty(encounterResults);
