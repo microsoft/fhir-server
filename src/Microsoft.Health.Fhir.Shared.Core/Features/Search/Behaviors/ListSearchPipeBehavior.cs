@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             _referenceSearchValueParser = referenceSearchValueParser;
         }
 
-        public async Task<SearchResourceResponse> Handle(SearchResourceRequest request, RequestHandlerDelegate<SearchResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<SearchResourceResponse> HandleAsync(SearchResourceRequest request, RequestHandlerDelegate<SearchResourceResponse> next, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // if _list was not requested, or _list was requested with invalid value, continue...
             if ((listParameter == null) || string.IsNullOrWhiteSpace(listParameter.Item2))
             {
-                return await next(cancellationToken);
+                return await next();
             }
 
             ResourceWrapper listWrapper =
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
 
             query = query.Concat(new[] { Tuple.Create(KnownQueryParameterNames.Id, string.Join(",", references.Select(x => x.ResourceId))) });
             request.Queries = query.ToArray();
-            return await next(cancellationToken);
+            return await next();
         }
 
         public SearchResourceResponse CreateEmptySearchResponse(SearchResourceRequest request)

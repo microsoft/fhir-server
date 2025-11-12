@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task<CreateBulkDeleteResponse> Handle(CreateBulkDeleteRequest request, CancellationToken cancellationToken)
+        public async Task<CreateBulkDeleteResponse> HandleAsync(CreateBulkDeleteRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

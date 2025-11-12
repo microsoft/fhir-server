@@ -11,7 +11,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Azure;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;

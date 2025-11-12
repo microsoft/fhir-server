@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: null),
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: bundleResourceContext),

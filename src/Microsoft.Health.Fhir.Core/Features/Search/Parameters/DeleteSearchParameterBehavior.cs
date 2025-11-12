@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public async Task<TDeleteResourceResponse> Handle(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<TDeleteResourceResponse> HandleAsync(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
         {
             var deleteRequest = request as DeleteResourceRequest;
             ResourceWrapper searchParamResource = null;
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
             }
 
-            return await next(cancellationToken);
+            return await next();
         }
     }
 }
