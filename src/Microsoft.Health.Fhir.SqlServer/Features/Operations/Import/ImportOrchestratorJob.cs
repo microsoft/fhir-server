@@ -15,7 +15,7 @@ using Azure.Identity;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 failed,
                 importMode);
 
-            await mediator.Publish(importJobMetricsNotification, CancellationToken.None);
+            await mediator.PublishAsync(importJobMetricsNotification, CancellationToken.None);
         }
 
         private async Task EnqueueProcessingJobsAsync(JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult result, CancellationToken cancellationToken)

@@ -11,7 +11,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _authorizationService = authorizationService;
         }
 
-        public async Task<GetImportResponse> Handle(GetImportRequest request, CancellationToken cancellationToken)
+        public async Task<GetImportResponse> HandleAsync(GetImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

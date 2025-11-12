@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Supported),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Deleted),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -301,7 +301,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
             };
 
-            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);

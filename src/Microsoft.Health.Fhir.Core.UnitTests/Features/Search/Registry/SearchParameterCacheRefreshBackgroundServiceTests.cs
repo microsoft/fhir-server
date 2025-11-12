@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var notification = new SearchParametersInitializedNotification();
 
             // Act
-            await _service.Handle(notification, CancellationToken.None);
+            await _service.HandleAsync(notification, CancellationToken.None);
 
             // Assert
             // The method should complete without throwing - the flag is set internally
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns(true); // Cache is stale
 
             // Set initialized to true to allow timer to run
-            await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await _service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
             await Task.Delay(200);
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns(false); // Cache is fresh
 
             // Set initialized to true to allow timer to run
-            await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await _service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
             await Task.Delay(200);
@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 mockLogger);
 
             // Act - Initialize and let timer run
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for timer to fire and handle the exception
             await Task.Delay(200);
@@ -318,7 +318,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 mockLogger);
 
             // Act - Initialize and let timer run
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for timer to fire and handle the exception
             await Task.Delay(200);
@@ -353,7 +353,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await executeTask;
 
             // Act - Try to handle the notification after cancellation
-            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Assert - Timer should not fire, so no calls should be made
             await Task.Delay(200); // Wait to see if timer would fire
