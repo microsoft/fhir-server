@@ -37,7 +37,7 @@ BEGIN TRY
       RAISERROR('There are other active job groups',18,127)
 
     IF @GroupId IS NOT NULL AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @GroupId AND CancelRequested = 1)
-      RAISERROR('The specified job group is cancelled',18,128)
+      RAISERROR('The specified job group is cancelled',18,127)
 
     SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
   

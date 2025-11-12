@@ -1,6 +1,4 @@
---DROP PROCEDURE dbo.EnqueueJobs
-GO
-CREATE OR ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @Status tinyint = NULL, @Result varchar(max) = NULL, @StartDate datetime = NULL, @ReturnJobs bit = 1
+ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @Status tinyint = NULL, @Result varchar(max) = NULL, @StartDate datetime = NULL, @ReturnJobs bit = 1
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
@@ -37,7 +35,7 @@ BEGIN TRY
       RAISERROR('There are other active job groups',18,127)
 
     IF @GroupId IS NOT NULL AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @GroupId AND CancelRequested = 1)
-      RAISERROR('The specified job group is cancelled',18,128)
+      RAISERROR('The specified job group is cancelled',18,127)
 
     SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
   
@@ -82,6 +80,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---DECLARE @Definitions StringList
---INSERT INTO @Definitions SELECT 'Test'
---EXECUTE dbo.EnqueueJobs 2, @Definitions, @ForceOneActiveJobGroup = 1
