@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -37,19 +37,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             _profilesResolver = profilesResolver;
         }
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<DeleteResourceResponse> HandleAsync(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.ResourceKey.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         private async Task<TResponse> GenericHandle<TResponse>(
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                     throw new UnauthorizedFhirActionException();
                 }
 
-                var result = await next(cancellationToken);
+                var result = await next();
 
                 // If the requests is part of a bundle, as an inner request, then profiles are not refreshed.
                 // This is because the bundle can contain multiple profile changes and the refresh should only happen once, at the end of the bundle, to avoid performance degradation.
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             }
             else
             {
-                return await next(cancellationToken);
+                return await next();
             }
         }
     }

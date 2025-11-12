@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
         }
 
-        public async Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _logger.LogInformation("SearchParameters initialized. Starting cache refresh timer.");
 

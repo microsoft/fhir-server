@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         {
             var request = new CreateExportRequest(requestUrl, ExportJobType.All, since: since);
 
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.JobId));
@@ -325,11 +325,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         {
             var request = new CreateExportRequest(requestUri, ExportJobType.All, since: since);
 
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             var newRequest = new CreateExportRequest(newRequestUri, ExportJobType.All, since: newSince);
 
-            CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
+            CreateExportResponse newResponse = await _createExportRequestHandler.HandleAsync(newRequest, _cancellationToken);
 
             Assert.NotNull(newResponse);
             Assert.NotEqual(response.JobId, newResponse.JobId);
@@ -342,13 +342,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
 
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             _claimsExtractor.ExtractImpl = () => new[] { KeyValuePair.Create("oid", "user2") };
 
             var newRequest = new CreateExportRequest(RequestUrl, ExportJobType.All);
 
-            CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
+            CreateExportResponse newResponse = await _createExportRequestHandler.HandleAsync(newRequest, _cancellationToken);
 
             Assert.NotNull(newResponse);
             Assert.NotEqual(response.JobId, newResponse.JobId);
@@ -386,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, null, formatName: formatName);
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
@@ -407,7 +407,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null);
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
@@ -417,7 +417,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         {
             var formatName = "invalid";
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, formatName: formatName);
-            var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+            var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.HandleAsync(request, _cancellationToken));
             Assert.Equal(string.Format(Resources.ExportFormatNotFound, formatName), exception.Message);
         }
 
@@ -434,7 +434,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            CreateExportResponse response = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
 
             Assert.Collection(
                 actualRecord.Filters,
@@ -452,7 +452,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         public async Task GivenARequestWithIncorectFilters_WhenConverted_ThenABadRequestIsReturned(string filters, string errorMessage)
         {
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
-            var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+            var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.HandleAsync(request, _cancellationToken));
             Assert.Equal(string.Format(Resources.TypeFilterUnparseable, errorMessage), exception.Message);
         }
 
@@ -509,7 +509,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filterString.ToString());
             try
             {
-                _ = await _createExportRequestHandler.Handle(request, _cancellationToken);
+                _ = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
                 if (invalidParameters.Any())
                 {
                     Assert.Fail($"{nameof(BadRequestException)} should be thrown.");
@@ -592,7 +592,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             }
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filterString.ToString());
-            _ = await _createExportRequestHandler.Handle(request, _cancellationToken);
+            _ = await _createExportRequestHandler.HandleAsync(request, _cancellationToken);
             _searchOptionsFactory.DidNotReceiveWithAnyArgs();
         }
 

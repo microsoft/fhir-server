@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 .Returns(Task.FromResult(CreateValueSet(Guid.NewGuid().ToString()).ToResourceElement()));
 
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(CreateGetResourceResponse(CreateValueSet(Guid.NewGuid().ToString()))));
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             ExpandRequest request,
             Exception exception)
         {
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     });
             try
             {
-                await _handler.Handle(
+                await _handler.HandleAsync(
                     request,
                     CancellationToken.None);
                 Assert.Null(exception);
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Assert.NotNull(exception);
             }
 
-            await _mediator.Received(string.IsNullOrEmpty(request.ResourceId) ? 0 : 1).Send(
+            await _mediator.Received(string.IsNullOrEmpty(request.ResourceId) ? 0 : 1).SendAsync(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }

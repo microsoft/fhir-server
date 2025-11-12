@@ -9,11 +9,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using FluentValidation;
-using MediatR.Pipeline;
+using Medino;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class ValidateRequestPreProcessor<TRequest> : IRequestPreProcessor<TRequest>
+    /// <summary>
+    /// Generic pipeline behavior that validates requests using FluentValidation validators.
+    /// Converted from IRequestPreProcessor to IPipelineBehavior in response to Medino API changes.
+    /// </summary>
+    /// <typeparam name="TRequest">The type of request being validated.</typeparam>
+    /// <typeparam name="TResponse">The type of response returned by the handler.</typeparam>
+    public class ValidateRequestPreProcessor<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
         where TRequest : class
     {
         private readonly IEnumerable<IValidator<TRequest>> _validators;
@@ -21,11 +27,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public ValidateRequestPreProcessor(IEnumerable<IValidator<TRequest>> validators)
         {
             EnsureArg.IsNotNull(validators, nameof(validators));
-
             _validators = validators;
         }
 
-        public async Task Process(TRequest request, CancellationToken cancellationToken)
+        public async Task<TResponse> HandleAsync(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -35,6 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             {
                 throw new ResourceNotValidException(allResults.SelectMany(x => x.Errors).ToList());
             }
+
+            return await next();
         }
     }
 }

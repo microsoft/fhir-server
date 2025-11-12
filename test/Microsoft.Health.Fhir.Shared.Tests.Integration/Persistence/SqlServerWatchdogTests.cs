@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;

@@ -12,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Text;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -369,7 +369,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
-                await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), cancellationToken);
+                await _mediator.PublishAsync(new ExportTaskMetricsNotification(_exportJobRecord), cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {

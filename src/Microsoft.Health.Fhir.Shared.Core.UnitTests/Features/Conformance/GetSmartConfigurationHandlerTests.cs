@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
-            OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
+            OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.HandleAsync(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
         }
 
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(response.AuthorizationEndpoint.ToString(), baseEndpoint + "/authorize");
             Assert.Equal(response.TokenEndpoint.ToString(), baseEndpoint + "/token");
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
-            OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
+            OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.HandleAsync(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);
         }
 

@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             _convertDataConfiguration = convertDataConfiguration.Value;
         }
 
-        public async Task<ConvertDataResponse> Handle(ConvertDataRequest request, CancellationToken cancellationToken)
+        public async Task<ConvertDataResponse> HandleAsync(ConvertDataRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request);
 

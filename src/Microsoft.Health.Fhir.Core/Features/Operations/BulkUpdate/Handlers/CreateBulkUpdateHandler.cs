@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task<CreateBulkUpdateResponse> Handle(CreateBulkUpdateRequest request, CancellationToken cancellationToken)
+        public async Task<CreateBulkUpdateResponse> HandleAsync(CreateBulkUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

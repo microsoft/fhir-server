@@ -9,7 +9,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _logger = logger;
         }
 
-        public async Task<CancelImportResponse> Handle(CancelImportRequest request, CancellationToken cancellationToken)
+        public async Task<CancelImportResponse> HandleAsync(CancelImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

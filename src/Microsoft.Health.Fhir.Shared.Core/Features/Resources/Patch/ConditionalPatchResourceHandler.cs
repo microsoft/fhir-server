@@ -7,7 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             var patchedResource = request.Payload.Patch(match.Resource);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null, metaHistory: request.MetaHistory), cancellationToken);
+            return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null, metaHistory: request.MetaHistory), cancellationToken);
         }
 
         public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)

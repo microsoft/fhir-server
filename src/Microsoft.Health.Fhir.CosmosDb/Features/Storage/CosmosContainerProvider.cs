@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within CosmosClientInitializer.
             _initializationOperation.EnsureInitialized()
                 .AsTask()
-                .ContinueWith(_ => _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default);
+                .ContinueWith(_ => _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default);
 #pragma warning restore CS4014
 
             return Task.CompletedTask;

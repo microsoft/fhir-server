@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         }
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, authorizationService);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
-            await Assert.ThrowsAsync<JobNotFoundException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
-            Exception thrownException = await Assert.ThrowsAsync<Exception>(() => handler.Handle(request, CancellationToken.None));
+            Exception thrownException = await Assert.ThrowsAsync<Exception>(() => handler.HandleAsync(request, CancellationToken.None));
             Assert.IsType<RequestRateExceededException>(thrownException.InnerException);
         }
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var handler = new CancelReindexRequestHandler(_fhirOperationDataStore, authorizationService);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var handler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var handler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(OperationStatus.Canceled, result.Job.JobRecord.Status);
         }

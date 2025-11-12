@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>());
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Url, ResourceId) });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated") });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -269,7 +269,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated"), new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
             // Act
             // Assert
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchParameterHandler.Handle(request, _cancellationToken));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchParameterHandler.HandleAsync(request, _cancellationToken));
         }
     }
 }

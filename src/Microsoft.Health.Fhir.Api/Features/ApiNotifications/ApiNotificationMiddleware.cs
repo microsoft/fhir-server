@@ -8,7 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                         apiNotification.ResourceType = fhirRequestContext.ResourceType;
                         apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
 
-                        await _mediator.Publish(apiNotification, CancellationToken.None);
+                        await _mediator.PublishAsync(apiNotification, CancellationToken.None);
                     }
                 }
                 catch (Exception e)

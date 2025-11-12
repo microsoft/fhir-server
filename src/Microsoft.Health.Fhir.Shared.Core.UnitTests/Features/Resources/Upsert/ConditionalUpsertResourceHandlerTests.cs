@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -89,11 +89,11 @@ public class ConditionalUpsertResourceHandlerTests
         var request = new ConditionalUpsertResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        await _conditionalUpsertHandler.Handle(request, CancellationToken.None);
+        await _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None);
 
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -120,11 +120,11 @@ public class ConditionalUpsertResourceHandlerTests
         var request = new ConditionalUpsertResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert - Should not throw UnauthorizedFhirActionException
-        await _conditionalUpsertHandler.Handle(request, CancellationToken.None);
+        await _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None);
 
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -156,7 +156,7 @@ public class ConditionalUpsertResourceHandlerTests
         var request = new ConditionalUpsertResourceRequest(patient, conditionalParameters, null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalUpsertHandler.Handle(request, CancellationToken.None));
+        await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None));
     }
 
     [Fact]
@@ -186,12 +186,12 @@ public class ConditionalUpsertResourceHandlerTests
         var request = new ConditionalUpsertResourceRequest(patient.ToResourceElement(), conditionalParameters, null);
 
         // Act
-        await _conditionalUpsertHandler.Handle(request, CancellationToken.None);
+        await _conditionalUpsertHandler.HandleAsync(request, CancellationToken.None);
 
         // Assert - Should call create since no ID and no matches
         await _mediator
             .Received()
-            .Send<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
+            .SendAsync<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
     private SearchResult GetSearchResult(ResourceElement resourceElement)

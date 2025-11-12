@@ -9,7 +9,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task<CancelBulkUpdateResponse> Handle(CancelBulkUpdateRequest request, CancellationToken cancellationToken)
+        public async Task<CancelBulkUpdateResponse> HandleAsync(CancelBulkUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

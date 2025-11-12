@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,7 +10,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, CancellationToken.None);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, CancellationToken.None);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -346,7 +346,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(localAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(localAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.TransactionResponse, bundleResource.Type);
@@ -448,7 +448,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(localAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+            FhirTransactionFailedException fhirTfe = await Assert.ThrowsAsync<FhirTransactionFailedException>(async () => await _bundleHandler.HandleAsync(bundleRequest, default));
 
             Assert.True(fhirTfe.ResponseStatusCode == System.Net.HttpStatusCode.InternalServerError);
         }
@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 // As the cancellation is requested during the bundle execution and the before the max transaction time, a FhirTransactionCancelledException is expected.
                 // Resulting in a HTTP408 error.
-                FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.Handle(bundleRequest, cancellationToken));
+                FhirTransactionCancelledException fhirTce = await Assert.ThrowsAsync<FhirTransactionCancelledException>(async () => await _bundleHandler.HandleAsync(bundleRequest, cancellationToken));
                 Assert.True(fhirTce.ResponseStatusCode == System.Net.HttpStatusCode.RequestTimeout);
             }
         }
@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
-            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.HandleAsync(bundleRequest, default));
         }
 
         [Fact]
@@ -546,7 +546,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.HandleAsync(bundleRequest, default));
         }
 
         [Fact]
@@ -577,7 +577,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 });
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
             Assert.Equal("4", _fhirRequestContext.ResponseHeaders[headerName].ToString());
 
             Assert.True(bundleResponse.Info.BundleType == BundleType.Batch, "BundleType is different than the expected.");
@@ -613,7 +613,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 });
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             Assert.Equal(2, callCount);
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -661,7 +661,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 });
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             Assert.Equal(4, callCount);
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -685,7 +685,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var expectedMessage = "The number of entries in the bundle exceeded the configured limit of 1.";
 
-            var exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(async () => await _bundleHandler.Handle(bundleRequest, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(async () => await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
             Assert.Equal(exception.Message, expectedMessage);
         }
 
@@ -702,7 +702,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, CancellationToken.None);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
@@ -749,16 +749,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(RouteAsyncFunction);
 
             BundleMetricsNotification notification = null;
-            await _mediator.Publish(Arg.Do<BundleMetricsNotification>(note => notification = note), Arg.Any<CancellationToken>());
+            await _mediator.PublishAsync(Arg.Do<BundleMetricsNotification>(note => notification = note), Arg.Any<CancellationToken>());
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+            BundleResponse bundleResponse = await _bundleHandler.HandleAsync(bundleRequest, default);
 
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(type == BundleType.Batch ? BundleType.BatchResponse : BundleType.TransactionResponse, bundleResource.Type);
             Assert.Equal(2, bundleResource.Entry.Count);
 
-            await _mediator.Received().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
+            await _mediator.Received().PublishAsync(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
 
             Assert.Equal(type == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, notification.FhirOperation);
             Assert.Equal("https", notification.Protocol); // Verify protocol is set correctly
@@ -814,9 +814,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
-            await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
+            await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.HandleAsync(bundleRequest, default));
 
-            await _mediator.DidNotReceive().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
+            await _mediator.DidNotReceive().PublishAsync(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)

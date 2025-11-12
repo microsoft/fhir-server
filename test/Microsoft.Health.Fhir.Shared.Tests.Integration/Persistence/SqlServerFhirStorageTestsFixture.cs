@@ -9,7 +9,7 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using Azure.Identity;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
