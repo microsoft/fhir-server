@@ -169,16 +169,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
             _initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
-            // Create a dictionary for efficient O(1) lookups by URI
-            var searchParamStatusByUri = _initialSearchParamStatusCollection.ToDictionary(
-                s => s.Uri.ToString(),
-                s => s.Status,
-                StringComparer.OrdinalIgnoreCase);
-
-            var validUris = searchParamStatusByUri
-                .Where(s => validStatus.Contains(s.Value))
-                .Select(s => s.Key)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // Get all URIs that have at least one entry with a valid status
+            // This handles case-variant duplicates naturally
+            var validUris = _initialSearchParamStatusCollection
+                .Where(s => validStatus.Contains(s.Status))
+                .Select(s => s.Uri.ToString())
+                .ToHashSet();
 
             // Filter to only those search parameters with valid status
             var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters
