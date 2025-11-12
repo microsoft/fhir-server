@@ -13,7 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -33,7 +33,7 @@ using StringExtensions = Microsoft.Health.Core.Extensions.StringExtensions;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     /// <summary>
-    /// MediatR request handler. Called when the ExportController creates an export job.
+    /// Medino request handler. Called when the ExportController creates an export job.
     /// </summary>
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _includeValidateTypeFiltersValidationDetails = includeValidateTypeFiltersValidationDetails;
         }
 
-        public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
+        public async Task<CreateExportResponse> HandleAsync(CreateExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

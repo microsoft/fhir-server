@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams);
 
-            DeleteResourceResponse result = await _mediator.Send(message);
+            DeleteResourceResponse result = await _mediator.SendAsync(message);
 
             Assert.Equal(0, result.ResourcesDeleted);
         }
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 count: 1,
                 mockResultEntry);
 
-            DeleteResourceResponse result = await _mediator.Send(message);
+            DeleteResourceResponse result = await _mediator.SendAsync(message);
 
             Assert.NotNull(result);
             Assert.Equal(1, result.ResourcesDeleted);
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 count: 1,
                 mockResultEntry);
 
-            DeleteResourceResponse result = await _mediator.Send(message);
+            DeleteResourceResponse result = await _mediator.SendAsync(message);
 
             Assert.NotNull(result);
             Assert.Equal(1, result.ResourcesDeleted);
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 mockResultEntry1,
                 mockResultEntry2);
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<DeleteResourceResponse>(message));
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.SendAsync<DeleteResourceResponse>(message));
         }
 
         [Fact]
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 mockResultEntry1,
                 mockResultEntry2);
 
-            DeleteResourceResponse result = await _mediator.Send(message);
+            DeleteResourceResponse result = await _mediator.SendAsync(message);
 
             Assert.NotNull(result);
             Assert.Equal(2, result.ResourcesDeleted);

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,7 +12,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(result);
         }
 
@@ -508,7 +508,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -525,7 +525,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(result);
         }
 
@@ -544,7 +544,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -560,7 +560,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(result);
         }
 
@@ -577,7 +577,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(result);
         }
 
@@ -594,7 +594,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(result);
         }
     }
