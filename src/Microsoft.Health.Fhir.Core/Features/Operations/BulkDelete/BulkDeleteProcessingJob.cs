@@ -10,7 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     }
                 }
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
+                await _mediator.PublishAsync(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
 
                 if (exception != null)
                 {

@@ -8,7 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _authorizationService = authorizationService;
         }
 
-        public async Task<GetReindexResponse> Handle(GetReindexRequest request, CancellationToken cancellationToken)
+        public async Task<GetReindexResponse> HandleAsync(GetReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

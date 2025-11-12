@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Audit;
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
         }
 
-        public async Task<SearchParameterStateUpdateResponse> Handle(SearchParameterStateUpdateRequest request, CancellationToken cancellationToken)
+        public async Task<SearchParameterStateUpdateResponse> HandleAsync(SearchParameterStateUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
