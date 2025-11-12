@@ -6,7 +6,7 @@
 using System;
 using System.Linq;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;

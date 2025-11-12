@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Support;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                 if (result.ResourcesUpdated.Any())
                 {
-                    await _mediator.Publish(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
+                    await _mediator.PublishAsync(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
                 }
 
                 if (exception != null)
