@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
@@ -156,9 +157,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsService(typeof(IRequestExceptionAction<,>));
 
-            services.Add<CompartmentSearchRewriter>()
+            services.Add<SqlCompartmentSearchRewriter>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsService<CompartmentSearchRewriter>();
 
             services.Add<SmartCompartmentSearchRewriter>()
                             .Singleton()
