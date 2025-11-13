@@ -9,7 +9,9 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using DotLiquid.Util;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -541,7 +543,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
                 else
                 {
-                    StringBuilder.Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+                    // Smart union expression contains an expression with multiple search parameters combined with AND where we are trying to pull the main compartment resource itself
+                    // Check if its a Multiary expression
+                    // If yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
+                    if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
+                    {
+                        bool useResourceTable = true;
+                        foreach (var innerExpression in multiaryExpression.Expressions)
+                        {
+                            if (!(innerExpression is SearchParameterExpression expr) || !(expr.Parameter.Name != SearchParameterNames.ResourceType && expr.Parameter.Name != SearchParameterNames.Id))
+                            {
+                                useResourceTable = false;
+                                break;
+                            }
+
+                            if (useResourceTable)
+                            {
+                                specialCaseTableName = VLatest.Resource;
+                            }
+                        }
+                    }
+
+                    StringBuilder.Append("FROM ").AppendLine(specialCaseTableName);
                 }
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
@@ -554,7 +577,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         AppendDeletedClause(delimited, context.ResourceVersionTypes);
                     }
 
-                    if (searchParamTableExpression.Predicate != null)
+                    if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
                     {
                         delimited.BeginDelimitedElement();
                         searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());

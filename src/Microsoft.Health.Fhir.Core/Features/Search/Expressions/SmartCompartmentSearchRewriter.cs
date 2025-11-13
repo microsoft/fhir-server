@@ -44,8 +44,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             var expressionList = _compartmentSearchRewriter.BuildCompartmentSearchExpressionsGroup(expression);
 
             // Second the smart user's own resource
-            expressionList.Add(
-                Expression.SearchParameter(idSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentId, false)));
+            var expressionForResourceItself = new List<Expression>();
+            expressionForResourceItself.Add(Expression.SearchParameter(idSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentId, false)));
+            expressionForResourceItself.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentType, false)));
+            expressionList.Add(Expression.And(expressionForResourceItself.ToArray()));
 
             // Finally we add in the "universal" resources, which are resources that are not compartment specific
             var universalResourceTypes = new List<string>()
