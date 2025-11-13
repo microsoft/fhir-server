@@ -22,6 +22,7 @@
   </Choose>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
+    <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.2" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
