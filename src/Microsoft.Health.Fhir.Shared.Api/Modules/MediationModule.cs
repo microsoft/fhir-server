@@ -3,10 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using EnsureThat;
 using Medino;
+using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -26,12 +26,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             // TODO: AddMedino extension method not available in Medino 3.0.2 - may need alternative registration
-            // services.AddMedino(cfg =>
-            // {
-            //     cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
-            //     cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionActionProcessorBehavior<,>));
-            //     cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>));
-            // });
+            services.AddMedino(cfg =>
+            {
+               cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
+            });
 
             // Register ValidateBundlePreProcessor as a pipeline behavior
             // (Converted from IRequestPreProcessor which was removed in newer Medino versions)
