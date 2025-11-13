@@ -114,11 +114,11 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                     {
                         if (record.FailureDetails == null)
                         {
-                            record.FailureDetails = new JobFailureDetails("Processing job had no results", HttpStatusCode.InternalServerError);
+                            record.FailureDetails = new JobFailureDetails(Core.Resources.ProcessingJobHadNoResults, HttpStatusCode.InternalServerError);
                         }
                         else
                         {
-                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\nProcessing job had no results", HttpStatusCode.InternalServerError);
+                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + Core.Resources.ProcessingJobHadNoResults, record.FailureDetails.FailureStatusCode);
                         }
                     }
                 }
@@ -343,11 +343,11 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 {
                     if (record.FailureDetails == null)
                     {
-                        record.FailureDetails = new JobFailureDetails("Processing job had no results", HttpStatusCode.InternalServerError);
+                        record.FailureDetails = new JobFailureDetails(Core.Resources.ProcessingJobHadNoResults, HttpStatusCode.InternalServerError);
                     }
                     else
                     {
-                        record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\nProcessing job had no results", HttpStatusCode.InternalServerError);
+                        record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + Core.Resources.ProcessingJobHadNoResults, record.FailureDetails.FailureStatusCode);
                     }
                 }
             }
@@ -390,7 +390,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         if (status == JobStatus.Failed && record.FailureDetails == null)
         {
-            record.FailureDetails = new JobFailureDetails("Reindex failed with unknown error. Please resubmit to try again.", HttpStatusCode.InternalServerError);
+            record.FailureDetails = new JobFailureDetails(Core.Resources.ReindexFailedWithUnknownError, HttpStatusCode.InternalServerError);
         }
 
         switch (status)

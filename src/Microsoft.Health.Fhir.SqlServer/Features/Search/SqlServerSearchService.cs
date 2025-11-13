@@ -1160,7 +1160,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
 
                 // Fall back to the original method if no range hints are provided
-                return await SearchForReindexSurrogateIdsBySearchParamHashAsync(resourceTypeId, searchOptions.MaxItemCount, cancellationToken, searchParameterHash);
+                return await SearchForReindexSurrogateIdsBySearchParamHashAsync(resourceTypeId, searchOptions.MaxItemCount, cancellationToken, searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
             }
 
             var queryHints = searchOptions.QueryHints;
