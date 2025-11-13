@@ -1270,6 +1270,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Processing job had no results.
+        /// </summary>
+        internal static string ProcessingJobHadNoResults {
+            get {
+                return ResourceManager.GetString("ProcessingJobHadNoResults", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to X-Provenance header is malformed and can&apos;t be parsed.
         /// </summary>
         internal static string ProvenanceHeaderMalformed {
@@ -1302,6 +1311,60 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReferenceResourceTypeNotSupported {
             get {
                 return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reindex failed with unknown error. Please resubmit to try again..
+        /// </summary>
+        internal static string ReindexFailedWithUnknownError {
+            get {
+                return ResourceManager.GetString("ReindexFailedWithUnknownError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reindex job was cancelled by caller..
+        /// </summary>
+        internal static string ReindexingCancelledbyCaller {
+            get {
+                return ResourceManager.GetString("ReindexingCancelledbyCaller", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} resource(s) of the following type(s) failed to be reindexed: &apos;{1}&apos;..
+        /// </summary>
+        internal static string ReindexingFailedForResourcesListed {
+            get {
+                return ResourceManager.GetString("ReindexingFailedForResourcesListed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The reindex job was canceled..
+        /// </summary>
+        internal static string ReindexingJobCancelled {
+            get {
+                return ResourceManager.GetString("ReindexingJobCancelled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There are no search parameters to reindex for job Id: {0}..
+        /// </summary>
+        internal static string ReindexingNoSearchParameterstoReindex {
+            get {
+                return ResourceManager.GetString("ReindexingNoSearchParameterstoReindex", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing to process. Reindex complete..
+        /// </summary>
+        internal static string ReindexingNothingToProcess {
+            get {
+                return ResourceManager.GetString("ReindexingNothingToProcess", resourceCulture);
             }
         }
         

@@ -847,4 +847,27 @@
   <data name="NotReferencedParameterWildcardType" xml:space="preserve">
     <value>Not Referenced doesn't allow for a wildcard resource type with a specific search field</value>
   </data>
+  <data name="ProcessingJobHadNoResults" xml:space="preserve">
+    <value>Processing job had no results</value>
+    <comment>Error message when a processing job in an operation (export or reindex) returns no results</comment>
+  </data>
+  <data name="ReindexFailedWithUnknownError" xml:space="preserve">
+    <value>Reindex failed with unknown error. Please resubmit to try again.</value>
+    <comment>Error message when a reindex job fails with an unknown error</comment>
+  </data>
+  <data name="ReindexingFailedForResourcesListed" xml:space="preserve">
+    <value>{0} resource(s) of the following type(s) failed to be reindexed: '{1}'.</value>
+  </data>
+  <data name="ReindexingNothingToProcess" xml:space="preserve">
+    <value>Nothing to process. Reindex complete.</value>
+  </data>
+  <data name="ReindexingCancelledbyCaller" xml:space="preserve">
+    <value>Reindex job was cancelled by caller.</value>
+  </data>
+  <data name="ReindexingJobCancelled" xml:space="preserve">
+    <value>The reindex job was canceled.</value>
+  </data>
+  <data name="ReindexingNoSearchParameterstoReindex" xml:space="preserve">
+    <value>There are no search parameters to reindex for job Id: {0}.</value>
+  </data>
 </root>
