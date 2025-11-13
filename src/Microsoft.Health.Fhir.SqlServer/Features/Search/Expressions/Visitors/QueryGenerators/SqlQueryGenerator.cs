@@ -554,7 +554,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         AppendDeletedClause(delimited, context.ResourceVersionTypes);
                     }
 
-                    if (searchParamTableExpression.Predicate != null)
+                if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
                     {
                         delimited.BeginDelimitedElement();
                         searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
