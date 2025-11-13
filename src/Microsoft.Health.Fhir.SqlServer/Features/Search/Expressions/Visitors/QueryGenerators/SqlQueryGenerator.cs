@@ -551,7 +551,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         bool useResourceTable = true;
                         foreach (var innerExpression in multiaryExpression.Expressions)
                         {
-                            if (!(innerExpression is SearchParameterExpression expr) || !(expr.Parameter.Name != SearchParameterNames.ResourceType && expr.Parameter.Name != SearchParameterNames.Id))
+                            if (!(innerExpression is SearchParameterExpression expr) || (expr.Parameter.Name != SearchParameterNames.ResourceType && expr.Parameter.Name != SearchParameterNames.Id))
                             {
                                 useResourceTable = false;
                                 break;
