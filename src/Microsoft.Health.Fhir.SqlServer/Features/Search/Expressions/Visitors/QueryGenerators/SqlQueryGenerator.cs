@@ -482,7 +482,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
 
-                if (searchParamTableExpression.Predicate != null)
+                if (searchParamTableExpression.Predicate != null && !(searchParamTableExpression.Predicate is CompartmentSearchExpression))
                 {
                     delimited.BeginDelimitedElement();
                     searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
