@@ -110,7 +110,7 @@ BEGIN TRY
          JOIN sys.query_store_plan p on p.plan_id = s.plan_id 
          JOIN sys.query_store_query q on q.query_id = p.query_id
          JOIN sys.query_store_query_text qt on qt.query_text_id = q.query_text_id
-    WHERE query_sql_text LIKE '%StringSearchParam%' AND query_sql_text NOT LIKE '%sys.query_store_query%'
+    WHERE query_sql_text LIKE '%StringSearchParam%' AND query_sql_text NOT LIKE '%sys.query_store_query%' AND query_sql_text LIKE '%cte%'
   IF @expected_executions <> @executions
   BEGIN
     SET @msg = '@expected_executions='+convert(varchar,@expected_executions)+' <> @executions='+convert(varchar,@executions)
@@ -155,7 +155,7 @@ END CATCH
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             conn.Open();
-            using var cmd = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE = ON (QUERY_CAPTURE_MODE = ALL)')", conn);
+            using var cmd = new SqlCommand("DECLARE @db varchar(100) = db_name() EXECUTE('ALTER DATABASE ['+@db+'] SET QUERY_STORE = ON (QUERY_CAPTURE_MODE = ALL, INTERVAL_LENGTH_MINUTES = 1, MAX_PLANS_PER_QUERY = 200)')", conn);
             cmd.ExecuteNonQuery();
         }
 
@@ -231,7 +231,7 @@ END CATCH
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
-SELECT TOP 1 O.name
+SELECT O.name
   FROM sys.dm_exec_procedure_stats S
        JOIN sys.objects O ON O.object_id = S.object_id
   WHERE O.type = 'p' AND O.name = 'CustomQuery_'+@hash
