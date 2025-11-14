@@ -165,9 +165,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
             }
-            catch (SqlException sqlEx) when (forceOneActiveJobGroup && sqlEx.State == 127)
+            catch (SqlException sqlEx) when (forceOneActiveJobGroup && sqlEx.State == 127 && sqlEx.Message.Contains("other active job", StringComparison.OrdinalIgnoreCase))
             {
                 throw new JobConflictException(sqlEx.Message);
+            }
+            catch (SqlException sqlEx) when (sqlEx.State == 127 && sqlEx.Message.Contains("cancel", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError(sqlEx, "EnqueueAsync failed due to job orchestrator being cancelled.");
+                throw new OperationCanceledException("Job has been cancelled.", sqlEx);
             }
         }
 
