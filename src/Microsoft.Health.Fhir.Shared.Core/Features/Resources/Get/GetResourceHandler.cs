@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
         }
 
-        public async Task<GetResourceResponse> Handle(GetResourceRequest request, CancellationToken cancellationToken)
+        public async Task<GetResourceResponse> HandleAsync(GetResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

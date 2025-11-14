@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [MemberData(nameof(ValidBody), MemberType = typeof(MemberMatchControllerTests))]
         public async Task GivenAMemberMatchDataRequest_WithValidBody_ThenMemberMatchCalledWithCorrectParams(Parameters body)
         {
-            _mediator.Send<MemberMatchResponse>(Arg.Any<MemberMatchRequest>(), Arg.Any<CancellationToken>()).Returns(GetMemberMatchResponse());
+            _mediator.SendAsync<MemberMatchResponse>(Arg.Any<MemberMatchRequest>(), Arg.Any<CancellationToken>()).Returns(GetMemberMatchResponse());
             var result = await _memberMatchController.MemberMatch(body) as MemberMatchResult;
             Assert.NotNull(result);
             Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
