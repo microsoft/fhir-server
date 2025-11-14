@@ -60,9 +60,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 KnownCompartmentTypes.Device,
             };
 
-            var inExpression = Expression.In(FieldName.TokenCode, null, universalResourceTypes);
+            if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
+            {
+                universalResourceTypes = universalResourceTypes.Where(x => expression.FilteredResourceTypes.Contains(x)).ToList();
+            }
 
-            expressionList.Add(Expression.SearchParameter(resourceTypeSearchParameter, inExpression));
+            if (universalResourceTypes.Any())
+            {
+                expressionList.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, universalResourceTypes)));
+            }
 
             // union all those results together
             return Expression.Union(UnionOperator.All, expressionList);

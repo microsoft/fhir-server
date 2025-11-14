@@ -964,6 +964,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         // Restrict the reference resource types that are returned to the allowed types by scope
                         // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
                         // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
+                        // Smart V2 with SP has a special handling for references resources
+                        if (!_smartV2UnionVisited)
+                        {
+                            if (!includeExpression.Reversed)
+                            {
+                                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                                    .Append(" IN (")
+                                    .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
+                                    .Append(")");
+                            }
+                            else
+                            {
+                                // For _revinclude we need to filter on ResourceTypeId (the resource type that contains the reference)
+                                // Example: /Patient?_revinclude=*:* and scope Patient/Patient and Patient/Encounter
+                                // In this case, we need to filter the resources referring Patient by the allowed types by scope
+                                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                                .Append(" IN (")
+                                .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
+                                .Append(")");
+                            }
+                        }
+                    }
+                }
+                else if (includeExpression.WildCard && includeExpression.AllowedResourceTypesByScope != null &&
+                        !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                {
+                    // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
+                    // If the list contains "All", then we don't add a filter
+                    // Restrict the reference resource types that are returned to the allowed types by scope
+                    // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
+                    // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
+                    // Smart V2 with SP has a special handling for references resources
+                    if (!_smartV2UnionVisited)
+                    {
                         if (!includeExpression.Reversed)
                         {
                             delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
@@ -981,32 +1015,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
                             .Append(")");
                         }
-                    }
-                }
-                else if (includeExpression.WildCard && includeExpression.AllowedResourceTypesByScope != null &&
-                        !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
-                {
-                    // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
-                    // If the list contains "All", then we don't add a filter
-                    // Restrict the reference resource types that are returned to the allowed types by scope
-                    // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
-                    // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
-                    if (!includeExpression.Reversed)
-                    {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                            .Append(" IN (")
-                            .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
-                            .Append(")");
-                    }
-                    else
-                    {
-                        // For _revinclude we need to filter on ResourceTypeId (the resource type that contains the reference)
-                        // Example: /Patient?_revinclude=*:* and scope Patient/Patient and Patient/Encounter
-                        // In this case, we need to filter the resources referring Patient by the allowed types by scope
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
-                        .Append(" IN (")
-                        .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
-                        .Append(")");
                     }
                 }
 

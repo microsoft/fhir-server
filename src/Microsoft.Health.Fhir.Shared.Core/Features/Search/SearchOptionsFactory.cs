@@ -389,9 +389,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
-            CheckFineGrainedAccessControl(searchExpressions, searchParams, parsedResourceTypes);
-
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
+
+            // Form all the include revinclude expressions
+            var includeRevincludeSearchExpressions = new List<IncludeExpression>();
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
+            includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
+            var requiredResourceTypes = includeRevincludeSearchExpressions.SelectMany(x => x.Produces).ToList();
+            requiredResourceTypes.AddRange(parsedResourceTypes);
+
+            CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
 
             searchExpressions.AddRange(searchParams.Parameters.Select(
             q =>
@@ -412,8 +419,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
             // when applied on a circular reference
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
+            if (includeRevincludeSearchExpressions.Any())
+            {
+                searchExpressions.AddRange(includeRevincludeSearchExpressions);
+            }
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -755,7 +764,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger.LogInformation(logOutput);
         }
 
-        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions, SearchParams searchParams, string[] parsedResourceTypes)
+        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions, SearchParams searchParams, List<string> requiredResourceTypes)
         {
             // check resource type restrictions from SMART clinical scopes
             if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
@@ -763,6 +772,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 bool allowAllResourceTypes = false;
                 var clinicalScopeResources = new List<ResourceType>();
                 var finalSmartSearchExpressions = new List<Expression>();
+                bool isFineGrainedAccessControlWithSearchParameters = false;
 
                 foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
                 {
@@ -799,6 +809,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new ResourceNotSupportedException(restriction.Resource);
                     }
 
+                    if (!requiredResourceTypes.Contains(KnownResourceTypes.DomainResource) && !requiredResourceTypes.Contains(restriction.Resource))
+                    {
+                        // Only when it is not a system level search then no need to add search expression for resource types that are not part of this search
+                        continue;
+                    }
+
                     // Form the AND expression for resource type and its searchParameters restrictions.
                     var smartSearchExpressions = new List<Expression>();
 
@@ -806,6 +822,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // If search parameters are defined in the restriction, add them to searchParams.
                     if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
                     {
+                        isFineGrainedAccessControlWithSearchParameters = true;
+
                         // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
                         if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
                         {
@@ -861,9 +879,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // Builds the search expression like (((ResourceType = A AND <search params 1 for A>) AND (ResourceType = A AND <search params 2 for A>)) OR ((ResourceType = B AND <search params 1 for B>) AND (ResourceType = B AND <search params 2 for B>)))
                     if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true && finalSmartSearchExpressions.Any())
                     {
-                        var unionExpr = Expression.Union(UnionOperator.All, finalSmartSearchExpressions);
-                        unionExpr.IsSmartV2UnionExpressionForScopesSearchParameters = true;
-                        searchExpressions.Add(unionExpr);
+                        // Check if any scopes with search parameters were present
+                        // If yes then, go ahead with the Union expression
+                        // If not then, we can simply use clinicalScopeResources
+                        if (isFineGrainedAccessControlWithSearchParameters)
+                        {
+                            var unionExpr = Expression.Union(UnionOperator.All, finalSmartSearchExpressions);
+                            unionExpr.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+                            searchExpressions.Add(unionExpr);
+                        }
+                        else
+                        {
+                            if (clinicalScopeResources.Any() && clinicalScopeResources.Count == 1)
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResources[0].ToString(), false)));
+                            }
+                            else
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                            }
+                        }
                     }
                     else
                     {
