@@ -13,6 +13,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core;
@@ -52,13 +53,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 
         private readonly FhirJsonParser _parser;
         private readonly ITerminologyService _terminologyService;
+        private readonly IAsyncResourceResolver _resourceResolver;
         private readonly ILogger<FirelyTerminologyServiceProxy> _logger;
 
         public FirelyTerminologyServiceProxy(
             ITerminologyService terminologyService,
+            IAsyncResourceResolver resourceResolver,
             ILogger<FirelyTerminologyServiceProxy> logger)
         {
             EnsureArg.IsNotNull(terminologyService, nameof(terminologyService));
+            EnsureArg.IsNotNull(resourceResolver, nameof(resourceResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _parser = new FhirJsonParser(
@@ -67,6 +71,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                     PermissiveParsing = false,
                 });
             _terminologyService = terminologyService;
+            _resourceResolver = resourceResolver;
             _logger = logger;
         }
 
@@ -77,9 +82,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
         {
             try
             {
+                parameters = await ProcessExpandParameters(parameters);
                 var resource = await _terminologyService.Expand(
                     CreateExpandParameters(parameters),
                     resourceId);
+#if R4B || R4
+                if (resource is ValueSet)
+                {
+                    // NOTE: this process is needed for R4 and R4B to remove properties added by the expander due to the bug
+                    // that are not compliant to a specifc FHIR version. (Bug: https://github.com/FirelyTeam/firely-net-sdk/issues/3327)
+                    resource = ProcessExpandedValueSet((ValueSet)resource);
+                }
+#endif
                 return resource.ToResourceElement();
             }
             catch (Exception ex)
@@ -121,7 +135,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                 type = typeMapped;
             }
 
-            var isResource = string.Equals(parameter?.Item1, "valueSet", StringComparison.OrdinalIgnoreCase);
+            var isResource = string.Equals(parameter?.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase);
             return new Parameters.ParameterComponent()
             {
                 Name = parameter.Item1,
@@ -203,6 +217,58 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             }
         }
 
+        private async Task<IReadOnlyList<Tuple<string, string>>> ProcessExpandParameters(IReadOnlyList<Tuple<string, string>> parameterList)
+        {
+            var parameters = parameterList?
+                .GroupBy(x => x.Item1)
+                .ToDictionary(x => x.Key, x => x.Select(y => y.Item2).ToList())
+                ?? new Dictionary<string, List<string>>();
+            if (!parameters.ContainsKey(TerminologyOperationParameterNames.Expand.Url)
+                && !parameters.ContainsKey(TerminologyOperationParameterNames.Expand.ValueSet)
+                && parameters.TryGetValue(TerminologyOperationParameterNames.Expand.Context, out var context))
+            {
+                if (Uri.TryCreate(context?.FirstOrDefault(), UriKind.Absolute, out var uri)
+                    && !string.IsNullOrEmpty(uri?.Fragment))
+                {
+                    var url = $"{uri.Scheme}://{uri.Authority}{uri.AbsolutePath}";
+                    var path = uri.Fragment.TrimStart('#');
+                    var definition = await _resourceResolver.FindStructureDefinitionAsync(url);
+                    var valueSetUrl = definition?.Snapshot?.Element?
+                        .Where(x => string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase) && x.Binding?.ValueSet != null)
+#if !Stu3
+                        .Select(x => x.Binding.ValueSet)
+#else
+                        .Select(
+                            x =>
+                            {
+                                return (x.Binding.ValueSet is FhirUri) ? ((FhirUri)x.Binding.ValueSet).Value : ((ResourceReference)x.Binding.ValueSet).Reference;
+                            })
+#endif
+                        .FirstOrDefault();
+                    if (string.IsNullOrEmpty(valueSetUrl))
+                    {
+                        throw new BadRequestException(
+                            string.Format(Resources.ExpandInvalidParameterValue, TerminologyOperationParameterNames.Expand.Context));
+                    }
+
+                    var newParameterList = new List<Tuple<string, string>>(
+                        parameterList.Where(x => !string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Context, StringComparison.OrdinalIgnoreCase)));
+                    newParameterList.Add(
+                        Tuple.Create(
+                            TerminologyOperationParameterNames.Expand.Url,
+                            valueSetUrl));
+                    return newParameterList;
+                }
+                else
+                {
+                    throw new BadRequestException(
+                        string.Format(Resources.ExpandInvalidParameterValue, TerminologyOperationParameterNames.Expand.Context));
+                }
+            }
+
+            return parameterList;
+        }
+
         private static ResourceElement CreateOperationOutcome(Exception exception)
         {
             if (exception == null)
@@ -254,6 +320,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                     },
                 },
             }.ToResourceElement();
+        }
+
+        private static ValueSet ProcessExpandedValueSet(ValueSet valueSet)
+        {
+            if (valueSet.Expansion?.Contains == null)
+            {
+                return valueSet;
+            }
+#if !Stu3
+            foreach (var p in valueSet.Expansion.Contains.Where(x => x.Property?.Any() ?? false).Select(x => x.Property))
+            {
+                p.Clear();
+            }
+#endif
+            return valueSet;
         }
     }
 }

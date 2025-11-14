@@ -5,13 +5,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Security.Policy;
 using System.Threading;
+using AngleSharp.Dom;
 using FluentValidation;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -32,6 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
     {
         private readonly FirelyTerminologyServiceProxy _proxy;
         private readonly ITerminologyService _terminologyService;
+        private readonly IAsyncResourceResolver _resourceResolver;
 
         public FirelyTerminologyServiceProxyTests()
         {
@@ -41,8 +46,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Arg.Any<string>(),
                 Arg.Any<bool>())
                 .Returns(Task.FromResult<Resource>(new ValueSet() { Status = PublicationStatus.Active }));
+
+            _resourceResolver = Substitute.For<IAsyncResourceResolver>();
+            _resourceResolver.ResolveByCanonicalUriAsync(
+                Arg.Any<string>())
+                .Returns(Task.FromResult<Resource>(null));
             _proxy = new FirelyTerminologyServiceProxy(
                 _terminologyService,
+                _resourceResolver,
                 Substitute.For<ILogger<FirelyTerminologyServiceProxy>>());
         }
 
@@ -188,6 +199,140 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Arg.Any<bool>());
         }
 
+        [Theory]
+        [MemberData(nameof(GetExpandContextTestData))]
+        public async Task GivenContextParameter_WhenExpanding_ThenProxyShouldCallServiceWithCorrectParameters(
+            IReadOnlyList<Tuple<string, string>> parameterList,
+            string valueSetUrl)
+        {
+            parameterList = parameterList ?? new List<Tuple<string, string>>();
+            var shouldUseContext = !parameterList
+                .Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Url, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase));
+            var context = parameterList
+                .SingleOrDefault(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Context, StringComparison.OrdinalIgnoreCase))?
+                .Item2;
+            Assert.NotNull(context);
+
+            var contextUri = new Uri(context);
+            var definitionUrl = $"{contextUri.Scheme}://{contextUri.Authority}{contextUri.AbsolutePath}";
+            var definitionPath = contextUri.Fragment?.TrimStart('#');
+            var validContext = !string.IsNullOrEmpty(definitionUrl) && !string.IsNullOrEmpty(definitionPath);
+            if (shouldUseContext && validContext)
+            {
+                _resourceResolver.ResolveByCanonicalUriAsync(
+                    Arg.Is<string>(x => string.Equals(x, definitionUrl, StringComparison.OrdinalIgnoreCase)))
+                    .Returns(Task.FromResult<Resource>(
+                        new StructureDefinition()
+                        {
+                            Name = Guid.NewGuid().ToString(),
+                            Url = definitionUrl,
+                            Status = PublicationStatus.Active,
+                            Snapshot = new StructureDefinition.SnapshotComponent()
+                            {
+                                Element = new List<ElementDefinition>
+                                {
+                                    new ElementDefinition()
+                                    {
+                                        Path = definitionPath,
+                                        Binding = new ElementDefinition.ElementDefinitionBindingComponent()
+                                        {
+#if !Stu3
+                                            ValueSet = valueSetUrl,
+#else
+                                            ValueSet = new FhirUri(valueSetUrl),
+#endif
+                                        },
+                                    },
+                                },
+                            },
+                        }));
+            }
+
+            Parameters parametersArg = null;
+            string resourceIdArg = null;
+            _terminologyService.Expand(
+                Arg.Do<Parameters>(x => parametersArg = x),
+                Arg.Do<string>(x => resourceIdArg = x),
+                Arg.Any<bool>())
+                .Returns(Task.FromResult<Resource>(new ValueSet() { Status = PublicationStatus.Active }));
+
+            var resourceElement = await _proxy.ExpandAsync(
+                parameterList,
+                null,
+                CancellationToken.None);
+            Assert.NotNull(resourceElement);
+
+            var resource = resourceElement.ToPoco();
+            if (shouldUseContext)
+            {
+                if (validContext && !string.IsNullOrEmpty(valueSetUrl))
+                {
+                    Assert.IsType<ValueSet>(resource);
+                    Assert.NotNull(parametersArg);
+                    Assert.All(
+                        parameterList.Where(
+                            x => !string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.Context, StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)),
+                        x =>
+                        {
+                            var ps = parametersArg.Parameter.Where(y => string.Equals(x.Item1, y.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+                            Assert.Single(ps);
+
+                            var p = ps[0];
+                            Assert.Equal(x.Item2, p.Value?.ToString());
+                        });
+
+                    Assert.Contains(
+                        parametersArg.Parameter,
+                        x =>
+                        {
+                            return string.Equals(x.Name, TerminologyOperationParameterNames.Expand.Url, StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(x.Value?.ToString(), valueSetUrl);
+                        });
+                }
+                else
+                {
+                    Assert.IsType<OperationOutcome>(resource);
+                }
+            }
+            else
+            {
+                Assert.IsType<ValueSet>(resource);
+                Assert.NotNull(parametersArg);
+                Assert.All(
+                    parameterList.Where(x => !string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)),
+                    x =>
+                    {
+                        var ps = parametersArg.Parameter.Where(y => string.Equals(x.Item1, y.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+                        Assert.Single(ps);
+
+                        var p = ps[0];
+                        Assert.Equal(x.Item2, p.Value?.ToString());
+                    });
+            }
+
+            if (parameterList.Any(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)))
+            {
+                var ps = parametersArg.Parameter.Where(x => string.Equals(x.Name, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase)).ToList();
+                Assert.Single(ps);
+
+                var p = ps[0];
+                Assert.NotNull(p?.Resource);
+                Assert.IsType<ValueSet>(p?.Resource);
+
+                var json = parameterList.Single(x => string.Equals(x.Item1, TerminologyOperationParameterNames.Expand.ValueSet, StringComparison.OrdinalIgnoreCase))?.Item2;
+                Assert.Equal(json, p.Resource.ToJson());
+            }
+
+            await _resourceResolver.Received(shouldUseContext && validContext ? 1 : 0).ResolveByCanonicalUriAsync(
+                Arg.Any<string>());
+            await _terminologyService.Received(!shouldUseContext || (validContext && !string.IsNullOrEmpty(valueSetUrl)) ? 1 : 0).Expand(
+                Arg.Any<Parameters>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>());
+        }
+
         private static ValueSet CreateValueSet(string id = default)
         {
             return new ValueSet()
@@ -292,6 +437,71 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Invalid,
                     "Something is invalid.",
+                },
+            };
+
+            foreach (var d in data)
+            {
+                yield return d;
+            }
+        }
+
+        public static IEnumerable<object[]> GetExpandContextTestData()
+        {
+            var data = new[]
+            {
+                new object[]
+                {
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.presentedForm.contentType"),
+                    },
+                    "http://acme.org/fhir/ValueSet/in-mimetypes-1",
+                },
+                new object[]
+                {
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Url, "http://acme.org/fhir/ValueSet/in-mimetypes-1"),
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.presentedForm.contentType"),
+                    },
+                    "http://acme.org/fhir/ValueSet/in-mimetypes-1",
+                },
+                new object[]
+                {
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.presentedForm.contentType"),
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.ValueSet, CreateValueSet(Guid.NewGuid().ToString()).ToJson()),
+                    },
+                    "http://acme.org/fhir/ValueSet/in-mimetypes-1",
+                },
+                new object[]
+                {
+                    // Invalid context value without fragment
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note"),
+                    },
+                    "http://acme.org/fhir/ValueSet/in-mimetypes-1",
+                },
+                new object[]
+                {
+                    // Valid context value without matching value set
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.presentedForm.contentType"),
+                    },
+                    null,
+                },
+                new object[]
+                {
+                    // Valid context value with the context url with port number.
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create(TerminologyOperationParameterNames.Expand.Context, "http://hl7.org:1234/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note#DiagnosticReport.presentedForm.contentType"),
+                    },
+                    "http://acme.org/fhir/ValueSet/in-mimetypes-1",
                 },
             };
 
