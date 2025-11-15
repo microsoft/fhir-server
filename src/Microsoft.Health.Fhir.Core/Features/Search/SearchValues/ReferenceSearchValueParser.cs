@@ -29,12 +29,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly IFhirServerInstanceConfiguration _instanceConfiguration;
 
-        public ReferenceSearchValueParser(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public ReferenceSearchValueParser(
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IFhirServerInstanceConfiguration instanceConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(instanceConfiguration, nameof(instanceConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _instanceConfiguration = instanceConfiguration;
         }
 
         /// <inheritdoc />
@@ -70,7 +75,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 {
                     baseUri = new Uri(s.Substring(0, resourceTypeStartIndex), UriKind.RelativeOrAbsolute);
 
-                    if (baseUri == _fhirRequestContextAccessor.RequestContext.BaseUri)
+                    // Get the base URI from request context first, then fall back to global instance configuration
+                    // This ensures background operations like reindexing can access the base URI when there's no active HTTP context
+                    var requestContext = _fhirRequestContextAccessor?.RequestContext;
+                    var contextBaseUri = requestContext?.BaseUri ?? _instanceConfiguration?.BaseUri;
+
+                    // If vanity URL is set, use it as the context base URI
+                    contextBaseUri = _instanceConfiguration?.VanityUrl ?? contextBaseUri;
+
+                    if (contextBaseUri != null && baseUri == contextBaseUri)
                     {
                         // This is an absolute URL pointing to an internal resource.
                         return new ReferenceSearchValue(

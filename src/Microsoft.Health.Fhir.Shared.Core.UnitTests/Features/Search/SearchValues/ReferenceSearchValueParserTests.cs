@@ -36,7 +36,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             // Assign the substitute to the RequestContext property
             _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
-            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor);
+            // Create a substitute for IFhirServerInstanceConfiguration
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(BaseUri);
+
+            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig);
         }
 
         [Fact]
@@ -69,6 +73,76 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(baseUri == null ? null : new Uri(baseUri), value.BaseUri);
             Assert.Equal(resourceType.ToString(), value.ResourceType ?? string.Empty);
             Assert.Equal(resourceId, value.ResourceId);
+        }
+
+        [Fact]
+        public void GivenAValidReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBackToInstanceConfigurationAsInternal()
+        {
+            // Arrange
+            var nullContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+
+            var baseUri = new Uri("https://localhost/stu3/");
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(baseUri);
+
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+
+            // Act - Use an internal reference that matches the instance configuration base URI
+            ReferenceSearchValue value = parser.Parse("https://localhost/stu3/Observation/abc");
+
+            // Assert - Should be recognized as internal because it matches the base URI
+            Assert.NotNull(value);
+            Assert.Equal(ReferenceKind.Internal, value.Kind);
+            Assert.Equal(ResourceType.Observation.ToString(), value.ResourceType);
+            Assert.Equal("abc", value.ResourceId);
+        }
+
+        [Fact]
+        public void GivenAnExternalReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBackToInstanceConfigurationAsExternal()
+        {
+            // Arrange
+            var nullContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+
+            var baseUri = new Uri("https://localhost/stu3/");
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(baseUri);
+
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+
+            // Act - Use an external reference that does NOT match the instance configuration base URI
+            ReferenceSearchValue value = parser.Parse("https://external-server.com/fhir/Observation/xyz");
+
+            // Assert - Should be recognized as external because it doesn't match the base URI
+            Assert.NotNull(value);
+            Assert.Equal(ReferenceKind.External, value.Kind);
+            Assert.Equal(new Uri("https://external-server.com/fhir/"), value.BaseUri);
+            Assert.Equal(ResourceType.Observation.ToString(), value.ResourceType);
+            Assert.Equal("xyz", value.ResourceId);
+        }
+
+        [Fact]
+        public void GivenARelativeReferenceWhenRequestContextIsNull_WhenParsing_ThenParsesAsRelative()
+        {
+            // Arrange
+            var nullContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+
+            var baseUri = new Uri("https://localhost/stu3/");
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(baseUri);
+
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+
+            // Act - Use a relative reference
+            ReferenceSearchValue value = parser.Parse("Patient/123");
+
+            // Assert - Should parse as relative reference
+            Assert.NotNull(value);
+            Assert.Null(value.BaseUri);
+            Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
+            Assert.Equal("123", value.ResourceId);
         }
     }
 }
