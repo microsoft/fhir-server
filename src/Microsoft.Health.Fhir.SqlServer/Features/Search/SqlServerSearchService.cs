@@ -1877,70 +1877,47 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     var columns = GetKeyColumns(table);
                     if (columns.Count == 0)
                     {
-                        return;
+                        continue;
                     }
 
-                    var searchParamId = (short)0;
-                    var resourceTypeIds = new HashSet<short>();
+                    // Use a dictionary to maintain proper pairing of resource types with their search parameters
+                    var resourceTypeSearchParamPairs = new Dictionary<short, HashSet<short>>();
+
                     if (tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiExp)
                     {
-                        foreach (var part in multiExp.Expressions)
-                        {
-                            if (part is SearchParameterExpression parameterExp)
-                            {
-                                if (parameterExp.Parameter.Name == SearchParameterNames.ResourceType)
-                                {
-                                    if (parameterExp.Expression is StringExpression stringExp)
-                                    {
-                                        if (model.TryGetResourceTypeId(stringExp.Value, out var resourceTypeId))
-                                        {
-                                            resourceTypeIds.Add(resourceTypeId);
-                                        }
-                                    }
-                                    else if (parameterExp.Expression is MultiaryExpression multiExp2)
-                                    {
-                                        foreach (var part2 in multiExp2.Expressions)
-                                        {
-                                            if (part2 is SearchParameterExpression parameterExp2)
-                                            {
-                                                if (parameterExp2.Expression is StringExpression stringExp2)
-                                                {
-                                                    if (model.TryGetResourceTypeId(stringExp2.Value, out var resourceTypeId))
-                                                    {
-                                                        resourceTypeIds.Add(resourceTypeId);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                else if (parameterExp.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName && parameterExp.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
-                                {
-                                    model.TryGetSearchParamId(parameterExp.Parameter.Url, out searchParamId);
-                                }
-                            }
-                        }
+                        // Extract properly paired resource types and search parameters
+                        ExtractResourceTypeSearchParamPairs(multiExp, model, resourceTypeSearchParamPairs);
                     }
 
                     if (tableExpression.ChainLevel == 1 && tableExpression.Predicate is SearchParameterExpression searchExpression)
                     {
-                        searchParamId = model.GetSearchParamId(searchExpression.Parameter.Url);
-                        var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
-                        if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
+                        var searchParamId = model.GetSearchParamId(searchExpression.Parameter.Url);
+                        if (searchParamId != 0)
                         {
-                            foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
+                            var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
+                            if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
                             {
-                                if (model.TryGetResourceTypeId(type, out var resourceTypeId))
+                                foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
                                 {
-                                    resourceTypeIds.Add(resourceTypeId);
+                                    if (model.TryGetResourceTypeId(type, out var resourceTypeId))
+                                    {
+                                        if (!resourceTypeSearchParamPairs.TryGetValue(resourceTypeId, out HashSet<short> value))
+                                        {
+                                            value = new HashSet<short>();
+                                            resourceTypeSearchParamPairs[resourceTypeId] = value;
+                                        }
+
+                                        value.Add(searchParamId);
+                                    }
                                 }
                             }
                         }
                     }
 
-                    if (searchParamId != 0)
+                    // Create stats only for properly paired resource types and search parameters
+                    foreach (var (resourceTypeId, searchParamIds) in resourceTypeSearchParamPairs)
                     {
-                        foreach (var resourceTypeId in resourceTypeIds)
+                        foreach (var searchParamId in searchParamIds)
                         {
                             foreach (var column in columns)
                             {
@@ -1948,6 +1925,128 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
                         }
                     }
+                }
+            }
+
+            /// <summary>
+            /// Extracts resource type and search parameter pairs, maintaining their proper relationships
+            /// </summary>
+            private static void ExtractResourceTypeSearchParamPairs(Expression expression, SqlServerFhirModel model, Dictionary<short, HashSet<short>> resourceTypeSearchParamPairs)
+            {
+                if (expression is MultiaryExpression multiaryExpression)
+                {
+                    // For a MultiaryExpression, collect resource types and search parameters that appear together
+                    var resourceTypeIds = new HashSet<short>();
+                    var searchParamIds = new HashSet<short>();
+
+                    // First pass: collect all resource types and search parameters in this multiary expression
+                    foreach (var innerExpression in multiaryExpression.Expressions)
+                    {
+                        CollectResourceTypesAndSearchParams(innerExpression, model, resourceTypeIds, searchParamIds);
+                    }
+
+                    // If we found both resource types and search parameters in the same context, associate them
+                    if (resourceTypeIds.Count > 0 && searchParamIds.Count > 0)
+                    {
+                        foreach (var resourceTypeId in resourceTypeIds)
+                        {
+                            if (!resourceTypeSearchParamPairs.TryGetValue(resourceTypeId, out var searchParams))
+                            {
+                                searchParams = new HashSet<short>();
+                                resourceTypeSearchParamPairs[resourceTypeId] = searchParams;
+                            }
+
+                            foreach (var searchParamId in searchParamIds)
+                            {
+                                searchParams.Add(searchParamId);
+                            }
+                        }
+                    }
+
+                    // Recursively process nested expressions (for complex cases)
+                    foreach (var innerExpression in multiaryExpression.Expressions)
+                    {
+                        if (innerExpression is MultiaryExpression || innerExpression is UnionExpression)
+                        {
+                            ExtractResourceTypeSearchParamPairs(innerExpression, model, resourceTypeSearchParamPairs);
+                        }
+                    }
+                }
+                else if (expression is UnionExpression unionExpression)
+                {
+                    // For union expressions, process each part separately to maintain distinct contexts
+                    foreach (var unionPart in unionExpression.Expressions)
+                    {
+                        ExtractResourceTypeSearchParamPairs(unionPart, model, resourceTypeSearchParamPairs);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Collects resource types and search parameters from a single expression
+            /// </summary>
+            private static void CollectResourceTypesAndSearchParams(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds, HashSet<short> searchParamIds)
+            {
+                switch (expression)
+                {
+                    case SearchParameterExpression parameterExpression:
+                        if (parameterExpression.Parameter.Name == SearchParameterNames.ResourceType)
+                        {
+                            ExtractResourceTypeIds(parameterExpression.Expression, model, resourceTypeIds);
+                        }
+                        else if (parameterExpression.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName &&
+                                 parameterExpression.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
+                        {
+                            if (model.TryGetSearchParamId(parameterExpression.Parameter.Url, out var searchParamId) && searchParamId != 0)
+                            {
+                                searchParamIds.Add(searchParamId);
+                            }
+                        }
+
+                        break;
+
+                    case MultiaryExpression nestedMultiaryExpression:
+                        // Recursively collect from nested expressions
+                        foreach (var nestedExpression in nestedMultiaryExpression.Expressions)
+                        {
+                            CollectResourceTypesAndSearchParams(nestedExpression, model, resourceTypeIds, searchParamIds);
+                        }
+
+                        break;
+
+                    case UnionExpression:
+                        // For nested unions, each part maintains separate context
+                        // Don't collect across union boundaries
+                        break;
+                }
+            }
+
+            /// <summary>
+            /// Extracts resource type IDs from expressions that may be nested
+            /// </summary>
+            private static void ExtractResourceTypeIds(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds)
+            {
+                switch (expression)
+                {
+                    case StringExpression stringExpression:
+                        if (model.TryGetResourceTypeId(stringExpression.Value, out var resourceTypeId))
+                        {
+                            resourceTypeIds.Add(resourceTypeId);
+                        }
+
+                        break;
+
+                    case MultiaryExpression multiaryExpression:
+                        foreach (var innerExpression in multiaryExpression.Expressions)
+                        {
+                            ExtractResourceTypeIds(innerExpression, model, resourceTypeIds);
+                        }
+
+                        break;
+
+                    case SearchParameterExpression searchParamExpression:
+                        ExtractResourceTypeIds(searchParamExpression.Expression, model, resourceTypeIds);
+                        break;
                 }
             }
 

@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private readonly SqlQueryParameterManager _inner;
         private readonly HashSet<SqlParameter> _setToHash = new();
+        private readonly HashSet<SqlParameter> _smartScopeParameters = new();
         private readonly HashSet<short> _searchParamIds = new();
 
         public HashingSqlQueryParameterManager(SqlQueryParameterManager inner)
@@ -36,7 +37,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public bool HasParametersToHash => _setToHash.Count > 0;
 
+        public bool HasSmartScopeParameters => _smartScopeParameters.Count > 0;
+
         public HashSet<short> SearchParamIds => _searchParamIds;
+
+        public IReadOnlyCollection<SqlParameter> ParametersToHash => new HashSet<SqlParameter>(_setToHash);
 
         /// <summary>
         /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId. Do not add ResourceId to hash.
@@ -109,16 +114,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
+        /// Mark the last added parameter as also being relevant for SMART scope hashing.
+        /// This allows a parameter to be included in both regular hash (for all parameters)
+        /// and smart scope hash (for selective parameters).
+        /// </summary>
+        /// <param name="parameter">The parameter to mark as smart scope relevant.</param>
+        public void MarkAsSmartScopeParameter(SqlParameter parameter)
+        {
+            if (parameter != null && _setToHash.Contains(parameter))
+            {
+                _smartScopeParameters.Add(parameter);
+            }
+        }
+
+        /// <summary>
         /// Appends a Base64-encoded SHA-256 hash of the parameters currently added to this instance with includeInHash = true
         /// </summary>
         /// <param name="stringBuilder">A string builder to append the hash to.</param>
         public void AppendHash(IndentedStringBuilder stringBuilder)
         {
+            AppendHash(stringBuilder, _setToHash);
+        }
+
+        /// <summary>
+        /// Appends a Base64-encoded SHA-256 hash of only the SMART scope parameters
+        /// </summary>
+        /// <param name="stringBuilder">A string builder to append the hash to.</param>
+        public void AppendSmartScopeHash(IndentedStringBuilder stringBuilder)
+        {
+            AppendHash(stringBuilder, _smartScopeParameters);
+        }
+
+        /// <summary>
+        /// Appends comma delimited list of names of hashed parameters
+        /// </summary>
+        /// <param name="stringBuilder">A string builder to append the list to.</param>
+        public void AppendHashedParameterNames(IndentedStringBuilder stringBuilder)
+        {
+            AppendHashParameterNames(stringBuilder, _setToHash);
+        }
+
+        /// <summary>
+        /// Appends comma delimited list of names of SMART scope parameters
+        /// </summary>
+        /// <param name="stringBuilder">A string builder to append the list to.</param>
+        public void AppendSmartScopeParameterNames(IndentedStringBuilder stringBuilder)
+        {
+            AppendHashParameterNames(stringBuilder, _smartScopeParameters);
+        }
+
+        private void AppendHash(IndentedStringBuilder stringBuilder, HashSet<SqlParameter> parameters)
+        {
             IncrementalHash incrementalHash = null;
             Span<byte> buf = stackalloc byte[256];
             int currentBufferIndex = 0;
 
-            foreach (SqlParameter sqlParameter in _setToHash)
+            foreach (SqlParameter sqlParameter in parameters)
             {
                 switch (sqlParameter.SqlDbType)
                 {
@@ -199,14 +250,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             stringBuilder.Append(hashChars[..hashCharsLength]);
         }
 
-        /// <summary>
-        /// Appends comma delimited list of names of hashed parameters
-        /// </summary>
-        /// <param name="stringBuilder">A string builder to append the list to.</param>
-        public void AppendHashedParameterNames(IndentedStringBuilder stringBuilder)
+        private static void AppendHashParameterNames(IndentedStringBuilder stringBuilder, HashSet<SqlParameter> parameters)
         {
             var first = true;
-            foreach (var param in _setToHash)
+            foreach (var param in parameters)
             {
                 stringBuilder.Append($"{(first ? " params=" : ",")}{param}");
                 first = false;
