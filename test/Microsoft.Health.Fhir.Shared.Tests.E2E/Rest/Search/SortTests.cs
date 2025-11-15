@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients.Reverse());
+            resources.AddRange(patients.AsEnumerable().Reverse());
             resources.AddRange(observations);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
@@ -561,7 +561,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients.Reverse());
+            resources.AddRange(patients.AsEnumerable().Reverse());
             observations.Reverse();
             resources.AddRange(observations);
 
