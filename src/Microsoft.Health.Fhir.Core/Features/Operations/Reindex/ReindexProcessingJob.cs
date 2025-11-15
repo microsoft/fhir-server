@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
             var result = JsonConvert.SerializeObject(_reindexProcessingJobResult);
-            _logger.LogJobInformation(_jobInfo, $"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}. ReindexProcessing Job Result: {result}.");
+            _logger.LogJobInformation(_jobInfo, "ReindexProcessingJob Error: Current ReindexJobRecord: {JobDefinition}. ReindexProcessing Job Result: {JobResult}.", ser, result);
         }
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
@@ -253,14 +253,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
-                _reindexProcessingJobResult.FailedResourceCount = resourceCount;
+                _reindexProcessingJobResult.FailedResourceCount = _reindexProcessingJobDefinition.ResourceCount.Count;
             }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
                 LogReindexProcessingJobErrorMessage();
                 _reindexProcessingJobResult.Error = ex.Message;
-                _reindexProcessingJobResult.FailedResourceCount = resourceCount;
+                _reindexProcessingJobResult.FailedResourceCount = _reindexProcessingJobDefinition.ResourceCount.Count;
             }
         }
 
