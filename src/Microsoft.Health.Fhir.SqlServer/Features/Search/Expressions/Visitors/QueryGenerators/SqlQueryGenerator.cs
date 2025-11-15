@@ -946,27 +946,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                if (!includeExpression.WildCard)
+                // Smart V2 with SearchParam has a special handling for references resources
+                if (!_smartV2UnionVisited)
                 {
-                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
-                        .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url), true));
+                    if (!includeExpression.WildCard)
+                    {
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
+                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url), true));
 
-                    if (includeExpression.TargetResourceType != null)
-                    {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType), true));
-                    }
-                    else if (includeExpression.AllowedResourceTypesByScope != null &&
-                            !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
-                    {
-                        // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
-                        // If the list contains "All", then we don't add a filter
-                        // Restrict the reference resource types that are returned to the allowed types by scope
-                        // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
-                        // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
-                        // Smart V2 with SP has a special handling for references resources
-                        if (!_smartV2UnionVisited)
+                        if (includeExpression.TargetResourceType != null)
                         {
+                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType), true));
+                        }
+                        else if (includeExpression.AllowedResourceTypesByScope != null &&
+                                !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                        {
+                            // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
+                            // If the list contains "All", then we don't add a filter
+                            // Restrict the reference resource types that are returned to the allowed types by scope
+                            // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
+                            // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
+                            // Smart V2 with SP has a special handling for references resources
                             if (!includeExpression.Reversed)
                             {
                                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
@@ -986,18 +987,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             }
                         }
                     }
-                }
-                else if (includeExpression.WildCard && includeExpression.AllowedResourceTypesByScope != null &&
-                        !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
-                {
-                    // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
-                    // If the list contains "All", then we don't add a filter
-                    // Restrict the reference resource types that are returned to the allowed types by scope
-                    // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
-                    // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
-                    // Smart V2 with SP has a special handling for references resources
-                    if (!_smartV2UnionVisited)
+                    else if (includeExpression.WildCard && includeExpression.AllowedResourceTypesByScope != null &&
+                            !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
                     {
+                        // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
+                        // If the list contains "All", then we don't add a filter
+                        // Restrict the reference resource types that are returned to the allowed types by scope
+                        // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
+                        // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
                         if (!includeExpression.Reversed)
                         {
                             delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
