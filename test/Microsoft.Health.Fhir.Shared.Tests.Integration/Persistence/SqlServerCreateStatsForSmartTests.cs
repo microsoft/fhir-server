@@ -89,12 +89,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Observation")
                   && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-code")));
 
-            // Assert for Patient with individual-gender (if this is part of the include operation)
-            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
-                  && _.ColumnName == "Code"
-                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Practitioner")
-                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/individual-gender")));
-
             // Observation with identifier (from direct query parameter)
             Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"

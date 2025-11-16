@@ -822,8 +822,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // If search parameters are defined in the restriction, add them to searchParams.
                     if (restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any())
                     {
-                        isFineGrainedAccessControlWithSearchParameters = true;
-
                         // Throw 400 if chained, include or revinclude in searchParameters with ApplyFineGrainedAccessControlWithSearchParameters
                         if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true)
                         {
@@ -834,6 +832,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             }
                         }
 
+                        isFineGrainedAccessControlWithSearchParameters = true;
                         var andedSmartSmartSearchExpressions = new List<Expression>();
                         foreach (var param in restriction.SearchParameters.Parameters)
                         {
@@ -876,7 +875,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (!allowAllResourceTypes)
                 {
-                    // Builds the search expression like (((ResourceType = A AND <search params 1 for A>) AND (ResourceType = A AND <search params 2 for A>)) OR ((ResourceType = B AND <search params 1 for B>) AND (ResourceType = B AND <search params 2 for B>)))
+                    // We are applying smart scopes only for the resource types that are requested in the search
+                    // i.e. if the search is for /Observation, then we should only apply smart scopes for the Observation resource
+                    // i.e. if the search is for /Observation?_include=Observation:subject, then we should only apply smart scopes for the Observation and Patient resources
+                    // i.e. if the search is for /Observation, then we should only apply smart scopes for the Observation resource
                     if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true && finalSmartSearchExpressions.Any())
                     {
                         // Check if any scopes with search parameters were present
@@ -884,6 +886,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         // If not then, we can simply use clinicalScopeResources
                         if (isFineGrainedAccessControlWithSearchParameters)
                         {
+                            // Builds the search expression like (((ResourceType = A AND <search params 1 for A>) AND (ResourceType = A AND <search params 2 for A>)) OR ((ResourceType = B AND <search params 1 for B>) AND (ResourceType = B AND <search params 2 for B>)))
                             var unionExpr = Expression.Union(UnionOperator.All, finalSmartSearchExpressions);
                             unionExpr.IsSmartV2UnionExpressionForScopesSearchParameters = true;
                             searchExpressions.Add(unionExpr);
@@ -905,7 +908,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         // If ApplyFineGrainedAccessControlWithSearchParameters is false, we only filter by resource type and use format like (ResourceType in (A, B))
                         if (clinicalScopeResources.Any())
                         {
-                            searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                            if (clinicalScopeResources.Count == 1)
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResources[0].ToString(), false)));
+                            }
+                            else
+                            {
+                                searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                            }
                         }
                         else // block all queries
                         {
