@@ -6,10 +6,14 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Conformance)]
     public class SmartV2InstantiateCapabilityTests
     {
         [Theory]
