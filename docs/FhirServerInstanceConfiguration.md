@@ -20,7 +20,7 @@ However, these operations don't have access to `HttpContext` or `RequestContextA
 ### Previous Approach Limitations
 
 Without this service, background operations would either:
-1. Fail silently when unable to determine the server URI
+1. Fail when unable to determine the server URI
 2. Use hardcoded URIs (brittle and configuration-dependent)
 3. Require complex workarounds to pass context information
 
@@ -80,22 +80,12 @@ public interface IFhirServerInstanceConfiguration
     Uri BaseUri { get; }
 
     /// <summary>
-    /// Gets the vanity URI of the FHIR server instance.
-    /// If not explicitly set, defaults to the base URI.
-    /// Populated on first HTTP request and cached for the lifetime of the application.
+    /// Initializes the base URI of the instance configuration.
+    /// This method is idempotent and thread-safe - only the first caller will succeed in setting the value.
     /// </summary>
-    Uri VanityUrl { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the instance configuration has been initialized.
-    /// </summary>
-    bool IsInitialized { get; }
-
-    /// <summary>
-    /// Initializes the instance configuration with server metadata.
-    /// This method is idempotent - only the first call will succeed in setting values.
-    /// </summary>
-    void Initialize(string baseUriString, string vanityUrlString = null);
+    /// <param name="baseUriString">The base URI string of the FHIR server.</param>
+    /// <returns>True if the base URI is initialized (either by this call or a previous call); false if the URI is invalid.</returns>
+    bool InitializeBaseUri(string baseUriString);
 }
 ```
 
@@ -103,26 +93,13 @@ public interface IFhirServerInstanceConfiguration
 
 The implementation uses:
 - **`Interlocked.CompareExchange()`**: Atomic operation ensuring only one thread wins the initialization race
-- **Private fields with lazy initialization**: `_cachedBaseUri`, `_cachedVanityUrl`, `_initialized` flag
-- **Explicit vanity URL**: The `VanityUrl` property returns the explicitly set vanity URL or `null` if not provided. No fallback to base URI to avoid confusion.
-- **Exception handling**: Invalid URIs don't throw; initialization is skipped gracefully
+- **Private fields with lazy initialization**: `_cachedBaseUri`, `_baseUriInitialized` flag
+- **Single initialization**: Only the base URI is cached; simpler than the original design
+- **Return-based status**: `InitializeBaseUri()` returns `bool` indicating success or prior initialization
 
 ### Vanity URL Concept
 
-A **vanity URL** is an optional alternative external URI for the FHIR server, configured via the `X-MS-VANITY-URL` header on HTTP requests.
-
-**Use Cases:**
-- Load balancers or reverse proxies with a single public-facing URI
-- When internal URIs differ from the externally visible URI
-- Single vanity URL deployments where the server is accessed through a custom domain
-
-**Note**: This feature supports a **single vanity URL per application instance**. Multi-tenanted deployments with different vanity URLs for different tenants would require multiple server instances or a different architectural approach.
-
-**Behavior:**
-- If the `X-MS-VANITY-URL` header is present, it's stored as the vanity URL
-- If not provided, `VanityUrl` returns `null` to avoid confusion
-- Background operations can check if a vanity URL was explicitly configured before using it
-- Stored in the global configuration for background services to use
+**Note**: The current implementation focuses on base URI initialization. Vanity URL support was considered but is not currently implemented in this version.
 
 ## Integration Points
 
@@ -130,11 +107,12 @@ A **vanity URL** is an optional alternative external URI for the FHIR server, co
 
 **Location**: `Microsoft.Health.Fhir.Api/Features/Context/FhirRequestContextMiddleware.cs`
 
-On each HTTP request, the middleware:
+On each HTTP request, the middleware initializes the base URI from the request context, but only if the request is not from a loopback/local address (to avoid initializing from health check requests):
+
 1. Extracts the base URI from the request context
-2. Reads the optional `X-MS-VANITY-URL` header
-3. Calls `instanceConfiguration.Initialize(baseUri, vanityUrl)`
-4. Sets the vanity URL in the response headers
+2. Checks if the request is from a loopback or local IP
+3. If external request, calls `instanceConfiguration.InitializeBaseUri(baseUri)`
+4. Continues with middleware processing
 
 ```csharp
 public async Task Invoke(
@@ -143,22 +121,30 @@ public async Task Invoke(
     IFhirServerInstanceConfiguration instanceConfiguration,
     CorrelationIdProvider correlationIdProvider)
 {
-    // ... extract URIs from context ...
+    // ... extract baseUri from context ...
     
-    if (!instanceConfiguration.IsInitialized)
+    // Initialize the global instance configuration on first external request (thread-safe, idempotent)
+    // Skip initialization if the request is from a loopback/local IP to avoid using health check requests
+    if (!FhirRequestContextMiddlewareExtensions.IsLoopbackOrLocalRequest(context.Request.Host.Host))
     {
-        instanceConfiguration.Initialize(baseUriInString, vanityUrlString);
+        instanceConfiguration.InitializeBaseUri(baseUriInString);
     }
     
     // ... continue middleware processing ...
 }
 ```
 
+**Loopback Detection**: The middleware includes a helper method `IsLoopbackOrLocalRequest()` that identifies local addresses:
+- `localhost`
+- `127.x.x.x` range (IPv4 loopback)
+- `::1` (IPv6 loopback)
+- `192.168.x.x`, `10.x.x.x`, `172.16-31.x.x` ranges (private networks)
+
 ### 2. ReferenceSearchValueParser
 
 **Location**: `Microsoft.Health.Fhir.Core/Features/Search/SearchValues/ReferenceSearchValueParser.cs`
 
-The parser uses instance configuration when the request context is unavailable:
+The parser uses instance configuration as a fallback when the request context is unavailable:
 
 ```csharp
 public ReferenceSearchValueParser(
@@ -171,18 +157,13 @@ public ReferenceSearchValueParser(
 
 public ReferenceSearchValue Parse(string s)
 {
-    // Get base URI from request context first
+    // Get base URI from request context first, then fall back to global instance configuration
+    // This ensures background operations like reindexing can access the base URI when there's no active HTTP context
     var requestContext = _fhirRequestContextAccessor?.RequestContext;
     var contextBaseUri = requestContext?.BaseUri ?? _instanceConfiguration?.BaseUri;
     
-    // If a vanity URL was explicitly set, prefer it for comparison
-    if (_instanceConfiguration?.VanityUrl != null)
-    {
-        contextBaseUri = _instanceConfiguration.VanityUrl;
-    }
-    
     // Determine if reference is internal or external based on base URI
-    if (baseUri == contextBaseUri)
+    if (contextBaseUri != null && baseUri == contextBaseUri)
     {
         // Internal reference
     }
@@ -226,19 +207,15 @@ public class ReindexBackgroundService : IHostedService
     
     public async Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        // Wait for configuration to be initialized
-        if (!_instanceConfiguration.IsInitialized)
+        // Wait for configuration to be initialized if needed
+        if (_instanceConfiguration.BaseUri == null)
         {
             throw new InvalidOperationException(
-                "Instance configuration not initialized. Ensure at least one HTTP request has been processed.");
+                "Instance configuration not initialized. Ensure at least one external HTTP request has been processed.");
         }
         
         // Use the cached URI
         var baseUri = _instanceConfiguration.BaseUri;
-        var vanityUrl = _instanceConfiguration.VanityUrl; // May be null if not explicitly set
-        
-        // Use vanity URL if configured, otherwise use base URI for reference comparison
-        var effectiveUri = vanityUrl ?? baseUri;
         
         // Process reindexing...
     }
@@ -279,7 +256,7 @@ public void GivenAValidReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBa
     nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
     
     var instanceConfig = new FhirServerInstanceConfiguration();
-    instanceConfig.Initialize("https://localhost/stu3/");
+    bool initialized = instanceConfig.InitializeBaseUri("https://localhost/stu3/");
     
     var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
     
@@ -287,6 +264,7 @@ public void GivenAValidReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBa
     var value = parser.Parse("https://localhost/stu3/Observation/abc");
     
     // Assert - Should recognize as internal reference
+    Assert.True(initialized);
     Assert.Equal(ReferenceKind.Internal, value.Kind);
     Assert.Equal(ResourceType.Observation.ToString(), value.ResourceType);
 }
@@ -297,68 +275,70 @@ public void GivenAValidReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBa
 The implementation uses **`Interlocked` operations** to ensure thread-safe initialization:
 
 ```csharp
-// Atomic compare-and-swap: only one thread sets _initialized from 0 to 1
-if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
+// Atomic compare-and-swap: only one thread sets _baseUriInitialized from 0 to 1
+if (Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri) &&
+    Interlocked.CompareExchange(ref _baseUriInitialized, 1, 0) == 0)
 {
-    // We won the race - set values
+    // We won the race - set the value
     BaseUri = baseUri;
-    if (!string.IsNullOrWhiteSpace(vanityUrlString) &&
-        Uri.TryCreate(vanityUrlString, UriKind.Absolute, out Uri vanityUrl))
-    {
-        VanityUrl = vanityUrl;
-    }
 }
-// If _initialized was already 1, we lost the race; do nothing (idempotent)
+
+// If validation failed or we lost the race (return value != 0), return the current state
+return _baseUriInitialized != 0;
 ```
 
 **Race Condition Scenario:**
 ```
-Thread 1: Check if initialized (no)     ──┐
-Thread 2: Check if initialized (no)     ──┼─► Both see _initialized == 0
-                                          │
-Thread 1: CompareExchange(0→1) ✓         ──► Wins, sets values
-Thread 2: CompareExchange(0→1) ✗         ──► Loses, returns 1, skips setting
+Thread 1: Check URI validity (valid) ──┐
+Thread 2: Check URI validity (valid) ──┼─► Both have valid URIs
+                                        │
+Thread 1: CompareExchange(0→1) ✓       ──► Wins, sets value, returns true
+Thread 2: CompareExchange(0→1) ✗       ──► Loses, skips setting, returns true
 ```
 
-Result: Only Thread 1's values are set, and all subsequent checks see the same values.
+Result: Only Thread 1's value is set, but both calls return `true` indicating successful initialization.
 
 ## Limitations and Considerations
 
 ### 1. Application Lifetime Persistence
 
-Once initialized, values persist for the application lifetime. If the vanity URL changes:
+Once initialized, the base URI persists for the application lifetime. If the server URI changes:
 - The application must be restarted to pick up the new value
 - This is acceptable because server URIs rarely change during operation
 
-### 2. First Request Dependency
+### 2. External Request Dependency
 
-Background services that start before any HTTP request will not have access to initialized configuration:
+Background services that start before any external HTTP request will not have access to initialized configuration:
 
 ```csharp
-// This may fail if called before first HTTP request
+// This may be null if called before first external HTTP request
 var baseUri = _instanceConfiguration.BaseUri; // Might be null
 ```
 
-**Mitigation**: Check `IsInitialized` before accessing:
+**Mitigation**: Check if `BaseUri` is initialized before accessing:
 
 ```csharp
-if (!_instanceConfiguration.IsInitialized)
+if (_instanceConfiguration.BaseUri == null)
 {
     // Wait or defer operation
     await Task.Delay(TimeSpan.FromSeconds(5));
 }
 ```
 
+**Note**: Loopback requests (health checks, localhost) do not initialize the configuration. Only external requests trigger initialization.
+
 ### 3. Invalid URI Handling
 
-The implementation gracefully handles invalid URIs:
+The implementation gracefully handles invalid URIs through `Uri.TryCreate()`:
 
 ```csharp
-if (Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri))
+if (Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri) &&
+    Interlocked.CompareExchange(ref _baseUriInitialized, 1, 0) == 0)
 {
-    // Initialization proceeds only if base URI is valid
+    // Initialization proceeds only if base URI is valid and we win the race
+    BaseUri = baseUri;
 }
-// If invalid, initialization is skipped silently
+// If invalid or we lost the race, returns false
 ```
 
 ## Testing Considerations
@@ -372,42 +352,50 @@ Provide mock implementations or real instances:
 public void TestWithInstanceConfiguration()
 {
     var config = new FhirServerInstanceConfiguration();
-    config.Initialize("https://localhost/fhir/");
+    bool initialized = config.InitializeBaseUri("https://localhost/fhir/");
     
     var service = new MyService(config);
     service.DoSomething(); // Uses config.BaseUri
+    
+    Assert.True(initialized);
+    Assert.NotNull(config.BaseUri);
 }
 ```
 
 ### Integration Testing
 
-Ensure at least one HTTP request is processed before background operations start:
+Ensure at least one external HTTP request is processed before background operations start:
 
 ```csharp
-// In test setup
-await httpClient.GetAsync("https://localhost/fhir/Patient"); // Triggers initialization
+// In test setup - make a request from an external host (not localhost)
+await httpClient.GetAsync("https://api.example.com/fhir/Patient"); // Triggers initialization
 
 // Now background services can use configuration
 var backgroundService = provider.GetRequiredService<IReindexBackgroundService>();
 await backgroundService.Start();
 ```
 
+**Note**: Requests from `localhost`, `127.0.0.1`, or other loopback/private IPs do not initialize the configuration.
+
 ### Test Cleanup
 
-Reset the configuration between tests (using internal `ResetForTesting()` method):
+The current implementation doesn't expose a public reset method, so tests should use separate instances:
 
 ```csharp
-[Fixture]
-public void Setup()
+[Fact]
+public void TestConfigurationIsolation()
 {
-    var config = new FhirServerInstanceConfiguration();
-    // ... test code ...
-}
-
-[Cleanup]
-public void Teardown()
-{
-    config.ResetForTesting(); // Reset for next test
+    // Each test gets its own isolated instance
+    var config1 = new FhirServerInstanceConfiguration();
+    var config2 = new FhirServerInstanceConfiguration();
+    
+    // They initialize independently
+    config1.InitializeBaseUri("https://server1.com/fhir/");
+    config2.InitializeBaseUri("https://server2.com/fhir/");
+    
+    // Each maintains its own state
+    Assert.Equal(new Uri("https://server1.com/fhir/"), config1.BaseUri);
+    Assert.Equal(new Uri("https://server2.com/fhir/"), config2.BaseUri);
 }
 ```
 
@@ -419,17 +407,12 @@ public void Teardown()
 
 ## Related Headers and Features
 
-### X-MS-VANITY-URL Header
-
-- **Request**: Specifies the vanity URL for the server
-- **Response**: Echoes the vanity URL (or base URI if not provided)
-- **Use**: Multi-tenant deployments, custom domain mappings
-
 ### X-Request-Id and X-Correlation-Id
 
 These headers continue to work alongside instance configuration:
 - Correlation IDs track individual requests
 - Instance configuration persists across all requests
+- Loopback requests (e.g., health checks) don't affect instance configuration initialization
 
 ## Migration Guide for Existing Code
 
@@ -468,35 +451,54 @@ public class MyService
 
 ### Issue: `BaseUri` is null in background service
 
-**Cause**: Service started before first HTTP request
+**Cause**: Service started before first external HTTP request, or only loopback requests have been made
 
 **Solution**: 
 ```csharp
 // Wait for initialization
-while (!_instanceConfiguration.IsInitialized)
+int attempts = 0;
+while (_instanceConfiguration.BaseUri == null && attempts < 50)
 {
     await Task.Delay(100);
+    attempts++;
 }
+
+if (_instanceConfiguration.BaseUri == null)
+{
+    throw new InvalidOperationException("Instance configuration not initialized after waiting.");
+}
+
 var baseUri = _instanceConfiguration.BaseUri;
 ```
 
+**Prevention**: Ensure external requests are made to the server before background operations start.
+
 ### Issue: References not recognized as internal in background operations
 
-**Cause**: Instance configuration not initialized
+**Cause**: Instance configuration not initialized or BaseUri is null
 
 **Solution**: 
-- Ensure at least one HTTP request has been processed
+- Ensure at least one external HTTP request has been processed before background operations
 - Pass `IFhirServerInstanceConfiguration` to `ReferenceSearchValueParser`
+- Verify non-loopback hosts are making the requests
 
-### Issue: Vanity URL not being used
+### Issue: InitializeBaseUri returns false
 
-**Cause**: 
-- Header not provided in request, or
-- Application started before header was set
+**Cause**: Invalid URI string provided
 
 **Solution**:
-- Send request with `X-MS-VANITY-URL` header before background operations
-- Restart application if vanity URL needs to change
+```csharp
+// Validate URI before initializing
+if (Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
+{
+    bool success = _instanceConfiguration.InitializeBaseUri(uriString);
+    // success should be true
+}
+else
+{
+    throw new ArgumentException("Invalid URI format");
+}
+```
 
 ## See Also
 
