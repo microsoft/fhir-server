@@ -80,9 +80,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                     var requestContext = _fhirRequestContextAccessor?.RequestContext;
                     var contextBaseUri = requestContext?.BaseUri ?? _instanceConfiguration?.BaseUri;
 
-                    // If vanity URL is set, use it as the context base URI
-                    contextBaseUri = _instanceConfiguration?.VanityUrl ?? contextBaseUri;
-
                     if (contextBaseUri != null && baseUri == contextBaseUri)
                     {
                         // This is an absolute URL pointing to an internal resource.

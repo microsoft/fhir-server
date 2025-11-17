@@ -25,8 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     public class FhirServerInstanceConfiguration : IFhirServerInstanceConfiguration
     {
         private Uri _cachedBaseUri;
-        private Uri _cachedVanityUrl;
-        private int _initialized;
+        private int _baseUriInitialized;
 
         /// <summary>
         /// Gets the base URI of the FHIR server instance.
@@ -39,57 +38,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         }
 
         /// <summary>
-        /// Gets the vanity URI of the FHIR server instance.
-        /// Returns null if not explicitly set.
-        /// Populated on first HTTP request and cached for the lifetime of the application.
-        /// </summary>
-        public Uri VanityUrl
-        {
-            get => _cachedVanityUrl;
-            private set => _cachedVanityUrl = value;
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether the instance configuration has been initialized with server metadata.
-        /// </summary>
-        public bool IsInitialized => _initialized == 1;
-
-        /// <summary>
-        /// Initializes the instance configuration with base URI and optional vanity URL strings.
-        /// This method is idempotent and thread-safe - only the first caller will succeed in setting values.
-        /// Subsequent calls will be no-ops.
+        /// Initializes the base URI of the instance configuration independently.
+        /// This method is idempotent and thread-safe - only the first caller will succeed in setting the value.
         /// </summary>
         /// <param name="baseUriString">The base URI string of the FHIR server.</param>
-        /// <param name="vanityUrlString">Optional vanity URI string of the FHIR server. If not provided, defaults to baseUriString.</param>
-        public void Initialize(string baseUriString, string vanityUrlString = null)
+        /// <returns>True if the base URI is initialized (either by this call or a previous call); false if the URI is invalid.</returns>
+        public bool InitializeBaseUri(string baseUriString)
         {
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
 
             if (Uri.TryCreate(baseUriString, UriKind.Absolute, out Uri baseUri) &&
-                Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
+                Interlocked.CompareExchange(ref _baseUriInitialized, 1, 0) == 0)
             {
-                // We won the race - set the values
+                // We won the race - set the value
                 BaseUri = baseUri;
-
-                // If vanityUrlString is provided and valid, set it
-                if (!string.IsNullOrWhiteSpace(vanityUrlString) &&
-                    Uri.TryCreate(vanityUrlString, UriKind.Absolute, out Uri vanityUrl))
-                {
-                    VanityUrl = vanityUrl;
-                }
-
-                // If _initialized was already 1, another thread beat us to it, so we do nothing
             }
-        }
 
-        /// <summary>
-        /// For testing purposes only - resets the configuration to an uninitialized state.
-        /// </summary>
-        internal void ResetForTesting()
-        {
-            _cachedBaseUri = null;
-            _cachedVanityUrl = null;
-            Interlocked.Exchange(ref _initialized, 0);
+            return _baseUriInitialized != 0;
         }
     }
 }

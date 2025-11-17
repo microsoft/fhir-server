@@ -19,22 +19,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         Uri BaseUri { get; }
 
         /// <summary>
-        /// Gets the vanity URI of the FHIR server instance.
-        /// If not explicitly set, defaults to the base URI.
-        /// </summary>
-        Uri VanityUrl { get; }
-
-        /// <summary>
-        /// Gets a value indicating whether the instance configuration has been initialized.
-        /// </summary>
-        bool IsInitialized { get; }
-
-        /// <summary>
-        /// Initializes the instance configuration with server metadata.
-        /// This method is idempotent - only the first call will succeed in setting values.
+        /// Initializes the base URI of the instance configuration.
+        /// This method is idempotent - only the first call will succeed in setting the value.
         /// </summary>
         /// <param name="baseUriString">The base URI string of the FHIR server.</param>
-        /// <param name="vanityUrlString">Optional vanity URL string of the FHIR server. If not provided, defaults to baseUriString.</param>
-        void Initialize(string baseUriString, string vanityUrlString = null);
+        /// <returns>True if the base URI is initialized (either by this call or a previous call); false if the URI is invalid.</returns>
+        bool InitializeBaseUri(string baseUriString);
     }
 }

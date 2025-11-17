@@ -17,37 +17,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
     public class FhirServerInstanceConfigurationTests
     {
         [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedOnce_ThenValuesAreStored()
+        public void GivenAFhirServerInstanceConfiguration_WhenInitializeBaseUriCalled_ThenBaseUriIsStoredAndReturnsTrue()
         {
             // Arrange
             var config = new FhirServerInstanceConfiguration();
             var baseUriString = "https://localhost/fhir/";
 
             // Act
-            config.Initialize(baseUriString);
+            bool result = config.InitializeBaseUri(baseUriString);
 
             // Assert
-            Assert.True(config.IsInitialized);
+            Assert.True(result);
             Assert.Equal(new Uri(baseUriString), config.BaseUri);
         }
 
         [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithString_ThenValuesAreStored()
-        {
-            // Arrange
-            var config = new FhirServerInstanceConfiguration();
-            var baseUriString = "https://localhost/fhir/";
-
-            // Act
-            config.Initialize(baseUriString);
-
-            // Assert
-            Assert.True(config.IsInitialized);
-            Assert.Equal(new Uri(baseUriString), config.BaseUri);
-        }
-
-        [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedMultipleTimes_ThenFirstValueWins()
+        public void GivenAFhirServerInstanceConfiguration_WhenBaseUriInitializedMultipleTimes_ThenFirstValueWinsAndBothCallsReturnTrue()
         {
             // Arrange
             var config = new FhirServerInstanceConfiguration();
@@ -55,109 +40,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             var baseUriString2 = "https://localhost2/fhir/";
 
             // Act
-            config.Initialize(baseUriString1);
-            config.Initialize(baseUriString2);
+            bool firstResult = config.InitializeBaseUri(baseUriString1);
+            bool secondResult = config.InitializeBaseUri(baseUriString2);
 
             // Assert
-            Assert.True(config.IsInitialized);
+            Assert.True(firstResult);
+            Assert.True(secondResult); // Second call also returns true because BaseUri is initialized
             Assert.Equal(new Uri(baseUriString1), config.BaseUri);
         }
 
         [Fact]
-        public async Task GivenAFhirServerInstanceConfiguration_WhenInitializedConcurrently_ThenOnlyOneSucceeds()
+        public async Task GivenAFhirServerInstanceConfiguration_WhenBaseUriInitializedConcurrently_ThenOnlyOneSucceedsButAllReturnTrue()
         {
             // Arrange
             var config = new FhirServerInstanceConfiguration();
             var baseUriStrings = new[] { "https://localhost1/fhir/", "https://localhost2/fhir/", "https://localhost3/fhir/" };
-            var tasks = new Task[baseUriStrings.Length];
+            var tasks = new Task<bool>[baseUriStrings.Length];
 
             // Act - Initialize concurrently from multiple threads
             for (int i = 0; i < baseUriStrings.Length; i++)
             {
                 int index = i;
-                tasks[i] = Task.Run(() => config.Initialize(baseUriStrings[index]));
+                tasks[i] = Task.Run(() => config.InitializeBaseUri(baseUriStrings[index]));
             }
 
-            await Task.WhenAll(tasks);
+            bool[] results = await Task.WhenAll(tasks);
 
-            // Assert - Only one of the base URIs should be stored
-            Assert.True(config.IsInitialized);
+            // Assert - All calls should return true because the value is initialized
+            Assert.All(results, r => Assert.True(r));
             Assert.True(Array.Exists(baseUriStrings, urlString => new Uri(urlString) == config.BaseUri), "Stored BaseUri should be one of the attempted values");
         }
 
         [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenNotInitialized_ThenIsInitializedIsFalse()
+        public void GivenAFhirServerInstanceConfiguration_WhenNotInitialized_ThenBaseUriIsNull()
         {
             // Arrange
             var config = new FhirServerInstanceConfiguration();
 
             // Assert
-            Assert.False(config.IsInitialized);
             Assert.Null(config.BaseUri);
         }
 
         [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithInvalidUri_ThenNoExceptionThrown()
+        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithInvalidBaseUri_ThenReturnsFalseAndRemainsUninitialized()
         {
             // Arrange
             var config = new FhirServerInstanceConfiguration();
             var invalidUrlString = "not a valid uri";
 
-            // Act - Should not throw
-            config.Initialize(invalidUrlString);
-
-            // Assert - Should remain uninitialized since URI parsing failed
-            Assert.False(config.IsInitialized);
-        }
-
-        [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithVanityUrl_ThenVanityUrlIsStored()
-        {
-            // Arrange
-            var config = new FhirServerInstanceConfiguration();
-            var baseUriString = "https://localhost/fhir/";
-            var vanityUrlString = "https://custom.example.com/fhir/";
-
             // Act
-            config.Initialize(baseUriString, vanityUrlString);
+            bool result = config.InitializeBaseUri(invalidUrlString);
 
             // Assert
-            Assert.True(config.IsInitialized);
-            Assert.Equal(new Uri(baseUriString), config.BaseUri);
-            Assert.Equal(new Uri(vanityUrlString), config.VanityUrl);
-        }
-
-        [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithoutVanityUrl_ThenVanityUrlIsNull()
-        {
-            // Arrange
-            var config = new FhirServerInstanceConfiguration();
-            var baseUriString = "https://localhost/fhir/";
-
-            // Act
-            config.Initialize(baseUriString);
-
-            // Assert
-            Assert.True(config.IsInitialized);
-            Assert.Equal(new Uri(baseUriString), config.BaseUri);
-            Assert.Null(config.VanityUrl);
-        }
-
-        [Fact]
-        public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithInvalidVanityUrlString_ThenVanityUrlRemainsNull()
-        {
-            // Arrange
-            var config = new FhirServerInstanceConfiguration();
-            var baseUriString = "https://localhost/fhir/";
-            var invalidVanityUrlString = "not a valid uri";
-
-            // Act - Should not throw
-            config.Initialize(baseUriString, invalidVanityUrlString);
-
-            // Assert - Should initialize with base URI but vanity URL remains null due to invalid string
-            Assert.True(config.IsInitialized);
-            Assert.Equal(new Uri(baseUriString), config.BaseUri);
-            Assert.Null(config.VanityUrl);
+            Assert.False(result);
+            Assert.Null(config.BaseUri);
         }
     }
 }
