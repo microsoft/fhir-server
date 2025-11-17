@@ -154,17 +154,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             };
         }
 
-        [Theory(Skip = "Causing random timeouts")]
-        [InlineData(DataStore.SqlServer)]
-        [InlineData(DataStore.CosmosDb)]
-        public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed(DataStore dataStore)
-        {
-            var orchestrator = CreateReindexOrchestratorJob();
-
-            await Assert.ThrowsAsync<ArgumentNullException>(
-                () => orchestrator.ExecuteAsync(null, _cancellationToken));
-        }
-
         [Fact]
         public async Task ExecuteAsync_WithNoSearchParametersToProcess_ReturnsSuccessfulResult()
         {
