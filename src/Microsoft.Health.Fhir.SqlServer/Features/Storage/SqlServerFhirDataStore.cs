@@ -470,7 +470,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 foreach (var resource in conflicts)
                 {
-                    errors.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+                    var message = !string.IsNullOrEmpty(resource.ImportError)
+                        ? resource.ImportError
+                        : string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index);
+
+                    errors.Add(_importErrorSerializer.Serialize(resource.Index, message, resource.Offset));
                 }
 
                 return errors;
@@ -481,86 +485,86 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var loaded = new List<ImportResource>();
                 var conflicts = new List<ImportResource>();
 
-                // Check for constraint violations
-                var constraintCheckresults = ValidateConstraintViolations(resources);
-
-                // Check if there are any conflicts while constraint checks
-                if (constraintCheckresults.Conflicts.Any())
+                // Adding try-catch to chekc if Contraint violation erro is happening here
+                try
                 {
-                    conflicts.AddRange(constraintCheckresults.Conflicts);
-                }
-
-                // 2. Subsequent processing should only operate on the validated resources.
-                if (!constraintCheckresults.ValidResources.Any())
-                {
-                    return (loaded, conflicts); // All resources had conflicts, so we can stop here.
-                }
-
-                // 3. Shadow the 'resources' variable to ensure the rest of the method uses the validated list.
-                resources = constraintCheckresults.ValidResources;
-
-                if (importMode == ImportMode.InitialLoad)
-                {
-                    var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
-                    var current = new HashSet<ResourceKey>((await GetAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey(true)));
-                    loaded.AddRange(inputsDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
-                    await Merge(loaded, false, useReplicasForReads);
-                }
-                else if (importMode == ImportMode.IncrementalLoad)
-                {
-                    if (_ignoreInputVersion.IsEnabled(_sqlRetryService))
+                    if (importMode == ImportMode.InitialLoad)
                     {
-                        foreach (var resource in resources)
-                        {
-                            resource.KeepVersion = false;
-                            ReplaceVersionId(resource.ResourceWrapper, InitialVersion);
-                        }
+                        var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
+                        var current = new HashSet<ResourceKey>((await GetAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey(true)));
+                        loaded.AddRange(inputsDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
+                        await Merge(loaded, false, useReplicasForReads);
                     }
-
-                    // Dedup by last updated - take first version for single last updated, prefer large version.
-                    // for records without explicit last updated dedup on resource id only.
-                    // Note: Surrogate id on ResourceWrapper remains 0 at this point.
-                    var inputsDedupped = resources
-                        .GroupBy(_ => new ResourceDateKey(
-                                             _model.GetResourceTypeId(_.ResourceWrapper.ResourceTypeName),
-                                             _.ResourceWrapper.ResourceId,
-                                             _.KeepLastUpdated ? _.ResourceWrapper.LastModified.ToSurrogateId() : 0,
-                                             null))
-                        .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
-                        .ToList();
-
-                    // Dedup on lastUpdated against database
-                    var matchedOnLastUpdated =
-                        (await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken))
-                            .Where(_ => _.Key.VersionId == "0")
-                            .ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
-                    var fullyDedupped = new List<ImportResource>();
-                    foreach (var input in inputsDedupped)
+                    else if (importMode == ImportMode.IncrementalLoad)
                     {
-                        if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
+                        if (_ignoreInputVersion.IsEnabled(_sqlRetryService))
                         {
-                            if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
-                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                            foreach (var resource in resources)
                             {
-                                loaded.Add(input);
+                                resource.KeepVersion = false;
+                                ReplaceVersionId(resource.ResourceWrapper, InitialVersion);
+                            }
+                        }
+
+                        // Dedup by last updated - take first version for single last updated, prefer large version.
+                        // for records without explicit last updated dedup on resource id only.
+                        // Note: Surrogate id on ResourceWrapper remains 0 at this point.
+                        var inputsDedupped = resources
+                            .GroupBy(_ => new ResourceDateKey(
+                                                 _model.GetResourceTypeId(_.ResourceWrapper.ResourceTypeName),
+                                                 _.ResourceWrapper.ResourceId,
+                                                 _.KeepLastUpdated ? _.ResourceWrapper.LastModified.ToSurrogateId() : 0,
+                                                 null))
+                            .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
+                            .ToList();
+
+                        // Dedup on lastUpdated against database
+                        var matchedOnLastUpdated =
+                            (await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken))
+                                .Where(_ => _.Key.VersionId == "0")
+                                .ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
+                        var fullyDedupped = new List<ImportResource>();
+                        foreach (var input in inputsDedupped)
+                        {
+                            if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
+                            {
+                                if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
+                                    && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                                {
+                                    loaded.Add(input);
+                                }
+                                else
+                                {
+                                    conflicts.Add(input);
+                                }
                             }
                             else
                             {
-                                conflicts.Add(input);
+                                fullyDedupped.Add(input);
                             }
                         }
-                        else
-                        {
-                            fullyDedupped.Add(input);
-                        }
+
+                        // make sure that data with explicit and default last updated are merged separately
+                        await MergeVersioned(fullyDedupped.Where(_ => _.KeepVersion).ToList(), useReplicasForReads); // if keep version is true, keep last updated is true too.
+
+                        await MergeUnversioned(fullyDedupped.Where(_ => _.KeepLastUpdated && !_.KeepVersion).ToList(), true, useReplicasForReads);
+
+                        await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated && !_.KeepVersion).ToList(), false, useReplicasForReads);
                     }
+                }
+                catch (SqlException ex) when (ex.Number == SqlStoreErrorCodes.ConstraintViolation && !ex.IsRetriable())
+                {
+                    // Post-validation: identify all resources that violate length/overflow constraints.
+                    var postCheck = ValidateConstraintViolations(resources);
 
-                    // make sure that data with explicit and default last updated are merged separately
-                    await MergeVersioned(fullyDedupped.Where(_ => _.KeepVersion).ToList(), useReplicasForReads); // if keep version is true, keep last updated is true too.
+                    // Any resource flagged gets reported as conflict; we DO NOT attempt partial re-merge.
+                    conflicts.AddRange(postCheck.Conflicts.Where(c => !conflicts.Contains(c)));
 
-                    await MergeUnversioned(fullyDedupped.Where(_ => _.KeepLastUpdated && !_.KeepVersion).ToList(), true, useReplicasForReads);
+                    // Loaded list should exclude conflicts discovered here (remove if mistakenly added).
+                    loaded = loaded.Where(l => !conflicts.Contains(l)).ToList();
 
-                    await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated && !_.KeepVersion).ToList(), false, useReplicasForReads);
+                    // Log the error type
+                    _logger.LogError(ex, "Constraint violation occurred during import.");
                 }
 
                 return (loaded, conflicts);
@@ -734,168 +738,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     loaded.AddRange(inputNoConflict);
                 }
 
-                // Validate if there are any constraint violations
-                (List<ImportResource> ValidResources, List<ImportResource> Conflicts) ValidateConstraintViolations(IReadOnlyList<ImportResource> resources)
-                {
-                    var validResources = new List<ImportResource>();
-                    var conflicts = new List<ImportResource>();
-
-                    var tokenSearchParamRowGenerator = new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap);
-                    var tokenTokenCompositeSearchParamRowGenerator = new TokenTokenCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, _searchParameterTypeMap);
-                    var tokenStringCompositeSearchParamListRowGenerator = new TokenStringCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
-                    var tokenQuantityCompositeSearchParamListRowGenerator = new TokenQuantityCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
-                    var tokenNumberNumberCompositeSearchParamListRowGenerator = new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
-                    var tokenDateTimeCompositeSearchParamListRowGenerator = new TokenDateTimeCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
-                    var referenceTokenCompositeSearchParamListRowGenerator = new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), tokenSearchParamRowGenerator, _searchParameterTypeMap);
-
-                    // Traverse through the resources to check which resources are causing constraint violation
-                    foreach (var resource in resources)
-                    {
-                        bool hasConflict = false;
-
-                        var wrapper = new MergeResourceWrapper(resource.ResourceWrapper, false, false);
-
-                        try
-                        {
-                            // TokenSearchParam constraint validation
-                            foreach (var row in tokenSearchParamRowGenerator.GenerateRows(new[] { wrapper }))
-                            {
-                                if (row.Code != null && row.CodeOverflow != null &&
-                                    Encoding.UTF8.GetByteCount(row.Code) < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
-                                {
-                                    resource.ImportError = Resources.TokenSearchParamCodeOverflow;
-                                    conflicts.Add(resource);
-                                    hasConflict = true;
-                                    break;
-                                }
-                            }
-
-                            if (hasConflict)
-                            {
-                                continue; // If conflict then move to next resource
-                            }
-
-                            // Token-Token Composite search param constraint validation
-                            foreach (var row in tokenTokenCompositeSearchParamRowGenerator.GenerateRows(new[] { wrapper }))
-                            {
-                                // Check if constraint for CodeOverflow1 or CodeOverflow2 is violating
-                                if ((row.CodeOverflow1 != null && Encoding.UTF8.GetByteCount(row.Code1 ?? string.Empty) < VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.MaxLength) ||
-                                    (row.CodeOverflow2 != null && Encoding.UTF8.GetByteCount(row.Code2 ?? string.Empty) < VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.MaxLength))
-                                {
-                                    resource.ImportError = Resources.TokenTokenCompositeSearchParamCodeOverflow;
-                                    conflicts.Add(resource);
-                                    hasConflict = true;
-                                    break;
-                                }
-                            }
-
-                            if (hasConflict)
-                            {
-                                continue; // If conflict then move to next resource
-                            }
-
-                            // Token-String Composite search param constraint validation
-                            foreach (var row in tokenStringCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
-                            {
-                                if (row.Code1 != null && row.CodeOverflow1 != null &&
-                                    Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenStringCompositeSearchParam.Code1.Metadata.MaxLength)
-                                {
-                                    resource.ImportError = Resources.TokenStringCompositeSearchParamCodeOverflow1;
-                                    conflicts.Add(resource);
-                                    hasConflict = true;
-                                    break;
-                                }
-                            }
-
-                            if (hasConflict)
-                            {
-                                continue; // If conflict then move to next resource
-                            }
-
-                            // Token-Quantity Composite search param constraint validation
-                            foreach (var row in tokenQuantityCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
-                            {
-                                if (row.Code1 != null && row.CodeOverflow1 != null &&
-                                    Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.MaxLength)
-                                {
-                                    resource.ImportError = Resources.TokenQuantityCompositeSearchParamCodeOverflow1;
-                                    conflicts.Add(resource);
-                                    hasConflict = true;
-                                    break;
-                                }
-                            }
-
-                            if (hasConflict)
-                            {
-                                continue; // If conflict then move to next resource
-                            }
-
-                            // Token-NumberNumber Composite search param constraint validation
-                            foreach (var row in tokenNumberNumberCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
-                            {
-                                if (row.Code1 != null && row.CodeOverflow1 != null &&
-                                    Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenNumberNumberCompositeSearchParam.Code1.Metadata.MaxLength)
-                                {
-                                    resource.ImportError = Resources.TokenNumberNumberCompositeSearchParamCodeOverflow1;
-                                    conflicts.Add(resource);
-                                    hasConflict = true;
-                                    break;
-                                }
-                            }
-
-                            if (hasConflict)
-                            {
-                                continue; // If conflict then move to next resource
-                            }
-
-                            // Token-DateTime Composite search param constraint validation
-                            foreach (var row in tokenDateTimeCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
-                            {
-                                if (row.Code1 != null && row.CodeOverflow1 != null &&
-                                    Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.MaxLength)
-                                {
-                                    resource.ImportError = Resources.TokenDateTimeCompositeSearchParamCodeOverflow1;
-                                    conflicts.Add(resource);
-                                    hasConflict = true;
-                                    break;
-                                }
-                            }
-
-                            if (hasConflict)
-                            {
-                                continue; // If conflict then move to next resource
-                            }
-
-                            // Reference-Token Composite search param constraint validation
-                            foreach (var row in referenceTokenCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
-                            {
-                                if (row.Code2 != null && row.CodeOverflow2 != null &&
-                                    Encoding.UTF8.GetByteCount(row.Code2) < VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.MaxLength)
-                                {
-                                    resource.ImportError = Resources.ReferenceTokenCompositeSearchParamCodeOverflow2;
-                                    conflicts.Add(resource);
-                                    hasConflict = true;
-                                    break;
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, string.Format(Resources.ExceptionWhileResourceValidation, resource.Index));
-                            resource.ImportError = string.Format(Resources.ExceptionWhileResourceValidation, resource.Index);
-                            conflicts.Add(resource);
-                            continue;
-                        }
-
-                        if (!hasConflict)
-                        {
-                            validResources.Add(resource);
-                        }
-                    }
-
-                    return (validResources, conflicts);
-                }
-
                 async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
                 {
                     var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
@@ -1042,6 +884,168 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogError("{Error}", message);
                 throw new PreconditionFailedException(message + " " + userAction);
             }
+        }
+
+        // Validate if there are any constraint violations
+        private (List<ImportResource> ValidResources, List<ImportResource> Conflicts) ValidateConstraintViolations(IReadOnlyList<ImportResource> resources)
+        {
+            var validResources = new List<ImportResource>();
+            var conflicts = new List<ImportResource>();
+
+            var tokenSearchParamRowGenerator = new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap);
+            var tokenTokenCompositeSearchParamRowGenerator = new TokenTokenCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, _searchParameterTypeMap);
+            var tokenStringCompositeSearchParamListRowGenerator = new TokenStringCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+            var tokenQuantityCompositeSearchParamListRowGenerator = new TokenQuantityCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+            var tokenNumberNumberCompositeSearchParamListRowGenerator = new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+            var tokenDateTimeCompositeSearchParamListRowGenerator = new TokenDateTimeCompositeSearchParamListRowGenerator(_model, tokenSearchParamRowGenerator, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap);
+            var referenceTokenCompositeSearchParamListRowGenerator = new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), tokenSearchParamRowGenerator, _searchParameterTypeMap);
+
+            // Traverse through the resources to check which resources are causing constraint violation
+            foreach (var resource in resources)
+            {
+                bool hasConflict = false;
+
+                var wrapper = new MergeResourceWrapper(resource.ResourceWrapper, false, false);
+
+                try
+                {
+                    // TokenSearchParam constraint validation
+                    foreach (var row in tokenSearchParamRowGenerator.GenerateRows(new[] { wrapper }))
+                    {
+                        if (row.Code != null && row.CodeOverflow != null &&
+                            Encoding.UTF8.GetByteCount(row.Code) < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
+                        {
+                            resource.ImportError = Resources.TokenSearchParamCodeOverflow;
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                            break;
+                        }
+                    }
+
+                    if (hasConflict)
+                    {
+                        continue; // If conflict then move to next resource
+                    }
+
+                    // Token-Token Composite search param constraint validation
+                    foreach (var row in tokenTokenCompositeSearchParamRowGenerator.GenerateRows(new[] { wrapper }))
+                    {
+                        // Check if constraint for CodeOverflow1 or CodeOverflow2 is violating
+                        if ((row.CodeOverflow1 != null && Encoding.UTF8.GetByteCount(row.Code1 ?? string.Empty) < VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.MaxLength) ||
+                            (row.CodeOverflow2 != null && Encoding.UTF8.GetByteCount(row.Code2 ?? string.Empty) < VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.MaxLength))
+                        {
+                            resource.ImportError = Resources.TokenTokenCompositeSearchParamCodeOverflow;
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                            break;
+                        }
+                    }
+
+                    if (hasConflict)
+                    {
+                        continue; // If conflict then move to next resource
+                    }
+
+                    // Token-String Composite search param constraint validation
+                    foreach (var row in tokenStringCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
+                    {
+                        if (row.Code1 != null && row.CodeOverflow1 != null &&
+                            Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenStringCompositeSearchParam.Code1.Metadata.MaxLength)
+                        {
+                            resource.ImportError = Resources.TokenStringCompositeSearchParamCodeOverflow1;
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                            break;
+                        }
+                    }
+
+                    if (hasConflict)
+                    {
+                        continue; // If conflict then move to next resource
+                    }
+
+                    // Token-Quantity Composite search param constraint validation
+                    foreach (var row in tokenQuantityCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
+                    {
+                        if (row.Code1 != null && row.CodeOverflow1 != null &&
+                            Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.MaxLength)
+                        {
+                            resource.ImportError = Resources.TokenQuantityCompositeSearchParamCodeOverflow1;
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                            break;
+                        }
+                    }
+
+                    if (hasConflict)
+                    {
+                        continue; // If conflict then move to next resource
+                    }
+
+                    // Token-NumberNumber Composite search param constraint validation
+                    foreach (var row in tokenNumberNumberCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
+                    {
+                        if (row.Code1 != null && row.CodeOverflow1 != null &&
+                            Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenNumberNumberCompositeSearchParam.Code1.Metadata.MaxLength)
+                        {
+                            resource.ImportError = Resources.TokenNumberNumberCompositeSearchParamCodeOverflow1;
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                            break;
+                        }
+                    }
+
+                    if (hasConflict)
+                    {
+                        continue; // If conflict then move to next resource
+                    }
+
+                    // Token-DateTime Composite search param constraint validation
+                    foreach (var row in tokenDateTimeCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
+                    {
+                        if (row.Code1 != null && row.CodeOverflow1 != null &&
+                            Encoding.UTF8.GetByteCount(row.Code1) < VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.MaxLength)
+                        {
+                            resource.ImportError = Resources.TokenDateTimeCompositeSearchParamCodeOverflow1;
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                            break;
+                        }
+                    }
+
+                    if (hasConflict)
+                    {
+                        continue; // If conflict then move to next resource
+                    }
+
+                    // Reference-Token Composite search param constraint validation
+                    foreach (var row in referenceTokenCompositeSearchParamListRowGenerator.GenerateRows(new[] { wrapper }))
+                    {
+                        if (row.Code2 != null && row.CodeOverflow2 != null &&
+                            Encoding.UTF8.GetByteCount(row.Code2) < VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.MaxLength)
+                        {
+                            resource.ImportError = Resources.ReferenceTokenCompositeSearchParamCodeOverflow2;
+                            conflicts.Add(resource);
+                            hasConflict = true;
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, string.Format(Resources.ExceptionWhileResourceValidation, resource.Index));
+                    resource.ImportError = string.Format(Resources.ExceptionWhileResourceValidation, resource.Index);
+                    conflicts.Add(resource);
+                    continue;
+                }
+
+                if (!hasConflict)
+                {
+                    validResources.Add(resource);
+                }
+            }
+
+            return (validResources, conflicts);
         }
 
         private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
