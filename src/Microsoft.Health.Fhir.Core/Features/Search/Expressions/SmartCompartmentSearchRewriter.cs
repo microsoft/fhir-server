@@ -42,9 +42,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             // First a collection of any resources which refer to the smart user
             // we use the CompartmentSearchRewriter to get this list as it matches what we want
+            // SmartCompartmentSearchExpression has filteredResourceTypes list which CompartmentSearchRewriter will use to only return relevant resource types from compartment search
             var expressionList = _compartmentSearchRewriter.BuildCompartmentSearchExpressionsGroup(expression).ToList();
 
-            // Second the smart user's own resource
+            // Second the main resource
+            // Earlier this was building SQL on the Resource table with just ResourceId clause
+            // Do below to add ResourceTypeId clause. We will also be adding IsHistory and IsDeleted clause in union table handler
             var expressionForResourceItself = new List<Expression>();
             expressionForResourceItself.Add(Expression.SearchParameter(idSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentId, false)));
             expressionForResourceItself.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentType, false)));
@@ -60,14 +63,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 KnownCompartmentTypes.Device,
             };
 
+            // In case FilteredResourceTypes is specified and not the default, we need to filter down the universalResourceTypes to only those specified
             if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
             {
                 universalResourceTypes = universalResourceTypes.Where(x => expression.FilteredResourceTypes.Contains(x)).ToList();
             }
 
+            // if there are any universal resource types to add, add them in
             if (universalResourceTypes.Any())
             {
-                expressionList.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, universalResourceTypes)));
+                if (universalResourceTypes.Count == 1)
+                {
+                    expressionList.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, universalResourceTypes[0], false)));
+                }
+                else
+                {
+                    expressionList.Add(Expression.SearchParameter(resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, universalResourceTypes)));
+                }
             }
 
             // union all those results together

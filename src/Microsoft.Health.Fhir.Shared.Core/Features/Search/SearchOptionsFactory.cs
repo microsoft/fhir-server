@@ -391,11 +391,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
-            // Form all the include revinclude expressions
+            // Form all the include revinclude expressions before for the Smart queries access control check
+            // Collect all the resource types required by the include/revinclude expressions
             var includeRevincludeSearchExpressions = new List<IncludeExpression>();
             includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
             includeRevincludeSearchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
             var requiredResourceTypes = includeRevincludeSearchExpressions.SelectMany(x => x.Produces).ToList();
+
+            // Add the parsed resource types to the required resource types for access control check
+            // Now it contains all the resource types that are requested by the search,
+            // including those from the search path, _type parameter, and resource types returned via include/revinclude expressions
             requiredResourceTypes.AddRange(parsedResourceTypes);
 
             CheckFineGrainedAccessControl(searchExpressions, searchParams, requiredResourceTypes);
@@ -811,7 +816,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     if (!requiredResourceTypes.Contains(KnownResourceTypes.DomainResource) && !requiredResourceTypes.Contains(restriction.Resource))
                     {
-                        // Only when it is not a system level search then no need to add search expression for resource types that are not part of this search
+                        // For a system level search requiredResourceTypes will have DomainResource as default. For system level search we need to apply all clinical scope restrictions.
+                        // Not a system level search and the scope restricted resource type is not a required resource type then do not add the scope resirtriction
                         continue;
                     }
 
@@ -876,9 +882,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (!allowAllResourceTypes)
                 {
                     // We are applying smart scopes only for the resource types that are requested in the search
-                    // i.e. if the search is for /Observation, then we should only apply smart scopes for the Observation resource
-                    // i.e. if the search is for /Observation?_include=Observation:subject, then we should only apply smart scopes for the Observation and Patient resources
-                    // i.e. if the search is for /Observation, then we should only apply smart scopes for the Observation resource
+                    // i.e. if the search is for /Observation, then we should only apply smart scopes for the Observation type
+                    // i.e. if the search is for /Observation?_include=Observation:subject, then we should only apply smart scopes for the Observation and Patient type
+                    // i.e. if the search is for /_type=Observation,Practitioner then we should only apply smart scopes for the Observation and Practitioner type
                     if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControlWithSearchParameters == true && finalSmartSearchExpressions.Any())
                     {
                         // Check if any scopes with search parameters were present
@@ -891,9 +897,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             unionExpr.IsSmartV2UnionExpressionForScopesSearchParameters = true;
                             searchExpressions.Add(unionExpr);
                         }
-                        else
+                        else if (clinicalScopeResources.Any())
                         {
-                            if (clinicalScopeResources.Any() && clinicalScopeResources.Count == 1)
+                            if (clinicalScopeResources.Count == 1)
                             {
                                 searchExpressions.Add(Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, clinicalScopeResources[0].ToString(), false)));
                             }

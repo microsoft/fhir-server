@@ -12,7 +12,6 @@ using System.Text;
 using DotLiquid.Util;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Hl7.FhirPath.Expressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -141,6 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.AppendLine(")");
                 bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+                bool hasSmartV2UnionExpressionInTheSet = expression.SearchParamTableExpressions.Any(t => t.HasSmartV2UnionExpression());
 
                 // Find number of union expressions
                 int numberOfUnionExpressions = expression.SearchParamTableExpressions.GetCountOfUnionAllExpressions();
@@ -160,12 +160,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             smartV2UnionExpression = unionExpression;
                             smartV2QueryGenerator = tableExpression.QueryGenerator;
 
-                            var saveParameterState = Parameters.ParametersToHash;
+                            var parametersBeforeSmartScopesAreApplied = Parameters.ParametersToHash;
                             AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator, false);
 
                             if (hasIncludeExpressions)
                             {
-                                MarkNewParametersAsSmartScopeParameter(saveParameterState.ToHashSet());
+                                // For include and revinclude searches we need to mark the parameters added during smart scope union as smart scope parameters
+                                // As we are going to use these parameters to generate a hash for the include filtered data table
+                                MarkNewParametersAsSmartScopeParameter(parametersBeforeSmartScopesAreApplied.ToHashSet());
                             }
                         }
                         else
@@ -173,7 +175,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
                         }
 
-                        if (allOtherRemainingExpressions != null && numberOfUnionExpressions == 0)
+                        // Keep building the sql the old way when there are other remaining expressions after the union all without smart v2 scopes with search parameters
+                        if ((!hasSmartV2UnionExpressionInTheSet && allOtherRemainingExpressions != null) || (hasSmartV2UnionExpressionInTheSet && allOtherRemainingExpressions != null && numberOfUnionExpressions == 0))
                         {
                             StringBuilder.AppendLine(", ");
                             AppendNewTableExpression(sb, allOtherRemainingExpressions, ++_tableExpressionCounter, context);
@@ -192,6 +195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                             if (_smartV2UnionVisited)
                             {
+                                // If we have smart v2 scopes with search parameters we need to re-generate the scoped restricted data for the include
                                 sb.AppendLine("OPTION (RECOMPILE)");
                                 sb.AppendLine($";WITH");
                                 int saveTableExpressionCounter = _tableExpressionCounter;
@@ -224,7 +228,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else if (visitedInclude && _smartV2UnionVisited)
             {
-                AddHash(true); // for smart v2 scopes with search parameters include and rev-include searches add the hash
+                AddHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
             }
 
             string resourceTableAlias = "r";
@@ -406,6 +410,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("/* HASH ");
                 if (forSmartV2Include)
                 {
+                    // Only add the hash for smart scope parameters
                     Parameters.AppendSmartScopeHash(StringBuilder);
                     Parameters.AppendSmartScopeParameterNames(StringBuilder);
                 }
@@ -543,24 +548,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
                 else
                 {
-                    // Smart union expression contains an expression with multiple search parameters combined with AND where we are trying to pull the main compartment resource itself
-                    // Check if its a Multiary expression
-                    // If yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
+                    // For Smart union expression, searchParamTableExpression.Predicate could be a multiary expression and not SearchParameterExpression
+                    // To retrieve the main compartment resource we are building the Multiary expression with ResourceTypeId AND ResourceId (SearchParameterExpression)
+                    // Check if its a Multiary expression, if yes then check the internal expressions are SearchParameterExpression of parameter _type and _id
+                    // If yes then we can set the specialCaseTableName to Resource table and not to searchParamTableExpression.QueryGenerator.Table which will mostly be a ReferenceSearchParamTable
                     if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
                     {
-                        bool useResourceTable = true;
+                        bool allAreResourceTypeOrId = true;
                         foreach (var innerExpression in multiaryExpression.Expressions)
                         {
                             if (!(innerExpression is SearchParameterExpression expr) || (expr.Parameter.Name != SearchParameterNames.ResourceType && expr.Parameter.Name != SearchParameterNames.Id))
                             {
-                                useResourceTable = false;
+                                allAreResourceTypeOrId = false;
                                 break;
                             }
+                        }
 
-                            if (useResourceTable)
-                            {
-                                specialCaseTableName = VLatest.Resource;
-                            }
+                        if (allAreResourceTypeOrId)
+                        {
+                            specialCaseTableName = VLatest.Resource;
                         }
                     }
 
@@ -569,7 +575,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
-                    // Apply History and Delete clause when querying from Resource table in case of unions
+                    // Apply History and Delete clause when querying from Resource table in case of compartment unions
                     AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
 
                     if (specialCaseTableName.Equals(VLatest.Resource))
