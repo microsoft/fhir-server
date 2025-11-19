@@ -4,7 +4,7 @@
     <HealthcareSharedPackageVersion>11.0.3</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>9.0.11</DotNetSdkPackageVersion>
+    <DotNetSdkPackageVersion>10.0.0</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -17,6 +17,11 @@
     <When Condition="'$(TargetFramework)' == 'net9.0'">
       <PropertyGroup>
         <AspNetPackageVersion>9.0.3</AspNetPackageVersion>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(TargetFramework)' == 'net10.0'">
+      <PropertyGroup>
+        <AspNetPackageVersion>10.0.0</AspNetPackageVersion>
       </PropertyGroup>
     </When>
   </Choose>
