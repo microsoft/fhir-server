@@ -817,7 +817,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     if (!requiredResourceTypes.Contains(KnownResourceTypes.DomainResource) && !requiredResourceTypes.Contains(restriction.Resource))
                     {
                         // For a system level search requiredResourceTypes will have DomainResource as default. For system level search we need to apply all clinical scope restrictions.
-                        // Not a system level search and the scope restricted resource type is not a required resource type then do not add the scope resirtriction
+                        // Not a system level search and the scope restricted resource type is not a required resource type then do not add the scope restriction
                         continue;
                     }
 

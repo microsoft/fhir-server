@@ -1874,9 +1874,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 CancellationToken cancel)
             {
                 // Iterate over top-level table expressions
-                for (int i = 0; i < expression.SearchParamTableExpressions.Count; i++)
+                for (int tableIndex = 0; tableIndex < expression.SearchParamTableExpressions.Count; tableIndex++)
                 {
-                    var tableExpression = expression.SearchParamTableExpressions[i];
+                    var tableExpression = expression.SearchParamTableExpressions[tableIndex];
 
                     // We support Normal and Union. Skip include/sort/etc.
                     if (tableExpression.Kind != SearchParamTableExpressionKind.Normal &&
@@ -1890,7 +1890,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                     if (tableExpression.Kind == SearchParamTableExpressionKind.Normal)
                     {
-                        ProcessPredicateForStats(tableExpression.Predicate, tableExpression.QueryGenerator, model, tableExpression.ChainLevel, expression, i, collected, logger, parentMultiaryContext: null, isUnionBranch: false);
+                        ProcessPredicateForStats(tableExpression.Predicate, tableExpression.QueryGenerator, model, tableExpression.ChainLevel, expression, tableIndex, collected, logger, parentMultiaryContext: null, isUnionBranch: false);
                     }
                     else if (tableExpression.Kind == SearchParamTableExpressionKind.Union &&
                              tableExpression.Predicate is UnionExpression unionPredicate)
@@ -1898,7 +1898,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         // Each union branch is its own logical context; do not cross-associate resource type constraints
                         foreach (var branch in unionPredicate.Expressions)
                         {
-                            ProcessUnionBranch(branch, tableExpression.QueryGenerator, model, tableExpression.ChainLevel, expression, i, collected, logger);
+                            ProcessUnionBranch(branch, tableExpression.QueryGenerator, model, tableExpression.ChainLevel, expression, tableIndex, collected, logger);
                         }
                     }
 
@@ -2019,13 +2019,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 // 1. If inside an AND group (Multiary) gather resource type constraints from siblings
                 if (parentMultiaryContext != null)
                 {
-                    foreach (var sibling in parentMultiaryContext.Expressions)
+                    foreach (var siblingSpe in parentMultiaryContext.Expressions
+                        .OfType<SearchParameterExpression>()
+                        .Where(spe => spe.Parameter.Name == SearchParameterNames.ResourceType))
                     {
-                        if (sibling is SearchParameterExpression siblingSpe &&
-                            siblingSpe.Parameter.Name == SearchParameterNames.ResourceType)
-                        {
-                            CollectResourceTypesFromExpression(siblingSpe.Expression, model, resourceTypeIds);
-                        }
+                        CollectResourceTypesFromExpression(siblingSpe.Expression, model, resourceTypeIds);
                     }
                 }
 

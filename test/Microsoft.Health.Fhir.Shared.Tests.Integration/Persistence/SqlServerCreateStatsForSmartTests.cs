@@ -27,6 +27,20 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    /// <summary>
+    /// Integration tests validating SQL Server search statistics creation when SMART on FHIR V2
+    /// fine-grained (granular) scopes with search parameter filters are applied.
+    /// </summary>
+    /// <remarks>
+    /// These tests ensure:
+    /// 1. Search executions constrained by granular SMART scopes generate token/string statistics
+    ///    entries for only the permitted resource types and filtered search parameters.
+    /// 2. _include and wildcard _include queries respect scope restrictions (e.g., referenced
+    ///    resources without explicit scope are not returned) while still producing stats for
+    ///    the search parameters actually exercised.
+    /// 3. The in-memory cache and persisted database statistics contain entries for
+    ///    each search parameter used directly (query parameters) or indirectly (scope filters).
+    /// </remarks>
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
@@ -171,6 +185,147 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.ColumnName == "Text"
                   && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Practitioner")
                   && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Practitioner-name")));
+        }
+
+        [Fact]
+        public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingPatientsWithMultipleRevIncludes_StatsAreCreated()
+        {
+            /*
+             * Test validates complex scenario with multiple granular scopes with specific filters and specific revincludes
+             * scopes = patient/Observation.s?code=http://loinc.org|55233-1&status=final
+             *          patient/Patient.s?name=SMARTGivenName1&gender=male
+             *          patient/Encounter.s?status=finished&class=IMP
+             * Search: Patient?_revinclude=Observation:subject&_revinclude=Encounter:subject
+             * Expected: Patient with name=SMARTGivenName1 AND gender=male,
+             *          Observation with code 55233-1 AND status=final that references the patient,
+             *          No Encounters should be returned if none match status=finished AND class=IMP
+             */
+            var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
+            var observationScope2 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-9")));
+            var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1"), ("gender", "male")));
+
+            // Using Encounter with restrictive filters to potentially exclude encounters
+            var encounterScope = new ScopeRestriction("Encounter", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "finished")));
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, observationScope2, patientScope, encounterScope }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Search for Patient with specific revincludes for Observation and Encounter
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
+            query.Add(new Tuple<string, string>("_revinclude", "Encounter:subject"));
+            await _fixture.SearchService.SearchAsync("Patient", query, CancellationToken.None);
+
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            _output.WriteLine($"database={conn.Database}");
+
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            foreach (var stat in statsFromCache)
+            {
+                _output.WriteLine($"cache {stat}");
+            }
+
+            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            var dbStat = await sqlSearchService.GetStatsFromDatabase(CancellationToken.None);
+            foreach (var stat in dbStat)
+            {
+                _output.WriteLine($"database {stat}");
+            }
+
+            // Assert for Observation with clinical-code
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Observation")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-code")));
+
+            // Assert for Observation with clinical-code
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Observation")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Observation-status")));
+
+            // Patient with gender
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Patient")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/individual-gender")));
+
+            // Patient with name
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.StringSearchParam.TableName
+                  && _.ColumnName == "Text"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Patient")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")));
+
+            // Encounter with status
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Encounter")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Encounter-status")));
+        }
+
+        [Fact]
+        public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingPatientsWithSingleRevIncludes_StatsAreCreated()
+        {
+            /*
+             * Test validates complex scenario with multiple granular scopes with specific filters and specific revincludes
+             * scopes = patient/Observation.s?code=http://loinc.org|55233-1&status=final
+             *          patient/Patient.s?name=SMARTGivenName1&gender=male
+             *          patient/Encounter.s?status=finished&class=IMP
+             * Search: Patient?_revinclude=Observation:subject&_revinclude=Encounter:subject
+             * Expected: Patient with name=SMARTGivenName1 AND gender=male,
+             *          Observation with code 55233-1 AND status=final that references the patient,
+             *          No Encounters should be returned if none match status=finished AND class=IMP
+             */
+            var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
+            var observationScope2 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-9")));
+            var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1"), ("gender", "male")));
+
+            // Using Encounter with restrictive filters to potentially exclude encounters
+            var encounterScope = new ScopeRestriction("Encounter", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "finished")));
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, observationScope2, patientScope, encounterScope }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Search for Patient with specific revincludes for Observation and Encounter
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_revinclude", "Encounter:subject"));
+            await _fixture.SearchService.SearchAsync("Patient", query, CancellationToken.None);
+
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            _output.WriteLine($"database={conn.Database}");
+
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            foreach (var stat in statsFromCache)
+            {
+                _output.WriteLine($"cache {stat}");
+            }
+
+            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            var dbStat = await sqlSearchService.GetStatsFromDatabase(CancellationToken.None);
+            foreach (var stat in dbStat)
+            {
+                _output.WriteLine($"database {stat}");
+            }
+
+            // Encounter with status
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Encounter")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Encounter-status")));
+
+            // Patient with gender
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Patient")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/individual-gender")));
+
+            // Patient with name
+            Assert.Contains(statsFromCache, _ => _.TableName == VLatest.StringSearchParam.TableName
+                  && _.ColumnName == "Text"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId("Patient")
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")));
         }
 
         private void ConfigureFhirRequestContext(

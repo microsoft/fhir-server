@@ -134,7 +134,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 };
                 yield return new object[]
                 {
-                    // TODO: Check this one
                     "Patient",
                     new List<ScopeRestriction>
                     {
@@ -146,7 +145,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 };
                 yield return new object[]
                 {
-                    // TODO: Check this one
                     "Patient",
                     new List<ScopeRestriction>
                     {

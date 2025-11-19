@@ -3658,16 +3658,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
              * Test validates complex scenario with multiple granular scopes with specific filters and wildcard revinclude
              * scopes = patient/Observation.s?code=http://loinc.org|55233-1&status=final
              *          patient/Patient.s?name=SMARTGivenName1&gender=male
-             *          patient/Encounter.s?status=finished&class=IMP
+             *          patient/Encounter.s?status=finished&status=triaged
              * Search: Patient?_revinclude=*:*
              * Expected: Patient with name=SMARTGivenName1 AND gender=male,
              *          Observation with code 55233-1 AND status=final that references the patient,
-             *          No Encounters should be returned if none match status=finished AND class=IMP
+             *          No Encounters should be returned if none match status=finished AND status=triaged
              */
             var observationScope = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", "http://loinc.org|4548-4"), ("status", "final")));
             var patientScope = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("name", "SMARTGivenName1"), ("gender", "male")));
-
-            // Using Encounter with status=finished and class=IMP (inpatient) - adjust based on actual test data
             var encounterScope = new ScopeRestriction("Encounter", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", "triaged")));
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { observationScope, patientScope, encounterScope }, true);
@@ -3694,7 +3692,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotEmpty(observationResults);
             Assert.Contains(observationResults, r => r.Resource.ResourceId == "smart-observation-A1");
 
-            // Check Encounter results - should only include those with status=finished AND class=IMP
+            // Check Encounter results - should only include those with status=finished AND status=triaged
             var encounterResults = results.Results.Where(r => r.Resource.ResourceTypeName == "Encounter").ToList();
 
             // If no encounters match both criteria, this should be empty

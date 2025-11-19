@@ -554,15 +554,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // If yes then we can set the specialCaseTableName to Resource table and not to searchParamTableExpression.QueryGenerator.Table which will mostly be a ReferenceSearchParamTable
                     if (searchParamTableExpression.Predicate is MultiaryExpression multiaryExpression)
                     {
-                        bool allAreResourceTypeOrId = true;
-                        foreach (var innerExpression in multiaryExpression.Expressions)
-                        {
-                            if (!(innerExpression is SearchParameterExpression expr) || (expr.Parameter.Name != SearchParameterNames.ResourceType && expr.Parameter.Name != SearchParameterNames.Id))
-                            {
-                                allAreResourceTypeOrId = false;
-                                break;
-                            }
-                        }
+                        bool allAreResourceTypeOrId = multiaryExpression.Expressions.All(e =>
+                            e is SearchParameterExpression spe &&
+                            (spe.Parameter.Name == SearchParameterNames.ResourceType || spe.Parameter.Name == SearchParameterNames.Id));
 
                         if (allAreResourceTypeOrId)
                         {
