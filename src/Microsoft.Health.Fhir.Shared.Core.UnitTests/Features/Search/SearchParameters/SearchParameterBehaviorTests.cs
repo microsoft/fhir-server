@@ -159,7 +159,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenAnUpsertResourceRequest_WhenSearchParameterDoesNotExist_ThenAddSearchParameterShouldBeCalled()
         {
-            // This tests the fix for bug 176831: PUT of a new SearchParameter should work as an upsert (create if not exists)
             var searchParameter = new SearchParameter() { Id = "NewId", Url = "http://example.com/new-param" };
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
@@ -183,7 +182,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenAnUpsertResourceRequest_WhenSearchParameterExists_ThenUpdateSearchParameterShouldBeCalled()
         {
-            // This tests that PUT still works correctly for existing SearchParameters
             var oldSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/existing-param", Version = "1" };
             var newSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/existing-param", Version = "2" };
 
