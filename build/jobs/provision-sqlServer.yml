@@ -82,7 +82,17 @@ jobs:
         New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
 
         $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
-        New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIp -EndIPAddress $agentIP
+
+        # Check if the firewall rule already exists
+        $firewallRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -ErrorAction SilentlyContinue
+
+        if (-not $firewallRule) {
+          Write-Host "Creating firewall rule 'AzureDevopsAgent'"
+          New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIP -EndIPAddress $agentIP
+        }
+        else {
+          Write-Host "Firewall rule 'AzureDevopsAgent' already exists. Skipping creation."
+        }
 
         # Associate SQL Server with Network Security Perimeter if NSP name is provided
         if (-not [string]::IsNullOrEmpty($nspName)) {
