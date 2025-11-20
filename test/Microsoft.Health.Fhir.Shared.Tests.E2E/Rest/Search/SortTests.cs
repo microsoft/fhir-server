@@ -489,7 +489,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients.Reverse());
+            patients.Reverse();
+            resources.AddRange(patients);
             resources.AddRange(observations);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
@@ -561,7 +562,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients.Reverse());
+            patients.Reverse();
+            resources.AddRange(patients);
             observations.Reverse();
             resources.AddRange(observations);
 
@@ -1148,6 +1150,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Null(response.Resource.NextLink);
         }
 
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResourcesGreaterThanOnePage_WhenSearchedWithSortAndInclude_ThenSearchResultsContainIncludedResources(string sortParameterName)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var resources = await CreatePatientsWithLinkedObservations(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
+
+            Assert.Equal(20, response.Resource.Entry.Count);
+        }
+
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenSearchResultsContainAnIncludesContinuationToken(string sortParameterName)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var resources = await CreatePatientsWithLinkedObservations(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
+
+            Assert.Contains(response.Resource.Link, link =>
+            {
+                return link.Relation == "related" && !string.IsNullOrEmpty(link.Url);
+            });
+        }
+
+        [Theory]
+        [InlineData("birthdate", 10)]
+        [InlineData("-birthdate", 2)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndIncludeOnDataThatOnlyPartiallyContainsTheSortField_ThenTheRightIncludedResourcesAreReturned(string sortParameterName, int expectedCount)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var resources = await CreatePatientsWithLinkedObservations(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count={expectedCount}");
+
+            Assert.Equal(expectedCount * 2, response.Resource.Entry.Count);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -1289,6 +1336,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
             return patients;
+        }
+
+        private async Task<List<Resource>> CreatePatientsWithLinkedObservations(string tag)
+        {
+            var patients = await CreatePaginatedPatientsWithMissingBirthDates(tag);
+            var allResources = new List<Resource>(patients);
+
+            foreach (var patient in patients)
+            {
+                var observations = await AddObservationToPatient(patient, "2023-01-01", tag);
+                allResources.AddRange(observations);
+            }
+
+            return allResources;
         }
 
         private void SetPatientInfo(Patient patient, string city, string family, string tag)

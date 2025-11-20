@@ -229,6 +229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         finalResultsInOrder.AddRange(searchResult.Results);
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
+                        sqlSearchOptions.IncludeCount -= searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Include);
 
                         var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
