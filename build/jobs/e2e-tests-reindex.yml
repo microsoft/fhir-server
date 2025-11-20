@@ -16,12 +16,12 @@ steps:
       appServiceName: ${{ parameters.appServiceName }}
 
   - task: DotNetCoreCLI@2
-    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
+    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}} - Reindex Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning&Category!=IndexAndReindex"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category=IndexAndReindex"'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} - Reindex'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
