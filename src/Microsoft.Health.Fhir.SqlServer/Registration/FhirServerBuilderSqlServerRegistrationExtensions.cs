@@ -7,8 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using MediatR;
-using MediatR.Pipeline;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -152,10 +151,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsImplementedInterfaces();
 
+            // SqlExceptionActionProcessor: IRequestExceptionAction interface removed in new Medino version
+            // This class is kept as a utility for potential future exception handling middleware integration
             services.Add(typeof(SqlExceptionActionProcessor<,>))
                 .Transient()
-                .AsSelf()
-                .AsService(typeof(IRequestExceptionAction<,>));
+                .AsSelf();
 
             services.Add<SqlCompartmentSearchRewriter>()
                 .Singleton()
@@ -185,7 +185,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
-            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
+            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Medino registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()
                     .Singleton()
                     .AsSelf() // this is needed to create the instance the delegates resolve

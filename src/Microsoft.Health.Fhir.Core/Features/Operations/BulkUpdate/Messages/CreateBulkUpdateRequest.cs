@@ -5,7 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using MediatR;
+using Medino;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages
 {

@@ -17,7 +17,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Summary;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 if (newHash != oldHash)
                 {
                     _logger.LogDebug("New Profiles found.");
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
+                    await _mediator.PublishAsync(new RebuildCapabilityStatement(RebuildPart.Profiles));
                 }
 
                 _logger.LogDebug("Profiles updated.");

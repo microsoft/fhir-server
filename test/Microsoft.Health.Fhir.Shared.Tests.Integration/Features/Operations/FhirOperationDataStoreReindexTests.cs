@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             if (found && !string.IsNullOrEmpty(id))
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_operationDataStore, DisabledFhirAuthorizationService.Instance);
-                await cancelReindexHandler.Handle(new CancelReindexRequest(id), cancellationToken);
+                await cancelReindexHandler.HandleAsync(new CancelReindexRequest(id), cancellationToken);
 
                 // Optionally, wait for the job to be marked as canceled
                 var job = await _operationDataStore.GetReindexJobByIdAsync(id, cancellationToken);

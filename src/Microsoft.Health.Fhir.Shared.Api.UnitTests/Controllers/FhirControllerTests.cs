@@ -8,7 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -56,11 +56,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _configuration.Value.Returns(new FeatureConfiguration());
             _authorizationService = Substitute.For<IAuthorizationService>();
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<DeleteResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new DeleteResourceResponse(new ResourceKey(KnownResourceTypes.Patient, Guid.NewGuid().ToString()))));
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<ConditionalDeleteResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new DeleteResourceResponse(new ResourceKey(KnownResourceTypes.Patient, Guid.NewGuid().ToString()))));
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             await _fhirController.ConditionalDelete(KnownResourceTypes.Patient, hardDeleteModel, null);
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Is<ConditionalDeleteResourceRequest>(x => x.DeleteOperation == operation),
                 Arg.Any<CancellationToken>());
         }
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             await _fhirController.Delete(KnownResourceTypes.Patient, Guid.NewGuid().ToString(), hardDeleteModel, false);
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Is<DeleteResourceRequest>(x => x.DeleteOperation == operation),
                 Arg.Any<CancellationToken>());
         }
