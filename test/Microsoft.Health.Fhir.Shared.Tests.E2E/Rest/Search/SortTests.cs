@@ -1161,7 +1161,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
 
-            Assert.Equal(20, response.Resource.Entry.Count);
+            // 10 matches, 8 includes, 1 warning that includes were truncated
+            Assert.Equal(19, response.Resource.Entry.Count);
         }
 
         [Theory]
