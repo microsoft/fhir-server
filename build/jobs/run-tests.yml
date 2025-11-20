@@ -194,7 +194,7 @@ jobs:
       appServiceName: '${{ parameters.appServiceName }}-sql'
       appServiceType: 'SqlServer'
 
-- job: 'cosmosE2eTests-Reindex'
+- job: 'cosmosE2eTests_Reindex'
   dependsOn: []
   pool:
     name: '$(SharedLinuxPool)'
@@ -207,7 +207,7 @@ jobs:
       appServiceName: ${{ parameters.appServiceName }}
       appServiceType: 'CosmosDb'
 
-- job: 'sqlE2eTests-Reindex'
+- job: 'sqlE2eTests_Reindex'
   dependsOn: []
   pool:
     name: '$(SharedLinuxPool)'
