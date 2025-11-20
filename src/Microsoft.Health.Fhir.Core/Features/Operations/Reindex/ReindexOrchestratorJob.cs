@@ -119,18 +119,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await Task.Delay(TimeSpan.FromSeconds(delaySeconds) * delayMultiplier, cancellationToken);
 
+                if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
+                {
+                    throw new OperationCanceledException("Reindex operation cancelled by customer.");
+                }
+
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
 
-                await CreateReindexProcessingJobsAsync(cancellationToken);
-
                 var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
+                var queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
 
-                // Get only ProcessingJobs.
-                var queryProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                // Only create jobs if we don't have any at this point.
+                if (!queryReindexProcessingJobs.Any())
+                {
+                    await CreateReindexProcessingJobsAsync(cancellationToken);
+                    jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
+                    queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                }
 
-                if (!queryProcessingJobs.Any())
+                if (!queryReindexProcessingJobs.Any())
                 {
                     // Nothing to process so we are done.
                     AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, Core.Resources.ReindexingNothingToProcess);
@@ -138,11 +147,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     return JsonConvert.SerializeObject(_currentResult);
                 }
 
-                _currentResult.CreatedJobs = queryProcessingJobs.Count;
+                _currentResult.CreatedJobs = queryReindexProcessingJobs.Count;
 
-                if (queryProcessingJobs.Any())
+                if (queryReindexProcessingJobs.Any())
                 {
-                    await CheckForCompletionAsync(queryProcessingJobs, cancellationToken);
+                    await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -373,6 +382,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
         {
+            if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
+            {
+                throw new OperationCanceledException("Reindex operation cancelled by customer.");
+            }
+
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var definitions = new List<string>();
 
@@ -825,7 +839,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // Send heartbeat less frequently when stable
                         if (unchangedCount <= MAX_UNCHANGED_CYCLES)
                         {
-                            await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
+                            try
+                            {
+                                await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
+                            }
+                            catch (JobConflictException ex)
+                            {
+                                // Log but don't fail - heartbeat conflicts are acceptable
+                                _logger.LogJobWarning(ex, _jobInfo, "Heartbeat conflict - another worker updated the job");
+                            }
                         }
                     }
                     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
