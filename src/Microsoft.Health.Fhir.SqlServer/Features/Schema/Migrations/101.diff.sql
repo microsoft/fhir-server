@@ -1,6 +1,14 @@
-﻿--DROP PROCEDURE dbo.MergeResources
-GO
-CREATE PROCEDURE dbo.MergeResources
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'DecompressedLength')
+BEGIN
+    BEGIN TRY
+        INSERT INTO dbo.Parameters (Id, Char) SELECT 'Adding DecompressedLength', 'LogEvent'
+        EXECUTE dbo.LogEvent @Process='Adding DecompressedLength',@Status='Start'
+        BEGIN TRANSACTION
+            ALTER TABLE Resource ADD DecompressedLength DECIMAL(36,18) NULL;
+            DROP PROCEDURE dbo.MergeResources;
+
+EXECUTE(
+'CREATE PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
@@ -35,8 +43,8 @@ DECLARE @st datetime = getUTCdate()
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
 
-DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
-SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')+' ST='+convert(varchar,@SingleTransaction)
+DECLARE @Mode varchar(200) = isnull((SELECT ''RT=[''+convert(varchar,min(ResourceTypeId))+'',''+convert(varchar,max(ResourceTypeId))+''] Sur=[''+convert(varchar,min(ResourceSurrogateId))+'',''+convert(varchar,max(ResourceSurrogateId))+''] V=''+convert(varchar,max(Version))+'' Rows=''+convert(varchar,count(*)) FROM @Resources),''Input=Empty'')
+SET @Mode += '' E=''+convert(varchar,@RaiseExceptionOnConflict)+'' CC=''+convert(varchar,@IsResourceChangeCaptureEnabled)+'' IT=''+convert(varchar,@InitialTranCount)+'' T=''+isnull(convert(varchar,@TransactionId),''NULL'')+'' ST=''+convert(varchar,@SingleTransaction)
 
 SET @AffectedRows = 0
 
@@ -69,15 +77,15 @@ BEGIN TRY
       SELECT ResourceSurrogateId, DecompressedLength
       FROM OPENJSON(@DecompressedOverridesJson)
       WITH (
-          ResourceSurrogateId BIGINT '$.ResourceSurrogateId',
-          DecompressedLength DECIMAL(36,18) '$.DecompressedLength'
+          ResourceSurrogateId BIGINT ''$.ResourceSurrogateId'',
+          DecompressedLength DECIMAL(36,18) ''$.DecompressedLength''
       );
   END
 
   -- perform retry check in transaction to hold locks
   IF @InitialTranCount = 0
   BEGIN
-    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
+    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don''t need them
                  FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
                  --WHERE B.IsHistory = 0 -- With this clause wrong plans are created on empty/small database. Commented until resource separation is in place.
               )
@@ -101,7 +109,7 @@ BEGIN TRY
     END
   END
 
-  SET @Mode += ' R='+convert(varchar,@IsRetry)
+  SET @Mode += '' R=''+convert(varchar,@IsRetry)
 
   IF @SingleTransaction = 1 AND @@trancount = 0 BEGIN TRANSACTION
   
@@ -117,7 +125,7 @@ BEGIN TRY
 
     -- Consider surrogate id out of allignment as a conflict
     IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE (PreviousVersion IS NOT NULL AND Version <= PreviousVersion) OR (PreviousSurrogateId IS NOT NULL AND SurrogateId <= PreviousSurrogateId))
-      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1
+      THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates'', 1
 
     INSERT INTO @PreviousSurrogateIds
       SELECT ResourceTypeId, PreviousSurrogateId, KeepHistory
@@ -131,7 +139,7 @@ BEGIN TRY
         WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 1)
       SET @AffectedRows += @@rowcount
 
-      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
+      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = ''InvisibleHistory.IsEnabled'' AND Number = 0)
         UPDATE dbo.Resource
           SET IsHistory = 1
              ,RawResource = 0xF -- "invisible" value
@@ -175,7 +183,7 @@ BEGIN TRY
       DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
 
-      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
+      --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Info'',@Start=@st,@Rows=@AffectedRows,@Text=''Old rows''
     END
 
     INSERT INTO dbo.Resource 
@@ -423,17 +431,28 @@ BEGIN TRY
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''End'',@Start=@st,@Rows=@AffectedRows
 END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status=''Error'',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.Resource''%'
-    THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND error_message() LIKE ''%''''dbo.Resource''''%''
+    THROW 50409, ''Resource has been recently updated or added, please compare the resource content in code for any duplicate updates'', 1;
   ELSE
     THROW
-END CATCH
-GO
+END CATCH')
+
+        COMMIT TRANSACTION
+        EXECUTE dbo.LogEvent @Process='Adding DecompressedLength',@Status='End'
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        INSERT INTO dbo.Parameters (Id, Char) SELECT 'Adding DecompressedLength', @ErrorMessage
+        EXECUTE dbo.LogEvent @Process='Adding DecompressedLength',@Status='Error', @ErrorMessage=@ErrorMessage
+    END CATCH
+END
+
