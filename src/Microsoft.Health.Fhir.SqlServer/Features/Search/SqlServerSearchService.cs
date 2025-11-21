@@ -1418,7 +1418,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 lock (_locker)
                 {
-                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, cancel);
+                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, _queryGeneratorFactory, cancel);
                 }
             }
 
@@ -1848,10 +1848,16 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
         private class ResourceSearchParamStats
         {
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
+            private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
 
-            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
+            public ResourceSearchParamStats(
+                ISqlRetryService sqlRetryService,
+                ILogger<SqlServerSearchService> logger,
+                SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
+                CancellationToken cancel)
             {
                 _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
+                _queryGeneratorFactory = queryGeneratorFactory;
                 Init(sqlRetryService, logger, cancel).Wait(cancel);
             }
 
@@ -1860,94 +1866,231 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 return _stats.Keys;
             }
 
-            // The goal is not to be 100% accurate, but cover majority of simple cases and not crash in the others.
-            // Simple expressions with one or more resource types are handled. For chains, resource types are derived from predecessor.
-            // Composite searches are skipped. Number of handled cases can be extended.
-            public async Task Create(SqlRootExpression expression, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, SqlServerFhirModel model, CancellationToken cancel)
+            public async Task Create(
+                SqlRootExpression expression,
+                ISqlRetryService sqlRetryService,
+                ILogger<SqlServerSearchService> logger,
+                SqlServerFhirModel model,
+                CancellationToken cancel)
             {
-                for (var index = 0; index < expression.SearchParamTableExpressions.Count; index++)
+                // Iterate over top-level table expressions
+                for (int tableIndex = 0; tableIndex < expression.SearchParamTableExpressions.Count; tableIndex++)
                 {
-                    var tableExpression = expression.SearchParamTableExpressions[index];
-                    if (tableExpression.Kind != SearchParamTableExpressionKind.Normal)
+                    var tableExpression = expression.SearchParamTableExpressions[tableIndex];
+
+                    // We support Normal and Union. Skip include/sort/etc.
+                    if (tableExpression.Kind != SearchParamTableExpressionKind.Normal &&
+                        tableExpression.Kind != SearchParamTableExpressionKind.Union)
                     {
                         continue;
                     }
 
-                    var table = tableExpression.QueryGenerator.Table.TableName;
-                    var columns = GetKeyColumns(table);
-                    if (columns.Count == 0)
-                    {
-                        return;
-                    }
+                    // Collected raw triples (table, resourceTypeId, searchParamId)
+                    var collected = new List<(string Table, short ResourceTypeId, short SearchParamId)>();
 
-                    var searchParamId = (short)0;
-                    var resourceTypeIds = new HashSet<short>();
-                    if (tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiExp)
+                    if (tableExpression.Kind == SearchParamTableExpressionKind.Normal)
                     {
-                        foreach (var part in multiExp.Expressions)
+                        ProcessPredicateForStats(tableExpression.Predicate, tableExpression.QueryGenerator, model, tableExpression.ChainLevel, expression, tableIndex, collected, logger, parentMultiaryContext: null, isUnionBranch: false);
+                    }
+                    else if (tableExpression.Kind == SearchParamTableExpressionKind.Union &&
+                             tableExpression.Predicate is UnionExpression unionPredicate)
+                    {
+                        // Each union branch is its own logical context; do not cross-associate resource type constraints
+                        foreach (var branch in unionPredicate.Expressions)
                         {
-                            if (part is SearchParameterExpression parameterExp)
-                            {
-                                if (parameterExp.Parameter.Name == SearchParameterNames.ResourceType)
-                                {
-                                    if (parameterExp.Expression is StringExpression stringExp)
-                                    {
-                                        if (model.TryGetResourceTypeId(stringExp.Value, out var resourceTypeId))
-                                        {
-                                            resourceTypeIds.Add(resourceTypeId);
-                                        }
-                                    }
-                                    else if (parameterExp.Expression is MultiaryExpression multiExp2)
-                                    {
-                                        foreach (var part2 in multiExp2.Expressions)
-                                        {
-                                            if (part2 is SearchParameterExpression parameterExp2)
-                                            {
-                                                if (parameterExp2.Expression is StringExpression stringExp2)
-                                                {
-                                                    if (model.TryGetResourceTypeId(stringExp2.Value, out var resourceTypeId))
-                                                    {
-                                                        resourceTypeIds.Add(resourceTypeId);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                else if (parameterExp.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName && parameterExp.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
-                                {
-                                    model.TryGetSearchParamId(parameterExp.Parameter.Url, out searchParamId);
-                                }
-                            }
+                            ProcessUnionBranch(branch, tableExpression.QueryGenerator, model, tableExpression.ChainLevel, expression, tableIndex, collected, logger);
                         }
                     }
 
-                    if (tableExpression.ChainLevel == 1 && tableExpression.Predicate is SearchParameterExpression searchExpression)
+                    // Emit stats rows
+                    foreach (var (table, resourceTypeId, searchParamId) in collected)
                     {
-                        searchParamId = model.GetSearchParamId(searchExpression.Parameter.Url);
-                        var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
-                        if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
+                        var columns = GetKeyColumns(table);
+                        if (columns.Count == 0)
                         {
-                            foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
-                            {
-                                if (model.TryGetResourceTypeId(type, out var resourceTypeId))
-                                {
-                                    resourceTypeIds.Add(resourceTypeId);
-                                }
-                            }
+                            continue;
                         }
-                    }
 
-                    if (searchParamId != 0)
-                    {
-                        foreach (var resourceTypeId in resourceTypeIds)
+                        foreach (var column in columns)
                         {
-                            foreach (var column in columns)
+                            await Create(table, column, resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
+                        }
+                    }
+                }
+            }
+
+            private void ProcessUnionBranch(
+                Expression unionInner,
+                SearchParamTableExpressionQueryGenerator defaultGenerator,
+                SqlServerFhirModel model,
+                int chainLevel,
+                SqlRootExpression root,
+                int tableIndex,
+                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                ILogger logger)
+            {
+                // A union branch may itself be a MultiaryExpression (AND group) or a single expression
+                if (unionInner is MultiaryExpression multi)
+                {
+                    // Treat this AND group as a distinct resource-type/search-param context
+                    foreach (var child in multi.Expressions)
+                    {
+                        ProcessPredicateForStats(child, defaultGenerator, model, chainLevel, root, tableIndex, collected, logger, parentMultiaryContext: multi, isUnionBranch: true);
+                    }
+                }
+                else
+                {
+                    ProcessPredicateForStats(unionInner, defaultGenerator, model, chainLevel, root, tableIndex, collected, logger, parentMultiaryContext: null, isUnionBranch: true);
+                }
+            }
+
+            private void ProcessPredicateForStats(
+                Expression predicate,
+                SearchParamTableExpressionQueryGenerator defaultGenerator,
+                SqlServerFhirModel model,
+                int chainLevel,
+                SqlRootExpression root,
+                int tableIndex,
+                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                ILogger logger,
+                MultiaryExpression parentMultiaryContext,
+                bool isUnionBranch)
+            {
+                switch (predicate)
+                {
+                    case SearchParameterExpression spe:
+                        HandleSearchParameterExpression(spe, defaultGenerator, model, chainLevel, root, tableIndex, collected, parentMultiaryContext, isUnionBranch);
+                        break;
+
+                    case MultiaryExpression multi:
+                        foreach (var inner in multi.Expressions)
+                        {
+                            ProcessPredicateForStats(inner, defaultGenerator, model, chainLevel, root, tableIndex, collected, logger, parentMultiaryContext: multi, isUnionBranch: isUnionBranch);
+                        }
+
+                        break;
+
+                    case UnionExpression union:
+                        foreach (var branch in union.Expressions)
+                        {
+                            ProcessUnionBranch(branch, defaultGenerator, model, chainLevel, root, tableIndex, collected, logger);
+                        }
+
+                        break;
+
+                    default:
+                        // Non-search-parameter leaf (e.g. compartment) – ignore for stats
+                        break;
+                }
+            }
+
+            private void HandleSearchParameterExpression(
+                SearchParameterExpression spe,
+                SearchParamTableExpressionQueryGenerator defaultGenerator,
+                SqlServerFhirModel model,
+                int chainLevel,
+                SqlRootExpression root,
+                int tableIndex,
+                List<(string Table, short ResourceTypeId, short SearchParamId)> collected,
+                MultiaryExpression parentMultiaryContext,
+                bool isUnionBranch)
+            {
+                // Ignore synthetic parameters
+                if (spe.Parameter.Name == SqlSearchParameters.PrimaryKeyParameterName ||
+                    spe.Parameter.Name == SqlSearchParameters.ResourceSurrogateIdParameterName)
+                {
+                    return;
+                }
+
+                // Determine query generator for this specific expression
+                var specificGenerator = spe.AcceptVisitor(_queryGeneratorFactory, _queryGeneratorFactory.InitialContext) ?? defaultGenerator;
+                var tableName = specificGenerator.Table.TableName;
+
+                // Extract searchParamId (skip if not resolvable)
+                if (!model.TryGetSearchParamId(spe.Parameter.Url, out var searchParamId) || searchParamId == 0)
+                {
+                    // If this is the _type search parameter, we don't create stats entries directly for it
+                    return;
+                }
+
+                // Collect applicable resource types
+                var resourceTypeIds = new HashSet<short>();
+
+                // 1. If inside an AND group (Multiary) gather resource type constraints from siblings
+                if (parentMultiaryContext != null)
+                {
+                    foreach (var siblingSpe in parentMultiaryContext.Expressions
+                        .OfType<SearchParameterExpression>()
+                        .Where(spe => spe.Parameter.Name == SearchParameterNames.ResourceType))
+                    {
+                        CollectResourceTypesFromExpression(siblingSpe.Expression, model, resourceTypeIds);
+                    }
+                }
+
+                // 2. For chain level 1, derive types from predecessor chain expression
+                if (resourceTypeIds.Count == 0 &&
+                    chainLevel == 1 &&
+                    tableIndex > 0)
+                {
+                    var prev = root.SearchParamTableExpressions[tableIndex - 1];
+                    if (prev.Kind == SearchParamTableExpressionKind.Chain &&
+                        prev.Predicate is SqlChainLinkExpression chainLink)
+                    {
+                        foreach (var rt in chainLink.ResourceTypes)
+                        {
+                            if (model.TryGetResourceTypeId(rt, out var rtId))
                             {
-                                await Create(table, column, resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
+                                resourceTypeIds.Add(rtId);
                             }
                         }
                     }
+                }
+
+                // 3. Fall back to base resource types from SearchParameter definition
+                if (resourceTypeIds.Count == 0 && spe.Parameter.BaseResourceTypes?.Count > 0)
+                {
+                    foreach (var baseType in spe.Parameter.BaseResourceTypes)
+                    {
+                        if (model.TryGetResourceTypeId(baseType, out var rtId))
+                        {
+                            resourceTypeIds.Add(rtId);
+                        }
+                    }
+                }
+
+                // Skip if still none (cannot reliably pair)
+                if (resourceTypeIds.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (var rtId in resourceTypeIds)
+                {
+                    collected.Add((tableName, rtId, searchParamId));
+                }
+            }
+
+            private static void CollectResourceTypesFromExpression(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds)
+            {
+                switch (expression)
+                {
+                    case StringExpression se:
+                        if (model.TryGetResourceTypeId(se.Value, out var rtId))
+                        {
+                            resourceTypeIds.Add(rtId);
+                        }
+
+                        break;
+                    case MultiaryExpression me:
+                        foreach (var inner in me.Expressions)
+                        {
+                            CollectResourceTypesFromExpression(inner, model, resourceTypeIds);
+                        }
+
+                        break;
+                    case SearchParameterExpression innerSpe:
+                        CollectResourceTypesFromExpression(innerSpe.Expression, model, resourceTypeIds);
+                        break;
                 }
             }
 

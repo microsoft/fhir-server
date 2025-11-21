@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         new ScopeRestriction("Observation", DataActions.Read, "patient", new SearchParams("code2", "doo")),
                     },
                     new List<Tuple<string, string>>(),
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))]))",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo))]))",
                 };
                 yield return new object[]
                 {
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                         Tuple.Create("_type", "Patient,Observation,Practitioner"),
                         Tuple.Create("tag", "xyz"),
                     },
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))]) _type=Patient,Observation,Practitioner tag=xyz)",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo))]) _type=Patient,Observation,Practitioner tag=xyz)",
                 };
                 yield return new object[]
                 {
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     {
                         Tuple.Create("tag", "xyz"),
                     },
-                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code2=doo))]) tag=xyz)",
+                    "(And (Param ResourceType (StringEquals TokenCode 'Patient')) (Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Patient')) code1=foo) (And (Param ResourceType (StringEquals TokenCode 'Patient')) code2=goo))]) tag=xyz)",
                 };
                 yield return new object[]
                 {
@@ -134,7 +134,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 };
                 yield return new object[]
                 {
-                    // TODO: Check this one
                     "Patient",
                     new List<ScopeRestriction>
                     {
@@ -146,7 +145,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 };
                 yield return new object[]
                 {
-                    // TODO: Check this one
                     "Patient",
                     new List<ScopeRestriction>
                     {
