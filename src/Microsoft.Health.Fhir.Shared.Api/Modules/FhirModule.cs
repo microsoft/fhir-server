@@ -216,6 +216,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
 
             services.AddScoped<IDocRefRequestConverter, DocRefRequestConverter>();
+
+            services.TypesInSameAssembly(KnownAssemblies.All)
+                .AssignableTo<IInstantiateCapability>()
+                .Transient()
+                .AsService<IInstantiateCapability>();
+            services.AddFactory<IScoped<IEnumerable<IInstantiateCapability>>>();
         }
     }
 }
