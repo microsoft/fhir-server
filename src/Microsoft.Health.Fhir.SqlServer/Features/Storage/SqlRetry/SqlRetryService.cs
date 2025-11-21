@@ -423,11 +423,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
                 var logSB = new StringBuilder("Long running retrieve SQL connection. ");
-                var isReadOnlyConnection = isReadOnly ? "read-only " : string.Empty;
+                string isReadOnlyConnection;
 
                 if (!isReadOnly || !_coreFeatureConfiguration.SupportsSqlReplicas)
                 {
                     logSB.AppendLine("Not read only. ");
+                    isReadOnlyConnection = string.Empty;
                     conn = await sqlConnectionBuilder.GetSqlConnectionAsync(false, applicationName);
                 }
                 else
@@ -443,16 +444,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     else if (replicaTrafficRatio > 0.99)
                     {
+                        isReadOnlyConnection = "read-only ";
                         conn = await sqlConnectionBuilder.GetSqlConnectionAsync(true, applicationName);
                     }
                     else
                     {
                         var useWriteConnection = unchecked(Interlocked.Increment(ref _usageCounter)) % (int)(1 / (1 - _replicaTrafficRatio)) == 1; // examples for ratio -> % divider = { 0.9 -> 10, 0.8 -> 5, 0.75 - 4, 0.67 - 3, 0.5 -> 2, <0.5 -> 1}
-                        if (useWriteConnection)
-                        {
-                            isReadOnlyConnection = string.Empty;
-                        }
-
+                        isReadOnlyConnection = useWriteConnection ? string.Empty : "read-only ";
                         conn = await sqlConnectionBuilder.GetSqlConnectionAsync(!useWriteConnection, applicationName);
                     }
                 }
