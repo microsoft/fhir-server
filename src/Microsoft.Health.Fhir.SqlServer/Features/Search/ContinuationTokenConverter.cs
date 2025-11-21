@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             JsonTokenType.True => true,
             JsonTokenType.False => false,
             JsonTokenType.Null => null,
+            JsonTokenType.StartObject => JsonDocument.ParseValue(ref reader).ToString(),
             _ => throw new NotSupportedException(),
         };
 

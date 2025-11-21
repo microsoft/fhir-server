@@ -99,6 +99,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        /// <summary>
+        /// Initializes the continuation token from an array of tokens.
+        /// The tokens are expected to be in the following order:
+        /// 1. MatchResourceTypeId (short):                                 The resource type ID of the matched resources.
+        /// 2. MatchResourceSurrogateIdMin (long):                          The minimum surrogate ID of the matched resources.
+        /// 3. MatchResourceSurrogateIdMax (long):                          The maximum surrogate ID of the matched resources.
+        /// 4. IncludeResourceTypeId (short?):                              The resource type ID of the included resources.
+        /// 5. IncludeResourceSurrogateId (long?):                          The minimum surrogate ID of the included resources.
+        /// 6. SortQuerySecondPhase (bool?):                                Indicates if the sort query is in the second phase.
+        /// 7. SecondPhaseContinuationToken (IncludesContinuationToken?):   The continuation token for the second phase of the sort query. This is provided if the matched resources that generated this token were from both the first and second phases of a sort query.
+        ///
+        /// Tokens 1-3 are required, tokens 4-7 are optional.
+        /// 5 is required if 4 is present.
+        /// </summary>
         private void Initialize()
         {
             var initialized = false;

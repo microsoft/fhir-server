@@ -180,6 +180,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         secondPhaseIncludesSearchResult.UnsupportedSearchParameters,
                         includesContinuationToken: secondPhaseIncludesSearchResult.IncludesContinuationToken);
                 }
+                else if (includesSearchResult.Results.Count() >= sqlSearchOptions.IncludeCount
+                    && includesSearchResult.IncludesContinuationToken != null
+                    && includesContinuationToken.SecondPhaseContinuationToken != null)
+                {
+                    // We have reached the requested include count but there are more includes to be fetched.
+                    // We need to preserve the second phase continuation token.
+                    var newIncludesContinuationToken = IncludesContinuationToken.FromString(includesSearchResult.IncludesContinuationToken);
+
+                    var combinedIncludesContinuationToken = new IncludesContinuationToken(
+                        new object[]
+                        {
+                            newIncludesContinuationToken.MatchResourceTypeId,
+                            newIncludesContinuationToken.MatchResourceSurrogateIdMin,
+                            newIncludesContinuationToken.MatchResourceSurrogateIdMax,
+                            newIncludesContinuationToken.IncludeResourceTypeId,
+                            newIncludesContinuationToken.IncludeResourceSurrogateId,
+                            includesContinuationToken.SortQuerySecondPhase,
+                            includesContinuationToken.SecondPhaseContinuationToken,
+                        }).ToJson();
+                    includesSearchResult = new SearchResult(
+                        includesSearchResult.Results,
+                        includesSearchResult.ContinuationToken,
+                        includesSearchResult.SortOrder,
+                        includesSearchResult.UnsupportedSearchParameters,
+                        includesContinuationToken: combinedIncludesContinuationToken);
+                }
+                else if (includesSearchResult.Results.Count() >= sqlSearchOptions.IncludeCount
+                    && includesSearchResult.IncludesContinuationToken == null
+                    && includesContinuationToken.SecondPhaseContinuationToken != null)
+                {
+                    // We have reached the requested include count and there are no more includes to be fetched.
+                    // So the next page of results is from the second phase continuation token.
+
+                    includesSearchResult = new SearchResult(
+                        includesSearchResult.Results,
+                        includesSearchResult.ContinuationToken,
+                        includesSearchResult.SortOrder,
+                        includesSearchResult.UnsupportedSearchParameters,
+                        includesContinuationToken: includesContinuationToken.SecondPhaseContinuationToken.ToJson());
+                }
 
                 return includesSearchResult;
             }
@@ -229,7 +269,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         finalResultsInOrder.AddRange(searchResult.Results);
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
-                        sqlSearchOptions.IncludeCount -= searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Include);
+
+                        var includesCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Include);
+                        if (includesCount < sqlSearchOptions.IncludeCount)
+                        {
+                            sqlSearchOptions.IncludeCount -= includesCount;
+                        }
+                        else
+                        {
+                            // We need to run an include that gets at least one resource so that we can get a continuation token. This does viloate the includesCount parameter, there is a followup workitem to fix that:
+                            sqlSearchOptions.IncludeCount = 1;
+                        }
 
                         var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
