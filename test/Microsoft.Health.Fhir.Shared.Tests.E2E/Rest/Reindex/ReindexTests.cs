@@ -108,7 +108,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-
                 // Verify search parameter is working for Specimen (which has data)
                 // We expect at least the specimen records we created to be returned
                 await VerifySearchParameterIsWorkingAsync(
@@ -197,7 +196,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
-
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
@@ -342,7 +340,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
-
 
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
@@ -507,7 +504,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"First reindex job should complete successfully, but got {jobStatus1}");
                 System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
 
-
                 // Step 4: Verify the search parameter works by searching for the specimen
                 var searchQuery = $"Specimen?{searchParam.Code}=119295008";
                 await VerifySearchParameterIsWorkingAsync(
@@ -532,7 +528,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus2 == OperationStatus.Completed,
                     $"Second reindex job should complete successfully, but got {jobStatus2}");
                 System.Diagnostics.Debug.WriteLine("Second reindex job completed successfully");
-
 
                 // Step 7: Verify the search parameter is no longer supported
                 var postDeleteSearchResponse = await _fixture.TestFhirClient.SearchAsync(searchQuery);
