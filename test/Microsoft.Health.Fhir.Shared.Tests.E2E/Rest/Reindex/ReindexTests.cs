@@ -108,7 +108,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
 
                 // Verify search parameter is working for Specimen (which has data)
                 // We expect at least the specimen records we created to be returned
@@ -199,7 +198,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
@@ -272,7 +270,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"Expected Completed, got {jobStatus}");
 
                 // Add delay to allow search parameter cache to refresh
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
@@ -346,11 +343,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
 
                 // Verify both search parameters are working after reindex
-                await VerifySearchParameterIsWorkingAsync($"Specimen?{lowerCaseParam.Code}=119295008", lowerCaseParam.Code);
-                await VerifySearchParameterIsWorkingAsync($"Specimen?{upperCaseParam.Code}=available", upperCaseParam.Code);
+                await VerifySearchParameterIsWorkingAsync(
+                    $"Specimen?{lowerCaseParam.Code}=119295008",
+                    lowerCaseParam.Code);
+                await VerifySearchParameterIsWorkingAsync(
+                    $"Specimen?{upperCaseParam.Code}=available",
+                    upperCaseParam.Code);
             }
             finally
             {
@@ -419,8 +419,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await Task.Delay(5000); // Wait 5 seconds for cache refresh
 
                 // Verify both search parameters are working after reindex
-                await VerifySearchParameterIsWorkingAsync($"Specimen?{specimenTypeParam.Code}=119295008", specimenTypeParam.Code);
-                await VerifySearchParameterIsWorkingAsync($"Specimen?{specimenStatusParam.Code}=available", specimenStatusParam.Code);
+                await VerifySearchParameterIsWorkingAsync(
+                    $"Specimen?{specimenTypeParam.Code}=119295008",
+                    specimenTypeParam.Code);
+                await VerifySearchParameterIsWorkingAsync(
+                    $"Specimen?{specimenStatusParam.Code}=available",
+                    specimenStatusParam.Code);
             }
             finally
             {
@@ -503,7 +507,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"First reindex job should complete successfully, but got {jobStatus1}");
                 System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
 
                 // Step 4: Verify the search parameter works by searching for the specimen
                 var searchQuery = $"Specimen?{searchParam.Code}=119295008";
@@ -530,7 +533,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"Second reindex job should complete successfully, but got {jobStatus2}");
                 System.Diagnostics.Debug.WriteLine("Second reindex job completed successfully");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
 
                 // Step 7: Verify the search parameter is no longer supported
                 var postDeleteSearchResponse = await _fixture.TestFhirClient.SearchAsync(searchQuery);
@@ -675,6 +677,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Id = id,
                 Status = Specimen.SpecimenStatus.Available,
                 Type = new CodeableConcept("http://snomed.info/sct", "119295008", "Specimen"),
+                Subject = new ResourceReference($"Patient/{id}"),
             };
 
             // Return the specimen object without posting - bundle transaction will handle the post
@@ -847,6 +850,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
         private async Task<System.Net.Http.HttpResponseMessage> CancelReindexJobAsync(Uri jobUri)
         {
+            // First check the current status of the job
+            try
+            {
+                var jobResponse = await _fixture.TestFhirClient.CheckJobAsync(jobUri);
+
+                if (jobResponse.Resource?.Parameter != null)
+                {
+                    var statusParam = jobResponse.Resource.Parameter
+                        .FirstOrDefault(p => p.Name == "status");
+
+                    if (statusParam?.Value != null)
+                    {
+                        string statusString = null;
+
+                        // Handle both FhirString and Code value types
+                        if (statusParam.Value is FhirString fhirString)
+                        {
+                            statusString = fhirString.Value;
+                        }
+                        else if (statusParam.Value is Code code)
+                        {
+                            statusString = code.Value;
+                        }
+
+                        if (!string.IsNullOrEmpty(statusString) &&
+                            Enum.TryParse<OperationStatus>(statusString, true, out var status))
+                        {
+                            // If job is already in a terminal state, no need to cancel
+                            if (status == OperationStatus.Completed ||
+                                status == OperationStatus.Canceled ||
+                                status == OperationStatus.Failed)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Job already in terminal state: {status}. Skipping cancellation.");
+                                return null;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to check job status before cancellation: {ex.Message}");
+
+                // Continue with cancellation attempt even if status check fails
+            }
+
+            // Job is not in a terminal state, proceed with cancellation
             using var request = new System.Net.Http.HttpRequestMessage
             {
                 Method = System.Net.Http.HttpMethod.Delete,
@@ -870,7 +920,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         /// <summary>
-        /// Verifies that a search parameter is properly indexed and working by executing a search query.
+        /// Verifies that a search parameter is properly indexed and working by executing a search query with retry logic.
+        /// Retries handle timing issues with search parameter cache refresh after reindex operations.
         /// If the search parameter is not indexed, the response will contain an OperationOutcome with code "NotSupported".
         /// This method ensures the search parameter is fully functional after reindex operations and validates
         /// that the expected records are returned (or not found, depending on the scenario).
@@ -883,124 +934,148 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// <param name="expectedResourceType">The resource type being searched for (e.g., "Patient")</param>
         /// <param name="shouldFindRecords">Whether we expect to find records. True if data should be returned, false if expecting empty result</param>
         /// <param name="expectedCount">Optional. The minimum number of records expected to be found. If not specified, any count > 0 is acceptable when shouldFindRecords is true</param>
+        /// <param name="maxRetries">Maximum number of retry attempts if the search parameter is not ready</param>
+        /// <param name="retryDelayMs">Delay in milliseconds between retry attempts</param>
         private async Task VerifySearchParameterIsWorkingAsync(
             string searchQuery,
             string searchParameterCode,
             string expectedResourceType = null,
             bool shouldFindRecords = true,
-            int? expectedCount = null)
+            int? expectedCount = null,
+            int maxRetries = 3,
+            int retryDelayMs = 20000)
         {
-            try
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                // Determine optimal page size based on expected count
-                // If we expect a specific count, request that many plus a buffer
-                // Otherwise use a reasonable default to minimize additional calls
-                int pageSize = expectedCount.HasValue
-                    ? Math.Min(expectedCount.Value + 10, 1000)
-                    : 50;
-
-                // Add _count parameter to control pagination
-                var queryWithCount = searchQuery.Contains("?")
-                    ? $"{searchQuery}&_count={pageSize}"
-                    : $"{searchQuery}?_count={pageSize}";
-
-                var allResourcesFound = new List<Bundle.EntryComponent>();
-                string nextLink = queryWithCount;
-                int pageCount = 0;
-                int totalEntriesRetrieved = 0;
-
-                System.Diagnostics.Debug.WriteLine(
-                    $"Search parameter {searchParameterCode} - starting search with page size {pageSize}. Expected count: {(expectedCount.HasValue ? $"at least {expectedCount.Value}" : "any > 0")}");
-
-                // Follow pagination until we get all results
-                while (!string.IsNullOrEmpty(nextLink))
+                try
                 {
-                    pageCount++;
-                    System.Diagnostics.Debug.WriteLine($"Search parameter {searchParameterCode} - fetching page {pageCount}");
+                    // Determine optimal page size based on expected count
+                    // If we expect a specific count, request that many plus a buffer
+                    // Otherwise use a reasonable default to minimize additional calls
+                    int pageSize = expectedCount.HasValue
+                        ? Math.Min(expectedCount.Value + 10, 1000)
+                        : 50;
 
-                    var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextLink);
-                    Assert.NotNull(searchResponse);
+                    // Add _count parameter to control pagination
+                    var queryWithCount = searchQuery.Contains("?")
+                        ? $"{searchQuery}&_count={pageSize}"
+                        : $"{searchQuery}?_count={pageSize}";
 
-                    // Verify the search parameter is supported (no "NotSupported" in the response)
-                    var hasNotSupportedError = HasNotSupportedError(searchResponse.Resource);
+                    var allResourcesFound = new List<Bundle.EntryComponent>();
+                    string nextLink = queryWithCount;
+                    int pageCount = 0;
+                    int totalEntriesRetrieved = 0;
 
-                    Assert.False(
-                        hasNotSupportedError,
-                        $"Search parameter {searchParameterCode} should be supported after reindex for {expectedResourceType}. Got 'NotSupported' error in response.");
-
-                    // Collect all entries from this page
-                    if (searchResponse.Resource?.Entry != null)
-                    {
-                        allResourcesFound.AddRange(searchResponse.Resource.Entry);
-                        totalEntriesRetrieved += searchResponse.Resource.Entry.Count;
-                    }
-
-                    // Check if there's a next link for pagination
-                    nextLink = searchResponse.Resource?.NextLink?.OriginalString;
                     System.Diagnostics.Debug.WriteLine(
-                        $"Search parameter {searchParameterCode} - page {pageCount} returned {searchResponse.Resource?.Entry?.Count ?? 0} entries (total so far: {totalEntriesRetrieved}). Next link: {(string.IsNullOrEmpty(nextLink) ? "none" : "present")}");
+                        $"Search parameter {searchParameterCode} - attempt {attempt} of {maxRetries}, starting search with page size {pageSize}. Expected count: {(expectedCount.HasValue ? $"at least {expectedCount.Value}" : "any > 0")}");
 
-                    // Optimization: Stop pagination early if we've found enough records
-                    if (expectedCount.HasValue && totalEntriesRetrieved >= expectedCount.Value && string.IsNullOrEmpty(nextLink))
+                    // Follow pagination until we get all results
+                    while (!string.IsNullOrEmpty(nextLink))
                     {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"Search parameter {searchParameterCode} - reached expected count ({expectedCount.Value}) without additional pages needed");
-                        break;
-                    }
-                }
+                        pageCount++;
+                        System.Diagnostics.Debug.WriteLine($"Search parameter {searchParameterCode} - fetching page {pageCount}");
 
-                System.Diagnostics.Debug.WriteLine(
-                    $"Search parameter {searchParameterCode} is working - search executed successfully without 'NotSupported' error. Total pages fetched: {pageCount}, Total entries retrieved: {totalEntriesRetrieved}");
+                        var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextLink);
+                        Assert.NotNull(searchResponse);
 
-                // Validate record expectations if specified
-                if (!string.IsNullOrEmpty(expectedResourceType))
-                {
-                    var resourcesFound = allResourcesFound
-                        .Where(e => e.Resource?.TypeName == expectedResourceType)
-                        .ToList();
+                        // Verify the search parameter is supported (no "NotSupported" in the response)
+                        var hasNotSupportedError = HasNotSupportedError(searchResponse.Resource);
 
-                    if (shouldFindRecords)
-                    {
-                        Assert.NotEmpty(resourcesFound);
-                        Assert.True(
-                            resourcesFound.Count > 0,
-                            $"Expected to find {expectedResourceType} records for search parameter {searchParameterCode}, but none were returned.");
+                        Assert.False(
+                            hasNotSupportedError,
+                            $"Search parameter {searchParameterCode} should be supported after reindex for {expectedResourceType}. Got 'NotSupported' error in response.");
 
-                        // If expectedCount is specified, validate we have at least that many
-                        if (expectedCount.HasValue)
+                        // Collect all entries from this page
+                        if (searchResponse.Resource?.Entry != null)
                         {
-                            Assert.True(
-                                resourcesFound.Count >= expectedCount.Value,
-                                $"Expected to find at least {expectedCount.Value} {expectedResourceType} records for search parameter {searchParameterCode}, but found {resourcesFound.Count}.");
+                            allResourcesFound.AddRange(searchResponse.Resource.Entry);
+                            totalEntriesRetrieved += searchResponse.Resource.Entry.Count;
+                        }
+
+                        // Check if there's a next link for pagination
+                        nextLink = searchResponse.Resource?.NextLink?.OriginalString;
+                        System.Diagnostics.Debug.WriteLine(
+                            $"Search parameter {searchParameterCode} - page {pageCount} returned {searchResponse.Resource?.Entry?.Count ?? 0} entries (total so far: {totalEntriesRetrieved}). Next link: {(string.IsNullOrEmpty(nextLink) ? "none" : "present")}");
+
+                        // Optimization: Stop pagination early if we've found enough records
+                        if (expectedCount.HasValue && totalEntriesRetrieved >= expectedCount.Value && string.IsNullOrEmpty(nextLink))
+                        {
                             System.Diagnostics.Debug.WriteLine(
-                                $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) (expected at least {expectedCount.Value}) across {pageCount} page(s)");
+                                $"Search parameter {searchParameterCode} - reached expected count ({expectedCount.Value}) without additional pages needed");
+                            break;
+                        }
+                    }
+
+                    System.Diagnostics.Debug.WriteLine(
+                        $"Search parameter {searchParameterCode} is working - search executed successfully without 'NotSupported' error on attempt {attempt}. Total pages fetched: {pageCount}, Total entries retrieved: {totalEntriesRetrieved}");
+
+                    // Validate record expectations if specified
+                    if (!string.IsNullOrEmpty(expectedResourceType))
+                    {
+                        var resourcesFound = allResourcesFound
+                            .Where(e => e.Resource?.TypeName == expectedResourceType)
+                            .ToList();
+
+                        if (shouldFindRecords)
+                        {
+                            Assert.NotEmpty(resourcesFound);
+                            Assert.True(
+                                resourcesFound.Count > 0,
+                                $"Expected to find {expectedResourceType} records for search parameter {searchParameterCode}, but none were returned.");
+
+                            // If expectedCount is specified, validate we have at least that many
+                            if (expectedCount.HasValue)
+                            {
+                                Assert.True(
+                                    resourcesFound.Count >= expectedCount.Value,
+                                    $"Expected to find at least {expectedCount.Value} {expectedResourceType} records for search parameter {searchParameterCode}, but found {resourcesFound.Count}.");
+                                System.Diagnostics.Debug.WriteLine(
+                                    $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) (expected at least {expectedCount.Value}) across {pageCount} page(s)");
+                            }
+                            else
+                            {
+                                System.Diagnostics.Debug.WriteLine(
+                                    $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) across {pageCount} page(s)");
+                            }
                         }
                         else
                         {
+                            Assert.Empty(resourcesFound);
+                            Assert.True(
+                                resourcesFound.Count == 0,
+                                $"Expected no {expectedResourceType} records for search parameter {searchParameterCode}, but found {resourcesFound.Count}.");
                             System.Diagnostics.Debug.WriteLine(
-                                $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) across {pageCount} page(s)");
+                                $"Search parameter {searchParameterCode} correctly returned no {expectedResourceType} records");
                         }
                     }
-                    else
+
+                    // Log the successful search query for reference
+                    System.Diagnostics.Debug.WriteLine($"Search query: {searchQuery} executed successfully on attempt {attempt} across {pageCount} page(s).");
+
+                    // Success - return without retrying
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+
+                    if (attempt < maxRetries)
                     {
-                        Assert.Empty(resourcesFound);
-                        Assert.True(
-                            resourcesFound.Count == 0,
-                            $"Expected no {expectedResourceType} records for search parameter {searchParameterCode}, but found {resourcesFound.Count}.");
                         System.Diagnostics.Debug.WriteLine(
-                            $"Search parameter {searchParameterCode} correctly returned no {expectedResourceType} records");
+                            $"Search parameter {searchParameterCode} verification failed on attempt {attempt} of {maxRetries}. " +
+                            $"Retrying in {retryDelayMs}ms. Error: {ex.Message}");
+
+                        await Task.Delay(retryDelayMs);
                     }
                 }
+            }
 
-                // Log the successful search query for reference
-                System.Diagnostics.Debug.WriteLine($"Search query: {searchQuery} executed successfully across {pageCount} page(s).");
-            }
-            catch (Exception ex)
-            {
-                throw new Xunit.Sdk.XunitException(
-                    $"Search parameter {searchParameterCode} should be usable after reindex. Error: {ex.Message}",
-                    ex);
-            }
+            // All retries exhausted, throw the last exception with context
+            throw new Xunit.Sdk.XunitException(
+                $"Search parameter {searchParameterCode} should be usable after reindex (failed after {maxRetries} attempts). Error: {lastException?.Message}",
+                lastException);
         }
 
         /// <summary>
@@ -1051,7 +1126,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             System.Diagnostics.Debug.WriteLine($"Creating {resourcesToCreate} {resourceType} resources to reach desired count of {desiredCount}...");
 
             // Create resources in batches using parallel individual creates for better performance
-            const int batchSize = 500; // Process 100 resources at a time in parallel
+            const int batchSize = 500; // Process 500 resources at a time in parallel
             int totalCreated = 0;
 
             for (int batchStart = 0; batchStart < resourcesToCreate; batchStart += batchSize)
@@ -1091,7 +1166,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 {
                     System.Diagnostics.Debug.WriteLine($"Failed to create batch at offset {batchStart}: {ex.Message}");
 
-                    // Continue with next batch instead of failing completely
+                    throw;
                 }
             }
 
