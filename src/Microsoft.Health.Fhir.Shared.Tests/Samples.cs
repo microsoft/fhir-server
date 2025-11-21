@@ -6,6 +6,7 @@
 using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -178,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
                     Method = Bundle.HTTPVerb.PUT,
                     Url = "Patient",
                 },
-                Resource = GetDefaultPatient().Instance.ToPoco<Patient>(),
+                Resource = GetDefaultPatient().ToPoco<Patient>(),
             });
 
             return bundle;
@@ -196,8 +197,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public static ResourceElement GetJsonSample(string fileName)
         {
             var fhirSource = GetJson(fileName);
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            return parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
+            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            return parser.DeserializeResource(fhirSource).ToPocoNode().ToResourceElement();
         }
 
         /// <summary>
@@ -205,15 +206,22 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// </summary>
         /// <typeparam name="T">The resource type.</typeparam>
         /// <param name="fileName">The JSON filename, omit the extension</param>
-        public static T GetJsonSample<T>(string fileName)
+        public static T GetJsonFhirSample<T>(string fileName)
+            where T : Hl7.Fhir.Model.Base
         {
             var json = GetJson(fileName);
             if (typeof(Resource).IsAssignableFrom(typeof(T)))
             {
-                var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-                return (T)(object)parser.Parse(json, typeof(T));
+                var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+                return parser.Deserialize<T>(json);
             }
 
+            return JsonConvert.DeserializeObject<T>(json);
+        }
+
+        public static T GetJsonSample<T>(string fileName)
+        {
+            var json = GetJson(fileName);
             return JsonConvert.DeserializeObject<T>(json);
         }
 
@@ -224,8 +232,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public static Resource GetXmlSample(string fileName)
         {
             var fhirSource = GetXml(fileName);
-            var parser = new Hl7.Fhir.Serialization.FhirXmlParser();
-            return parser.Parse<Resource>(fhirSource);
+            var parser = new Hl7.Fhir.Serialization.FhirXmlDeserializer();
+            return parser.DeserializeResource(fhirSource);
         }
 
         /// <summary>

@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
-                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition.reference")
-                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
+                ? capabilityStatement.Resource.ToPocoNode().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition.reference")
+                : capabilityStatement.Resource.ToPocoNode().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
 
             Assert.Equal(OperationsConstants.PatientEverythingUri, operationDefinition.ToString());
         }

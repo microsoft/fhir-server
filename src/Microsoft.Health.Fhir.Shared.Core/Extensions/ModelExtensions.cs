@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return resource.ToTypedElement().ToResourceElement();
+            return resource.ToResourceElement();
         }
 
         public static ResourceElement ToResourceElement(this RawResourceElement resource, ResourceDeserializer deserializer)
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return (T)resource.ResourceInstance ?? resource.Instance.ToPoco<T>();
+            return (T)resource.ResourceInstance ?? (T)resource.Instance.Poco;
         }
 
         public static Resource ToPoco(this ResourceElement resource)

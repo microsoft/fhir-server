@@ -318,7 +318,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 // NOTE: Just checking if the Expansion property is not null or empty for now.
                 // (LocalTerminologyService doesn't seem to support basic parameters like 'offset' and 'count'.)
                 Assert.NotNull(valueSet.Expansion);
-                Assert.NotEmpty(valueSet.Expansion);
+                Assert.NotEmpty(valueSet.Expansion.Contains);
             }
             else
             {

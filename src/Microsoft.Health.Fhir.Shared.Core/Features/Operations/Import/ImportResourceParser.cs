@@ -5,11 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
 using EnsureThat;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -20,14 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceParser : IImportResourceParser
     {
-        private static readonly Regex ResourceIdValidationRegex = new Regex(
-            "^[A-Za-z0-9\\-\\.]{1,64}$",
-            RegexOptions.Compiled);
-
-        private FhirJsonParser _parser;
+        private FhirJsonDeserializer _parser;
         private IResourceWrapperFactory _resourceFactory;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        public ImportResourceParser(FhirJsonDeserializer parser, IResourceWrapperFactory resourceFactory)
         {
             _parser = EnsureArg.IsNotNull(parser, nameof(parser));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
@@ -35,8 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            var resource = _parser.Parse<Resource>(rawResource);
-            ValidateResourceId(resource?.Id);
+            var resource = _parser.DeserializeResource(rawResource);
             CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)
@@ -92,14 +87,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
-            }
-        }
-
-        private static void ValidateResourceId(string resourceId)
-        {
-            if (string.IsNullOrWhiteSpace(resourceId) || !ResourceIdValidationRegex.IsMatch(resourceId))
-            {
-                throw new BadRequestException($"Invalid resource id: '{resourceId ?? "null or empty"}'. " + Core.Resources.IdRequirements);
             }
         }
     }

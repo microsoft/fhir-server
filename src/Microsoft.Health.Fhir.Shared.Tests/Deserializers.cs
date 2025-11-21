@@ -15,18 +15,16 @@ namespace Microsoft.Health.Fhir.Tests.Common
 {
     public static class Deserializers
     {
-#pragma warning disable CS0618 // Type or member is obsolete
-        private static readonly FhirJsonParser JsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
-#pragma warning restore CS0618 // Type or member is obsolete
+        private static readonly FhirJsonDeserializer JsonParser = new FhirJsonDeserializer();
 
         public static ResourceDeserializer ResourceDeserializer => new ResourceDeserializer((FhirResourceFormat.Json, ConvertJson));
 
         private static ResourceElement ConvertJson(string str, string version, DateTimeOffset lastModified)
         {
-            var resource = JsonParser.Parse<Resource>(str);
+            var resource = JsonParser.DeserializeResource(str);
             resource.VersionId = version;
             resource.Meta.LastUpdated = lastModified;
-            return resource.ToTypedElement().ToResourceElement();
+            return resource.ToPocoNode().ToResourceElement();
         }
     }
 }

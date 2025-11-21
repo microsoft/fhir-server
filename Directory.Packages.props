@@ -2,7 +2,7 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>10.0.68</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
+    <Hl7FhirVersion>6.0.1</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>9.0.6</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
@@ -60,6 +60,10 @@
     <PackageVersion Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.R5" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Firely.Fhir.Validation.STU3" Version="3.0.0" />
+    <PackageVersion Include="Firely.Fhir.Validation.R4" Version="3.0.0" />
+    <PackageVersion Include="Firely.Fhir.Validation.R4B" Version="3.0.0" />
+    <PackageVersion Include="Firely.Fhir.Validation.R5" Version="3.0.0" />
     <PackageVersion Include="MediatR" Version="12.5.0" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />

@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             {
                 Assert.Equal(nameof(OperationOutcome), fhirResult.Result.InstanceType);
                 Assert.Equal(HttpStatusCode.OK, fhirResult.StatusCode);
-                var resource = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+                var resource = ((ResourceElement)fhirResult.Result).ToPoco<OperationOutcome>();
                 Assert.Contains(
                     resource.Issue,
                     x => string.Equals(operationOutcomeMessage, x.Diagnostics, StringComparison.Ordinal) && string.Equals(operationOutcomeMessage, x.Details?.Text, StringComparison.Ordinal));

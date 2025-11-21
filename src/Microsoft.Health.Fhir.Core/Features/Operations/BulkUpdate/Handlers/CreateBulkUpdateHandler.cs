@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             {
                 // Remove all parts except the type part
                 Hl7.Fhir.Model.Parameters.ParameterComponent typePart = parameter.Part.FirstOrDefault(p => p.Name.Equals("type", StringComparison.OrdinalIgnoreCase));
-                var operationValue = typePart.Value.Select(x => x.Value).First().ToString();
+                var operationValue = (typePart.Value as FhirString)?.Value ?? typePart.Value?.ToString();
                 if (!_bulkUpdateSupportedOperations.Any(op => op.Equals(operationValue, StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new BadRequestException("Bulk update only supports Replace or Upsert operation types");

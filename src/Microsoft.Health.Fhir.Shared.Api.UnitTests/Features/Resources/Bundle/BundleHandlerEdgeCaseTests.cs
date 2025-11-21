@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
 
             var fhirJsonSerializer = new FhirJsonSerializer();
-            var fhirJsonParser = new FhirJsonParser();
+            var fhirJsonParser = new FhirJsonDeserializer();
 
             ISearchService searchService = Substitute.For<ISearchService>();
             var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
