@@ -10,6 +10,8 @@
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\Export\ExportAnonymizerTests.cs" Link="Features\Export\ExportAnonymizerTests.cs" />  
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Hl7.Fhir.Specification.Data.Stu3" IncludeAssets="contentFiles" />
+    <PackageReference Include="Hl7.Fhir.Validation.Legacy.Stu3" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
