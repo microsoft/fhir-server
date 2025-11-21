@@ -149,11 +149,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     else
                     {
                         // Otherwise, no search parameters with a matching uri exist
-                        // Ensure this isn't a request to modify an existing parameter
-                        if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase) ||
-                            method.Equals(HttpDeleteName, StringComparison.OrdinalIgnoreCase))
+                        // PUT is allowed to create new resources (upsert behavior)
+                        // Ensure this isn't a DELETE request for a non-existing parameter
+                        if (method.Equals(HttpDeleteName, StringComparison.OrdinalIgnoreCase))
                         {
-                            _logger.LogInformation("Requested to modify an existing Search parameter but Search parameter definition does not exist. url: {Url}", searchParam.Url);
+                            _logger.LogInformation("Requested to delete a Search parameter but Search parameter definition does not exist. url: {Url}", searchParam.Url);
                             validationFailures.Add(
                                 new ValidationFailure(
                                     nameof(searchParam.Url),
