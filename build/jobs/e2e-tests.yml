@@ -7,7 +7,7 @@ parameters:
   type: string
 - name: categoryFilter
   type: string
-  default: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
+  default: 'Category!=ExportLongRunning'
 - name: testRunTitleSuffix
   type: string
   default: ''

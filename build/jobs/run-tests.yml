@@ -181,21 +181,6 @@ jobs:
       appServiceName: ${{ parameters.appServiceName }}
       appServiceType: 'CosmosDb'
 
-- job: 'cosmosE2eTests_Reindex'
-  dependsOn: []
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      appServiceName: ${{ parameters.appServiceName }}
-      appServiceType: 'CosmosDb'
-      categoryFilter: 'Category=IndexAndReindex'
-      testRunTitleSuffix: ' - Reindex'
-
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
@@ -208,18 +193,3 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: '${{ parameters.appServiceName }}-sql'
       appServiceType: 'SqlServer'
-
-- job: 'sqlE2eTests_Reindex'
-  dependsOn: []
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      appServiceName: '${{ parameters.appServiceName }}-sql'
-      appServiceType: 'SqlServer'
-      categoryFilter: 'Category=IndexAndReindex'
-      testRunTitleSuffix: ' - Reindex'
