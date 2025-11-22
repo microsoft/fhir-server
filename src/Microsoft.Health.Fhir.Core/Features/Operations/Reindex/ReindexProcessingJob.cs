@@ -74,14 +74,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
-            ValidateSearchParametersHash(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
+            await ValidateSearchParametersHashAsync(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
 
             await ProcessQueryAsync(cancellationToken);
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
 
-        private void ValidateSearchParametersHash(JobInfo jobInfo, ReindexProcessingJobDefinition jobDefinition, CancellationToken cancellationToken)
+        private async Task ValidateSearchParametersHashAsync(JobInfo jobInfo, ReindexProcessingJobDefinition jobDefinition, CancellationToken cancellationToken)
         {
             string currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
 
@@ -90,29 +90,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
             {
-                _logger.LogJobError(
+                _logger.LogJobWarning(
                     jobInfo,
-                    "Search parameters for resource type {ResourceType} have changed since the Reindex Job was created. Job definition hash: '{CurrentHash}', In-memory hash: '{JobHash}'.",
+                    "Search parameters for resource type {ResourceType} have changed since the Reindex Job was created. Job definition hash: '{JobHash}', In-memory hash: '{CurrentHash}'. Attempting to refresh search parameters.",
                     jobDefinition.ResourceType,
                     jobDefinition.ResourceTypeSearchParameterHashMap,
                     currentResourceTypeHash);
 
-                string message = "Search Parameter hash does not match. Resubmit reindex job to try again.";
+                // Attempt to get and apply the latest search parameter updates
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
 
-                // Create error object to provide structured error information
-                var errorObject = new
+                // Re-check the hash after updating
+                currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
+
+                // If the hash still doesn't match after the update, fail the job
+                if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
                 {
-                    message = message,
-                    resourceType = jobDefinition.ResourceType,
-                    jobDefinitionHash = jobDefinition.ResourceTypeSearchParameterHashMap,
-                    currentHash = currentResourceTypeHash,
-                    jobId = jobInfo.Id,
-                    groupId = jobInfo.GroupId,
-                };
+                    _logger.LogJobError(
+                        jobInfo,
+                        "Search parameters for resource type {ResourceType} still do not match after refresh. Job definition hash: '{JobHash}', In-memory hash: '{CurrentHash}'.",
+                        jobDefinition.ResourceType,
+                        jobDefinition.ResourceTypeSearchParameterHashMap,
+                        currentResourceTypeHash);
 
-                _reindexProcessingJobResult.FailedResourceCount = jobDefinition.ResourceCount.Count;
+                    string message = "Search Parameter hash does not match. Resubmit reindex job to try again.";
 
-                throw new ReindexProcessingJobSoftException(message, errorObject, isCustomerCaused: true);
+                    // Create error object to provide structured error information
+                    var errorObject = new
+                    {
+                        message = message,
+                        resourceType = jobDefinition.ResourceType,
+                        jobDefinitionHash = jobDefinition.ResourceTypeSearchParameterHashMap,
+                        currentHash = currentResourceTypeHash,
+                        jobId = jobInfo.Id,
+                        groupId = jobInfo.GroupId,
+                    };
+
+                    _reindexProcessingJobResult.FailedResourceCount = jobDefinition.ResourceCount.Count;
+
+                    throw new ReindexProcessingJobSoftException(message, errorObject, isCustomerCaused: true);
+                }
+                else
+                {
+                    _logger.LogJobInformation(
+                        jobInfo,
+                        "Search parameters for resource type {ResourceType} successfully refreshed. Hash now matches: '{CurrentHash}'.",
+                        jobDefinition.ResourceType,
+                        currentResourceTypeHash);
+                }
             }
         }
 
