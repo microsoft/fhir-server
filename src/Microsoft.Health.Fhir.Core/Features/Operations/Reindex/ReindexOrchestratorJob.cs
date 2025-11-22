@@ -149,10 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _currentResult.CreatedJobs = queryReindexProcessingJobs.Count;
 
-                if (queryReindexProcessingJobs.Any())
-                {
-                    await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
-                }
+                await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
