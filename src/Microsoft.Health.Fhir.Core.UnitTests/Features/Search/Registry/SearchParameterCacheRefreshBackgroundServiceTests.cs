@@ -307,6 +307,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
 
+            // Use a short refresh interval (1 second) to ensure timer fires quickly
+            var config = new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+            };
+            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            options.Value.Returns(config);
+
             // Set up the status manager to throw OperationCanceledException
             _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
                 .Returns<Task<bool>>(_ => throw new OperationCanceledException());
@@ -314,14 +322,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _coreFeatureConfiguration,
+                options,
                 mockLogger);
 
             // Act - Initialize and let timer run
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Wait for timer to fire and handle the exception
-            await Task.Delay(200);
+            // Wait longer for timer to fire and handle the exception - give it up to 2 seconds
+            // The timer starts immediately (TimeSpan.Zero) when Handle is called
+            await Task.Delay(2000);
 
             // Assert - Verify that OperationCanceledException was handled and logged appropriately
             mockLogger.Received().Log(

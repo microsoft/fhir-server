@@ -39,7 +39,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// The continuation token for the search results
         /// </summary>
-        [JsonIgnore]
         public string ContinuationToken { get; set; }
 
         /// <summary>
