@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -35,6 +36,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
+            // Cancel any running reindex jobs before starting this test
+            await CancelAnyRunningReindexJobsAsync();
+
             // Scenario 1: Test that search parameter status is only updated when ALL jobs complete successfully
             // This tests both zero-count and non-zero-count resource scenarios with multiple resource types
             var mixedBaseSearchParam = new SearchParameter();
@@ -138,11 +142,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 // Cleanup all test data including resources and search parameters
                 System.Diagnostics.Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
-                if (value.jobUri != null)
-                {
-                   await CancelReindexJobAsync(value.jobUri);
-                }
-
                 await CleanupTestDataAsync(testResources, mixedBaseSearchParam, personSearchParam);
                 System.Diagnostics.Debug.WriteLine("Cleanup completed");
             }
@@ -151,6 +150,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenReindexJobWithResourceAndAddedAfterSingleCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParameterShouldWork()
         {
+            // Cancel any running reindex jobs before starting this test
+            await CancelAnyRunningReindexJobsAsync();
+
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -208,11 +210,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             finally
             {
                 // Cleanup all test data including resources and search parameters
-                if (value.jobUri != null)
-                {
-                    await CancelReindexJobAsync(value.jobUri);
-                }
-
                 await CleanupTestDataAsync(testResources, specimenSearchParam, immunizationSearchParam);
             }
         }
@@ -220,6 +217,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenReindexJobWithResourceAndAddedAfterMultiCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
+            // Cancel any running reindex jobs before starting this test
+            await CancelAnyRunningReindexJobsAsync();
+
             // Scenario 2: Test that search parameter with invalid expression fails indexing
             // This validates that indexing failures prevent status updates
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -280,11 +280,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             finally
             {
                 // Cleanup all test data including resources and search parameters
-                if (value.jobUri != null)
-                {
-                    await CancelReindexJobAsync(value.jobUri);
-                }
-
                 await CleanupTestDataAsync(testResources, specimenSearchParam, immunizationSearchParam);
             }
         }
@@ -292,6 +287,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenBothHaveSameStatus_ThenBothShouldBeProcessedCorrectly()
         {
+            // Cancel any running reindex jobs before starting this test
+            await CancelAnyRunningReindexJobsAsync();
+
             // Scenario 3a: Case variant search parameter URLs with same status (Supported, Supported)
             // Both should be treated as separate entries and processed correctly
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -352,11 +350,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             finally
             {
                 // Cleanup all test data including resources and search_parameters
-                if (value.jobUri != null)
-                {
-                    await CancelReindexJobAsync(value.jobUri);
-                }
-
                 await CleanupTestDataAsync(testResources, lowerCaseParam, upperCaseParam);
             }
         }
@@ -364,6 +357,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork()
         {
+            // Cancel any running reindex jobs before starting this test
+            await CancelAnyRunningReindexJobsAsync();
+
             // Scenario 3b: Case variant search parameter URLs with different statuses
             // Verify both are set to the correct status when all jobs complete
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -426,11 +422,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             finally
             {
                 // Cleanup all test data including resources and search parameters
-                if (value.jobUri != null)
-                {
-                    await CancelReindexJobAsync(value.jobUri);
-                }
-
                 await CleanupTestDataAsync(testResources, specimenTypeParam, specimenStatusParam);
             }
         }
@@ -438,6 +429,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported()
         {
+            // Cancel any running reindex jobs before starting this test
+            await CancelAnyRunningReindexJobsAsync();
+
             // Comprehensive lifecycle test:
             // 1. Create a Specimen record with specific data
             // 2. Add a custom search parameter
@@ -545,16 +539,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             finally
             {
                 // Cleanup any remaining resources
-                if (reindexRequest1.jobUri != null)
-                {
-                    await CancelReindexJobAsync(reindexRequest1.jobUri);
-                }
-
-                if (reindexRequest2.jobUri != null)
-                {
-                    await CancelReindexJobAsync(reindexRequest2.jobUri);
-                }
-
                 await CleanupTestDataAsync(testResources, searchParam);
             }
         }
@@ -843,64 +827,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return lastStatus;
         }
 
-        private async Task<System.Net.Http.HttpResponseMessage> CancelReindexJobAsync(Uri jobUri)
-        {
-            // First check the current status of the job
-            try
-            {
-                var jobResponse = await _fixture.TestFhirClient.CheckJobAsync(jobUri);
-
-                if (jobResponse.Resource?.Parameter != null)
-                {
-                    var statusParam = jobResponse.Resource.Parameter
-                        .FirstOrDefault(p => p.Name == "status");
-
-                    if (statusParam?.Value != null)
-                    {
-                        string statusString = null;
-
-                        // Handle both FhirString and Code value types
-                        if (statusParam.Value is FhirString fhirString)
-                        {
-                            statusString = fhirString.Value;
-                        }
-                        else if (statusParam.Value is Code code)
-                        {
-                            statusString = code.Value;
-                        }
-
-                        if (!string.IsNullOrEmpty(statusString) &&
-                            Enum.TryParse<OperationStatus>(statusString, true, out var status))
-                        {
-                            // If job is already in a terminal state, no need to cancel
-                            if (status == OperationStatus.Completed ||
-                                status == OperationStatus.Canceled ||
-                                status == OperationStatus.Failed)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"Job already in terminal state: {status}. Skipping cancellation.");
-                                return null;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to check job status before cancellation: {ex.Message}");
-
-                // Continue with cancellation attempt even if status check fails
-            }
-
-            // Job is not in a terminal state, proceed with cancellation
-            using var request = new System.Net.Http.HttpRequestMessage
-            {
-                Method = System.Net.Http.HttpMethod.Delete,
-                RequestUri = jobUri,
-            };
-
-            return await _fixture.TestFhirClient.HttpClient.SendAsync(request);
-        }
-
         /// <summary>
         /// Checks if a search response contains a "NotSupported" error in an OperationOutcome.
         /// This indicates that a search parameter is not supported (likely because it was deleted or failed to index).
@@ -1170,6 +1096,117 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} resources. Final {resourceType} count: {finalCount}");
 
             return (createdResources, finalCount);
+        }
+
+        /// <summary>
+        /// Checks for any running reindex jobs and cancels them before starting a new test.
+        /// This ensures test isolation and prevents conflicts between concurrent reindex operations.
+        /// Uses GET $reindex to check for active jobs (works for both SQL Server and Cosmos DB).
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        private async Task CancelAnyRunningReindexJobsAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("Checking for any running reindex jobs via GET $reindex...");
+
+                // Use GET to $reindex to check for active jobs
+                var response = await _fixture.TestFhirClient.HttpClient.GetAsync("$reindex", cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"GET $reindex returned non-success status: {response.StatusCode}. No active jobs to cancel.");
+                    return;
+                }
+
+                // Parse the response as a Parameters resource
+                var content = await response.Content.ReadAsStringAsync();
+
+                // Deserialize the Parameters resource
+                Parameters parameters = null;
+                try
+                {
+                    // Use the FHIR parser to deserialize the response
+                    var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+                    parameters = parser.Parse<Parameters>(content);
+                }
+                catch (Exception parseEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to parse $reindex response as Parameters: {parseEx.Message}");
+                    return;
+                }
+
+                if (parameters?.Parameter == null || !parameters.Parameter.Any())
+                {
+                    System.Diagnostics.Debug.WriteLine("No parameters found in $reindex response. No active jobs to cancel.");
+                    return;
+                }
+
+                // Extract job ID and status from the parameters
+                var idParam = parameters.Parameter.FirstOrDefault(p => p.Name == "id");
+                var statusParam = parameters.Parameter.FirstOrDefault(p => p.Name == "status");
+
+                if (idParam?.Value == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("No job ID found in $reindex response. No active jobs to cancel.");
+                    return;
+                }
+
+                // Extract the job ID
+                string jobId = null;
+                if (idParam.Value is FhirString fhirString)
+                {
+                    jobId = fhirString.Value;
+                }
+                else if (idParam.Value is Integer integer)
+                {
+                    jobId = integer.Value.ToString();
+                }
+                else
+                {
+                    jobId = idParam.Value.ToString();
+                }
+
+                if (string.IsNullOrEmpty(jobId))
+                {
+                    System.Diagnostics.Debug.WriteLine("Job ID is empty. No active jobs to cancel.");
+                    return;
+                }
+
+                // Job is active (Running or Queued), cancel it
+                System.Diagnostics.Debug.WriteLine($"Job {jobId} is active. Attempting to cancel...");
+
+                // Use the correct URI format: /_operations/reindex/{jobId}
+                var jobUri = new Uri($"{_fixture.TestFhirClient.HttpClient.BaseAddress}_operations/reindex/{jobId}");
+
+                // Send DELETE request to cancel the job
+                using var deleteRequest = new System.Net.Http.HttpRequestMessage
+                {
+                    Method = System.Net.Http.HttpMethod.Delete,
+                    RequestUri = jobUri,
+                };
+
+                var cancelResponse = await _fixture.TestFhirClient.HttpClient.SendAsync(deleteRequest, cancellationToken);
+                System.Diagnostics.Debug.WriteLine($"Cancel request for job {jobId} completed with status: {cancelResponse.StatusCode}");
+
+                // Wait for the job to reach a terminal state
+                if (cancelResponse.IsSuccessStatusCode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Waiting for job {jobId} to reach terminal state...");
+                    var finalStatus = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromSeconds(60));
+                    System.Diagnostics.Debug.WriteLine($"Job {jobId} reached final status: {finalStatus}");
+
+                    // Add a small delay to ensure system is ready
+                    await Task.Delay(2000, cancellationToken);
+                }
+
+                System.Diagnostics.Debug.WriteLine("Completed checking and canceling running reindex jobs");
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail - this is a cleanup/safety check
+                System.Diagnostics.Debug.WriteLine($"Error in CancelAnyRunningReindexJobsAsync: {ex.Message}");
+            }
         }
     }
 }
