@@ -3179,12 +3179,16 @@ CREATE PROCEDURE dbo.HardDeleteResource
 @ResourceTypeId SMALLINT, @ResourceId VARCHAR (64), @KeepCurrentVersion BIT, @IsResourceChangeCaptureEnabled BIT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' R=' + @ResourceId + ' V=' + CONVERT (VARCHAR, @KeepCurrentVersion) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled), @st AS DATETIME = getUTCdate(), @TransactionId AS BIGINT;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' R=' + @ResourceId + ' V=' + CONVERT (VARCHAR, @KeepCurrentVersion) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled), @st AS DATETIME = getUTCdate(), @TransactionId AS BIGINT, @TranStarted AS BIT = 0;
 BEGIN TRY
     IF @IsResourceChangeCaptureEnabled = 1
         EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUTPUT;
     IF @KeepCurrentVersion = 0
-        BEGIN TRANSACTION;
+       AND @@TRANCOUNT = 0
+        BEGIN
+            BEGIN TRANSACTION;
+            SET @TranStarted = 1;
+        END
     DECLARE @SurrogateIds TABLE (
         ResourceSurrogateId BIGINT NOT NULL);
     IF @IsResourceChangeCaptureEnabled = 1
@@ -3318,14 +3322,16 @@ BEGIN TRY
                       AND B.ResourceSurrogateId = A.ResourceSurrogateId
             OPTION (MAXDOP 1);
         END
-    IF @@trancount > 0
+    IF @TranStarted = 1
+       AND @@TRANCOUNT > 0
         COMMIT TRANSACTION;
     IF @IsResourceChangeCaptureEnabled = 1
         EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
 END TRY
 BEGIN CATCH
-    IF @@trancount > 0
+    IF @TranStarted = 1
+       AND @@TRANCOUNT > 0
         ROLLBACK;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     THROW;
@@ -3400,6 +3406,7 @@ BEGIN TRY
     FROM   dbo.Resource
     WHERE  ResourceTypeId = @ResourceTypeId
            AND ResourceId = @ResourceId;
+    BEGIN TRANSACTION;
     EXECUTE dbo.HardDeleteResource @ResourceTypeId = @ResourceTypeId, @ResourceId = @ResourceId, @KeepCurrentVersion = 0, @IsResourceChangeCaptureEnabled = 0;
     DELETE dbo.SearchParam
     WHERE  Uri = @SearchParameterUrl;
@@ -3411,6 +3418,7 @@ BEGIN TRY
         BEGIN
             SET @EventText = 'WARNING: No SearchParam registry entry found for URL: ' + @SearchParameterUrl + ' (may have been deleted previously)';
         END
+    COMMIT TRANSACTION;
     SET @EventText = @EventText + ' | Deleted ' + CONVERT (VARCHAR, @DeletedVersionCount) + ' resource version(s) for ResourceId: ' + @ResourceId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @EventText, @Rows = @DeletedVersionCount;
     SELECT @ResourceId AS DeletedResourceId,
@@ -3418,6 +3426,8 @@ BEGIN TRY
            @DeletedVersionCount AS DeletedVersionCount;
 END TRY
 BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK;
     DECLARE @ErrorMessage AS NVARCHAR (4000) = ERROR_MESSAGE();
     DECLARE @ErrorSeverity AS INT = ERROR_SEVERITY();
     DECLARE @ErrorState AS INT = ERROR_STATE();
