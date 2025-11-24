@@ -3368,21 +3368,27 @@ BEGIN TRY
             THROW 50404, 'SearchParameter resource type not found', 1;
         END
     SELECT TOP 1 @ResourceId = r.ResourceId,
-                 @RawResourceJson = CASE WHEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF) THEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 4, LEN(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX))) - 3) ELSE CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)) END
-    FROM   dbo.Resource AS r
+                 @RawResourceJson = fr.FhirResource
+    FROM   dbo.Resource AS r CROSS APPLY (SELECT CASE WHEN r.RawResource IS NOT NULL
+                                                           AND SUBSTRING(r.RawResource, 1, 2) = 0x1F8B THEN CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)) ELSE NULL END AS RawText) AS x CROSS APPLY (SELECT CASE WHEN x.RawText IS NOT NULL
+                                                                                                                                                                                                                           AND LEFT(x.RawText, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF) THEN SUBSTRING(x.RawText, 4, LEN(x.RawText) - 3) ELSE x.RawText END AS FhirResource) AS fr
     WHERE  r.ResourceTypeId = @ResourceTypeId
            AND r.IsDeleted = 0
            AND r.IsHistory = 0
-           AND JSON_VALUE(CASE WHEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF) THEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 4, LEN(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX))) - 3) ELSE CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)) END, '$.url') COLLATE Latin1_General_CS_AS = @SearchParameterUrl COLLATE Latin1_General_CS_AS;
+           AND fr.FhirResource IS NOT NULL
+           AND JSON_VALUE(fr.FhirResource, '$.url') COLLATE Latin1_General_CS_AS = @SearchParameterUrl COLLATE Latin1_General_CS_AS;
     IF @ResourceId IS NULL
         BEGIN
             SELECT   TOP 1 @ResourceId = r.ResourceId,
-                           @RawResourceJson = CASE WHEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF) THEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 4, LEN(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX))) - 3) ELSE CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)) END
-            FROM     dbo.Resource AS r
+                           @RawResourceJson = fr.FhirResource
+            FROM     dbo.Resource AS r CROSS APPLY (SELECT CASE WHEN r.RawResource IS NOT NULL
+                                                                     AND SUBSTRING(r.RawResource, 1, 2) = 0x1F8B THEN CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)) ELSE NULL END AS RawText) AS x CROSS APPLY (SELECT CASE WHEN x.RawText IS NOT NULL
+                                                                                                                                                                                                                                     AND LEFT(x.RawText, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF) THEN SUBSTRING(x.RawText, 4, LEN(x.RawText) - 3) ELSE x.RawText END AS FhirResource) AS fr
             WHERE    r.ResourceTypeId = @ResourceTypeId
                      AND r.IsHistory = 1
-                     AND JSON_VALUE(CASE WHEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF) THEN SUBSTRING(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)), 4, LEN(CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX))) - 3) ELSE CAST (DECOMPRESS(r.RawResource) AS VARCHAR (MAX)) END, '$.url') COLLATE Latin1_General_CS_AS = @SearchParameterUrl COLLATE Latin1_General_CS_AS
-            ORDER BY r.Version DESC;
+                     AND fr.FhirResource IS NOT NULL
+                     AND JSON_VALUE(fr.FhirResource, '$.url') COLLATE Latin1_General_CS_AS = @SearchParameterUrl COLLATE Latin1_General_CS_AS
+            ORDER BY r.ResourceSurrogateId DESC;
             IF @ResourceId IS NOT NULL
                 BEGIN
                     SET @EventText = 'Found SearchParameter from historical version (IsHistory=1) - soft-deleted scenario';

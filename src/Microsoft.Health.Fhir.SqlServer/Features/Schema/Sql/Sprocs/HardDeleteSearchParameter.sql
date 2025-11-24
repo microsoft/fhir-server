@@ -36,50 +36,71 @@ BEGIN TRY
 
     -- Step 1: Find the ResourceId by searching for the URL in the resource JSON
     -- Try active (non-deleted, non-history) version first
-    SELECT TOP 1 
-        @ResourceId = r.ResourceId,
-        @RawResourceJson = 
+    SELECT TOP 1
+        @ResourceId       = r.ResourceId,
+        @RawResourceJson  = fr.FhirResource
+    FROM dbo.Resource AS r
+    CROSS APPLY (
+        -- Safely decompress only if RawResource looks like GZip (0x1F8B)
+        SELECT RawText =
             CASE 
-                -- Check if the decompressed content starts with UTF-8 BOM (0xEFBBBF)
-                WHEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF)
-                THEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 4, LEN(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))) - 3)
-                ELSE CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))
+                WHEN r.RawResource IS NOT NULL
+                    AND SUBSTRING(r.RawResource, 1, 2) = 0x1F8B
+                THEN CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))
+                ELSE NULL
             END
-    FROM dbo.Resource r
-    WHERE r.ResourceTypeId = @ResourceTypeId 
-      AND r.IsDeleted = 0
-      AND r.IsHistory = 0
-      AND JSON_VALUE(
+    ) AS x
+    CROSS APPLY (
+        -- Strip UTF-8 BOM if present
+        SELECT FhirResource =
             CASE 
-                WHEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF)
-                THEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 4, LEN(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))) - 3)
-                ELSE CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))
-            END, 
-            '$.url') COLLATE Latin1_General_CS_AS = @SearchParameterUrl COLLATE Latin1_General_CS_AS;
+                WHEN x.RawText IS NOT NULL
+                    AND LEFT(x.RawText, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF)
+                THEN SUBSTRING(x.RawText, 4, LEN(x.RawText) - 3)
+                ELSE x.RawText
+            END
+    ) AS fr
+    WHERE r.ResourceTypeId = @ResourceTypeId
+        AND r.IsDeleted      = 0
+        AND r.IsHistory      = 0
+        AND fr.FhirResource IS NOT NULL
+        AND JSON_VALUE(fr.FhirResource, '$.url') COLLATE Latin1_General_CS_AS
+            = @SearchParameterUrl COLLATE Latin1_General_CS_AS;
+
 
     -- If not found in active version, try historical versions (handles soft-delete scenario)
     IF @ResourceId IS NULL
     BEGIN
-        SELECT TOP 1 
-            @ResourceId = r.ResourceId,
-            @RawResourceJson = 
+        SELECT TOP 1
+            @ResourceId       = r.ResourceId,
+            @RawResourceJson  = fr.FhirResource
+        FROM dbo.Resource AS r
+        CROSS APPLY (
+            -- Safely decompress only if RawResource looks like GZip (0x1F8B)
+            SELECT RawText =
                 CASE 
-                    -- Check if the decompressed content starts with UTF-8 BOM (0xEFBBBF)
-                    WHEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF)
-                    THEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 4, LEN(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))) - 3)
-                    ELSE CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))
+                    WHEN r.RawResource IS NOT NULL
+                     AND SUBSTRING(r.RawResource, 1, 2) = 0x1F8B
+                    THEN CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))
+                    ELSE NULL
                 END
-        FROM dbo.Resource r
-        WHERE r.ResourceTypeId = @ResourceTypeId 
-          AND r.IsHistory = 1
-          AND JSON_VALUE(
+        ) AS x
+        CROSS APPLY (
+            -- Strip UTF-8 BOM if present
+            SELECT FhirResource =
                 CASE 
-                    WHEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 1, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF)
-                    THEN SUBSTRING(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX)), 4, LEN(CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))) - 3)
-                    ELSE CAST(DECOMPRESS(r.RawResource) AS VARCHAR(MAX))
-                END, 
-                '$.url') COLLATE Latin1_General_CS_AS = @SearchParameterUrl COLLATE Latin1_General_CS_AS
-        ORDER BY r.Version DESC;
+                    WHEN x.RawText IS NOT NULL
+                     AND LEFT(x.RawText, 3) = CHAR(0xEF) + CHAR(0xBB) + CHAR(0xBF)
+                    THEN SUBSTRING(x.RawText, 4, LEN(x.RawText) - 3)
+                    ELSE x.RawText
+                END
+        ) AS fr
+        WHERE r.ResourceTypeId = @ResourceTypeId
+          AND r.IsHistory      = 1
+          AND fr.FhirResource IS NOT NULL
+          AND JSON_VALUE(fr.FhirResource, '$.url') COLLATE Latin1_General_CS_AS
+              = @SearchParameterUrl COLLATE Latin1_General_CS_AS
+        ORDER BY r.ResourceSurrogateId DESC;
 
         IF @ResourceId IS NOT NULL
         BEGIN
