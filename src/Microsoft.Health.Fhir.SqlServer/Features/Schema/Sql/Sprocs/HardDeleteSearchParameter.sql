@@ -111,6 +111,9 @@ BEGIN TRY
     WHERE ResourceTypeId = @ResourceTypeId 
       AND ResourceId = @ResourceId;
 
+    -- *** BEGIN TRANSACTION - Start the atomic operation ***
+    BEGIN TRANSACTION;
+
     -- Step 2: Delete the SearchParameter resource and all its search parameter indices
     -- This uses the standard HardDeleteResource procedure with standard hard delete parameters
     EXECUTE dbo.HardDeleteResource 
@@ -134,6 +137,9 @@ BEGIN TRY
         SET @EventText = 'WARNING: No SearchParam registry entry found for URL: ' + @SearchParameterUrl + ' (may have been deleted previously)';
     END
 
+    -- *** COMMIT TRANSACTION - All operations succeeded ***
+    COMMIT TRANSACTION;
+
     -- Log successful completion
     SET @EventText = @EventText + ' | Deleted ' + CONVERT(VARCHAR, @DeletedVersionCount) + ' resource version(s) for ResourceId: ' + @ResourceId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @EventText, @Rows = @DeletedVersionCount;
@@ -146,6 +152,10 @@ BEGIN TRY
 
 END TRY
 BEGIN CATCH
+    -- *** ROLLBACK TRANSACTION - Something failed, undo all changes ***
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRANSACTION;
+
     -- Log the error
     DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
     DECLARE @ErrorSeverity INT = ERROR_SEVERITY();

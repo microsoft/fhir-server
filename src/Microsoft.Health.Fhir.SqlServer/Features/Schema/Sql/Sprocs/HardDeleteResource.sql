@@ -9,12 +9,17 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'RT='+convert(varchar,@ResourceTypeId)+' R='+@ResourceId+' V='+convert(varchar,@KeepCurrentVersion)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
        ,@st datetime = getUTCdate()
        ,@TransactionId bigint
+       ,@TranStarted bit = 0  -- Track if this procedure started the transaction
 
 BEGIN TRY
   IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUT
 
-  IF @KeepCurrentVersion = 0
+  -- Only start a transaction if one doesn't already exist (to support being called from HardDeleteSearchParameter)
+  IF @KeepCurrentVersion = 0 AND @@TRANCOUNT = 0
+  BEGIN
     BEGIN TRANSACTION
+    SET @TranStarted = 1
+  END
 
   DECLARE @SurrogateIds TABLE (ResourceSurrogateId BIGINT NOT NULL)
 
@@ -57,14 +62,19 @@ BEGIN TRY
     DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenNumberNumberCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
   END
   
-  IF @@trancount > 0 COMMIT TRANSACTION
+  -- Only commit if this procedure started the transaction
+  IF @TranStarted = 1 AND @@TRANCOUNT > 0
+    COMMIT TRANSACTION
 
   IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
 END TRY
 BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION
+  -- Only rollback if this procedure started the transaction
+  IF @TranStarted = 1 AND @@TRANCOUNT > 0
+    ROLLBACK TRANSACTION
+    
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
