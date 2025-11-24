@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // First update the in-memory SearchParameterDefinitionManager, and remove the status metadata from the data store
                 // then remove the SearchParameter resource from the data store
-                await _searchParameterOperations.DeleteSearchParameterAsync(searchParamResource.RawResource, cancellationToken);
+                await _searchParameterOperations.DeleteSearchParameterAsync(searchParamResource.RawResource, cancellationToken, isHardDelete: request.DeleteOperation == DeleteOperation.HardDelete);
             }
 
             return await next(cancellationToken);

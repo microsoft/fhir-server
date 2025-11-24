@@ -1045,5 +1045,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             return await Task.FromResult((int?)null);
         }
+
+        public async Task HardDeleteSearchParameterAsync(string searchParameterUrl, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(searchParameterUrl, nameof(searchParameterUrl));
+
+            _logger.LogInformation("Executing HardDeleteSearchParameter stored procedure for SearchParameter: {Url}", searchParameterUrl);
+
+            using var cmd = new SqlCommand { CommandText = "dbo.HardDeleteSearchParameter", CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SearchParameterUrl", searchParameterUrl);
+
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+
+            _logger.LogInformation("Successfully hard deleted SearchParameter: {Url}", searchParameterUrl);
+        }
     }
 }
