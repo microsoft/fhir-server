@@ -1,8 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
+using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -32,7 +35,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
+        public async Task Invoke(
+            HttpContext context,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IFhirServerInstanceConfiguration instanceConfiguration,
+            CorrelationIdProvider correlationIdProvider)
         {
             HttpRequest request = context.Request;
 
@@ -50,6 +57,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.QueryString);
 
             string correlationId = correlationIdProvider.Invoke();
+
+            try
+            {
+                // Initialize the global instance configuration on first request (thread-safe, idempotent)
+                // This ensures background services have access to base URI even when there's no active HTTP context
+                // Note this is set only once per application lifetime.
+                // Skip initialization if the request is from a loopback/local IP to avoid using health check requests
+                if (!FhirRequestContextMiddlewareExtensions.IsLoopbackOrLocalRequest(context.Request.Host.Host))
+                {
+                    // Initialize baseUri independently - this will only succeed once per app lifetime
+                    instanceConfiguration.InitializeBaseUri(baseUriInString);
+                }
+            }
+            catch (Exception)
+            {
+                // Carry on. Any jobs depending on instance configuration will fail later if initialization was unsuccessful.
+            }
 
             // https://www.hl7.org/fhir/http.html#custom
             // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
