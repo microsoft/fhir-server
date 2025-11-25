@@ -251,9 +251,6 @@
   <data name="IncludeRevIncludeChainedSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters" xml:space="preserve">
     <value>Include, RevInclude and Chained searches do not support SMART V2 finer-grained resource constraints using search parameters.</value>
   </data>
-  <data name="IncludeRevIncludeSearchesDoNotSupportFinerGrainedResourceConstraintsUsingSearchParameters" xml:space="preserve">
-    <value>Include and RevInclude searches do not support SMART V2 finer-grained resource constraints using search parameters.</value>
-  </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
