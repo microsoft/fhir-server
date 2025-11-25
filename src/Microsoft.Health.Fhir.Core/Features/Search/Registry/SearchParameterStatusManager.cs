@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
 
                 // Check if our cache is stale
-                if (maxDbLastUpdated > _latestSearchParams)
+                if (maxDbLastUpdated != _latestSearchParams)
                 {
                     _logger.LogInformation(
                         "Search parameter cache is stale. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}. Cache refresh needed.",

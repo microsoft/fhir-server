@@ -119,8 +119,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await Task.Delay(TimeSpan.FromSeconds(delaySeconds) * delayMultiplier, cancellationToken);
 
-                // No udpate SearchParameterHashMap before we start processing
-                _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+                // Attempt to get and apply the latest search parameter updates
+                await RefreshSearchParameterCache(cancellationToken);
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
@@ -170,6 +170,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return JsonConvert.SerializeObject(_currentResult);
+        }
+
+        private async Task RefreshSearchParameterCache(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+
+                // Now udpate SearchParameterHashMap before we start processing
+                _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogJobError(ex, _jobInfo, "Failed to refresh SearchParameter cache.");
+                throw;
+            }
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
@@ -326,6 +342,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     // Update the SearchParameterStatus to Enabled so they can be used once data is loaded
                     await UpdateSearchParameterStatus(null, zeroCountParams.Select(p => p.Url.ToString()).ToList(), cancellationToken);
+
+                    // Attempt to get and apply the latest search parameter updates
+                    await RefreshSearchParameterCache(cancellationToken);
 
                     _logger.LogJobInformation(
                         _jobInfo,
