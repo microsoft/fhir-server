@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -46,13 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // Check for granular permissions (Update) or legacy permissions (Read + Write)
-            var granted = await AuthorizationService.CheckAccess(DataActions.Update | DataActions.Read | DataActions.Write, cancellationToken);
-            if ((granted & DataActions.Update) != DataActions.Update &&
-                (granted & (DataActions.Read | DataActions.Write)) != (DataActions.Read | DataActions.Write))
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckPatchAccess(cancellationToken);
 
             ResourceKey key = request.ResourceKey;
 

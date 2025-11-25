@@ -15,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -52,13 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             return Task.FromResult<UpsertResourceResponse>(new UpsertResourceResponse(saveOutcome));
         }
 
-        /// <summary>
-        /// Conditional create requires search permissions (to find existing resources) and create permissions (for new resources).
-        /// Legacy: Read + Write, SMART v2: Search + Create
-        /// </summary>
-        protected override (DataActions legacyPermissions, DataActions granularPermissions) GetRequiredPermissions(ConditionalCreateResourceRequest request)
+        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
         {
-            return (DataActions.Read | DataActions.Write, DataActions.Search | DataActions.Create);
+            return AuthorizationService.CheckConditionalCreateAccess(cancellationToken);
         }
     }
 }

@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -74,20 +75,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             if (method == Hl7.Fhir.Model.Bundle.HTTPVerb.POST)
             {
                 // Explicit create via POST
-                var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Write, cancellationToken);
-                if ((granted & (DataActions.Create | DataActions.Write)) == DataActions.None)
-                {
-                    throw new UnauthorizedFhirActionException();
-                }
+                await AuthorizationService.CheckCreateAccess(cancellationToken);
             }
             else if (method == Hl7.Fhir.Model.Bundle.HTTPVerb.PUT)
             {
                 // Explicit update via PUT
-                var granted = await AuthorizationService.CheckAccess(DataActions.Update | DataActions.Write, cancellationToken);
-                if ((granted & (DataActions.Update | DataActions.Write)) == DataActions.None)
-                {
-                    throw new UnauthorizedFhirActionException();
-                }
+                await AuthorizationService.CheckUpdateAccess(cancellationToken);
             }
             else
             {
@@ -95,27 +88,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 var tmp = request.Resource?.ToPoco<Resource>();
                 if (string.IsNullOrEmpty(tmp?.Id))
                 {
-                    var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Write, cancellationToken);
-                    if ((granted & (DataActions.Create | DataActions.Write)) == DataActions.None)
-                    {
-                        throw new UnauthorizedFhirActionException();
-                    }
+                    await AuthorizationService.CheckCreateAccess(cancellationToken);
                 }
                 else if (request.WeakETag != null)
                 {
-                    var granted = await AuthorizationService.CheckAccess(DataActions.Update | DataActions.Write, cancellationToken);
-                    if ((granted & (DataActions.Update | DataActions.Write)) == DataActions.None)
-                    {
-                        throw new UnauthorizedFhirActionException();
-                    }
+                    await AuthorizationService.CheckUpdateAccess(cancellationToken);
                 }
                 else
                 {
-                    var granted = await AuthorizationService.CheckAccess(DataActions.Create | DataActions.Update | DataActions.Write, cancellationToken);
-                    if ((granted & (DataActions.Create | DataActions.Update | DataActions.Write)) == DataActions.None)
-                    {
-                        throw new UnauthorizedFhirActionException();
-                    }
+                    await AuthorizationService.CheckUpsertAccess(cancellationToken);
                 }
             }
 

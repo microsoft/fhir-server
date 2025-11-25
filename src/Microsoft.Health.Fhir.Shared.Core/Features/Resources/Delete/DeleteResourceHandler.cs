@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
@@ -39,11 +40,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions requiredDataAction = request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete;
-            if (await AuthorizationService.CheckAccess(requiredDataAction, cancellationToken) != requiredDataAction)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckDeleteAccess(
+                cancellationToken,
+                request.DeleteOperation != DeleteOperation.SoftDelete);
 
             var result = await _deleter.DeleteAsync(request, cancellationToken);
 
