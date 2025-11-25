@@ -26,5 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public string ServicePrincipalClientId { get; set; }
 
         public AddAuthenticationLibraryMethod AddAuthenticationLibrary { get; set; }
+
+        public string IntrospectionEndpoint { get; set; }
+
+        public string ManagementEndpoint { get; set; }
+
+        public string RevocationEndpoint { get; set; }
     }
 }
