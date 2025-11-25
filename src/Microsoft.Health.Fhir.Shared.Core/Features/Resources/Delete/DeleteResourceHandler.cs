@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
             await AuthorizationService.CheckDeleteAccess(
                 cancellationToken,
-                request.DeleteOperation == DeleteOperation.HardDelete);
+                request.DeleteOperation != DeleteOperation.SoftDelete);
 
             var result = await _deleter.DeleteAsync(request, cancellationToken);
 
