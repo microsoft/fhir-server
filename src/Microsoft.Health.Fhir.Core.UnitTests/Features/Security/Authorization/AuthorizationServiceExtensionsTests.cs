@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 throwException && granted == DataActions.None,
                 service =>
                 {
-                    return service.CheckUpdateAccess(
+                    return service.CheckUpsertAccess(
                         CancellationToken.None,
                         includeGranular,
                         throwException);
