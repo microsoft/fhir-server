@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
                 }
 
-                sb.Append(searchParamInfo.SearchParameterStatus.ToString());
+                // sb.Append(searchParamInfo.SearchParameterStatus.ToString());
             }
 
             string hash = sb.ToString().ComputeHash();

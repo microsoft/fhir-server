@@ -414,6 +414,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.AllSearchParameters
                 .Returns(new List<SearchParameterInfo> { searchParam });
 
+            // Mock SearchParameterHashMap for RefreshSearchParameterCache
+            var paramHashMap = new Dictionary<string, string> { { "Patient", "patientHash" } };
+            _searchDefinitionManager.SearchParameterHashMap
+                .Returns(paramHashMap);
+
             _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
                 .Returns("hash");
 
@@ -507,6 +512,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
                 .Returns("hash");
+
+            // Mock SearchParameterHashMap for RefreshSearchParameterCache
+            // IMPORTANT: Return a concrete Dictionary instance, not a mock
+            var paramHashMap = new Dictionary<string, string>
+            {
+                { "Patient", "patientHash" },
+                { "Observation", "observationHash" },
+                { "Condition", "conditionHash" },
+            };
+
+            // Return the concrete dictionary as IReadOnlyDictionary
+            _searchDefinitionManager.SearchParameterHashMap
+                .Returns(paramHashMap);
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            .Returns("hash");
 
             // Create a search result with 100 resources
             var searchResult = CreateSearchResult(
