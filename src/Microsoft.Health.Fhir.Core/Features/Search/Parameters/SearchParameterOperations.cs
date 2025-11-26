@@ -315,12 +315,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
             }
 
+            // Get all URLs that need to be fetched
+            var urlsToFetch = updatedSearchParameterStatus
+                .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
+                .Select(p => p.Uri.OriginalString)
+                .ToList();
+
+            if (!urlsToFetch.Any())
+            {
+                // No parameters to add, but still apply status updates
+                await _searchParameterStatusManager.ApplySearchParameterStatus(
+                    updatedSearchParameterStatus,
+                    cancellationToken);
+                return;
+            }
+
+            // Batch fetch all SearchParameter resources in one call
+            var searchParamResources = await GetSearchParametersByUrls(urlsToFetch, cancellationToken);
+
             var paramsToAdd = new List<ITypedElement>();
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported))
             {
-                var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.OriginalString, cancellationToken);
-
-                if (searchParamResource == null)
+                if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
                     _logger.LogInformation(
                         "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
@@ -344,7 +360,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Once added to the definition manager we can update their status
-
             await _searchParameterStatusManager.ApplySearchParameterStatus(
                 updatedSearchParameterStatus,
                 cancellationToken);
@@ -382,6 +397,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return null;
+        }
+
+        private async Task<Dictionary<string, ITypedElement>> GetSearchParametersByUrls(List<string> urls, CancellationToken cancellationToken)
+        {
+            if (!urls.Any())
+            {
+                return new Dictionary<string, ITypedElement>();
+            }
+
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+
+            // Build a query like: url=url1,url2,url3
+            var urlQueryValue = string.Join(",", urls);
+            var queryParams = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("url", urlQueryValue),
+            };
+
+            var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+
+            var searchParametersByUrl = new Dictionary<string, ITypedElement>();
+
+            foreach (var searchResultEntry in result.Results)
+            {
+                var typedElement = searchResultEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
+                var url = typedElement.GetStringScalar("url");
+
+                if (!string.IsNullOrEmpty(url))
+                {
+                    if (!searchParametersByUrl.ContainsKey(url))
+                    {
+                        searchParametersByUrl[url] = typedElement;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
+                    }
+                }
+            }
+
+            return searchParametersByUrl;
         }
     }
 }

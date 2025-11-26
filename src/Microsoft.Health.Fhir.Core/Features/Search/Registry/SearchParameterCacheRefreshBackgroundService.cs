@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -57,8 +58,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Create semaphore to prevent concurrent refresh operations (max 1 concurrent operation)
             _refreshSemaphore = new SemaphoreSlim(1, 1);
 
-            // Initialize last force refresh time to minimum to trigger force refresh on first run
-            _lastForceRefreshTime = DateTime.MinValue;
+            // Initialize last force refresh time to now with random offset (0-5 minutes) to stagger force refreshes across instances
+            // We use UtcNow instead of MinValue because SearchParameters are already loaded during initialization,
+            // so there's no need to do a full refresh on first timer execution
+            var randomOffsetMinutes = RandomNumberGenerator.GetInt32(0, 6); // 0-5 minutes
+            _lastForceRefreshTime = DateTime.UtcNow.AddMinutes(randomOffsetMinutes);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -142,7 +146,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     // Apply all search parameters (this will recalculate the hash)
                     await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
 
-                    // Update last force refresh time
                     _lastForceRefreshTime = DateTime.UtcNow;
 
                     // Check one more time if shutdown was requested after the async call
@@ -214,8 +217,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Only start the timer if the service hasn't been cancelled
             if (!_stoppingToken.IsCancellationRequested)
             {
-                // Start the timer now that search parameters are initialized
-                _refreshTimer.Change(TimeSpan.Zero, _refreshInterval);
+                // Add random initial delay (0-5 minutes) to stagger first refresh across instances
+                // This prevents thundering herd problem when multiple pods start simultaneously
+                var randomInitialDelaySeconds = RandomNumberGenerator.GetInt32(0, 15); // 0-300 seconds (0-5 minutes)
+                var initialDelay = TimeSpan.FromSeconds(randomInitialDelaySeconds);
+
+                _logger.LogInformation("Starting cache refresh timer with {InitialDelay} initial delay to stagger instance startup.", initialDelay);
+
+                // Start the timer with random initial delay, then use regular refresh interval
+                _refreshTimer.Change(initialDelay, _refreshInterval);
             }
 
             await Task.CompletedTask;
