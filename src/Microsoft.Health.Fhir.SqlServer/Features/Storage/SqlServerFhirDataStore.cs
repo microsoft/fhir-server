@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
@@ -748,6 +749,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+
+            if (_schemaInformation.Current >= SchemaVersionConstants.DecompressedLength)
+            {
+                cmd.Parameters.AddWithValue("@DecompressedOverridesJson", SqlServerFhirDataStore.GenerateResourceMetricsJson(mergeWrappers));
+            }
+
             var commandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
             cmd.CommandTimeout = commandTimeout;
 
@@ -1044,6 +1051,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
+        }
+
+        private static string GenerateResourceMetricsJson(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
+        {
+            var metrics = mergeWrappers.Select(wrapper => new
+            {
+                ResourceSurrogateId = wrapper.ResourceWrapper.ResourceSurrogateId,
+                DecompressedLength = System.Text.Encoding.UTF8.GetByteCount(wrapper.ResourceWrapper.RawResource.Data),
+            }).ToArray();
+
+            return System.Text.Json.JsonSerializer.Serialize(metrics);
         }
     }
 }
