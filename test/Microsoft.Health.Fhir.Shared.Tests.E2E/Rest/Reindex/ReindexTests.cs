@@ -112,6 +112,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
+                await Task.Delay(TimeSpan.FromMinutes(1));
+
                 // Verify search parameter is working for Specimen (which has data)
                 // We expect at least the specimen records we created to be returned
                 await VerifySearchParameterIsWorkingAsync(

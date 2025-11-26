@@ -44,8 +44,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public async Task InitializeAsync()
         {
-            await Client.DeleteAllResources(ResourceType.Specimen, null);
-            await Client.DeleteAllResources(ResourceType.Immunization, null);
+            // await Client.DeleteAllResources(ResourceType.Specimen, null);
+            // await Client.DeleteAllResources(ResourceType.Immunization, null);
         }
 
         [Theory]
