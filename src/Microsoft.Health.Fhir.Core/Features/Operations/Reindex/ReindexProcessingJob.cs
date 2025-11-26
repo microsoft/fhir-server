@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     currentResourceTypeHash);
 
                 // Attempt to get and apply the latest search parameter updates
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true);
 
                 // Re-check the hash after updating
                 currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);

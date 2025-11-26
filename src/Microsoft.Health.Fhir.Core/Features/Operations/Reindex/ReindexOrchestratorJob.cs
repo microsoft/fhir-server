@@ -178,15 +178,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobInformation(_jobInfo, "Performing full SearchParameter database refresh and hash recalculation for reindex job.");
 
-                // Get ALL search parameters from database to ensure we have the latest state
-                var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+                // Use the enhanced method with forceFullRefresh flag
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true);
 
-                _logger.LogJobInformation(_jobInfo, "Retrieved {Count} search parameters from database.", allSearchParameterStatus.Count);
-
-                // Apply all search parameters (this will recalculate the hash)
-                await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, cancellationToken);
-
-                // Update SearchParameterHashMap before we start processing
+                // Update the reindex job record with the latest hash map
                 _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
 
                 _logger.LogJobInformation(

@@ -285,10 +285,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// It should also be called when a user starts a reindex job
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
+        /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
         /// <returns>A task.</returns>
-        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default)
+        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool forceFullRefresh = false)
         {
-            var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
+            IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus;
+
+            if (forceFullRefresh)
+            {
+                _logger.LogInformation("Performing full SearchParameter database refresh.");
+                updatedSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+                _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", updatedSearchParameterStatus.Count);
+            }
+            else
+            {
+                updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
+            }
 
             // First process any deletes or disables, then we will do any adds or updates
             // this way any deleted or params which might have the same code or name as a new

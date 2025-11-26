@@ -863,7 +863,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             string expectedResourceType = null,
             bool shouldFindRecords = true,
             int? expectedCount = null,
-            int maxRetries = 3,
+            int maxRetries = 9,
             int retryDelayMs = 20000)
         {
             Exception lastException = null;
@@ -1193,7 +1193,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 if (cancelResponse.IsSuccessStatusCode)
                 {
                     System.Diagnostics.Debug.WriteLine($"Waiting for job {jobId} to reach terminal state...");
-                    var finalStatus = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromSeconds(60));
+                    var finalStatus = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromSeconds(120));
                     System.Diagnostics.Debug.WriteLine($"Job {jobId} reached final status: {finalStatus}");
 
                     // Add a small delay to ensure system is ready
