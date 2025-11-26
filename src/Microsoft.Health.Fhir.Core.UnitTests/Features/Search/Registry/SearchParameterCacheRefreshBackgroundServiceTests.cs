@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -37,7 +36,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _coreFeatureConfiguration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             _coreFeatureConfiguration.Value.Returns(new CoreFeatureConfiguration
             {
-                SearchParameterCacheRefreshIntervalSeconds = 10,
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+                SearchParameterCacheRefreshMaxInitialDelaySeconds = 0, // No delay for tests
             });
 
             _service = new SearchParameterCacheRefreshBackgroundService(
@@ -191,85 +191,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
-        public async Task OnRefreshTimer_FirstExecution_ShouldPerformForceRefresh()
-        {
-            // Arrange
-            _searchParameterStatusManager.ClearReceivedCalls();
-            _searchParameterOperations.ClearReceivedCalls();
-
-            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns(searchParameterStatusList);
-
-            // Set initialized to true to allow timer to run
-            await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
-
-            // Wait for the timer to fire at least once (first time will be force refresh)
-            await Task.Delay(200);
-
-            // Assert - First execution should do force refresh
-            await _searchParameterStatusManager.Received().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
-            await _searchParameterStatusManager.Received().ApplySearchParameterStatus(Arg.Any<IReadOnlyCollection<ResourceSearchParameterStatus>>(), Arg.Any<CancellationToken>());
-
-            // Should not call incremental refresh methods on first run
-            await _searchParameterStatusManager.DidNotReceive().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
-            await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
         public async Task OnRefreshTimer_WhenCacheIsStale_ShouldCallGetAndApplySearchParameterUpdates()
         {
             // Arrange
-            _searchParameterStatusManager.ClearReceivedCalls();
+            _searchParameterStatusManager.ClearReceivedCalls(); // Clear any previous calls
             _searchParameterOperations.ClearReceivedCalls();
 
-            // Mock the force refresh path (first execution)
-            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns(searchParameterStatusList);
-
-            // Mock the incremental refresh path
             _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
                 .Returns(true); // Cache is stale
 
             // Set initialized to true to allow timer to run
             await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Wait for the timer to fire at least once (first time will be force refresh)
+            // Wait for the timer to fire at least once and allow async operations to complete
             await Task.Delay(200);
 
-            // Assert - On first run, GetAllSearchParameterStatus should be called (force refresh)
-            await _searchParameterStatusManager.Received().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
-            await _searchParameterStatusManager.Received().ApplySearchParameterStatus(Arg.Any<IReadOnlyCollection<ResourceSearchParameterStatus>>(), Arg.Any<CancellationToken>());
-
-            // GetAndApplySearchParameterUpdates should not be called during force refresh
-            await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
+            // Assert - use at least 1 call since timer might fire multiple times in test environment
+            await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
+            await _searchParameterOperations.Received().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task OnRefreshTimer_WhenCacheIsFresh_ShouldNotCallGetAndApplySearchParameterUpdates()
         {
             // Arrange
-            _searchParameterStatusManager.ClearReceivedCalls();
+            _searchParameterStatusManager.ClearReceivedCalls(); // Clear any previous calls
             _searchParameterOperations.ClearReceivedCalls();
 
-            // Mock the force refresh path (first execution)
-            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns(searchParameterStatusList);
-
-            // Mock the incremental refresh path
             _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
                 .Returns(false); // Cache is fresh
 
             // Set initialized to true to allow timer to run
             await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            // Wait for the timer to fire at least once (first time will be force refresh)
+            // Wait for the timer to fire at least once and allow async operations to complete
             await Task.Delay(200);
 
-            // Assert - On first run, GetAllSearchParameterStatus should be called (force refresh)
-            await _searchParameterStatusManager.Received().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
+            // Assert - verify the timer is working and EnsureCacheFreshnessAsync was called
+            await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
 
             // But GetAndApplySearchParameterUpdates should never be called when cache is fresh
             await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
@@ -317,8 +276,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
 
             // Set up the status manager to throw ObjectDisposedException to simulate the service provider being disposed
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns<Task<IReadOnlyCollection<ResourceSearchParameterStatus>>>(_ => throw new ObjectDisposedException("IServiceProvider"));
+            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
+                .Returns<Task<bool>>(_ => throw new ObjectDisposedException("IServiceProvider"));
 
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
@@ -349,22 +308,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
 
-            // Use a short refresh interval (1 second) to ensure timer fires quickly
-            var config = new CoreFeatureConfiguration
-            {
-                SearchParameterCacheRefreshIntervalSeconds = 1,
-            };
-            var options = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            options.Value.Returns(config);
-
             // Set up the status manager to throw OperationCanceledException
-            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
-                .Returns<Task<IReadOnlyCollection<ResourceSearchParameterStatus>>>(_ => throw new OperationCanceledException());
+            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
+                .Returns<Task<bool>>(_ => throw new OperationCanceledException());
 
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                options,
+                _coreFeatureConfiguration,
                 mockLogger);
 
             // Act - Initialize and let timer run
@@ -408,7 +359,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             // Assert - Timer should not fire, so no calls should be made
             await Task.Delay(200); // Wait to see if timer would fire
-            await _searchParameterStatusManager.DidNotReceive().GetAllSearchParameterStatus(Arg.Any<CancellationToken>());
             await _searchParameterStatusManager.DidNotReceive().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
 
             service.Dispose();

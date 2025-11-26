@@ -59,8 +59,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var (personResources, finalPersonCount) = await SetupTestDataAsync("Person", personCount, randomSuffix, CreatePersonResourceAsync);
                 testResources.AddRange(personResources);
 
+                // CRITICAL: Verify we got what we expected
+                Assert.True(
+                    finalPersonCount >= personCount,
+                    $"Failed to create sufficient Person resources. Expected: {personCount}, Got: {finalPersonCount}");
+
                 var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", specimenCount, randomSuffix, CreateSpecimenResourceAsync);
                 testResources.AddRange(specimenResources);
+
+                // CRITICAL: Verify we got what we expected
+                Assert.True(
+                    finalSpecimenCount >= specimenCount,
+                    $"Failed to create sufficient Specimen resources. Expected: {specimenCount}, Got: {finalSpecimenCount}");
 
                 System.Diagnostics.Debug.WriteLine($"Test data setup complete - Specimen: {finalSpecimenCount}, Person: {finalPersonCount}");
 
@@ -115,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await Task.Delay(TimeSpan.FromMinutes(1));
 
                 // Verify search parameter is working for Specimen (which has data)
-                // We expect at least the specimen records we created to be returned
+                // Use the ACTUAL count we got, not the desired count
                 await VerifySearchParameterIsWorkingAsync(
                     $"Specimen?{mixedBaseSearchParam.Code}=119295008",
                     mixedBaseSearchParam.Code,
@@ -132,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     shouldFindRecords: false);
 
                 // Verify search parameter is working for Person (which has data)
-                // We expect at least the person records we created to be returned
+                // Use the ACTUAL count we got, not the desired count
                 await VerifySearchParameterIsWorkingAsync(
                     $"Person?{personSearchParam.Code}=Test",
                     personSearchParam.Code,
@@ -558,6 +568,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Return the person object without posting - will be posted in parallel batches
             return await Task.FromResult(person);
+        }
+
+        /// <summary>
+        /// Helper method to create and post a resource in a single operation
+        /// Returns a tuple indicating success and the resource/ID
+        /// </summary>
+        private async Task<(bool success, T resource, string id)> CreateAndPostResourceWithStatusAsync<T>(string id, string name, Func<string, string, Task<T>> createResourceFunc)
+            where T : Resource
+        {
+            try
+            {
+                var resource = await createResourceFunc(id, name);
+
+                // Post the resource using the client's CreateAsync method
+                var response = await _fixture.TestFhirClient.CreateAsync(resource);
+
+                if (response?.Resource != null && !string.IsNullOrEmpty(response.Resource.Id))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Successfully created {typeof(T).Name}/{response.Resource.Id}");
+                    return (true, response.Resource, response.Resource.Id);
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: Response was null or had no ID");
+                return (false, resource, id);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
+                return (false, null, id);
+            }
         }
 
         /// <summary>
@@ -1018,6 +1058,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// Sets up test data by checking existing resource counts and creating only the necessary resources
         /// to reach the desired count. Returns the list of created resource IDs for cleanup.
         /// Uses FHIR Bundle transactions to create resources in batches for improved performance.
+        /// NOW INCLUDES: Retry logic, verification, and detailed error reporting.
         /// </summary>
         /// <param name="resourceType">The FHIR resource type to create (e.g., "Person", "Specimen")</param>
         /// <param name="desiredCount">The desired total count of resources</param>
@@ -1032,10 +1073,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             where T : Resource
         {
             var createdResources = new List<(string resourceType, string resourceId)>();
+            int existingCount = 0;
 
-            // Check current resource count
-            int existingCount = await GetResourceCountAsync(resourceType);
-            System.Diagnostics.Debug.WriteLine($"Existing {resourceType} count: {existingCount}");
+            const int maxRetries = 3;
+            for (int retry = 0; retry < maxRetries; retry++)
+            {
+                try
+                {
+                    // Check current resource count
+                    existingCount = await GetResourceCountAsync(resourceType);
+                    System.Diagnostics.Debug.WriteLine($"[Attempt {retry + 1}] Existing {resourceType} count: {existingCount}");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Attempt {retry + 1}] Failed to get resource count: {ex.Message}");
+                    if (retry == maxRetries - 1)
+                    {
+                        throw;
+                    }
+
+                    await Task.Delay(1000);
+                }
+            }
 
             // If we already have enough resources, no need to create more
             if (existingCount >= desiredCount)
@@ -1051,11 +1111,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Create resources in batches using parallel individual creates for better performance
             const int batchSize = 500; // Process 500 resources at a time in parallel
             int totalCreated = 0;
+            int totalFailed = 0;
+            var failedIds = new List<string>();
 
             for (int batchStart = 0; batchStart < resourcesToCreate; batchStart += batchSize)
             {
                 int currentBatchSize = Math.Min(batchSize, resourcesToCreate - batchStart);
-                var batchTasks = new List<Task<T>>();
+                var batchTasks = new List<Task<(bool success, T resource, string id)>>();
 
                 // Create resource creation tasks for this batch
                 for (int i = 0; i < currentBatchSize; i++)
@@ -1064,39 +1126,93 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     string id = $"{resourceType.ToLowerInvariant()}-{randomSuffix}-{index}";
                     string name = $"Test {resourceType} {index}";
 
-                    // Create the resource object and post it
-                    batchTasks.Add(CreateAndPostResourceAsync(id, name, createResourceFunc));
+                    // Create the resource object and post it with status tracking
+                    batchTasks.Add(CreateAndPostResourceWithStatusAsync(id, name, createResourceFunc));
                 }
 
                 try
                 {
                     // Execute all creates in parallel
-                    var createdResourcesInBatch = await Task.WhenAll(batchTasks);
+                    var results = await Task.WhenAll(batchTasks);
 
                     // Collect the IDs of successfully created resources
-                    foreach (var resource in createdResourcesInBatch)
+                    foreach (var (success, resource, id) in results)
                     {
-                        if (resource != null && !string.IsNullOrEmpty(resource.Id))
+                        if (success && resource != null && !string.IsNullOrEmpty(resource.Id))
                         {
                             createdResources.Add((resourceType, resource.Id));
                             totalCreated++;
                         }
+                        else
+                        {
+                            totalFailed++;
+                            failedIds.Add(id);
+                        }
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"Created batch {(batchStart / batchSize) + 1}: {currentBatchSize} {resourceType} resources (total: {totalCreated}/{resourcesToCreate})");
+                    System.Diagnostics.Debug.WriteLine($"Completed batch {(batchStart / batchSize) + 1}: {currentBatchSize} attempts, {totalCreated} successful, {totalFailed} failed (total: {totalCreated}/{resourcesToCreate})");
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Failed to create batch at offset {batchStart}: {ex.Message}");
+                    totalFailed += currentBatchSize;
+                }
 
-                    throw;
+                // Small delay between batches to avoid overwhelming the server
+                if (batchStart + batchSize < resourcesToCreate)
+                {
+                    await Task.Delay(100);
                 }
             }
 
-            // Get final count to verify
-            int finalCount = await GetResourceCountAsync(resourceType);
-            System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} resources. Final {resourceType} count: {finalCount}");
+            // Report on any failures
+            if (totalFailed > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"WARNING: {totalFailed} resources failed to create out of {resourcesToCreate} attempts");
+                System.Diagnostics.Debug.WriteLine($"Failed IDs (first 10): {string.Join(", ", failedIds.Take(10))}");
+            }
 
+            // CRITICAL: Verify the final count matches expectations
+            int finalCount = 0;
+            for (int retry = 0; retry < maxRetries; retry++)
+            {
+                try
+                {
+                    await Task.Delay(2000); // Wait for eventual consistency
+                    finalCount = await GetResourceCountAsync(resourceType);
+                    System.Diagnostics.Debug.WriteLine($"[Verification Attempt {retry + 1}] Final {resourceType} count: {finalCount}");
+
+                    if (finalCount >= desiredCount)
+                    {
+                        break;
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"Count verification: Expected at least {desiredCount}, found {finalCount}. Retrying...");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to verify resource count: {ex.Message}");
+                    if (retry == maxRetries - 1)
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            // Assert that we created enough resources
+            if (finalCount < desiredCount)
+            {
+                var errorMsg = $"CRITICAL: Failed to create sufficient {resourceType} resources. " +
+                              $"Desired: {desiredCount}, Final count: {finalCount}, " +
+                              $"Successfully created: {totalCreated}, Failed: {totalFailed}";
+                System.Diagnostics.Debug.WriteLine(errorMsg);
+
+                // Don't fail immediately - return what we have so cleanup can still happen
+                // But log prominently
+                Assert.Fail(errorMsg);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} resources. Final {resourceType} count: {finalCount}");
             return (createdResources, finalCount);
         }
 

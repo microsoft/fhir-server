@@ -217,12 +217,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Only start the timer if the service hasn't been cancelled
             if (!_stoppingToken.IsCancellationRequested)
             {
-                // Add random initial delay (0-5 minutes) to stagger first refresh across instances
+                // Add random initial delay to stagger first refresh across instances
                 // This prevents thundering herd problem when multiple pods start simultaneously
-                var randomInitialDelaySeconds = RandomNumberGenerator.GetInt32(0, 15); // 0-300 seconds (0-5 minutes)
+                var maxInitialDelaySeconds = Math.Max(0, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshMaxInitialDelaySeconds);
+                var randomInitialDelaySeconds = maxInitialDelaySeconds > 0
+                    ? RandomNumberGenerator.GetInt32(0, maxInitialDelaySeconds + 1)
+                    : 0;
                 var initialDelay = TimeSpan.FromSeconds(randomInitialDelaySeconds);
 
-                _logger.LogInformation("Starting cache refresh timer with {InitialDelay} initial delay to stagger instance startup.", initialDelay);
+                if (randomInitialDelaySeconds > 0)
+                {
+                    _logger.LogInformation("Starting cache refresh timer with {InitialDelay} initial delay to stagger instance startup.", initialDelay);
+                }
+                else
+                {
+                    _logger.LogInformation("Starting cache refresh timer immediately (no initial delay configured).");
+                }
 
                 // Start the timer with random initial delay, then use regular refresh interval
                 _refreshTimer.Change(initialDelay, _refreshInterval);
