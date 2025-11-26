@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.CustomSearch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
+    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly ITestOutputHelper _output;
@@ -68,7 +68,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Contains(ex.OperationOutcome.Issue, i => i.Diagnostics.Contains(errorMessage));
             }
         }
-
-        public Task DisposeAsync() => Task.CompletedTask;
     }
 }
