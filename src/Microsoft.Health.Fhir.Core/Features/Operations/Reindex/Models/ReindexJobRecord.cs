@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public long Progress { get; set; }
 
         [JsonProperty(JobRecordProperties.ResourceTypeSearchParameterHashMap)]
-        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; private set; }
+        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; internal set; }
 
         [JsonProperty(JobRecordProperties.LastModified)]
         public DateTimeOffset LastModified { get; set; }

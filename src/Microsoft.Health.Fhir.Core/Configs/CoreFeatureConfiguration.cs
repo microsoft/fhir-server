@@ -106,5 +106,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// SearchParameter cache synchronized across instances. Default is 60 seconds if not specified.
         /// </summary>
         public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 60;
+
+        /// <summary>
+        /// Gets or sets the maximum initial delay in seconds for the SearchParameter cache background service timer.
+        /// This random delay (0 to this value) staggers timer startup across instances to prevent thundering herd.
+        /// Default is 15 seconds. Set to 0 to disable the delay (useful for testing).
+        /// </summary>
+        public int SearchParameterCacheRefreshMaxInitialDelaySeconds { get; set; } = 15;
     }
 }
