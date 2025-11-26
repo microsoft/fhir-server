@@ -42,12 +42,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output = output;
         }
 
-        public async Task InitializeAsync()
-        {
-            // await Client.DeleteAllResources(ResourceType.Specimen, null);
-            // await Client.DeleteAllResources(ResourceType.Immunization, null);
-        }
-
         [Theory]
         [InlineData("SearchParameterBadSyntax", "The search parameter definition contains one or more invalid entries.")]
 #if Stu3 || R4 || R4B
