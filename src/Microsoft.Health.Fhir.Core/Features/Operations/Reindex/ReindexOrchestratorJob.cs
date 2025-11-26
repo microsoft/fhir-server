@@ -176,10 +176,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             try
             {
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                _logger.LogJobInformation(_jobInfo, "Performing full SearchParameter database refresh and hash recalculation for reindex job.");
 
-                // Now udpate SearchParameterHashMap before we start processing
+                // Get ALL search parameters from database to ensure we have the latest state
+                var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+
+                _logger.LogJobInformation(_jobInfo, "Retrieved {Count} search parameters from database.", allSearchParameterStatus.Count);
+
+                // Apply all search parameters (this will recalculate the hash)
+                await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, cancellationToken);
+
+                // Update SearchParameterHashMap before we start processing
                 _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+
+                _logger.LogJobInformation(
+                    _jobInfo,
+                    "Completed full SearchParameter refresh. Hash map updated with {ResourceTypeCount} resource types.",
+                    _reindexJobRecord.ResourceTypeSearchParameterHashMap.Count);
             }
             catch (Exception ex)
             {
