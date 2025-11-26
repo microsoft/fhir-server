@@ -1,12 +1,20 @@
-# DESCRIPTION: 	
-# Builds, tests, and packages the solution for the main branch.	
+# DESCRIPTION:
+# Builds, tests, and packages the solution for the main branch.
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
+parameters:
+- name: buildCriticalOnly
+  displayName: 'Build Critical Versions Only (skip R4B/R5)'
+  type: boolean
+  default: false
+
 variables:
 - template: ci-variables.yml
 - template: build-variables.yml
+- name: buildCriticalOnly
+  value: ${{ parameters.buildCriticalOnly }}
 
 stages:
 # *********************** Setup ***********************
@@ -124,7 +132,7 @@ stages:
     steps:
     - template: ./jobs/analyze.yml
 
-- stage: DockerBuild  
+- stage: DockerBuild
   displayName: 'Build images'
   dependsOn:
   - UpdateVersion
@@ -132,9 +140,10 @@ stages:
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
   jobs:
   - template: ./jobs/docker-build-all.yml
-    parameters: 
+    parameters:
       tag: $(ImageTag)
       buildPlatform: $(publicDockerImagePlatforms)
+      buildCriticalOnly: ${{ parameters.buildCriticalOnly }}
 
 # *********************** Stu3 ***********************
 - stage: redeployStu3
@@ -217,11 +226,12 @@ stages:
 # *********************** R4B ***********************
 - stage: redeployR4B
   displayName: 'Redeploy R4B CosmosDB Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   jobs:
   - template: ./jobs/redeploy-webapp.yml
-    parameters: 
+    parameters:
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
       subscription: $(ConnectedServiceName)
@@ -229,11 +239,12 @@ stages:
 
 - stage: redeployR4BSql
   displayName: 'Redeploy R4B SQL Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   jobs:
   - template: ./jobs/redeploy-webapp.yml
-    parameters: 
+    parameters:
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4BSql)
       subscription: $(ConnectedServiceName)
@@ -241,6 +252,7 @@ stages:
 
 - stage: testR4B
   displayName: 'Run R4B Tests'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - BuildArtifacts
   - redeployR4B
@@ -256,11 +268,12 @@ stages:
 # *********************** R5 ***********************
 - stage: redeployR5
   displayName: 'Redeploy R5 CosmosDB Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   jobs:
   - template: ./jobs/redeploy-webapp.yml
-    parameters: 
+    parameters:
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
       subscription: $(ConnectedServiceName)
@@ -268,11 +281,12 @@ stages:
 
 - stage: redeployR5Sql
   displayName: 'Redeploy R5 SQL Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   jobs:
   - template: ./jobs/redeploy-webapp.yml
-    parameters: 
+    parameters:
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5Sql)
       subscription: $(ConnectedServiceName)
@@ -280,6 +294,7 @@ stages:
 
 - stage: testR5
   displayName: 'Run R5 Tests'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - BuildArtifacts
   - redeployR5
@@ -313,6 +328,15 @@ stages:
 # *********************** Finalize ***********************
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
+  # Run only if all required tests succeed (all 4 when buildCriticalOnly=false, only Stu3/R4 when buildCriticalOnly=true)
+  condition: |
+    and(
+      succeeded(),
+      or(
+        and(eq(variables.buildCriticalOnly, false), succeeded('testStu3'), succeeded('testR4'), succeeded('testR4B'), succeeded('testR5')),
+        and(eq(variables.buildCriticalOnly, true), succeeded('testStu3'), succeeded('testR4'))
+      )
+    )
   dependsOn:
   - testStu3
   - testR4

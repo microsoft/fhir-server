@@ -1,11 +1,19 @@
-# DESCRIPTION: 	
-# Builds, tests, and packages the solution for all PR requests.	
+# DESCRIPTION:
+# Builds, tests, and packages the solution for all PR requests.
 
 trigger: none
+
+parameters:
+- name: buildCriticalOnly
+  displayName: 'Build Critical Versions Only (skip R4B/R5)'
+  type: boolean
+  default: false
 
 variables:
 - template: pr-variables.yml
 - template: build-variables.yml
+- name: buildCriticalOnly
+  value: ${{ parameters.buildCriticalOnly }}
 
 stages:
 - stage: UpdateVersion
@@ -95,7 +103,7 @@ stages:
     steps:
     - template: ./jobs/analyze.yml
 
-- stage: DockerBuild  
+- stage: DockerBuild
   displayName: 'Build images'
   dependsOn:
   - UpdateVersion
@@ -103,9 +111,10 @@ stages:
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
   jobs:
   - template: ./jobs/docker-build-all.yml
-    parameters: 
+    parameters:
       tag: $(ImageTag)
       buildPlatform: $(testDockerImagePlatforms)
+      buildCriticalOnly: ${{ parameters.buildCriticalOnly }}
 
 - stage: provisionEnvironment
   displayName: Provision Environment
@@ -284,13 +293,14 @@ stages:
 
 - stage: deployR4B
   displayName: 'Deploy R4B CosmosDB Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   - setupEnvironment
   - createNsp
   jobs:
   - template: ./jobs/provision-deploy.yml
-    parameters: 
+    parameters:
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
       appServicePlanName: '$(appServicePlanName)-cosmos'
@@ -303,13 +313,14 @@ stages:
 
 - stage: deployR4BSql
   displayName: 'Deploy R4B SQL Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
-    parameters: 
+    parameters:
       version: R4B
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
@@ -326,13 +337,14 @@ stages:
 
 - stage: deployR5
   displayName: 'Deploy R5 CosmosDB Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   - setupEnvironment
   - createNsp
   jobs:
   - template: ./jobs/provision-deploy.yml
-    parameters: 
+    parameters:
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
       appServicePlanName: '$(appServicePlanName)-cosmos'
@@ -345,13 +357,14 @@ stages:
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
-    parameters: 
+    parameters:
       version: R5
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
@@ -398,6 +411,7 @@ stages:
 
 - stage: testR4B
   displayName: 'Run R4B Tests'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -413,6 +427,7 @@ stages:
 
 - stage: testR5
   displayName: 'Run R5 Tests'
+  condition: eq(variables.buildCriticalOnly, false)
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -446,12 +461,20 @@ stages:
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
+  # Run only if all required tests succeed (all 4 when buildCriticalOnly=false, only Stu3/R4 when buildCriticalOnly=true)
+  condition: |
+    and(
+      succeeded(),
+      or(
+        and(eq(variables.buildCriticalOnly, false), eq(dependencies.testStu3.result, 'Succeeded'), eq(dependencies.testR4.result, 'Succeeded'), eq(dependencies.testR4B.result, 'Succeeded'), eq(dependencies.testR5.result, 'Succeeded')),
+        and(eq(variables.buildCriticalOnly, true), eq(dependencies.testStu3.result, 'Succeeded'), eq(dependencies.testR4.result, 'Succeeded'))
+      )
+    )
   dependsOn:
   - testStu3
   - testR4
   - testR4B
   - testR5
-  condition: succeeded()
   jobs:
   - template: ./jobs/cleanup.yml
 

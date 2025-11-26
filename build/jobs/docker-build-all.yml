@@ -1,4 +1,4 @@
-# DESCRIPTION: 
+# DESCRIPTION:
 # Builds and pushes images for all supported FHIR versions
 
 parameters:
@@ -6,28 +6,33 @@ parameters:
   type: string
 - name: buildPlatform
   type: string
+- name: buildCriticalOnly
+  type: boolean
+  default: false
 
 jobs:
 - template: docker-build-push.yml
-  parameters: 
+  parameters:
     version: "R4"
     tag: ${{parameters.tag}}
     buildPlatform: ${{parameters.buildPlatform}}
 
-- template: docker-build-push.yml
-  parameters: 
-    version: "R4B"
-    tag: ${{parameters.tag}}
-    buildPlatform: ${{parameters.buildPlatform}}
+- ${{ if eq(parameters.buildCriticalOnly, false) }}:
+  - template: docker-build-push.yml
+    parameters:
+      version: "R4B"
+      tag: ${{parameters.tag}}
+      buildPlatform: ${{parameters.buildPlatform}}
 
 - template: docker-build-push.yml
-  parameters: 
+  parameters:
     version: "Stu3"
     tag: ${{parameters.tag}}
     buildPlatform: ${{parameters.buildPlatform}}
 
-- template: docker-build-push.yml
-  parameters: 
-    version: "R5"
-    tag: ${{parameters.tag}}
-    buildPlatform: ${{parameters.buildPlatform}}
+- ${{ if eq(parameters.buildCriticalOnly, false) }}:
+  - template: docker-build-push.yml
+    parameters:
+      version: "R5"
+      tag: ${{parameters.tag}}
+      buildPlatform: ${{parameters.buildPlatform}}
