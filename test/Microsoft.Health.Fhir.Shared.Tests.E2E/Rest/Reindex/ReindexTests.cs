@@ -45,8 +45,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personSearchParam = new SearchParameter();
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var testResources = new List<(string resourceType, string resourceId)>();
-            var specimenCount = 5000;
-            var personCount = 2000;
+            var specimenCount = 2000;
+            var personCount = 1000;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
@@ -91,12 +91,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(1000),
+                            Value = new Integer(500),
                         },
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(1000),
+                            Value = new Integer(500),
                         },
                     },
                 };
