@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DocRefRequestConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\FirelyTerminologyServiceProxyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetSmartConfigurationHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\InstantiatesCapabilityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\SmartV2InstantiateCapabilityTests.cs" />
@@ -61,6 +62,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\BundleResourceContextComparerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceWrapperFactoryTests.cs" />
