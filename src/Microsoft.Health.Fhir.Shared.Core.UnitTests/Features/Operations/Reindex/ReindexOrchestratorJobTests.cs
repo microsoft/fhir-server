@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             // Arrange
             var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.CancelAfter(5); // Cancel after short delay
+            cancellationTokenSource.CancelAfter(1); // Cancel after short delay
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob();

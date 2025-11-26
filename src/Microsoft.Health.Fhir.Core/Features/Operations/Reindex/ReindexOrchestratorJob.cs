@@ -112,18 +112,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                // Wait for the configured SearchParameterCacheRefreshIntervalSeconds before processing
-                var delaySeconds = Math.Max(1, _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds);
-                var delayMultiplier = Math.Max(1, _operationsConfiguration.Reindex.ReindexDelayMultiplier);
-                _logger.LogInformation("Reindex job with Id: {Id} waiting for {DelaySeconds} second(s) before processing as configured by SearchParameterCacheRefreshIntervalSeconds and ReindexDelayMultiplier.", _jobInfo.Id, delaySeconds * delayMultiplier);
-
-                // Attempt to get and apply the latest search parameter updates
-                await RefreshSearchParameterCache(cancellationToken);
+                await Task.Delay(1000, cancellationToken);
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
                     throw new OperationCanceledException("Reindex operation cancelled by customer.");
                 }
+
+                // Attempt to get and apply the latest search parameter updates
+                await RefreshSearchParameterCache(cancellationToken);
 
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
