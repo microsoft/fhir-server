@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await _service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
-            await Task.Delay(200);
+            await Task.Delay(500);
 
             // Assert - use at least 1 call since timer might fire multiple times in test environment
             await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await _service.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
-            await Task.Delay(200);
+            await Task.Delay(500);
 
             // Assert - verify the timer is working and EnsureCacheFreshnessAsync was called
             await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());

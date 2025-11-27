@@ -31,7 +31,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly TimeSpan _refreshInterval;
         private readonly Timer _refreshTimer;
         private readonly SemaphoreSlim _refreshSemaphore;
-        private bool _isInitialized;
+        private volatile bool _isInitialized;
+        private volatile bool _serviceStopped;
+        private volatile bool _startAsyncCalled;
         private CancellationToken _stoppingToken;
         private DateTime _lastForceRefreshTime;
 
@@ -65,9 +67,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _lastForceRefreshTime = DateTime.UtcNow.AddMinutes(randomOffsetMinutes);
         }
 
+        public override Task StartAsync(CancellationToken cancellationToken)
+        {
+            // Set flag and token before calling base.StartAsync
+            // This ensures HandleAsync can check if the service was started and if it was cancelled
+            _startAsyncCalled = true;
+            _stoppingToken = cancellationToken;
+            return base.StartAsync(cancellationToken);
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _stoppingToken = stoppingToken;
             _logger.LogInformation("SearchParameterCacheRefreshBackgroundService starting...");
 
             try
@@ -100,6 +110,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
             finally
             {
+                _serviceStopped = true;
+
                 // Stop the timer when ExecuteAsync completes to prevent it from continuing to fire
                 // after the service has stopped and potentially after service provider disposal
                 _refreshTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
@@ -214,8 +226,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _isInitialized = true;
 
-            // Only start the timer if the service hasn't been cancelled
-            if (!_stoppingToken.IsCancellationRequested)
+            // Only start the timer if:
+            // 1. Service hasn't been stopped, AND
+            // 2. Either StartAsync was never called OR it was called but not cancelled
+            // This prevents starting the timer when StartAsync was called with a cancelled token
+            if (!_serviceStopped && (!_startAsyncCalled || !_stoppingToken.IsCancellationRequested))
             {
                 // Add random initial delay to stagger first refresh across instances
                 // This prevents thundering herd problem when multiple pods start simultaneously
