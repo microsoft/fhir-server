@@ -476,10 +476,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
         }
 
-        [Fact]
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenPatchingOnlyMetaTag_ThenServerShouldCreateNewVersionAndPreserveHistory()
         {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
             // Create initial patient resource
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
@@ -589,10 +591,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenPatchingMetaTagMultipleTimes_ThenAllVersionsShouldBeInHistory()
         {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
             // Create initial patient resource
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
