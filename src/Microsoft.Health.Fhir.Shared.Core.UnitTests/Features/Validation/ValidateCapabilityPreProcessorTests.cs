@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net.Http;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -48,8 +49,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var preProcessor = new ValidateCapabilityPreProcessor<GetResourceRequest, GetResourceResponse>(_conformanceProvider);
 
             var getResourceRequest = new GetResourceRequest("Observation", Guid.NewGuid().ToString(), bundleResourceContext: null);
+            var resource = Samples.GetDefaultObservation().UpdateId("observation1");
+            var mockResponse = new GetResourceResponse(CreateRawResourceElement(resource));
 
-            await preProcessor.HandleAsync(getResourceRequest, null, CancellationToken.None);
+            await preProcessor.HandleAsync(getResourceRequest, () => Task.FromResult(mockResponse), CancellationToken.None);
         }
 
         [Theory]
@@ -66,6 +69,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                     deleteResourceRequest,
                     () => Task.FromResult(new DeleteResourceResponse(new ResourceKey("Observation", "test-id"))),
                     CancellationToken.None));
+        }
+
+        private static RawResourceElement CreateRawResourceElement(ResourceElement resource)
+        {
+            var rawResource = new RawResource("data", FhirResourceFormat.Json, isMetaSet: true);
+            var wrapper = new ResourceWrapper(
+                resource,
+                rawResource,
+                new ResourceRequest(HttpMethod.Post, "http://fhir"),
+                deleted: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null);
+
+            return new RawResourceElement(wrapper);
         }
     }
 }

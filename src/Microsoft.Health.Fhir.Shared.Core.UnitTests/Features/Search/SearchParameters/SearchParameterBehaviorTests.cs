@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
             var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             // Should call AddSearchParameterAsync since the resource doesn't exist
             await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
 
             var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             // Should call UpdateSearchParameterAsync since the resource exists
             await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());

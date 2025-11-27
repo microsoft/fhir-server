@@ -3,11 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
 using FluentValidation.Results;
 using Medino;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -31,8 +33,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             var validators = new[] { mockValidator1, mockValidator2 };
             var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest, UpsertResourceResponse>(validators);
-            var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
-            var mockResponse = new UpsertResourceResponse(new SaveOutcome(null, SaveOutcomeType.Created));
+            var resource = Samples.GetDefaultObservation().UpdateId("observation1");
+            var upsertResourceRequest = new UpsertResourceRequest(resource);
+            var mockResponse = new UpsertResourceResponse(new SaveOutcome(CreateRawResourceElement(resource), SaveOutcomeType.Created));
 
             await upsertValidationHandler.HandleAsync(
                 upsertResourceRequest,
@@ -55,7 +58,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             var validators = new[] { mockValidator1, mockValidator2 };
             var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest, UpsertResourceResponse>(validators);
-            var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
+            var resource = Samples.GetDefaultObservation().UpdateId("observation1");
+            var upsertResourceRequest = new UpsertResourceRequest(resource);
 
             var validationError = Task.FromResult(new ValidationResult(new[] { new ValidationFailure("Id", "Id should not be null") }));
 
@@ -68,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             await Assert.ThrowsAsync<ResourceNotValidException>(
                 async () => await upsertValidationHandler.HandleAsync(
                     upsertResourceRequest,
-                    () => Task.FromResult(new UpsertResourceResponse(new SaveOutcome(null, SaveOutcomeType.Created))),
+                    () => Task.FromResult(new UpsertResourceResponse(new SaveOutcome(CreateRawResourceElement(resource), SaveOutcomeType.Created))),
                     CancellationToken.None));
         }
 
@@ -79,7 +83,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             var validators = new[] { mockValidator };
             var upsertValidationHandler = new ValidateRequestPreProcessor<UpsertResourceRequest, UpsertResourceResponse>(validators);
-            var upsertResourceRequest = new UpsertResourceRequest(Samples.GetDefaultObservation());
+            var resource = Samples.GetDefaultObservation().UpdateId("observation1");
+            var upsertResourceRequest = new UpsertResourceRequest(resource);
 
             var operationOutcomeIssue = new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
@@ -98,10 +103,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var exception = await Assert.ThrowsAsync<ResourceNotValidException>(
                 async () => await upsertValidationHandler.HandleAsync(
                     upsertResourceRequest,
-                    () => Task.FromResult(new UpsertResourceResponse(new SaveOutcome(null, SaveOutcomeType.Created))),
+                    () => Task.FromResult(new UpsertResourceResponse(new SaveOutcome(CreateRawResourceElement(resource), SaveOutcomeType.Created))),
                     CancellationToken.None));
 
             Assert.Contains(operationOutcomeIssue, exception.Issues);
+        }
+
+        private static RawResourceElement CreateRawResourceElement(ResourceElement resource)
+        {
+            var rawResource = new RawResource("data", FhirResourceFormat.Json, isMetaSet: true);
+            var wrapper = new ResourceWrapper(
+                resource,
+                rawResource,
+                new ResourceRequest(HttpMethod.Post, "http://fhir"),
+                deleted: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null);
+
+            return new RawResourceElement(wrapper);
         }
     }
 }

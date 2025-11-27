@@ -177,7 +177,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within CosmosClientInitializer.
             _initializationOperation.EnsureInitialized()
                 .AsTask()
-                .ContinueWith(_ => _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default);
+                .ContinueWith(_ => _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default)
+                .Unwrap();
 #pragma warning restore CS4014
 
             return Task.CompletedTask;
