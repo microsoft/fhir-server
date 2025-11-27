@@ -9,7 +9,7 @@ using System.Threading;
 using System.Web;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public TerminologyControllerTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<ExpandResponse>(
+            _mediator.SendAsync<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new ExpandResponse(new ValueSet().ToResourceElement()));
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enable);
             }
 
-            await _mediator.Received(enable ? 1 : 0).Send<ExpandResponse>(
+            await _mediator.Received(enable ? 1 : 0).SendAsync<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             bool valid,
             bool useId)
         {
-            _mediator.Send<ExpandResponse>(
+            _mediator.SendAsync<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ExpandResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Parameters parameters,
             bool valid)
         {
-            _mediator.Send<ExpandResponse>(
+            _mediator.SendAsync<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ExpandResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
                 Arg.Any<CancellationToken>());
         }
