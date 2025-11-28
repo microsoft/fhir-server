@@ -22,6 +22,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\InstantiatesCapabilityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\SmartV2InstantiateCapability.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\TerminologyRequestHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\USCore6InstantiateCapability.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationParameterNames.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationToken.cs" />
