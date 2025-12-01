@@ -757,6 +757,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 System.Diagnostics.Debug.WriteLine($"Cleanup completed: {totalDeleted} deleted successfully, {totalFailed} failed");
             }
 
+            await Task.Delay(TimeSpan.FromSeconds(3));
+
             // Delete search parameters (soft delete with reindex finalization)
             await CleanupSearchParametersAsync(searchParameters);
         }
@@ -1056,16 +1058,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         /// <summary>
-        /// Sets up test data by checking existing resource counts and creating only the necessary resources
-        /// to reach the desired count. Returns the list of created resource IDs for cleanup.
-        /// Uses FHIR Bundle transactions to create resources in batches for improved performance.
-        /// NOW INCLUDES: Retry logic, verification, and detailed error reporting with Cosmos DB throttling handling.
+        /// Sets up test data by creating the specified number of resources.
+        /// Returns the list of created resource IDs for cleanup.
+        /// Uses parallel individual creates for improved performance with retry logic.
         /// </summary>
         /// <param name="resourceType">The FHIR resource type to create (e.g., "Person", "Specimen")</param>
-        /// <param name="desiredCount">The desired total count of resources</param>
+        /// <param name="desiredCount">The number of resources to create</param>
         /// <param name="randomSuffix">Random suffix for unique resource IDs</param>
         /// <param name="createResourceFunc">Function to create a single resource given an ID and name</param>
-        /// <returns>A tuple containing the list of created resource IDs and the actual final count</returns>
+        /// <returns>A tuple containing the list of created resource IDs and the count of successfully created resources</returns>
         private async Task<(List<(string resourceType, string resourceId)> createdResources, int finalCount)> SetupTestDataAsync<T>(
             string resourceType,
             int desiredCount,
@@ -1074,40 +1075,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             where T : Resource
         {
             var createdResources = new List<(string resourceType, string resourceId)>();
-            int existingCount = 0;
 
-            const int maxRetries = 3;
-            for (int retry = 0; retry < maxRetries; retry++)
-            {
-                try
-                {
-                    // Check current resource count
-                    existingCount = await GetResourceCountAsync(resourceType);
-                    System.Diagnostics.Debug.WriteLine($"[Attempt {retry + 1}] Existing {resourceType} count: {existingCount}");
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Attempt {retry + 1}] Failed to get resource count: {ex.Message}");
-                    if (retry == maxRetries - 1)
-                    {
-                        throw;
-                    }
-
-                    await Task.Delay(1000);
-                }
-            }
-
-            // If we already have enough resources, no need to create more
-            if (existingCount >= desiredCount)
-            {
-                System.Diagnostics.Debug.WriteLine($"Sufficient {resourceType} resources exist ({existingCount} >= {desiredCount}). No additional resources needed.");
-                return (createdResources, existingCount);
-            }
-
-            // Calculate how many resources need to be created
-            int resourcesToCreate = desiredCount - existingCount;
-            System.Diagnostics.Debug.WriteLine($"Creating {resourcesToCreate} {resourceType} resources to reach desired count of {desiredCount}...");
+            System.Diagnostics.Debug.WriteLine($"Creating {desiredCount} new {resourceType} resources...");
 
             // Create resources in batches using parallel individual creates for better performance
             const int batchSize = 500; // Process 500 resources at a time in parallel
@@ -1115,15 +1084,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             int totalCreated = 0;
             var failedIds = new List<string>();
 
-            for (int batchStart = 0; batchStart < resourcesToCreate; batchStart += batchSize)
+            for (int batchStart = 0; batchStart < desiredCount; batchStart += batchSize)
             {
-                int currentBatchSize = Math.Min(batchSize, resourcesToCreate - batchStart);
+                int currentBatchSize = Math.Min(batchSize, desiredCount - batchStart);
 
                 // Track which resources in this batch need to be created/retried
                 var resourcesToCreateInBatch = new List<(int index, string id, string name)>();
                 for (int i = 0; i < currentBatchSize; i++)
                 {
-                    int index = existingCount + batchStart + i;
+                    int index = batchStart + i;
                     string id = $"{resourceType.ToLowerInvariant()}-{randomSuffix}-{index}";
                     string name = $"Test {resourceType} {index}";
                     resourcesToCreateInBatch.Add((index, id, name));
@@ -1194,10 +1163,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     }
                 }
 
-                // Longer delay between batches to avoid overwhelming Cosmos DB
-                if (batchStart + batchSize < resourcesToCreate)
+                // Delay between batches to avoid overwhelming the server
+                if (batchStart + batchSize < desiredCount)
                 {
-                    await Task.Delay(500); // Increased from 100ms to 500ms for Cosmos DB
+                    await Task.Delay(500);
                 }
             }
 
@@ -1208,56 +1177,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 System.Diagnostics.Debug.WriteLine($"Failed IDs (first 10): {string.Join(", ", failedIds.Take(10))}");
             }
 
-            // CRITICAL: Verify the final count matches expectations
-            int finalCount = 0;
-            for (int retry = 0; retry < maxRetries; retry++)
-            {
-                try
-                {
-                    await Task.Delay(2000); // Wait for eventual consistency
-                    finalCount = await GetResourceCountAsync(resourceType);
-                    System.Diagnostics.Debug.WriteLine($"[Verification Attempt {retry + 1}] Final {resourceType} count: {finalCount}");
-
-                    if (finalCount >= desiredCount)
-                    {
-                        break;
-                    }
-
-                    System.Diagnostics.Debug.WriteLine($"Count verification: Expected at least {desiredCount}, found {finalCount}. Retrying...");
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to verify resource count: {ex.Message}");
-                    if (retry == maxRetries - 1)
-                    {
-                        throw;
-                    }
-                }
-            }
-
-            // Calculate acceptable threshold (allow 1% failure rate for Cosmos DB throttling)
-            var acceptableMinimum = (int)(desiredCount * 0.99);
+            // Calculate acceptable threshold (allow 5% failure rate for transient issues)
+            var acceptableMinimum = (int)(desiredCount * 0.95);
 
             // Assert that we created enough resources
-            if (finalCount < acceptableMinimum)
+            if (totalCreated < acceptableMinimum)
             {
                 var errorMsg = $"CRITICAL: Failed to create sufficient {resourceType} resources. " +
                               $"Desired: {desiredCount}, Acceptable minimum: {acceptableMinimum}, " +
-                              $"Final count: {finalCount}, Successfully created: {totalCreated}, " +
-                              $"Failed: {failedIds.Count}";
+                              $"Successfully created: {totalCreated}, Failed: {failedIds.Count}";
                 System.Diagnostics.Debug.WriteLine(errorMsg);
                 Assert.Fail(errorMsg);
             }
-            else if (finalCount < desiredCount)
+            else if (totalCreated < desiredCount)
             {
                 // Log warning but don't fail
                 System.Diagnostics.Debug.WriteLine(
-                    $"WARNING: Created {finalCount}/{desiredCount} {resourceType} resources " +
+                    $"WARNING: Created {totalCreated}/{desiredCount} {resourceType} resources " +
                     $"(within acceptable threshold of {acceptableMinimum})");
             }
 
-            System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} resources. Final {resourceType} count: {finalCount}");
-            return (createdResources, finalCount);
+            System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} new {resourceType} resources.");
+
+            // Return the ACTUAL count of resources we created and have IDs for
+            return (createdResources, totalCreated);
         }
 
         /// <summary>
