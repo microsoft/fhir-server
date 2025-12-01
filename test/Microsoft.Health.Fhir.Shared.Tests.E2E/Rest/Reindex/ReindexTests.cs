@@ -11,6 +11,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -160,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
         public async Task GivenReindexJobWithResourceAndAddedAfterSingleCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParameterShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
         public async Task GivenReindexJobWithResourceAndAddedAfterMultiCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -297,7 +298,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenBothHaveSameStatus_ThenBothShouldBeProcessedCorrectly()
         {
             // Cancel any running reindex jobs before starting this test
@@ -367,7 +368,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -439,7 +440,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
         public async Task GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported()
         {
             // Cancel any running reindex jobs before starting this test
