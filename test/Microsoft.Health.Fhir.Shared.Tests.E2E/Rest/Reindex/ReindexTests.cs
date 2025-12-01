@@ -21,6 +21,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 {
+    [CollectionDefinition(Categories.IndexAndReindex, DisableParallelization = true)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]

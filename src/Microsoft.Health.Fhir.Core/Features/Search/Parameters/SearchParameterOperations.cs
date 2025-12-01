@@ -406,33 +406,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return new Dictionary<string, ITypedElement>();
             }
 
-            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
-
-            // Build a query like: url=url1,url2,url3
-            var urlQueryValue = string.Join(",", urls);
-            var queryParams = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("url", urlQueryValue),
-            };
-
-            var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-
+            const int chunkSize = 1500;
             var searchParametersByUrl = new Dictionary<string, ITypedElement>();
 
-            foreach (var searchResultEntry in result.Results)
+            // Process URLs in chunks to avoid SQL query limitations
+            for (int i = 0; i < urls.Count; i += chunkSize)
             {
-                var typedElement = searchResultEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-                var url = typedElement.GetStringScalar("url");
+                var urlChunk = urls.Skip(i).Take(chunkSize).ToList();
 
-                if (!string.IsNullOrEmpty(url))
+                using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+
+                // Build a query like: url=url1,url2,url3
+                var urlQueryValue = string.Join(",", urlChunk);
+                var queryParams = new List<Tuple<string, string>>
                 {
-                    if (!searchParametersByUrl.ContainsKey(url))
+                    new Tuple<string, string>("url", urlQueryValue),
+                };
+
+                var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+
+                foreach (var searchResultEntry in result.Results)
+                {
+                    var typedElement = searchResultEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
+                    var url = typedElement.GetStringScalar("url");
+
+                    if (!string.IsNullOrEmpty(url))
                     {
-                        searchParametersByUrl[url] = typedElement;
-                    }
-                    else
-                    {
-                        _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
+                        if (!searchParametersByUrl.ContainsKey(url))
+                        {
+                            searchParametersByUrl[url] = typedElement;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
+                        }
                     }
                 }
             }

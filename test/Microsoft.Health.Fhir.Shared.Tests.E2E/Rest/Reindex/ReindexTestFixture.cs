@@ -56,7 +56,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     var coreConfigurations = serviceProvider.GetRequiredService<IOptions<Core.Configs.CoreFeatureConfiguration>>();
                     if (operationsOptions?.Value?.Reindex != null)
                     {
-                        coreConfigurations.Value.SearchParameterCacheRefreshIntervalSeconds = 20;
+                        operationsOptions.Value.Reindex.ReindexDelayMultiplier = 1;
+                        coreConfigurations.Value.SearchParameterCacheRefreshIntervalSeconds = 2;
+                    }
+
+                    // Override job hosting polling frequency for faster dequeuing
+                    var jobHosting = serviceProvider.GetService<JobHosting>();
+                    if (jobHosting != null)
+                    {
+                        jobHosting.PollingFrequencyInSeconds = 2;
                     }
                 }
                 catch (Exception ex)
@@ -67,11 +75,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     // Continue with default configuration if override fails
                 }
             }
-
-            // Clean up test data resources to ensure we start with clean state
-            await TestFhirClient.DeleteAllResources(ResourceType.Specimen, null);
-            await TestFhirClient.DeleteAllResources(ResourceType.Immunization, null);
-            await TestFhirClient.DeleteAllResources(ResourceType.Person, null);
         }
     }
 }
