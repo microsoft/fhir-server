@@ -30,6 +30,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var maxRetries = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.MaxRetries));
             var delayMs = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.DelayBetweenRetriesMs));
+            var retryOnAssertionFailure = theoryAttribute.GetNamedArgument<bool>(nameof(RetryTheoryAttribute.RetryOnAssertionFailure));
 
             // Use default values if not specified
             if (maxRetries == 0)
@@ -50,6 +51,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 testMethod,
                 maxRetries,
                 delayMs,
+                retryOnAssertionFailure,
                 dataRow);
         }
 
@@ -60,6 +62,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var maxRetries = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.MaxRetries));
             var delayMs = theoryAttribute.GetNamedArgument<int>(nameof(RetryTheoryAttribute.DelayBetweenRetriesMs));
+            var retryOnAssertionFailure = theoryAttribute.GetNamedArgument<bool>(nameof(RetryTheoryAttribute.RetryOnAssertionFailure));
 
             // Use default values if not specified
             if (maxRetries == 0)
@@ -81,6 +84,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     testMethod,
                     maxRetries,
                     delayMs,
+                    retryOnAssertionFailure,
                     testCase.TestMethodArguments));
         }
     }

@@ -28,6 +28,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             var maxRetries = factAttribute.GetNamedArgument<int>(nameof(RetryFactAttribute.MaxRetries));
             var delayMs = factAttribute.GetNamedArgument<int>(nameof(RetryFactAttribute.DelayBetweenRetriesMs));
+            var retryOnAssertionFailure = factAttribute.GetNamedArgument<bool>(nameof(RetryFactAttribute.RetryOnAssertionFailure));
 
             // Use default values if not specified
             if (maxRetries == 0)
@@ -46,7 +47,8 @@ namespace Microsoft.Health.Extensions.Xunit
                 discoveryOptions.MethodDisplayOptionsOrDefault(),
                 testMethod,
                 maxRetries,
-                delayMs);
+                delayMs,
+                retryOnAssertionFailure);
         }
     }
 }

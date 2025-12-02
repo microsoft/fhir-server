@@ -19,6 +19,7 @@ namespace Microsoft.Health.Extensions.Xunit
     {
         private int _maxRetries;
         private int _delayMs;
+        private bool _retryOnAssertionFailure;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Called by the de-serializer; should only be called by deriving classes for de-serialization purposes")]
@@ -33,11 +34,13 @@ namespace Microsoft.Health.Extensions.Xunit
             ITestMethod testMethod,
             int maxRetries,
             int delayMs,
+            bool retryOnAssertionFailure = false,
             object[] testMethodArguments = null)
             : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
         {
             _maxRetries = maxRetries;
             _delayMs = delayMs;
+            _retryOnAssertionFailure = retryOnAssertionFailure;
         }
 
         public override async Task<RunSummary> RunAsync(
@@ -98,9 +101,28 @@ namespace Microsoft.Health.Extensions.Xunit
 
                     if (!isLastAttempt)
                     {
+                        // Check if we should retry this exception
+                        if (!ShouldRetry(lastException))
+                        {
+                            diagnosticMessageSink.OnMessage(
+                                new DiagnosticMessage($"[RetryFact] Test '{TestMethod.Method.Name}' failed with non-retriable exception. Skipping retries."));
+
+                            if (lastException != null)
+                            {
+                                aggregator.Add(lastException);
+                            }
+
+                            runSummary.Failed = 1;
+                            return runSummary;
+                        }
+
                         // Not the last attempt - the failure was intercepted, so retry
                         diagnosticMessageSink.OnMessage(
                             new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message}"));
+
+                        // Send a custom property to ADO
+                        diagnosticMessageSink.OnMessage(
+                            new DiagnosticMessage($"##vso[task.logissue type=warning]Test '{TestMethod.Method.Name}' failed on attempt {attempt}, will retry"));
 
                         await Task.Delay(_delayMs);
                     }
@@ -136,6 +158,7 @@ namespace Microsoft.Health.Extensions.Xunit
             base.Serialize(data);
             data.AddValue(nameof(_maxRetries), _maxRetries);
             data.AddValue(nameof(_delayMs), _delayMs);
+            data.AddValue(nameof(_retryOnAssertionFailure), _retryOnAssertionFailure);
         }
 
         public override void Deserialize(IXunitSerializationInfo data)
@@ -143,6 +166,22 @@ namespace Microsoft.Health.Extensions.Xunit
             base.Deserialize(data);
             _maxRetries = data.GetValue<int>(nameof(_maxRetries));
             _delayMs = data.GetValue<int>(nameof(_delayMs));
+            _retryOnAssertionFailure = data.GetValue<bool>(nameof(_retryOnAssertionFailure));
+        }
+
+        /// <summary>
+        /// Determines if an exception should trigger a retry.
+        /// </summary>
+        private bool ShouldRetry(Exception ex)
+        {
+            // Don't retry assertion failures unless explicitly configured
+            if (ex is XunitException && !_retryOnAssertionFailure)
+            {
+                return false;
+            }
+
+            // Retry everything else (network, timeout, SQL transient, etc.)
+            return true;
         }
 
         /// <summary>

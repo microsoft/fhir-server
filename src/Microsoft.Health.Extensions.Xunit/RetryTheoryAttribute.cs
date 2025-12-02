@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Xunit;
 using Xunit.Sdk;
 
@@ -13,6 +14,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// Useful for handling transient failures in integration and end-to-end tests with parameterized data.
     /// </summary>
     [XunitTestCaseDiscoverer("Microsoft.Health.Extensions.Xunit.RetryTheoryDiscoverer", "Microsoft.Health.Extensions.Xunit")]
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class RetryTheoryAttribute : TheoryAttribute
     {
         /// <summary>
@@ -24,5 +26,12 @@ namespace Microsoft.Health.Extensions.Xunit
         /// Gets or sets the delay in milliseconds between retry attempts (default is 5000ms).
         /// </summary>
         public int DelayBetweenRetriesMs { get; set; } = 5000;
+
+        /// <summary>
+        /// Gets or sets whether to retry on assertion failures (XunitException).
+        /// Default is false - assertion failures usually indicate test bugs, not transient issues.
+        /// Set to true for tests that validate eventually-consistent systems (e.g., cache refresh, reindex operations).
+        /// </summary>
+        public bool RetryOnAssertionFailure { get; set; } = false;
     }
 }
