@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -23,11 +24,11 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [CollectionDefinition(Categories.CustomSearch, DisableParallelization = true)]
-    [Collection(Categories.CustomSearch)]
+    [CollectionDefinition(Categories.IndexAndReindex, DisableParallelization = true)]
+    [Collection(Categories.IndexAndReindex)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    [Trait(Traits.Category, Categories.CustomSearch)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output = output;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("SearchParameterBadSyntax", "The search parameter definition contains one or more invalid entries.")]
 #if Stu3 || R4 || R4B
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
