@@ -107,6 +107,45 @@ stages:
       tag: $(ImageTag)
       buildPlatform: $(testDockerImagePlatforms)
 
+- stage: cleanupOldEnvironments
+  displayName: 'Cleanup Old PR Environments'
+  dependsOn: []
+  jobs:
+  - job: cleanupOldRGs
+    displayName: 'Remove Previous PR Resource Groups'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Cleanup Old RGs for this PR'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          $prNumber = "$(prName)"
+          $currentBuildId = "$(Build.BuildId)"
+          $resourceGroupRoot = "$(resourceGroupRoot)"
+          $pattern = "$resourceGroupRoot-$prNumber-*"
+          
+          Write-Host "Looking for old resource groups matching pattern: $pattern (excluding current build: $currentBuildId)"
+          
+          $oldRGs = Get-AzResourceGroup | Where-Object { 
+            $_.ResourceGroupName -like $pattern -and 
+            $_.ResourceGroupName -ne "$resourceGroupRoot-$prNumber-$currentBuildId"
+          }
+          
+          if ($oldRGs.Count -eq 0) {
+            Write-Host "No old resource groups found to cleanup"
+          } else {
+            foreach ($rg in $oldRGs) {
+              Write-Host "Removing old resource group: $($rg.ResourceGroupName)"
+              Remove-AzResourceGroup -Name $rg.ResourceGroupName -Force -AsJob
+            }
+            Write-Host "Initiated async removal of $($oldRGs.Count) old resource group(s)"
+          }
+
 - stage: provisionEnvironment
   displayName: Provision Environment
   dependsOn: []
@@ -124,17 +163,20 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          # Handle re-run scenario: remove existing RG for this build if it exists
           try
           {
-            Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
+            Get-AzResourceGroup -Name $(UniqueResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
           }
           catch
           {}
-          New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+          # Create new resource group with unique name
+          New-AzResourceGroup -Name "$(UniqueResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+          Write-Host "Created resource group: $(UniqueResourceGroupName)"
     - template: ./jobs/add-resource-group-role-assignments.yml
       parameters:
         azureSubscription: $(ConnectedServiceName)
-        resourceGroupName: $(ResourceGroupName)
+        resourceGroupName: $(UniqueResourceGroupName)
 
 - stage: setupEnvironment
   displayName: Setup Test Environment
@@ -159,8 +201,8 @@ stages:
   jobs:
   - template: ./jobs/provision-nsp.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
-      nspName: 'nsp-$(ResourceGroupName)'
+      resourceGroup: $(UniqueResourceGroupName)
+      nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
 
 - stage: associateKeyVaultNsp
@@ -171,9 +213,9 @@ stages:
   jobs:
   - template: ./jobs/associate-keyvault-nsp.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       keyVaultName: '$(DeploymentEnvironmentName)-ts'
-      nspName: 'nsp-$(ResourceGroupName)'
+      nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
 
 - stage: deploySqlServer
@@ -184,19 +226,19 @@ stages:
   jobs:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
       adminType: 'userAssignedManagedIdentity'
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
       deploymentName: "AppServer"
-      nspName: 'nsp-$(ResourceGroupName)'
+      nspName: 'nsp-$(UniqueResourceGroupName)'
   - template: ./jobs/provision-sqlServer.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)inttest
       adminType: 'federatedServiceConnection'
       deploymentName: "IntegrationTests"
-      nspName: 'nsp-$(ResourceGroupName)'
+      nspName: 'nsp-$(UniqueResourceGroupName)'
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
@@ -212,7 +254,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -232,7 +274,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -254,7 +296,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -274,7 +316,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -296,7 +338,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -316,7 +358,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -338,7 +380,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -358,7 +400,7 @@ stages:
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'

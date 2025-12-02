@@ -12,12 +12,12 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: |
-        Get-AzResourceGroup -Name $(ResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
+        Get-AzResourceGroup -Name $(UniqueResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
         if ($notPresent) {
-          Write-Host "Resource group $(ResourceGroupName) not found"
+          Write-Host "Resource group $(UniqueResourceGroupName) not found"
         } else {
-          Write-Host "Deleting resource group $(ResourceGroupName)"
-          Remove-AzResourceGroup -Name $(ResourceGroupName) -Force -Verbose
+          Write-Host "Deleting resource group $(UniqueResourceGroupName)"
+          Remove-AzResourceGroup -Name $(UniqueResourceGroupName) -Force -Verbose
         }
       
 
