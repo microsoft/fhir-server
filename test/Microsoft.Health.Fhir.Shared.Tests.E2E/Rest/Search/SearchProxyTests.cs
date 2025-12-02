@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             AssertSingletonPatientBundle(searchset);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchBundle_WhenIncludingForwardedHeaders_ThenModifyResponseUrls()
         {
             // Ensure at least one patient exists

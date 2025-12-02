@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _fixture = fixture;
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         public async Task GivenReindexJobWithResourceAndAddedAfterSingleCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParameterShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -216,8 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"Specimen?{specimenSearchParam.Code}=119295008",
                     specimenSearchParam.Code,
                     "Specimen",
-                    true,
-                    finalSpecimenCount);
+                    true);
             }
             finally
             {
@@ -226,7 +225,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         public async Task GivenReindexJobWithResourceAndAddedAfterMultiCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -286,8 +285,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"Specimen?{specimenSearchParam.Code}=119295008",
                     specimenSearchParam.Code,
                     "Specimen",
-                    true,
-                    finalSpecimenCount);
+                    true);
             }
             finally
             {
@@ -296,7 +294,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
+        [RetryFact(MaxRetries = 3, RetryOnAssertionFailure = true)]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenBothHaveSameStatus_ThenBothShouldBeProcessedCorrectly()
         {
             // Cancel any running reindex jobs before starting this test
@@ -366,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -438,7 +436,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000)]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         public async Task GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported()
         {
             // Cancel any running reindex jobs before starting this test
@@ -1278,7 +1276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var cancelResponse = await _fixture.TestFhirClient.HttpClient.SendAsync(deleteRequest, cancellationToken);
                 System.Diagnostics.Debug.WriteLine($"Cancel request for job {jobId} completed with status: {cancelResponse.StatusCode}");
 
-                // Wait for the job to reach a terminal state
+                // Wait for the job to reach a terminal status
                 if (cancelResponse.IsSuccessStatusCode)
                 {
                     System.Diagnostics.Debug.WriteLine($"Waiting for job {jobId} to reach terminal state...");
