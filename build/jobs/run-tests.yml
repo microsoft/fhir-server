@@ -180,7 +180,7 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: ${{ parameters.appServiceName }}
       appServiceType: 'CosmosDb'
-      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
+      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
 
 - job: 'cosmosE2eTests_Reindex'
   dependsOn: []
@@ -197,6 +197,21 @@ jobs:
       categoryFilter: 'Category=IndexAndReindex'
       testRunTitleSuffix: ' Reindex'
 
+- job: 'cosmosE2eTests_BulkUpdate'
+  dependsOn: []
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  - template: e2e-tests.yml
+    parameters:
+      version: ${{ parameters.version }}
+      appServiceName: ${{ parameters.appServiceName }}
+      appServiceType: 'CosmosDb'
+      categoryFilter: 'Category=BulkUpdate'
+      testRunTitleSuffix: ' BulkUpdate'
+
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
@@ -209,7 +224,7 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: '${{ parameters.appServiceName }}-sql'
       appServiceType: 'SqlServer'
-      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
+      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
 
 - job: 'sqlE2eTests_Reindex'
   dependsOn: []
@@ -225,3 +240,18 @@ jobs:
       appServiceType: 'SqlServer'
       categoryFilter: 'Category=IndexAndReindex'
       testRunTitleSuffix: ' Reindex'
+
+- job: 'sqlE2eTests_BulkUpdate'
+  dependsOn: []
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  - template: e2e-tests.yml
+    parameters:
+      version: ${{ parameters.version }}
+      appServiceName: '${{ parameters.appServiceName }}-sql'
+      appServiceType: 'SqlServer'
+      categoryFilter: 'Category=BulkUpdate'
+      testRunTitleSuffix: ' BulkUpdate'
