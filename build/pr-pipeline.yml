@@ -127,7 +127,7 @@ stages:
           $prNumber = "$(prName)"
           $currentBuildId = "$(Build.BuildId)"
           $resourceGroupRoot = "$(resourceGroupRoot)"
-          $pattern = "$resourceGroupRoot-$prNumber-*"
+          $pattern = "$resourceGroupRoot-$prNumber*"
           
           Write-Host "Looking for old resource groups matching pattern: $pattern (excluding current build: $currentBuildId)"
           
