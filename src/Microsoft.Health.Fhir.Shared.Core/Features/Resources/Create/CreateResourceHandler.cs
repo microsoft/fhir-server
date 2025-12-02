@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

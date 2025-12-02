@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await Task.WhenAll(tasks);
         }
 
-        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;

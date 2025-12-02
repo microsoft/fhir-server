@@ -17,7 +17,7 @@ using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _isBundleProcessingLogicValid = _bundleOrchestrator.IsEnabled ? BundleHandlerRuntime.IsBundleProcessingLogicValid(_outerHttpContext) : true;
         }
 
-        public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
+        public async Task<BundleResponse> HandleAsync(BundleRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -462,7 +462,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 });
             }
 
-            await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, _outerHttpContext.Request.Scheme), CancellationToken.None);
+            await _mediator.PublishAsync(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, _outerHttpContext.Request.Scheme), CancellationToken.None);
         }
 
         private async Task ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
