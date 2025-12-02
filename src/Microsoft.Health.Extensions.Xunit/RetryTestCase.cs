@@ -47,65 +47,88 @@ namespace Microsoft.Health.Extensions.Xunit
             ExceptionAggregator aggregator,
             CancellationTokenSource cancellationTokenSource)
         {
-            var summary = new RunSummary { Total = 1 };
+            var runSummary = new RunSummary { Total = 1 };
             Exception lastException = null;
 
             for (int attempt = 1; attempt <= _maxRetries; attempt++)
             {
-                // Create a message bus that intercepts messages for all attempts except the last
-                using var interceptingMessageBus = new InterceptingMessageBus(messageBus, attempt < _maxRetries);
+                var isLastAttempt = attempt == _maxRetries;
 
                 // Create a fresh aggregator for each attempt
                 var attemptAggregator = new ExceptionAggregator();
 
-                var attemptSummary = await base.RunAsync(
-                    diagnosticMessageSink,
-                    interceptingMessageBus,
-                    constructorArguments,
-                    attemptAggregator,
-                    cancellationTokenSource);
+                // Only intercept failure messages on non-final attempts
+                // On the final attempt, let everything go through (both success and failure)
+                IMessageBus busToUse;
+                FailureInterceptingMessageBus interceptingBus = null;
 
-                summary.Time += attemptSummary.Time;
-
-                if (attemptSummary.Failed == 0)
+                if (isLastAttempt)
                 {
-                    // Test passed, return success
-                    diagnosticMessageSink.OnMessage(
-                        new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' passed on attempt {attempt}/{_maxRetries}"));
-
-                    summary.Failed = 0;
-                    return summary;
-                }
-
-                // Capture the exception for logging
-                lastException = attemptAggregator.ToException();
-
-                if (attempt < _maxRetries)
-                {
-                    diagnosticMessageSink.OnMessage(
-                        new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message}"));
-
-                    await Task.Delay(_delayMs);
+                    busToUse = messageBus;
                 }
                 else
                 {
-                    // All retries exhausted - add exception to aggregator
-                    diagnosticMessageSink.OnMessage(
-                        new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message}"));
+                    interceptingBus = new FailureInterceptingMessageBus(messageBus);
+                    busToUse = interceptingBus;
+                }
 
-                    if (lastException != null)
+                try
+                {
+                    var summary = await base.RunAsync(
+                        diagnosticMessageSink,
+                        busToUse,
+                        constructorArguments,
+                        attemptAggregator,
+                        cancellationTokenSource);
+
+                    runSummary.Time = summary.Time;
+
+                    if (summary.Failed == 0)
                     {
-                        aggregator.Add(lastException);
+                        // Test passed - success message already went through to Test Explorer
+                        diagnosticMessageSink.OnMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' passed on attempt {attempt}/{_maxRetries}"));
+
+                        runSummary.Failed = 0;
+                        return runSummary;
                     }
 
-                    summary.Failed = 1;
-                    return summary;
+                    // Test failed on this attempt
+                    lastException = attemptAggregator.ToException();
+
+                    if (!isLastAttempt)
+                    {
+                        // Not the last attempt - the failure was intercepted, so retry
+                        diagnosticMessageSink.OnMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed on attempt {attempt}/{_maxRetries}. Retrying after {_delayMs}ms delay. Error: {lastException?.Message}"));
+
+                        await Task.Delay(_delayMs);
+                    }
+                    else
+                    {
+                        // Last attempt - failure message already went through to Test Explorer
+                        diagnosticMessageSink.OnMessage(
+                            new DiagnosticMessage($"[RetryFact] Test '{TestMethod.TestClass.Class.Name}.{TestMethod.Method.Name}' failed after {_maxRetries} attempts. Last exception: {lastException?.Message}"));
+
+                        if (lastException != null)
+                        {
+                            aggregator.Add(lastException);
+                        }
+
+                        runSummary.Failed = 1;
+                        return runSummary;
+                    }
+                }
+                finally
+                {
+                    // Dispose the intercepting bus if we created one
+                    interceptingBus?.Dispose();
                 }
             }
 
-            // Should never reach here, but return failure as fallback
-            summary.Failed = 1;
-            return summary;
+            // Should never reach here
+            runSummary.Failed = 1;
+            return runSummary;
         }
 
         public override void Serialize(IXunitSerializationInfo data)
@@ -123,34 +146,28 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         /// <summary>
-        /// Message bus that intercepts test result messages for retry attempts.
+        /// Message bus that intercepts ONLY failure messages (ITestFailed).
+        /// Used on non-final retry attempts to suppress intermediate failures.
+        /// Success messages and all other messages always pass through.
         /// </summary>
-        private class InterceptingMessageBus : IMessageBus
+        private class FailureInterceptingMessageBus : IMessageBus
         {
             private readonly IMessageBus _innerBus;
-            private readonly bool _shouldIntercept;
 
-            public InterceptingMessageBus(IMessageBus innerBus, bool shouldIntercept)
+            public FailureInterceptingMessageBus(IMessageBus innerBus)
             {
                 _innerBus = innerBus;
-                _shouldIntercept = shouldIntercept;
             }
 
             public bool QueueMessage(IMessageSinkMessage message)
             {
-                // If this is not the final attempt, intercept test result messages
-                if (_shouldIntercept)
+                // Intercept ONLY failure messages - suppress them for non-final attempts
+                if (message is ITestFailed)
                 {
-                    // Suppress test result messages (pass/fail) for non-final attempts
-                    if (message is ITestPassed ||
-                        message is ITestFailed ||
-                        message is ITestSkipped)
-                    {
-                        return true; // Message handled, don't send to real bus
-                    }
+                    return true; // Swallow the failure - we're going to retry
                 }
 
-                // For the final attempt, or for non-result messages, pass through to the real bus
+                // All other messages (ITestPassed, ITestStarting, ITestFinished, etc.) pass through
                 return _innerBus.QueueMessage(message);
             }
 
