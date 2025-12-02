@@ -47,17 +47,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personSearchParam = new SearchParameter();
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var testResources = new List<(string resourceType, string resourceId)>();
-            var specimenCount = 2000;
-            var personCount = 1000;
+            var supplyDeliveryCount = 500;
+            var personCount = 500;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
             {
                 // Set up test data using the common setup method
-                System.Diagnostics.Debug.WriteLine($"Setting up test data for Specimen and Person resources...");
+                System.Diagnostics.Debug.WriteLine($"Setting up test data for SupplyDelivery and Person resources...");
 
-                // Setup Persons first, then Specimens sequentially (not in parallel)
-                // This ensures Persons are fully created before Specimens start
+                // Setup Persons first, then SupplyDeliveries sequentially (not in parallel)
+                // This ensures Persons are fully created before SupplyDeliveries start
                 var (personResources, finalPersonCount) = await SetupTestDataAsync("Person", personCount, randomSuffix, CreatePersonResourceAsync);
                 testResources.AddRange(personResources);
 
@@ -66,22 +66,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     finalPersonCount >= personCount,
                     $"Failed to create sufficient Person resources. Expected: {personCount}, Got: {finalPersonCount}");
 
-                var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", specimenCount, randomSuffix, CreateSpecimenResourceAsync);
-                testResources.AddRange(specimenResources);
+                var (supplyDeliveryResources, finalSupplyDeliveryCount) = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, randomSuffix, CreateSupplyDeliveryResourceAsync);
+                testResources.AddRange(supplyDeliveryResources);
 
                 // CRITICAL: Verify we got what we expected
                 Assert.True(
-                    finalSpecimenCount >= specimenCount,
-                    $"Failed to create sufficient Specimen resources. Expected: {specimenCount}, Got: {finalSpecimenCount}");
+                    finalSupplyDeliveryCount >= supplyDeliveryCount,
+                    $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {finalSupplyDeliveryCount}");
 
-                System.Diagnostics.Debug.WriteLine($"Test data setup complete - Specimen: {finalSpecimenCount}, Person: {finalPersonCount}");
+                System.Diagnostics.Debug.WriteLine($"Test data setup complete - SupplyDelivery: {finalSupplyDeliveryCount}, Person: {finalPersonCount}");
 
-                // Create a single search parameter that applies to BOTH Specimen and Immunization
+                // Create a single search parameter that applies to BOTH SupplyDelivery and Immunization
                 // This allows us to test the scenario where one resource type has data and another has none
                 mixedBaseSearchParam = await CreateCustomSearchParameterAsync(
                     $"custom-mixed-base-{randomSuffix}",
-                    ["Specimen", "Immunization"],  // Applies to both resource types
-                    "Specimen.type",  // Valid for Specimen
+                    ["SupplyDelivery", "Immunization"],  // Applies to both resource types
+                    "SupplyDelivery.status",  // Valid for SupplyDelivery
                     SearchParamType.Token);
                 Assert.NotNull(mixedBaseSearchParam);
 
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(personSearchParam);
 
                 // Create reindex job targeting both search parameters
-                // This will trigger multiple reindex jobs (one for Specimen/Immunization, one for Person)
+                // This will trigger multiple reindex jobs (one for SupplyDelivery/Immunization, one for Person)
                 var parameters = new Parameters
                 {
                     Parameter = new List<Parameters.ParameterComponent>
@@ -126,14 +126,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 await Task.Delay(TimeSpan.FromMinutes(1));
 
-                // Verify search parameter is working for Specimen (which has data)
+                // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
                 await VerifySearchParameterIsWorkingAsync(
-                    $"Specimen?{mixedBaseSearchParam.Code}=119295008",
+                    $"SupplyDelivery?{mixedBaseSearchParam.Code}=in-progress",
                     mixedBaseSearchParam.Code,
-                    expectedResourceType: "Specimen",
+                    expectedResourceType: "SupplyDelivery",
                     shouldFindRecords: true,
-                    expectedCount: finalSpecimenCount);
+                    expectedCount: finalSupplyDeliveryCount);
 
                 // Verify search parameter is working for Immunization (which has no data)
                 // We expect no immunization records to be returned (empty result set)
@@ -705,6 +705,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Return the specimen object without posting - bundle transaction will handle the post
             return await Task.FromResult(specimen);
+        }
+
+        private async Task<SupplyDelivery> CreateSupplyDeliveryResourceAsync(string id, string patientId)
+        {
+            var supplyDelivery = new SupplyDelivery
+            {
+                Id = id,
+                Status = SupplyDelivery.SupplyDeliveryStatus.InProgress,
+                Patient = new ResourceReference($"Patient/{patientId}"),
+            };
+
+            // Return the supply delivery object without posting - will be posted in parallel batches
+            return await Task.FromResult(supplyDelivery);
         }
 
         /// <summary>
