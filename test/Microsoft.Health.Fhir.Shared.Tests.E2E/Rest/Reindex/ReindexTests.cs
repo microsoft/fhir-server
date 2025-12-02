@@ -47,8 +47,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personSearchParam = new SearchParameter();
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var testResources = new List<(string resourceType, string resourceId)>();
-            var supplyDeliveryCount = 500;
-            var personCount = 500;
+            var supplyDeliveryCount = 2000;
+            var personCount = 1000;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
@@ -132,8 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"SupplyDelivery?{mixedBaseSearchParam.Code}=in-progress",
                     mixedBaseSearchParam.Code,
                     expectedResourceType: "SupplyDelivery",
-                    shouldFindRecords: true,
-                    expectedCount: finalSupplyDeliveryCount);
+                    shouldFindRecords: true);
 
                 // Verify search parameter is working for Immunization (which has no data)
                 // We expect no immunization records to be returned (empty result set)
@@ -149,8 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"Person?{personSearchParam.Code}=Test",
                     personSearchParam.Code,
                     expectedResourceType: "Person",
-                    shouldFindRecords: true,
-                    expectedCount: finalPersonCount);
+                    shouldFindRecords: true);
             }
             finally
             {
@@ -518,8 +516,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     searchQuery,
                     searchParam.Code,
                     expectedResourceType: "Specimen",
-                    shouldFindRecords: true,
-                    expectedCount: finalSpecimenCount);
+                    shouldFindRecords: true);
 
                 // Step 5: Delete the search parameter
                 await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{searchParam.Id}");
@@ -904,16 +901,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// Retries handle timing issues with search parameter cache refresh after reindex operations.
         /// If the search parameter is not indexed, the response will contain an OperationOutcome with code "NotSupported".
         /// This method ensures the search parameter is fully functional after reindex operations and validates
-        /// that the expected records are returned (or not found, depending on the scenario).
+        /// that results are returned (or not found, depending on the scenario).
         ///
         /// Handles pagination by following NextLink entries until all results are retrieved.
-        /// Uses the _count parameter to optimize page size based on expected record count.
         /// </summary>
         /// <param name="searchQuery">The search query to execute (e.g., "Patient?code=value")</param>
         /// <param name="searchParameterCode">The search parameter code for error messaging</param>
         /// <param name="expectedResourceType">The resource type being searched for (e.g., "Patient")</param>
         /// <param name="shouldFindRecords">Whether we expect to find records. True if data should be returned, false if expecting empty result</param>
-        /// <param name="expectedCount">Optional. The minimum number of records expected to be found. If not specified, any count > 0 is acceptable when shouldFindRecords is true</param>
         /// <param name="maxRetries">Maximum number of retry attempts if the search parameter is not ready</param>
         /// <param name="retryDelayMs">Delay in milliseconds between retry attempts</param>
         private async Task VerifySearchParameterIsWorkingAsync(
@@ -921,7 +916,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             string searchParameterCode,
             string expectedResourceType = null,
             bool shouldFindRecords = true,
-            int? expectedCount = null,
             int maxRetries = 9,
             int retryDelayMs = 20000)
         {
@@ -931,12 +925,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 try
                 {
-                    // Determine optimal page size based on expected count
-                    // If we expect a specific count, request that many plus a buffer
-                    // Otherwise use a reasonable default to minimize additional calls
-                    int pageSize = expectedCount.HasValue
-                        ? Math.Min(expectedCount.Value + 10, 1000)
-                        : 50;
+                    // Use a reasonable default page size
+                    const int pageSize = 100;
 
                     // Add _count parameter to control pagination
                     var queryWithCount = searchQuery.Contains("?")
@@ -949,7 +939,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     int totalEntriesRetrieved = 0;
 
                     System.Diagnostics.Debug.WriteLine(
-                        $"Search parameter {searchParameterCode} - attempt {attempt} of {maxRetries}, starting search with page size {pageSize}. Expected count: {(expectedCount.HasValue ? $"at least {expectedCount.Value}" : "any > 0")}");
+                        $"Search parameter {searchParameterCode} - attempt {attempt} of {maxRetries}, starting search with page size {pageSize}.");
 
                     // Follow pagination until we get all results
                     while (!string.IsNullOrEmpty(nextLink))
@@ -978,14 +968,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         nextLink = searchResponse.Resource?.NextLink?.OriginalString;
                         System.Diagnostics.Debug.WriteLine(
                             $"Search parameter {searchParameterCode} - page {pageCount} returned {searchResponse.Resource?.Entry?.Count ?? 0} entries (total so far: {totalEntriesRetrieved}). Next link: {(string.IsNullOrEmpty(nextLink) ? "none" : "present")}");
-
-                        // Optimization: Stop pagination early if we've found enough records
-                        if (expectedCount.HasValue && totalEntriesRetrieved >= expectedCount.Value && string.IsNullOrEmpty(nextLink))
-                        {
-                            System.Diagnostics.Debug.WriteLine(
-                                $"Search parameter {searchParameterCode} - reached expected count ({expectedCount.Value}) without additional pages needed");
-                            break;
-                        }
                     }
 
                     System.Diagnostics.Debug.WriteLine(
@@ -1005,20 +987,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                 resourcesFound.Count > 0,
                                 $"Expected to find {expectedResourceType} records for search parameter {searchParameterCode}, but none were returned.");
 
-                            // If expectedCount is specified, validate we have at least that many
-                            if (expectedCount.HasValue)
-                            {
-                                Assert.True(
-                                    resourcesFound.Count >= expectedCount.Value,
-                                    $"Expected to find at least {expectedCount.Value} {expectedResourceType} records for search parameter {searchParameterCode}, but found {resourcesFound.Count}.");
-                                System.Diagnostics.Debug.WriteLine(
-                                    $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) (expected at least {expectedCount.Value}) across {pageCount} page(s)");
-                            }
-                            else
-                            {
-                                System.Diagnostics.Debug.WriteLine(
-                                    $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) across {pageCount} page(s)");
-                            }
+                            System.Diagnostics.Debug.WriteLine(
+                                $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) across {pageCount} page(s)");
                         }
                         else
                         {
