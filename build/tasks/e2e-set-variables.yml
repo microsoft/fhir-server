@@ -28,7 +28,7 @@ steps:
         }
 
         $appServiceName = "${{ parameters.appServiceName }}"
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(UniqueResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
         $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
         $acrLoginServer = $acrSettings[0].Value
         $acrAccountName = ($acrLoginServer -split '\.')[0]
@@ -42,7 +42,7 @@ steps:
         $exportStoreUri = $exportStoreSettings[0].Value
         Write-Host "$exportStoreUri"
         $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
-        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(UniqueResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
         
         Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
 

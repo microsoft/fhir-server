@@ -139,11 +139,17 @@ stages:
           if ($oldRGs.Count -eq 0) {
             Write-Host "No old resource groups found to cleanup"
           } else {
-            foreach ($rg in $oldRGs) {
-              Write-Host "Removing old resource group: $($rg.ResourceGroupName)"
-              Remove-AzResourceGroup -Name $rg.ResourceGroupName -Force -AsJob
-            }
-            Write-Host "Initiated async removal of $($oldRGs.Count) old resource group(s)"
+            Write-Host "Found $($oldRGs.Count) old resource group(s) to cleanup"
+            
+            # Delete all RGs in parallel using ForEach-Object -Parallel
+            $oldRGs | ForEach-Object -Parallel {
+              $rgName = $_.ResourceGroupName
+              Write-Host "Removing resource group: $rgName"
+              Remove-AzResourceGroup -Name $rgName -Force
+              Write-Host "Completed removal of resource group: $rgName"
+            } -ThrottleLimit 10
+            
+            Write-Host "Completed removal of $($oldRGs.Count) old resource group(s)"
           }
 
 - stage: provisionEnvironment

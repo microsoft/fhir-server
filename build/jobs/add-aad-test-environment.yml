@@ -38,7 +38,7 @@ steps:
 
       $vaultName = "${environmentName}-ts"
       $vaultLocation = "westus"
-      $vaultResourceGroupName = "$(ResourceGroupName)"
+      $vaultResourceGroupName = "$(UniqueResourceGroupName)"
       if (Get-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState)
       {
           Write-Host "Attempting to restore vault ${vaultName}"
@@ -57,4 +57,4 @@ steps:
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
       Write-Host "Imported modules"
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password
+      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(UniqueResourceGroupName) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password

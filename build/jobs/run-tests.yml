@@ -40,7 +40,7 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
         $appServiceName = '${{ parameters.appServiceName }}'
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(UniqueResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
         $dataStoreResourceId = $appSettings | where {$_.Name -eq "FhirServer__ResourceManager__DataStoreResourceId"}
         $dataStoreResourceId = $dataStoreResourceId[0].Value
         Write-Host "$dataStoreResourceId"
