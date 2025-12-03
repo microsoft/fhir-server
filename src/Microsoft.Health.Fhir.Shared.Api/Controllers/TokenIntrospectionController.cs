@@ -13,7 +13,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
@@ -51,6 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route("/connect/introspect")]
         [Authorize]
         [Consumes("application/x-www-form-urlencoded")]
+        [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
         public IActionResult Introspect([FromForm] string token)
         {
             // Validate token parameter is present
@@ -146,16 +149,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var authority = _securityConfiguration.Authentication.Authority;
             var audience = _securityConfiguration.Authentication.Audience;
 
+            // Normalize authority to ensure consistent JWKS endpoint
+            var normalizedAuthority = authority.TrimEnd('/');
+
             // Configure OpenID Connect configuration retriever for JWKS
             var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-                $"{authority}/.well-known/openid-configuration",
+                $"{normalizedAuthority}/.well-known/openid-configuration",
                 new OpenIdConnectConfigurationRetriever(),
                 new HttpDocumentRetriever());
 
             return new TokenValidationParameters
             {
                 ValidateIssuer = true,
-                ValidIssuer = authority,
+
+                // Accept issuer with or without trailing slash (common OpenIddict variation)
+                ValidIssuers = new[] { normalizedAuthority, normalizedAuthority + "/" },
                 ValidateAudience = true,
                 ValidAudience = audience,
                 ValidateLifetime = true,

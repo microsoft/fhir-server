@@ -96,7 +96,8 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
                             "/connect/token",
                             "/AadSmartOnFhirProxy/token");
                         options.SetAuthorizationEndpointUris("/AadSmartOnFhirProxy/authorize");
-                        options.SetIntrospectionEndpointUris("/connect/introspect");
+
+                        // Note: Introspection endpoint is handled by TokenIntrospectionController, not OpenIddict
 
                         // Dev flows:
                         options.AllowAuthorizationCodeFlow();
