@@ -1854,7 +1854,7 @@ BEGIN TRY
           AND @LookedAtPartitions < @MaxPartitions
           AND @CheckTimeoutJobs = 0
         BEGIN
-            SET @Lock = 'DequeueJob_' + CONVERT (VARCHAR, @QueueType) + '_' + CONVERT (VARCHAR, @PartitionId);
+            SET @Lock = 'DequeueJob_0_' + CONVERT (VARCHAR, @QueueType) + '_' + CONVERT (VARCHAR, @PartitionId);
             BEGIN TRANSACTION;
             EXECUTE sp_getapplock @Lock, 'Exclusive';
             UPDATE T
@@ -1888,7 +1888,7 @@ BEGIN TRY
           AND @JobId IS NULL
           AND @LookedAtPartitions < @MaxPartitions
         BEGIN
-            SET @Lock = 'DequeueStoreCopyWorkUnit_' + CONVERT (VARCHAR, @PartitionId);
+            SET @Lock = 'DequeueJob_1_' + CONVERT (VARCHAR, @QueueType) + '_' + CONVERT (VARCHAR, @PartitionId);
             BEGIN TRANSACTION;
             EXECUTE sp_getapplock @Lock, 'Exclusive';
             UPDATE T
@@ -3179,16 +3179,12 @@ CREATE PROCEDURE dbo.HardDeleteResource
 @ResourceTypeId SMALLINT, @ResourceId VARCHAR (64), @KeepCurrentVersion BIT, @IsResourceChangeCaptureEnabled BIT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' R=' + @ResourceId + ' V=' + CONVERT (VARCHAR, @KeepCurrentVersion) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled), @st AS DATETIME = getUTCdate(), @TransactionId AS BIGINT, @TranStarted AS BIT = 0;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' R=' + @ResourceId + ' V=' + CONVERT (VARCHAR, @KeepCurrentVersion) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled), @st AS DATETIME = getUTCdate(), @TransactionId AS BIGINT;
 BEGIN TRY
     IF @IsResourceChangeCaptureEnabled = 1
         EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUTPUT;
     IF @KeepCurrentVersion = 0
-       AND @@TRANCOUNT = 0
-        BEGIN
-            BEGIN TRANSACTION;
-            SET @TranStarted = 1;
-        END
+        BEGIN TRANSACTION;
     DECLARE @SurrogateIds TABLE (
         ResourceSurrogateId BIGINT NOT NULL);
     IF @IsResourceChangeCaptureEnabled = 1
@@ -3322,159 +3318,16 @@ BEGIN TRY
                       AND B.ResourceSurrogateId = A.ResourceSurrogateId
             OPTION (MAXDOP 1);
         END
-    IF @TranStarted = 1
-       AND @@TRANCOUNT > 0
+    IF @@trancount > 0
         COMMIT TRANSACTION;
     IF @IsResourceChangeCaptureEnabled = 1
         EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
 END TRY
 BEGIN CATCH
-    IF @TranStarted = 1
-       AND @@TRANCOUNT > 0
+    IF @@trancount > 0
         ROLLBACK;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-GO
-CREATE PROCEDURE dbo.HardDeleteSearchParameter
-@SearchParameterUrl VARCHAR (256)
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@PROCID);
-DECLARE @Mode AS VARCHAR (200) = 'URL=' + @SearchParameterUrl;
-DECLARE @st AS DATETIME = getutcdate();
-DECLARE @ResourceTypeId AS SMALLINT;
-DECLARE @ResourceId AS VARCHAR (64);
-DECLARE @DeletedVersionCount AS INT = 0;
-DECLARE @TotalDeletedVersionCount AS INT = 0;
-DECLARE @EventText AS NVARCHAR (3500);
-DECLARE @RawResourceJson AS NVARCHAR (MAX);
-DECLARE @ResourceCount AS INT = 0;
-DECLARE @ResourceIdsToDelete TABLE (
-    ResourceId          VARCHAR (64),
-    ResourceSurrogateId BIGINT      );
-BEGIN TRY
-    IF @SearchParameterUrl IS NULL
-       OR len(@SearchParameterUrl) = 0
-        BEGIN
-            SET @EventText = 'SearchParameter URL parameter is required';
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st, @Text = @EventText;
-            THROW 50400, 'SearchParameter URL is required', 1;
-        END
-    SELECT @ResourceTypeId = ResourceTypeId
-    FROM   dbo.ResourceType
-    WHERE  Name = 'SearchParameter';
-    IF @ResourceTypeId IS NULL
-        BEGIN
-            SET @EventText = 'SearchParameter resource type not found in ResourceType table';
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st, @Text = @EventText;
-            THROW 50404, 'SearchParameter resource type not found', 1;
-        END
-    INSERT INTO @ResourceIdsToDelete (ResourceId, ResourceSurrogateId)
-    SELECT r.ResourceId,
-           r.ResourceSurrogateId
-    FROM   (SELECT ResourceId,
-                   CASE WHEN RawResource != 0xF THEN CAST (decompress(RawResource) AS VARCHAR (MAX)) ELSE NULL END AS FhirResource,
-                   ResourceSurrogateId
-            FROM   dbo.Resource
-            WHERE  ResourceTypeId = @ResourceTypeId
-                   AND IsDeleted = 0
-                   AND IsHistory = 0) AS r
-    WHERE  r.FhirResource LIKE '%' + @SearchParameterUrl + '%' COLLATE Latin1_General_CS_AS;
-    IF NOT EXISTS (SELECT 1
-                   FROM   @ResourceIdsToDelete)
-        BEGIN
-            INSERT INTO @ResourceIdsToDelete (ResourceId, ResourceSurrogateId)
-            SELECT   r.ResourceId,
-                     r.ResourceSurrogateId
-            FROM     (SELECT ResourceId,
-                             CASE WHEN RawResource != 0xF THEN CAST (decompress(RawResource) AS VARCHAR (MAX)) ELSE NULL END AS FhirResource,
-                             ResourceSurrogateId
-                      FROM   dbo.Resource
-                      WHERE  ResourceTypeId = @ResourceTypeId
-                             AND IsDeleted = 0
-                             AND IsHistory = 1) AS r
-            WHERE    r.FhirResource LIKE '%' + @SearchParameterUrl + '%' COLLATE Latin1_General_CS_AS
-            ORDER BY r.ResourceSurrogateId DESC;
-            IF EXISTS (SELECT 1
-                       FROM   @ResourceIdsToDelete)
-                BEGIN
-                    SET @EventText = 'Found SearchParameter(s) from historical versions (IsDeleted=0, IsHistory=1) - soft-deleted scenario';
-                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Start = @st, @Text = @EventText;
-                END
-        END
-    ELSE
-        BEGIN
-            SET @EventText = 'Found SearchParameter(s) from active resources (IsDeleted=0, IsHistory=0)';
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Start = @st, @Text = @EventText;
-        END
-    SELECT @ResourceCount = count(*)
-    FROM   @ResourceIdsToDelete;
-    IF @ResourceCount = 0
-        BEGIN
-            SET @EventText = 'No SearchParameter resources found for URL: ' + @SearchParameterUrl + ', will attempt to delete from SearchParam registry';
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Start = @st, @Text = @EventText;
-        END
-    ELSE
-        BEGIN
-            SET @EventText = 'Deleting ' + CONVERT (VARCHAR, @ResourceCount) + ' SearchParameter resource(s) for URL: ' + @SearchParameterUrl;
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Start = @st, @Text = @EventText;
-        END
-    BEGIN TRANSACTION;
-    IF @ResourceCount > 0
-        BEGIN
-            DECLARE resource_cursor CURSOR LOCAL FAST_FORWARD
-                FOR SELECT ResourceId
-                    FROM   @ResourceIdsToDelete;
-            OPEN resource_cursor;
-            FETCH NEXT FROM resource_cursor INTO @ResourceId;
-            WHILE @@FETCH_STATUS = 0
-                BEGIN
-                    SELECT @DeletedVersionCount = count(*)
-                    FROM   dbo.Resource
-                    WHERE  ResourceTypeId = @ResourceTypeId
-                           AND ResourceId = @ResourceId;
-                    EXECUTE dbo.HardDeleteResource @ResourceTypeId = @ResourceTypeId, @ResourceId = @ResourceId, @KeepCurrentVersion = 0, @IsResourceChangeCaptureEnabled = 0;
-                    SET @TotalDeletedVersionCount = @TotalDeletedVersionCount + @DeletedVersionCount;
-                    SET @EventText = 'Deleted ' + CONVERT (VARCHAR, @DeletedVersionCount) + ' version(s) for ResourceId: ' + @ResourceId;
-                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Start = @st, @Text = @EventText;
-                    FETCH NEXT FROM resource_cursor INTO @ResourceId;
-                END
-            CLOSE resource_cursor;
-            DEALLOCATE resource_cursor;
-        END
-    DELETE dbo.SearchParam
-    WHERE  Uri = @SearchParameterUrl COLLATE Latin1_General_CS_AS;
-    IF @@ROWCOUNT > 0
-        BEGIN
-            SET @EventText = 'Successfully deleted SearchParam registry entry for URL: ' + @SearchParameterUrl;
-        END
-    ELSE
-        BEGIN
-            SET @EventText = 'WARNING: No SearchParam registry entry found for URL: ' + @SearchParameterUrl + ' (may have been deleted previously)';
-        END
-    COMMIT TRANSACTION;
-    SET @EventText = @EventText + ' | Deleted ' + CONVERT (VARCHAR, @TotalDeletedVersionCount) + ' total resource version(s) across ' + CONVERT (VARCHAR, @ResourceCount) + ' resource(s)';
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @EventText, @Rows = @TotalDeletedVersionCount;
-    SELECT @SearchParameterUrl AS DeletedSearchParameterUrl,
-           @ResourceCount AS DeletedResourceCount,
-           @TotalDeletedVersionCount AS TotalDeletedVersionCount;
-END TRY
-BEGIN CATCH
-    IF @@TRANCOUNT > 0
-        ROLLBACK;
-    IF cursor_status('local', 'resource_cursor') >= 0
-        BEGIN
-            CLOSE resource_cursor;
-            DEALLOCATE resource_cursor;
-        END
-    DECLARE @ErrorMessage AS NVARCHAR (4000) = error_message();
-    DECLARE @ErrorSeverity AS INT = error_severity();
-    DECLARE @ErrorState AS INT = error_state();
-    SET @EventText = 'HardDelete failed for SearchParameter URL: ' + @SearchParameterUrl + CASE WHEN @ResourceId IS NOT NULL THEN ' (last processed ResourceId: ' + @ResourceId + ')' ELSE '' END + '. Error: ' + @ErrorMessage;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st, @Text = @EventText;
     THROW;
 END CATCH
 
