@@ -45,7 +45,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                                 testFhirServer = new RemoteTestFhirServer(environmentUrl);
                             }
 
-                            return testFhirServer.ConfigureSecurityOptions().ContinueWith(_ => testFhirServer, TaskContinuationOptions.ExecuteSynchronously);
+                            return testFhirServer.ConfigureSecurityOptions()
+                                .ContinueWith(
+                                    async _ =>
+                                    {
+                                        await testFhirServer.ValidateAuthenticationAsync();
+                                        return testFhirServer;
+                                    },
+                                    TaskContinuationOptions.ExecuteSynchronously)
+                                .Unwrap();
                         }))
                 .Value;
         }

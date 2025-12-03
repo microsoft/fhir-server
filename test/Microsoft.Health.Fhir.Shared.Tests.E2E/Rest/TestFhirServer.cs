@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -212,6 +213,85 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             SecurityEnabled = localSecurityEnabled;
+        }
+
+        /// <summary>
+        /// Clears the authentication handler cache and client cache.
+        /// This is useful when retrying authentication after a failure.
+        /// </summary>
+        public void ClearAuthenticationCache()
+        {
+            _authenticationHandlers.Clear();
+            _cache.Clear();
+            Console.WriteLine($"[AuthValidation] Cleared authentication handler cache and client cache.");
+        }
+
+        /// <summary>
+        /// Validates that authentication is working by making an authenticated request.
+        /// Uses exponential backoff with a maximum wait time of approximately 2 minutes.
+        /// Clears caches before each retry to avoid caching failed auth state.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task representing the async operation.</returns>
+        public async Task ValidateAuthenticationAsync(CancellationToken cancellationToken = default)
+        {
+            if (!SecurityEnabled)
+            {
+                Console.WriteLine($"[AuthValidation] Security is not enabled, skipping authentication validation.");
+                return;
+            }
+
+            const int maxRetries = 7;
+            int[] backoffDelaysMs = { 1000, 2000, 4000, 8000, 16000, 32000, 64000 }; // ~127s total
+            var stopwatch = Stopwatch.StartNew();
+
+            Console.WriteLine($"[AuthValidation] Starting authentication validation with up to {maxRetries} attempts...");
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    Console.WriteLine($"[AuthValidation] Attempt {attempt}/{maxRetries} - Validating authentication...");
+
+                    // Get a fresh client for validation
+                    TestFhirClient client = GetTestFhirClient(ResourceFormat.Json, reusable: false);
+
+                    // Make a simple authenticated request to validate auth is working
+                    using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, "Patient?_count=1");
+                    using HttpResponseMessage response = await client.HttpClient.SendAsync(request, cancellationToken);
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        throw new HttpRequestException($"Authentication failed with status code {response.StatusCode}");
+                    }
+
+                    response.EnsureSuccessStatusCode();
+
+                    Console.WriteLine($"[AuthValidation] Authentication validated successfully on attempt {attempt} after {stopwatch.ElapsedMilliseconds}ms.");
+                    return;
+                }
+                catch (Exception ex) when (attempt < maxRetries && !cancellationToken.IsCancellationRequested)
+                {
+                    int delayMs = backoffDelaysMs[attempt - 1];
+                    Console.WriteLine($"[AuthValidation] Attempt {attempt}/{maxRetries} failed: {ex.Message}");
+                    Console.WriteLine($"[AuthValidation] Clearing caches and waiting {delayMs}ms before retry...");
+
+                    // Clear caches to ensure we don't reuse failed auth state
+                    ClearAuthenticationCache();
+
+                    await Task.Delay(delayMs, cancellationToken);
+                }
+            }
+
+            // If we get here, all retries failed
+            stopwatch.Stop();
+            string errorMessage = $"[AuthValidation] Authentication validation failed after {maxRetries} attempts over {stopwatch.ElapsedMilliseconds}ms. " +
+                                  $"This may indicate AAD/RBAC propagation delays or configuration issues. " +
+                                  $"Check that the test application has the required permissions.";
+            Console.WriteLine(errorMessage);
+            throw new InvalidOperationException(errorMessage);
         }
 
         public virtual ValueTask DisposeAsync()
