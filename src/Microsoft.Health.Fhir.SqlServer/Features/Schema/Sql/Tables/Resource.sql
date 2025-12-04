@@ -14,7 +14,8 @@ CREATE TABLE dbo.CurrentResource -- This is replaced by view CurrentResource
     IsRawResourceMetaSet        bit                     NOT NULL,
     SearchParamHash             varchar(64)             NULL,
     TransactionId               bigint                  NULL,
-    HistoryTransactionId        bigint                  NULL
+    HistoryTransactionId        bigint                  NULL,
+    DecompressedSize            int                     NULL
 )
 GO
 DROP TABLE dbo.CurrentResource
@@ -32,7 +33,8 @@ CREATE TABLE dbo.Resource
     IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0,
     SearchParamHash             varchar(64)             NULL,
     TransactionId               bigint                  NULL,     -- used for main CRUD operation 
-    HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
+    HistoryTransactionId        bigint                  NULL,      -- used by CRUD operation that moved resource version in invisible state 
+    DecompressedSize            int                     NULL
 
     CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > 0x0)
