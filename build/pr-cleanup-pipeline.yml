@@ -13,6 +13,8 @@ resources:
       branches:
         include:
           - '*'
+      stages:
+        - cleanup
 
 variables:
 - template: pr-variables.yml
