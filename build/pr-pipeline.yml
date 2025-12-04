@@ -220,7 +220,7 @@ stages:
   - template: ./jobs/associate-keyvault-nsp.yml
     parameters:
       resourceGroup: $(UniqueResourceGroupName)
-      keyVaultName: '$(DeploymentEnvironmentName)-ts'
+      keyVaultName: '$(UniqueKeyVaultName)'
       nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
 

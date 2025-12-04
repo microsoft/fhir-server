@@ -5,6 +5,8 @@ variables:
     ResourceGroupName: '$(resourceGroupRoot)-$(prName)'
     # Unique resource group name with Build.BuildId suffix to avoid waiting for deletion of existing RG
     UniqueResourceGroupName: '$(resourceGroupRoot)-$(prName)-$(Build.BuildId)'
+    # Unique key vault name with Build.BuildId suffix to avoid soft-delete conflicts
+    UniqueKeyVaultName: '$(DeploymentEnvironmentName)-$(Build.BuildId)-ts'
     DeploymentEnvironmentName: 'f$(build.BuildNumber)'
     TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'

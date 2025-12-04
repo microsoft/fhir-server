@@ -32,21 +32,8 @@ steps:
       $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
       $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
 
-      # If a deleted keyvault with purge protection exists, try to restore it.
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       Write-Host "Installed module and set variables"
-
-      $vaultName = "${environmentName}-ts"
-      $vaultLocation = "westus"
-      $vaultResourceGroupName = "$(UniqueResourceGroupName)"
-      if (Get-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState)
-      {
-          Write-Host "Attempting to restore vault ${vaultName}"
-
-          Undo-AzKeyVaultRemoval -VaultName $vaultName -ResourceGroupName $vaultResourceGroupName -Location $vaultLocation
-          Write-Host "KeyVault $vaultName is restored"
-      }
-      Write-Host "Restored keyvaults"
 
       # Connect to Microsoft Graph using client credentials
       Write-Host "Connecting to Microsoft Graph"
@@ -57,4 +44,4 @@ steps:
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
       Write-Host "Imported modules"
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(UniqueResourceGroupName) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password
+      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(UniqueResourceGroupName) -KeyVaultName $(UniqueKeyVaultName) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password

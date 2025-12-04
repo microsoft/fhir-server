@@ -17,7 +17,7 @@ steps:
       KeyVaultName: 'resolute-oss-tenant-info'
 
   - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)-ts'
+    displayName: 'Azure Key Vault: $(UniqueKeyVaultName)'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '$(DeploymentEnvironmentName)-ts'
+      KeyVaultName: '$(UniqueKeyVaultName)'
