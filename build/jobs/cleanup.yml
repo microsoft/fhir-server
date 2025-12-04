@@ -12,7 +12,8 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: |
-        $vaultName = "$(UniqueKeyVaultName)"
+        $prNumber = "$(prName)"
+        $uniqueVaultName = "$(UniqueKeyVaultName)"
         
         Get-AzResourceGroup -Name $(UniqueResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
         if ($notPresent) {
@@ -22,10 +23,12 @@ jobs:
           Remove-AzResourceGroup -Name $(UniqueResourceGroupName) -Force -Verbose
         }
         
-        # Purge soft-deleted Key Vaults for this build
-        Write-Host "Checking for soft-deleted vaults matching pattern: $vaultName*"
+        # Purge any soft-deleted Key Vaults from previous builds for this PR
+        # Vault names contain pr<prNumber> (e.g., f20585pr5240-46482-ts, f20585pr524061-ts, etc.)
+        $vaultPattern = "*pr$prNumber*"
+        Write-Host "Checking for soft-deleted Key Vaults matching pattern: $vaultPattern"
         $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
-          $_.VaultName -like "$vaultName*"
+          $_.VaultName -like $vaultPattern
         }
         
         if ($softDeletedVaults.Count -eq 0) {
