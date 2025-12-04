@@ -127,6 +127,8 @@ stages:
           $prNumber = "$(prName)"
           $currentBuildId = "$(Build.BuildId)"
           $resourceGroupRoot = "$(resourceGroupRoot)"
+          $deploymentEnvName = "$(DeploymentEnvironmentName)"
+          $vaultLocation = "westus"
           $pattern = "$resourceGroupRoot-$prNumber*"
           
           Write-Host "Looking for old resource groups matching pattern: $pattern (excluding current build: $currentBuildId)"
@@ -150,6 +152,29 @@ stages:
             } -ThrottleLimit 10
             
             Write-Host "Completed removal of $($oldRGs.Count) old resource group(s)"
+          }
+          
+          # Purge any soft-deleted Key Vaults from previous builds for this PR
+          Write-Host "Checking for soft-deleted Key Vaults matching pattern: $deploymentEnvName-*-ts"
+          $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
+            $_.VaultName -like "$deploymentEnvName-*-ts" -and
+            $_.VaultName -ne "$deploymentEnvName-$currentBuildId-ts"
+          }
+          
+          if ($softDeletedVaults.Count -eq 0) {
+            Write-Host "No soft-deleted Key Vaults found to purge"
+          } else {
+            Write-Host "Found $($softDeletedVaults.Count) soft-deleted Key Vault(s) to purge"
+            foreach ($vault in $softDeletedVaults) {
+              Write-Host "Purging soft-deleted vault: $($vault.VaultName)"
+              try {
+                Remove-AzKeyVault -VaultName $vault.VaultName -Location $vault.Location -InRemovedState -Force
+                Write-Host "Successfully purged vault: $($vault.VaultName)"
+              }
+              catch {
+                Write-Warning "Failed to purge vault $($vault.VaultName). Error: $($_.Exception.Message)"
+              }
+            }
           }
 
 - stage: provisionEnvironment
