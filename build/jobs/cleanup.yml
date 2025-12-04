@@ -13,7 +13,6 @@ jobs:
       ScriptType: InlineScript
       Inline: |
         $vaultName = "$(UniqueKeyVaultName)"
-        $vaultLocation = "westus"
         
         Get-AzResourceGroup -Name $(UniqueResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
         if ($notPresent) {
@@ -23,20 +22,39 @@ jobs:
           Remove-AzResourceGroup -Name $(UniqueResourceGroupName) -Force -Verbose
         }
         
-        # Purge soft-deleted Key Vault to free up quota
-        Write-Host "Checking for soft-deleted vault $vaultName..."
-        $softDeletedVault = Get-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState -ErrorAction SilentlyContinue
-        if ($softDeletedVault) {
-          Write-Host "Purging soft-deleted vault $vaultName..."
-          try {
-            Remove-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState -Force
-            Write-Host "Successfully purged vault $vaultName"
-          }
-          catch {
-            Write-Warning "Failed to purge vault $vaultName. It may have purge protection enabled. Error: $($_.Exception.Message)"
-          }
+        # Purge soft-deleted Key Vaults for this build
+        Write-Host "Checking for soft-deleted vaults matching pattern: $vaultName*"
+        $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
+          $_.VaultName -like "$vaultName*"
+        }
+        
+        if ($softDeletedVaults.Count -eq 0) {
+          Write-Host "No soft-deleted vaults found to purge"
         } else {
-          Write-Host "No soft-deleted vault found for $vaultName"
+          Write-Host "Found $($softDeletedVaults.Count) soft-deleted vault(s) to purge"
+          
+          $results = $softDeletedVaults | ForEach-Object -Parallel {
+            $vaultName = $_.VaultName
+            $vaultLocation = $_.Location
+            try {
+              Remove-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState -Force -ErrorAction Stop
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Success" }
+            }
+            catch {
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Failed: $($_.Exception.Message)" }
+            }
+          } -ThrottleLimit 10
+          
+          $results | ForEach-Object {
+            if ($_.Status -eq "Success") {
+              Write-Host "Successfully purged vault: $($_.Vault)"
+            } else {
+              Write-Warning "Failed to purge vault $($_.Vault). $($_.Status)"
+            }
+          }
+          
+          $successCount = ($results | Where-Object { $_.Status -eq "Success" }).Count
+          Write-Host "Completed purging: $successCount of $($softDeletedVaults.Count) vaults"
         }
       
 
