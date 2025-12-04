@@ -109,7 +109,9 @@ stages:
 
 - stage: cleanupOldEnvironments
   displayName: 'Cleanup Old PR Environments'
-  dependsOn: []
+  dependsOn: 
+  - UpdateVersion
+  - provisionEnvironment
   jobs:
   - job: cleanupOldRGs
     displayName: 'Remove Previous PR Resource Groups'
@@ -125,17 +127,16 @@ stages:
         ScriptType: inlineScript
         Inline: |
           $prNumber = "$(prName)"
-          $currentBuildId = "$(Build.BuildId)"
           $resourceGroupRoot = "$(resourceGroupRoot)"
+          $currentRgName = "$(UniqueResourceGroupName)"
           $deploymentEnvName = "$(DeploymentEnvironmentName)"
-          $vaultLocation = "westus"
           $pattern = "$resourceGroupRoot-$prNumber*"
           
-          Write-Host "Looking for old resource groups matching pattern: $pattern (excluding current build: $currentBuildId)"
+          Write-Host "Looking for old resource groups matching pattern: $pattern (excluding current RG: $currentRgName)"
           
           $oldRGs = Get-AzResourceGroup | Where-Object { 
             $_.ResourceGroupName -like $pattern -and 
-            $_.ResourceGroupName -ne "$resourceGroupRoot-$prNumber-$currentBuildId"
+            $_.ResourceGroupName -ne $currentRgName
           }
           
           if ($oldRGs.Count -eq 0) {
@@ -155,10 +156,12 @@ stages:
           }
           
           # Purge any soft-deleted Key Vaults from previous builds for this PR
-          Write-Host "Checking for soft-deleted Key Vaults matching pattern: $deploymentEnvName-*-ts"
+          $vaultPattern = "*pr$prNumber*"
+          $currentBuildPattern = "$deploymentEnvName*"
+          Write-Host "Checking for soft-deleted Key Vaults matching pattern: $vaultPattern (excluding current build pattern: $currentBuildPattern)"
           $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
-            $_.VaultName -like "$deploymentEnvName-*-ts" -and
-            $_.VaultName -ne "$deploymentEnvName-$currentBuildId-ts"
+            $_.VaultName -like $vaultPattern -and
+            $_.VaultName -notlike $currentBuildPattern
           }
           
           if ($softDeletedVaults.Count -eq 0) {
