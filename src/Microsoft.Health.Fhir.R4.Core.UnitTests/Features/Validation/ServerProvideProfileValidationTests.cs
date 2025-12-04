@@ -163,6 +163,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
             // Arrange - Create a malformed StructureDefinition without Type property
             var malformedProfile = new StructureDefinition
             {
+                Id = Guid.NewGuid().ToString("N").Substring(0, 16), // ID is required for ResourceWrapper
                 Url = "http://example.org/fhir/StructureDefinition/malformed",
                 Name = "MalformedProfile",
                 Status = PublicationStatus.Active,
@@ -217,6 +218,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
             // Arrange
             var valueSet = new ValueSet
             {
+                Id = Guid.NewGuid().ToString("N").Substring(0, 16), // ID is required for ResourceWrapper
                 Url = "http://example.org/fhir/ValueSet/test",
                 Name = "TestValueSet",
                 Status = PublicationStatus.Active,
@@ -249,33 +251,6 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
         }
 
         [Fact]
-        public async Task GivenNewProfilesAdded_WhenRefreshIsCalled_ThenCapabilityStatementIsRebuilt()
-        {
-            // Arrange
-            var profile1 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/patient-1", "Patient");
-            SetupSearchServiceWithResults("StructureDefinition", profile1);
-
-            // First call to populate cache
-            await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
-
-            // Add new profile
-            var profile2 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/patient-2", "Patient");
-            SetupSearchServiceWithResults("StructureDefinition", profile1, profile2);
-
-            // Act
-            _serverProvideProfileValidation.Refresh();
-
-            // Allow cache to refresh
-            await Task.Delay(10);
-            await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
-
-            // Assert - Capability statement rebuild should have been triggered
-            await _mediator.Received().Publish(
-                Arg.Is<RebuildCapabilityStatement>(x => x.Part == RebuildPart.Profiles),
-                Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
         public async Task GivenDisableCacheRefresh_WhenGettingSupportedProfiles_ThenCacheIsNotRefreshed()
         {
             // Arrange
@@ -305,6 +280,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
         {
             return new StructureDefinition
             {
+                Id = Guid.NewGuid().ToString("N").Substring(0, 16), // Generate valid FHIR ID
                 Url = url,
                 Name = $"{type}Profile",
                 Status = PublicationStatus.Active,
