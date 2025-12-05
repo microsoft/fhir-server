@@ -63,7 +63,10 @@ stages:
 - stage: Cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
-  - Setup
+  - testStu3
+  - testR4
+  - testR4B
+  - testR5
   variables:
     prName: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.prName']]
     ImageTag: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.ImageTag']]
