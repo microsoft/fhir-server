@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;Something went wrong while validating resource at index {0}&quot;..
+        /// </summary>
+        internal static string ExceptionWhileResourceValidation {
+            get {
+                return ResourceManager.GetString("ExceptionWhileResourceValidation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The execution timeout expired from SQL Server..
         /// </summary>
         internal static string ExecutionTimeoutExpired {
@@ -93,6 +102,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string FailedToImportConflictingVersion {
             get {
                 return ResourceManager.GetString("FailedToImportConflictingVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The batch containing this resource failed to import due to a searchparam codeoverflow constraint violation..
+        /// </summary>
+        internal static string FailedToImportDueToConstraintViolationInBatch {
+            get {
+                return ResourceManager.GetString("FailedToImportDueToConstraintViolationInBatch", resourceCulture);
             }
         }
         
