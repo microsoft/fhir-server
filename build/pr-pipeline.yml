@@ -143,15 +143,40 @@ stages:
           } else {
             Write-Host "Found $($oldRGs.Count) old resource group(s) to cleanup"
             
-            # Delete all RGs in parallel using ForEach-Object -Parallel
-            $oldRGs | ForEach-Object -Parallel {
+            # Delete all RGs in parallel using ForEach-Object -Parallel with retry logic
+            $results = $oldRGs | ForEach-Object -Parallel {
               $rgName = $_.ResourceGroupName
-              Write-Host "Removing resource group: $rgName"
-              Remove-AzResourceGroup -Name $rgName -Force
-              Write-Host "Completed removal of resource group: $rgName"
+              $maxRetries = 3
+              $retryCount = 0
+              $deleted = $false
+              
+              while (-not $deleted -and $retryCount -lt $maxRetries) {
+                try {
+                  Remove-AzResourceGroup -Name $rgName -Force -ErrorAction Stop
+                  $deleted = $true
+                  [PSCustomObject]@{ RG = $rgName; Status = "Success" }
+                }
+                catch {
+                  $retryCount++
+                  if ($retryCount -lt $maxRetries) {
+                    Start-Sleep -Seconds 30
+                  } else {
+                    [PSCustomObject]@{ RG = $rgName; Status = "Failed: $($_.Exception.Message)" }
+                  }
+                }
+              }
             } -ThrottleLimit 10
             
-            Write-Host "Completed removal of $($oldRGs.Count) old resource group(s)"
+            $results | ForEach-Object {
+              if ($_.Status -eq "Success") {
+                Write-Host "Successfully removed resource group: $($_.RG)"
+              } else {
+                Write-Warning "Failed to remove resource group $($_.RG). $($_.Status)"
+              }
+            }
+            
+            $successCount = ($results | Where-Object { $_.Status -eq "Success" }).Count
+            Write-Host "Completed removal: $successCount of $($oldRGs.Count) resource group(s)"
           }
 
 - stage: provisionEnvironment

@@ -19,7 +19,26 @@ jobs:
           Write-Host "Resource group $(UniqueResourceGroupName) not found"
         } else {
           Write-Host "Deleting resource group $(UniqueResourceGroupName)"
-          Remove-AzResourceGroup -Name $(UniqueResourceGroupName) -Force -Verbose
+          $maxRetries = 3
+          $retryCount = 0
+          $deleted = $false
+          
+          while (-not $deleted -and $retryCount -lt $maxRetries) {
+            try {
+              Remove-AzResourceGroup -Name $(UniqueResourceGroupName) -Force -Verbose -ErrorAction Stop
+              $deleted = $true
+              Write-Host "Successfully deleted resource group $(UniqueResourceGroupName)"
+            }
+            catch {
+              $retryCount++
+              if ($retryCount -lt $maxRetries) {
+                Write-Warning "Failed to delete resource group (attempt $retryCount of $maxRetries). Retrying in 30 seconds... Error: $($_.Exception.Message)"
+                Start-Sleep -Seconds 30
+              } else {
+                Write-Warning "Failed to delete resource group after $maxRetries attempts. Error: $($_.Exception.Message)"
+              }
+            }
+          }
         }
         
         # Purge any soft-deleted Key Vaults from this build
