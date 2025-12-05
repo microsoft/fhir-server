@@ -171,6 +171,7 @@ stages:
   dependsOn:
   - UpdateVersion
   - provisionEnvironment
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/cleanup-aad.yml
   - job: setup
@@ -202,7 +203,7 @@ stages:
   - template: ./jobs/associate-keyvault-nsp.yml
     parameters:
       resourceGroup: $(UniqueResourceGroupName)
-      keyVaultName: '$(UniqueKeyVaultName)'
+      keyVaultName: '$(DeploymentEnvironmentName)-ts'
       nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
 

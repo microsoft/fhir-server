@@ -10,19 +10,16 @@ steps:
     ScriptType: inlineScript
     Inline: |
       $deploymentEnvName = "$(DeploymentEnvironmentName)"
-      $currentKeyVaultName = "$(UniqueKeyVaultName)"
       $targetRgName = "$(UniqueResourceGroupName)"
       $region = "$(ResourceGroupRegion)"
       $pattern = "$deploymentEnvName*"
       
       Write-Host "Looking for Key Vaults matching pattern: $pattern in region: $region"
-      Write-Host "Excluding current AAD vault: $currentKeyVaultName"
       Write-Host "Target resource group: $targetRgName"
       
-      # Get all key vaults matching the pattern, excluding the current one
+      # Get all key vaults matching the pattern that are not already in the target RG
       $vaults = Get-AzKeyVault | Where-Object { 
         $_.VaultName -like $pattern -and 
-        $_.VaultName -ne $currentKeyVaultName -and
         $_.Location -eq $region -and
         $_.ResourceGroupName -ne $targetRgName
       }

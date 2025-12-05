@@ -10,7 +10,7 @@ steps:
     azurePowerShellVersion: LatestVersion
     ScriptType: InlineScript
     Inline: |
-        $keyVault = "$(UniqueKeyVaultName)"
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
 
         foreach($secret in $secrets)
