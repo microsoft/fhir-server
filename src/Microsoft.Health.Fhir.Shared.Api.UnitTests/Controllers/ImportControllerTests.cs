@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetBulkImportRequestConfigurationWithNoInputFile(),
                 GetBulkImportRequestConfigurationWithNoInputUrl(),
                 GetBulkImportRequestConfigurationWithSASToken(),
+                GetBulkImportRequestConfigurationWithRelativeInputUrl(),
             };
 
         [Theory]
@@ -284,6 +285,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 {
                     Type = "Patient",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sp=r&st=2022-09-30T01:39:01Z&se=2022-09-30T09:39:01Z&spr=https&sv=2021-06-08&sr=b&sig=RHIX5Xcg0Mq2rqI3OlWT"),
+                },
+            };
+
+            var bulkImportRequestConfiguration = new ImportRequest();
+            bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
+            bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
+            bulkImportRequestConfiguration.Input = input;
+            bulkImportRequestConfiguration.StorageDetail = new ImportRequestStorageDetail();
+
+            return bulkImportRequestConfiguration;
+        }
+
+        private static ImportRequest GetBulkImportRequestConfigurationWithRelativeInputUrl()
+        {
+            var input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("/blob/patient_file_2.ndjson", UriKind.RelativeOrAbsolute),
                 },
             };
 
