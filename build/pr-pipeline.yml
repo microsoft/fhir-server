@@ -107,24 +107,10 @@ stages:
       tag: $(ImageTag)
       buildPlatform: $(testDockerImagePlatforms)
 
-- stage: prepareKeyVaults
-  displayName: 'Prepare Key Vaults'
-  dependsOn: 
-  - UpdateVersion
-  - provisionEnvironment
-  jobs:
-  - job: moveKeyVaults
-    displayName: 'Move Key Vaults to Current RG'
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./tasks/move-keyvaults-to-new-rg.yml
-
 - stage: cleanupOldResources
   displayName: 'Cleanup Old PR Resources'
   dependsOn: 
-  - prepareKeyVaults
+  - setupEnvironment
   jobs:
   - job: deleteOldResourceGroups
     displayName: 'Delete Old Resource Groups'
@@ -171,13 +157,20 @@ stages:
   dependsOn:
   - UpdateVersion
   - provisionEnvironment
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/cleanup-aad.yml
+  - job: moveKeyVaults
+    displayName: 'Move Key Vaults to Current RG'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./tasks/move-keyvaults-to-new-rg.yml
   - job: setup
     displayName: 'Setup AAD'
     dependsOn:
     - cleanupAad
+    - moveKeyVaults
     pool:
       vmImage: '$(WindowsVmImage)'
     steps:
@@ -235,7 +228,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -255,7 +247,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -279,7 +270,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -299,7 +289,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -323,7 +312,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -343,7 +331,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -367,7 +354,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -387,7 +373,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
-  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
