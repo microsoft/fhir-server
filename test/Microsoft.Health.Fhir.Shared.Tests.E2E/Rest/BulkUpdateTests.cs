@@ -152,12 +152,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResults.ResourcesUpdated.Add("Patient", 2);
             expectedResults.ResourcesUpdated.Add("Location", 1);
             expectedResults.ResourcesUpdated.Add("Organization", 1);
-            expectedResults.ResourcesIgnored.Add("StructureDefinition", 2);
-            expectedResults.ResourcesIgnored.Add("SearchParameter", 2);
+            expectedResults.ResourcesIgnored.Add("StructureDefinition", 4);  // Changed: use 4 StructureDefinitions instead of 2 + 2 SearchParameters
 
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
             // Create resources of different types with the same tag
+            // Use StructureDefinition resources which are excluded from bulk update but don't have
+            // side effects like SearchParameter (which pollutes the SearchParam table and causes test conflicts)
             var structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-birthsex");
             structureDefinition.Meta = new Meta();
             structureDefinition.Meta.Tag.Add(tag);
@@ -168,24 +169,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             structureDefinition.Meta.Tag.Add(tag);
             await _fhirClient.CreateAsync(structureDefinition);
 
-            var randomName = Guid.NewGuid().ToString().ComputeHash()[28..].ToLower();
-            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Patient-foo");
-            searchParam.Meta = new Meta();
-            searchParam.Meta.Tag.Add(tag);
-            searchParam.Name = randomName;
-            searchParam.Url = searchParam.Url.Replace("foo", randomName);
-            searchParam.Code = randomName;
-            searchParam.Id = randomName;
-            await _fhirClient.CreateAsync(searchParam);
+            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-race");
+            structureDefinition.Meta = new Meta();
+            structureDefinition.Meta.Tag.Add(tag);
+            await _fhirClient.CreateAsync(structureDefinition);
 
-            searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-SpecimenStatus");
-            searchParam.Meta = new Meta();
-            searchParam.Meta.Tag.Add(tag);
-            searchParam.Name = randomName;
-            searchParam.Url = searchParam.Url.Replace("foo", randomName);
-            searchParam.Code = randomName;
-            searchParam.Id = randomName;
-            await _fhirClient.CreateAsync(searchParam);
+            structureDefinition = Samples.GetJsonSample<StructureDefinition>("StructureDefinition-us-core-careplan");
+            structureDefinition.Meta = new Meta();
+            structureDefinition.Meta.Tag.Add(tag);
+            await _fhirClient.CreateAsync(structureDefinition);
 
             // Create resources of different types with the same tag
             await _fhirClient.CreateResourcesAsync<Patient>(2, tag.Code);

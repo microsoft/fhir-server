@@ -4,6 +4,8 @@ variables:
     resourceGroupRoot: 'msh-fhir-ci4'
     appServicePlanName: '$(resourceGroupRoot)-linux'
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
+    # CI uses the same name for Key Vaults as the deployment environment (no BuildId suffix needed)
+    KeyVaultBaseName: '$(DeploymentEnvironmentName)'
     ResourceGroupName: '$(resourceGroupRoot)'
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
     TestEnvironmentName: 'OSS CI'

@@ -30,6 +30,9 @@ parameters:
 - name: reindexEnabled
   type: boolean
   default: true
+- name: keyVaultName
+  type: string
+  default: ''
 
 jobs:
 - job: provisionEnvironment
@@ -73,6 +76,7 @@ jobs:
             appServicePlanSku = "P2V3"
             numberOfInstances = 2
             serviceName = $webAppName
+            keyVaultName = "${{ parameters.keyVaultName }}".ToLower()
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
             additionalFhirServerConfigProperties = $additionalProperties
@@ -98,13 +102,6 @@ jobs:
 
         $deploymentName = $webAppName
         $resourceGroupName = "${{ parameters.resourceGroup }}"
-
-        Write-Host "Check for keyvaults in removed state..."
-        if (Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState)
-        {
-            Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $resourceGroupName -Location $(ResourceGroupRegion)
-            Write-Host "KeyVault $webAppName is restored"
-        }
 
         Write-Host "Provisioning Resource Group"
         Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"

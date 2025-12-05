@@ -12,12 +12,71 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: |
-        Get-AzResourceGroup -Name $(ResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
+        $deploymentEnvName = "$(DeploymentEnvironmentName)"
+        $keyVaultBaseName = "$(KeyVaultBaseName)"
+        
+        Get-AzResourceGroup -Name $(UniqueResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
         if ($notPresent) {
-          Write-Host "Resource group $(ResourceGroupName) not found"
+          Write-Host "Resource group $(UniqueResourceGroupName) not found"
         } else {
-          Write-Host "Deleting resource group $(ResourceGroupName)"
-          Remove-AzResourceGroup -Name $(ResourceGroupName) -Force -Verbose
+          Write-Host "Deleting resource group $(UniqueResourceGroupName)"
+          $maxRetries = 3
+          $retryCount = 0
+          $deleted = $false
+          
+          while (-not $deleted -and $retryCount -lt $maxRetries) {
+            try {
+              Remove-AzResourceGroup -Name $(UniqueResourceGroupName) -Force -Verbose -ErrorAction Stop
+              $deleted = $true
+              Write-Host "Successfully deleted resource group $(UniqueResourceGroupName)"
+            }
+            catch {
+              $retryCount++
+              if ($retryCount -lt $maxRetries) {
+                Write-Warning "Failed to delete resource group (attempt $retryCount of $maxRetries). Retrying in 30 seconds... Error: $($_.Exception.Message)"
+                Start-Sleep -Seconds 30
+              } else {
+                Write-Warning "Failed to delete resource group after $maxRetries attempts. Error: $($_.Exception.Message)"
+              }
+            }
+          }
+        }
+        
+        # Purge any soft-deleted Key Vaults from this build
+        # Vault names use KeyVaultBaseName (e.g., f20585pr5240-ts, f20585pr5240-r4, etc.)
+        $vaultPattern = "$keyVaultBaseName*"
+        Write-Host "Checking for soft-deleted Key Vaults matching pattern: $vaultPattern"
+        $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
+          $_.VaultName -like $vaultPattern
+        }
+        
+        if ($softDeletedVaults.Count -eq 0) {
+          Write-Host "No soft-deleted vaults found to purge"
+        } else {
+          Write-Host "Found $($softDeletedVaults.Count) soft-deleted vault(s) to purge"
+          
+          $results = $softDeletedVaults | ForEach-Object -Parallel {
+            $vaultName = $_.VaultName
+            $vaultLocation = $_.Location
+            try {
+              Remove-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState -Force -ErrorAction Stop
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Success" }
+            }
+            catch {
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Failed: $($_.Exception.Message)" }
+            }
+          } -ThrottleLimit 10
+          
+          $results | ForEach-Object {
+            if ($_.Status -eq "Success") {
+              Write-Host "Successfully purged vault: $($_.Vault)"
+            } else {
+              Write-Warning "Failed to purge vault $($_.Vault). $($_.Status)"
+            }
+          }
+          
+          $successCount = ($results | Where-Object { $_.Status -eq "Success" }).Count
+          Write-Host "Completed purging: $successCount of $($softDeletedVaults.Count) vaults"
         }
       
 

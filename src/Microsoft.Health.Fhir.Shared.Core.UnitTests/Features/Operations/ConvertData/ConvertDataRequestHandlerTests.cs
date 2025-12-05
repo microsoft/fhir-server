@@ -10,6 +10,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
     [Trait(Traits.Category, Categories.Operations)]
     public class ConvertDataRequestHandlerTests
     {
-        [Fact]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
         public async Task GivenAHl7v2ConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();

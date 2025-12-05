@@ -16,6 +16,14 @@ variables:
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
+  # Key Vault names (shorter due to 24 character limit)
+  KeyVaultNameSql: '$(KeyVaultBaseName)-sql'
+  KeyVaultNameR4: '$(KeyVaultBaseName)-r4'
+  KeyVaultNameR4Sql: '$(KeyVaultNameR4)-sql'
+  KeyVaultNameR4B: '$(KeyVaultBaseName)-r4b'
+  KeyVaultNameR4BSql: '$(KeyVaultNameR4B)-sql'
+  KeyVaultNameR5: '$(KeyVaultBaseName)-r5'
+  KeyVaultNameR5Sql: '$(KeyVaultNameR5)-sql'
   TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
   # These variables are not used in the deployment scripts, but are used in the E2E tests files.
   TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.azurewebsites.net'
