@@ -206,14 +206,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var nullCode = new SearchParameter { Url = "http://unique", Code = null, Base = baseArray };
 
             var data = new List<object[]>();
+            data.Add(new object[] { duplicateCode, "PUT" });
             data.Add(new object[] { missingUrl, "POST" });
             data.Add(new object[] { duplicateUrl, "POST" });
             data.Add(new object[] { brokenUrl, "POST" });
-            data.Add(new object[] { uniqueUrl, "PUT" });
             data.Add(new object[] { uniqueUrl, "DELETE" });
             data.Add(new object[] { duplicateCode, "POST" });
-            data.Add(new object[] { duplicateCode, "PUT" });
             data.Add(new object[] { nullCode, "POST" });
+            data.Add(new object[] { nullCode, "PUT" });
+
+            // data.Add(new object[] { uniqueUrl, "PUT" }); //No exception thrown, since it should work as upsert.
 
             return data;
         }

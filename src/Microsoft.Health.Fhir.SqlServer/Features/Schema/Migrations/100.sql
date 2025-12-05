@@ -2100,6 +2100,13 @@ BEGIN TRY
                                   AND (@GroupId IS NULL
                                        OR GroupId <> @GroupId))
                 RAISERROR ('There are other active job groups', 18, 127);
+            IF @GroupId IS NOT NULL
+               AND EXISTS (SELECT *
+                           FROM   dbo.JobQueue
+                           WHERE  QueueType = @QueueType
+                                  AND JobId = @GroupId
+                                  AND CancelRequested = 1)
+                RAISERROR ('The specified job group is cancelled', 18, 127);
             SET @MaxJobId = isnull((SELECT   TOP 1 JobId
                                     FROM     dbo.JobQueue
                                     WHERE    QueueType = @QueueType
@@ -4930,7 +4937,8 @@ BEGIN TRY
                        FROM   @ResourceWriteClaims AS B
                        WHERE  B.ResourceSurrogateId = A.ResourceSurrogateId
                               AND B.ClaimTypeId = A.ClaimTypeId
-                              AND B.ClaimValue = A.ClaimValue);
+                              AND B.ClaimValue = A.ClaimValue)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.ResourceWriteClaim AS A
     WHERE  EXISTS (SELECT *
@@ -4947,7 +4955,8 @@ BEGIN TRY
                        FROM   @ResourceWriteClaimsCurrent AS B
                        WHERE  B.ResourceSurrogateId = A.ResourceSurrogateId
                               AND B.ClaimTypeId = A.ClaimTypeId
-                              AND B.ClaimValue = A.ClaimValue);
+                              AND B.ClaimValue = A.ClaimValue)
+    OPTION (HASH JOIN);
     INSERT INTO @ReferenceSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -4981,7 +4990,8 @@ BEGIN TRY
                               AND (B.ReferenceResourceTypeId = A.ReferenceResourceTypeId
                                    OR B.ReferenceResourceTypeId IS NULL
                                       AND A.ReferenceResourceTypeId IS NULL)
-                              AND B.ReferenceResourceId = A.ReferenceResourceId);
+                              AND B.ReferenceResourceId = A.ReferenceResourceId)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.ReferenceSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5016,7 +5026,8 @@ BEGIN TRY
                               AND (B.ReferenceResourceTypeId = A.ReferenceResourceTypeId
                                    OR B.ReferenceResourceTypeId IS NULL
                                       AND A.ReferenceResourceTypeId IS NULL)
-                              AND B.ReferenceResourceId = A.ReferenceResourceId);
+                              AND B.ReferenceResourceId = A.ReferenceResourceId)
+    OPTION (HASH JOIN);
     INSERT INTO @TokenSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5048,7 +5059,8 @@ BEGIN TRY
                               AND B.Code = A.Code
                               AND (B.CodeOverflow = A.CodeOverflow
                                    OR B.CodeOverflow IS NULL
-                                      AND A.CodeOverflow IS NULL));
+                                      AND A.CodeOverflow IS NULL))
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.TokenSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5082,7 +5094,8 @@ BEGIN TRY
                               AND B.Code = A.Code
                               AND (B.CodeOverflow = A.CodeOverflow
                                    OR B.CodeOverflow IS NULL
-                                      AND A.CodeOverflow IS NULL));
+                                      AND A.CodeOverflow IS NULL))
+    OPTION (HASH JOIN);
     INSERT INTO @TokenStringCompositeSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5119,10 +5132,11 @@ BEGIN TRY
                               AND (B.CodeOverflow1 = A.CodeOverflow1
                                    OR B.CodeOverflow1 IS NULL
                                       AND A.CodeOverflow1 IS NULL)
-                              AND B.Text2 = A.Text2
-                              AND (B.TextOverflow2 = A.TextOverflow2
+                              AND B.Text2 COLLATE Latin1_General_CI_AI = A.Text2
+                              AND (B.TextOverflow2 COLLATE Latin1_General_CI_AI = A.TextOverflow2
                                    OR B.TextOverflow2 IS NULL
-                                      AND A.TextOverflow2 IS NULL));
+                                      AND A.TextOverflow2 IS NULL))
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.TokenStringCompositeSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5137,8 +5151,8 @@ BEGIN TRY
                           AND (B.CodeOverflow1 = A.CodeOverflow1
                                OR B.CodeOverflow1 IS NULL
                                   AND A.CodeOverflow1 IS NULL)
-                          AND B.Text2 COLLATE Latin1_General_100_CI_AI_SC = A.Text2
-                          AND (B.TextOverflow2 COLLATE Latin1_General_100_CI_AI_SC = A.TextOverflow2
+                          AND B.Text2 COLLATE Latin1_General_CI_AI = A.Text2
+                          AND (B.TextOverflow2 COLLATE Latin1_General_CI_AI = A.TextOverflow2
                                OR B.TextOverflow2 IS NULL
                                   AND A.TextOverflow2 IS NULL));
     INSERT INTO @TokenStringCompositeSearchParamsInsert (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
@@ -5166,7 +5180,8 @@ BEGIN TRY
                               AND B.Text2 = A.Text2
                               AND (B.TextOverflow2 = A.TextOverflow2
                                    OR B.TextOverflow2 IS NULL
-                                      AND A.TextOverflow2 IS NULL));
+                                      AND A.TextOverflow2 IS NULL))
+    OPTION (HASH JOIN);
     INSERT INTO @TokenTextsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5188,7 +5203,8 @@ BEGIN TRY
                        WHERE  B.ResourceTypeId = A.ResourceTypeId
                               AND B.ResourceSurrogateId = A.ResourceSurrogateId
                               AND B.SearchParamId = A.SearchParamId
-                              AND B.Text = A.Text);
+                              AND B.Text = A.Text)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.TokenText AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5208,7 +5224,8 @@ BEGIN TRY
                        WHERE  B.ResourceTypeId = A.ResourceTypeId
                               AND B.ResourceSurrogateId = A.ResourceSurrogateId
                               AND B.SearchParamId = A.SearchParamId
-                              AND B.Text = A.Text);
+                              AND B.Text = A.Text)
+    OPTION (HASH JOIN);
     INSERT INTO @StringSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5241,7 +5258,8 @@ BEGIN TRY
                                    OR B.TextOverflow IS NULL
                                       AND A.TextOverflow IS NULL)
                               AND B.IsMin = A.IsMin
-                              AND B.IsMax = A.IsMax);
+                              AND B.IsMax = A.IsMax)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.StringSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5274,7 +5292,8 @@ BEGIN TRY
                                    OR B.TextOverflow IS NULL
                                       AND A.TextOverflow IS NULL)
                               AND B.IsMin = A.IsMin
-                              AND B.IsMax = A.IsMax);
+                              AND B.IsMax = A.IsMax)
+    OPTION (HASH JOIN);
     INSERT INTO @UriSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5296,7 +5315,8 @@ BEGIN TRY
                        WHERE  B.ResourceTypeId = A.ResourceTypeId
                               AND B.ResourceSurrogateId = A.ResourceSurrogateId
                               AND B.SearchParamId = A.SearchParamId
-                              AND B.Uri = A.Uri);
+                              AND B.Uri = A.Uri)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.UriSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5316,7 +5336,8 @@ BEGIN TRY
                        WHERE  B.ResourceTypeId = A.ResourceTypeId
                               AND B.ResourceSurrogateId = A.ResourceSurrogateId
                               AND B.SearchParamId = A.SearchParamId
-                              AND B.Uri = A.Uri);
+                              AND B.Uri = A.Uri)
+    OPTION (HASH JOIN);
     INSERT INTO @NumberSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5350,7 +5371,8 @@ BEGIN TRY
                                       AND A.LowValue IS NULL)
                               AND (B.HighValue = A.HighValue
                                    OR B.HighValue IS NULL
-                                      AND A.HighValue IS NULL));
+                                      AND A.HighValue IS NULL))
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.NumberSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5388,7 +5410,8 @@ BEGIN TRY
                                       AND A.LowValue IS NULL)
                               AND (B.HighValue = A.HighValue
                                    OR B.HighValue IS NULL
-                                      AND A.HighValue IS NULL));
+                                      AND A.HighValue IS NULL))
+    OPTION (HASH JOIN);
     INSERT INTO @QuantitySearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5432,7 +5455,8 @@ BEGIN TRY
                                       AND A.LowValue IS NULL)
                               AND (B.HighValue = A.HighValue
                                    OR B.HighValue IS NULL
-                                      AND A.HighValue IS NULL));
+                                      AND A.HighValue IS NULL))
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.QuantitySearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5484,7 +5508,8 @@ BEGIN TRY
                                       AND A.LowValue IS NULL)
                               AND (B.HighValue = A.HighValue
                                    OR B.HighValue IS NULL
-                                      AND A.HighValue IS NULL));
+                                      AND A.HighValue IS NULL))
+    OPTION (HASH JOIN);
     INSERT INTO @DateTimeSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5518,7 +5543,8 @@ BEGIN TRY
                               AND B.EndDateTime = A.EndDateTime
                               AND B.IsLongerThanADay = A.IsLongerThanADay
                               AND B.IsMin = A.IsMin
-                              AND B.IsMax = A.IsMax);
+                              AND B.IsMax = A.IsMax)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.DateTimeSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5550,7 +5576,8 @@ BEGIN TRY
                               AND B.EndDateTime = A.EndDateTime
                               AND B.IsLongerThanADay = A.IsLongerThanADay
                               AND B.IsMin = A.IsMin
-                              AND B.IsMax = A.IsMax);
+                              AND B.IsMax = A.IsMax)
+    OPTION (HASH JOIN);
     INSERT INTO @ReferenceTokenCompositeSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5597,7 +5624,8 @@ BEGIN TRY
                               AND B.Code2 = A.Code2
                               AND (B.CodeOverflow2 = A.CodeOverflow2
                                    OR B.CodeOverflow2 IS NULL
-                                      AND A.CodeOverflow2 IS NULL));
+                                      AND A.CodeOverflow2 IS NULL))
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.ReferenceTokenCompositeSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5649,7 +5677,8 @@ BEGIN TRY
                               AND B.Code2 = A.Code2
                               AND (B.CodeOverflow2 = A.CodeOverflow2
                                    OR B.CodeOverflow2 IS NULL
-                                      AND A.CodeOverflow2 IS NULL));
+                                      AND A.CodeOverflow2 IS NULL))
+    OPTION (HASH JOIN);
     INSERT INTO @TokenTokenCompositeSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5694,7 +5723,8 @@ BEGIN TRY
                               AND B.Code2 = A.Code2
                               AND (B.CodeOverflow2 = A.CodeOverflow2
                                    OR B.CodeOverflow2 IS NULL
-                                      AND A.CodeOverflow2 IS NULL));
+                                      AND A.CodeOverflow2 IS NULL))
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.TokenTokenCompositeSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5745,7 +5775,8 @@ BEGIN TRY
                               AND B.Code2 = A.Code2
                               AND (B.CodeOverflow2 = A.CodeOverflow2
                                    OR B.CodeOverflow2 IS NULL
-                                      AND A.CodeOverflow2 IS NULL));
+                                      AND A.CodeOverflow2 IS NULL))
+    OPTION (HASH JOIN);
     INSERT INTO @TokenDateTimeCompositeSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5786,7 +5817,8 @@ BEGIN TRY
                                       AND A.CodeOverflow1 IS NULL)
                               AND B.StartDateTime2 = A.StartDateTime2
                               AND B.EndDateTime2 = A.EndDateTime2
-                              AND B.IsLongerThanADay2 = A.IsLongerThanADay2);
+                              AND B.IsLongerThanADay2 = A.IsLongerThanADay2)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.TokenDateTimeCompositeSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5829,7 +5861,8 @@ BEGIN TRY
                                       AND A.CodeOverflow1 IS NULL)
                               AND B.StartDateTime2 = A.StartDateTime2
                               AND B.EndDateTime2 = A.EndDateTime2
-                              AND B.IsLongerThanADay2 = A.IsLongerThanADay2);
+                              AND B.IsLongerThanADay2 = A.IsLongerThanADay2)
+    OPTION (HASH JOIN);
     INSERT INTO @TokenQuantityCompositeSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -5886,7 +5919,8 @@ BEGIN TRY
                                       AND A.LowValue2 IS NULL)
                               AND (B.HighValue2 = A.HighValue2
                                    OR B.HighValue2 IS NULL
-                                      AND A.HighValue2 IS NULL));
+                                      AND A.HighValue2 IS NULL))
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.TokenQuantityCompositeSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -5955,7 +5989,8 @@ BEGIN TRY
                                       AND A.LowValue2 IS NULL)
                               AND (B.HighValue2 = A.HighValue2
                                    OR B.HighValue2 IS NULL
-                                      AND A.HighValue2 IS NULL));
+                                      AND A.HighValue2 IS NULL))
+    OPTION (HASH JOIN);
     INSERT INTO @TokenNumberNumberCompositeSearchParamsCurrent (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange)
     SELECT A.ResourceTypeId,
            A.ResourceSurrogateId,
@@ -6020,7 +6055,8 @@ BEGIN TRY
                               AND (B.HighValue3 = A.HighValue3
                                    OR B.HighValue3 IS NULL
                                       AND A.HighValue3 IS NULL)
-                              AND B.HasRange = A.HasRange);
+                              AND B.HasRange = A.HasRange)
+    OPTION (HASH JOIN);
     DELETE A
     FROM   dbo.TokenNumberNumberCompositeSearchParam AS A WITH (INDEX (1))
     WHERE  EXISTS (SELECT *
@@ -6099,7 +6135,8 @@ BEGIN TRY
                               AND (B.HighValue3 = A.HighValue3
                                    OR B.HighValue3 IS NULL
                                       AND A.HighValue3 IS NULL)
-                              AND B.HasRange = A.HasRange);
+                              AND B.HasRange = A.HasRange)
+    OPTION (HASH JOIN);
     INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
     SELECT ResourceSurrogateId,
            ClaimTypeId,

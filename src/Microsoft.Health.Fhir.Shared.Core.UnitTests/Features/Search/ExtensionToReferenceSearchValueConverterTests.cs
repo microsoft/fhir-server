@@ -30,8 +30,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public ExtensionToReferenceSearchValueConverterTests()
         {
-            _fhirRequestContextAccessor.RequestContext.BaseUri.Returns(new Uri("https://test:12345"));
-            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor);
+            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
+            fhirRequestContext.BaseUri.Returns(new Uri("https://test:12345"));
+            _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
+            instanceConfig.BaseUri.Returns(new Uri("https://test:12345"));
+
+            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig);
         }
 
         private async Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync()

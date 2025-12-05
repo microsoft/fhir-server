@@ -45,6 +45,20 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 < .\Data\DateCustomSearchSearchParameter.json
 
+### Upsert new search parameter
+PUT https://{{hostname}}/SearchParameter/resource-created-date2
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\DateCustomSearchSearchParameter2.json
+
+### Upsert existing search parameter
+PUT https://{{hostname}}/SearchParameter/resource-created-date2
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\DateCustomSearchSearchParameter2.json
+
 ### Composite custom search parameter (this test data requires R4 or higher)
 POST https://{{hostname}}/SearchParameter
 content-type: application/json

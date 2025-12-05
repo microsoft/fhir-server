@@ -8,6 +8,7 @@ using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -153,6 +154,56 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await behavior.Handle(request,  async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenSearchParameterDoesNotExist_ThenAddSearchParameterShouldBeCalled()
+        {
+            var searchParameter = new SearchParameter() { Id = "NewId", Url = "http://example.com/new-param" };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "NewId");
+            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            // Simulate ResourceNotFoundException when trying to get the previous version
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns<ResourceWrapper>(x => throw new ResourceNotFoundException("Resource not found"));
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+
+            // Should call AddSearchParameterAsync since the resource doesn't exist
+            await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.DidNotReceive().UpdateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAnUpsertResourceRequest_WhenSearchParameterExists_ThenUpdateSearchParameterShouldBeCalled()
+        {
+            var oldSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/existing-param", Version = "1" };
+            var newSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/existing-param", Version = "2" };
+
+            var oldResource = oldSearchParameter.ToTypedElement().ToResourceElement();
+            var newResource = newSearchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "ExistingId");
+            var request = new UpsertResourceRequest(newResource, bundleResourceContext: null);
+            var oldWrapper = CreateResourceWrapper(oldResource, false);
+            var newWrapper = CreateResourceWrapper(newResource, false);
+
+            // Return existing resource when GetAsync is called
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(oldWrapper);
+
+            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
+
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+
+            // Should call UpdateSearchParameterAsync since the resource exists
+            await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.Received().UpdateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

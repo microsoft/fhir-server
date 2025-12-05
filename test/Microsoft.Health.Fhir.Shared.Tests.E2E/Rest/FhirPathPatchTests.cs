@@ -475,5 +475,205 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // DateTime with offset
             await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
         }
+
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenPatchingOnlyMetaTag_ThenServerShouldCreateNewVersionAndPreserveHistory()
+        {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
+            // Create initial patient resource
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
+
+            Assert.Equal("1", createResponse.Resource.Meta.VersionId);
+            Assert.NotNull(createResponse.Resource.Id);
+
+            string patientId = createResponse.Resource.Id;
+            string initialVersionId = createResponse.Resource.Meta.VersionId;
+
+            // Create patch request to add a tag to meta.tag array
+            var patchRequest = new Parameters().AddPatchParameter(
+                "add",
+                "Patient.meta",
+                "tag",
+                new List<Parameters.ParameterComponent>()
+                {
+                    new Parameters.ParameterComponent { Name = "system", Value = new FhirUri("ORGANIZATION_ID") },
+                    new Parameters.ParameterComponent { Name = "code", Value = new Code("fhirLegalEntityId") },
+                    new Parameters.ParameterComponent { Name = "display", Value = new FhirString("fhirLegalEntityId") },
+                });
+
+            // Apply patch with If-Match header
+            using FhirResponse<Patient> patchResponse = await _client.FhirPatchAsync(
+                createResponse.Resource,
+                patchRequest,
+                ifMatchVersion: initialVersionId);
+
+            // Verify patch was successful
+            Assert.Equal(HttpStatusCode.OK, patchResponse.Response.StatusCode);
+            Assert.Equal("2", patchResponse.Resource.Meta.VersionId);
+            Assert.Equal(patientId, patchResponse.Resource.Id);
+
+            // Verify the tag was added
+            Assert.NotNull(patchResponse.Resource.Meta.Tag);
+            var addedTag = patchResponse.Resource.Meta.Tag.FirstOrDefault(t =>
+                t.System == "ORGANIZATION_ID" &&
+                t.Code == "fhirLegalEntityId");
+            Assert.NotNull(addedTag);
+            Assert.Equal("fhirLegalEntityId", addedTag.Display);
+
+            // Verify history is preserved - both versions should exist
+            FhirResponse<Bundle> historyResponse = await _client.ReadHistoryAsync(
+                ResourceType.Patient,
+                patientId);
+
+            Assert.NotNull(historyResponse.Resource);
+            Assert.True(
+                historyResponse.Resource.Entry.Count >= 2,
+                $"Expected at least 2 history entries, but found {historyResponse.Resource.Entry.Count}");
+
+            // Verify version 1 exists in history
+            var version1Entry = historyResponse.Resource.Entry.FirstOrDefault(e =>
+                e.Resource is Patient p && p.Meta.VersionId == "1");
+            Assert.NotNull(version1Entry);
+
+            // Verify version 2 exists in history
+            var version2Entry = historyResponse.Resource.Entry.FirstOrDefault(e =>
+                e.Resource is Patient p && p.Meta.VersionId == "2");
+            Assert.NotNull(version2Entry);
+
+            // Verify version 1 doesn't have the tag
+            var version1Patient = version1Entry.Resource as Patient;
+            var version1Tag = version1Patient?.Meta.Tag?.FirstOrDefault(t =>
+                t.System == "ORGANIZATION_ID" &&
+                t.Code == "fhirLegalEntityId");
+            Assert.Null(version1Tag);
+
+            // Verify version 2 has the tag
+            var version2Patient = version2Entry.Resource as Patient;
+            var version2Tag = version2Patient?.Meta.Tag?.FirstOrDefault(t =>
+                t.System == "ORGANIZATION_ID" &&
+                t.Code == "fhirLegalEntityId");
+            Assert.NotNull(version2Tag);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenPatchingMetaTagWithWrongVersion_ThenServerShouldReturnPreconditionFailed()
+        {
+            // Create initial patient resource
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
+
+            Assert.Equal("1", createResponse.Resource.Meta.VersionId);
+
+            // Create patch request to add a tag
+            var patchRequest = new Parameters().AddPatchParameter(
+                "add",
+                "Patient.meta",
+                "tag",
+                new List<Parameters.ParameterComponent>()
+                {
+                    new Parameters.ParameterComponent { Name = "system", Value = new FhirUri("ORGANIZATION_ID") },
+                    new Parameters.ParameterComponent { Name = "code", Value = new Code("fhirLegalEntityId") },
+                    new Parameters.ParameterComponent { Name = "display", Value = new FhirString("fhirLegalEntityId") },
+                });
+
+            // Apply patch with incorrect If-Match header (version 3 doesn't exist)
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() =>
+                _client.FhirPatchAsync(
+                    createResponse.Resource,
+                    patchRequest,
+                    ifMatchVersion: "3"));
+
+            // Verify precondition failed error
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
+        }
+
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenPatchingMetaTagMultipleTimes_ThenAllVersionsShouldBeInHistory()
+        {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
+            // Create initial patient resource
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
+
+            string patientId = createResponse.Resource.Id;
+
+            // First patch: Add first tag
+            var patchRequest1 = new Parameters().AddPatchParameter(
+                "add",
+                "Patient.meta",
+                "tag",
+                new List<Parameters.ParameterComponent>()
+                {
+                    new Parameters.ParameterComponent { Name = "system", Value = new FhirUri("ORGANIZATION_ID") },
+                    new Parameters.ParameterComponent { Name = "code", Value = new Code("tag1") },
+                    new Parameters.ParameterComponent { Name = "display", Value = new FhirString("First Tag") },
+                });
+
+            using FhirResponse<Patient> patchResponse1 = await _client.FhirPatchAsync(
+                createResponse.Resource,
+                patchRequest1,
+                ifMatchVersion: "1");
+
+            Assert.Equal("2", patchResponse1.Resource.Meta.VersionId);
+
+            // Second patch: Add second tag
+            var patchRequest2 = new Parameters().AddPatchParameter(
+                "add",
+                "Patient.meta",
+                "tag",
+                new List<Parameters.ParameterComponent>()
+                {
+                    new Parameters.ParameterComponent { Name = "system", Value = new FhirUri("ORGANIZATION_ID") },
+                    new Parameters.ParameterComponent { Name = "code", Value = new Code("tag2") },
+                    new Parameters.ParameterComponent { Name = "display", Value = new FhirString("Second Tag") },
+                });
+
+            using FhirResponse<Patient> patchResponse2 = await _client.FhirPatchAsync(
+                patchResponse1.Resource,
+                patchRequest2,
+                ifMatchVersion: "2");
+
+            Assert.Equal("3", patchResponse2.Resource.Meta.VersionId);
+
+            // Verify all three versions exist in history
+            FhirResponse<Bundle> historyResponse = await _client.ReadHistoryAsync(
+                ResourceType.Patient,
+                patientId);
+
+            Assert.NotNull(historyResponse.Resource);
+            Assert.True(
+                historyResponse.Resource.Entry.Count >= 3,
+                $"Expected at least 3 history entries, but found {historyResponse.Resource.Entry.Count}");
+
+            // Verify version progression
+            var version1 = historyResponse.Resource.Entry.FirstOrDefault(e =>
+                e.Resource is Patient p && p.Meta.VersionId == "1")?.Resource as Patient;
+            var version2 = historyResponse.Resource.Entry.FirstOrDefault(e =>
+                e.Resource is Patient p && p.Meta.VersionId == "2")?.Resource as Patient;
+            var version3 = historyResponse.Resource.Entry.FirstOrDefault(e =>
+                e.Resource is Patient p && p.Meta.VersionId == "3")?.Resource as Patient;
+
+            Assert.NotNull(version1);
+            Assert.NotNull(version2);
+            Assert.NotNull(version3);
+
+            // Version 1: No tags
+            Assert.True(version1.Meta.Tag == null || !version1.Meta.Tag.Any(t => t.System == "ORGANIZATION_ID"));
+
+            // Version 2: Has first tag only
+            Assert.Single(version2.Meta.Tag, t => t.System == "ORGANIZATION_ID");
+            Assert.NotNull(version2.Meta.Tag.FirstOrDefault(t => t.Code == "tag1"));
+
+            // Version 3: Has both tags
+            Assert.Equal(2, version3.Meta.Tag.Count(t => t.System == "ORGANIZATION_ID"));
+            Assert.NotNull(version3.Meta.Tag.FirstOrDefault(t => t.Code == "tag1"));
+            Assert.NotNull(version3.Meta.Tag.FirstOrDefault(t => t.Code == "tag2"));
+        }
     }
 }
