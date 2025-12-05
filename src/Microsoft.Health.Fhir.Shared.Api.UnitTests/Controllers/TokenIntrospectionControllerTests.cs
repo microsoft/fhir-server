@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     {
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly TokenIntrospectionController _controller;
+        private readonly ITokenIntrospectionService _introspectionService;
         private readonly RsaSecurityKey _signingKey;
         private readonly SigningCredentials _signingCredentials;
         private readonly string _issuer = "https://test-issuer.com";
@@ -55,8 +57,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 },
             };
 
-            _controller = new TokenIntrospectionController(
+            // Create introspection service
+            _introspectionService = new DefaultTokenIntrospectionService(
                 Options.Create(_securityConfiguration),
+                NullLogger<DefaultTokenIntrospectionService>.Instance);
+
+            _controller = new TokenIntrospectionController(
+                _introspectionService,
                 NullLogger<TokenIntrospectionController>.Instance);
         }
 
