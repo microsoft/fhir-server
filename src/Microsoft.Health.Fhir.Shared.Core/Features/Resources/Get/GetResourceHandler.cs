@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -49,12 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // Check for either legacy Read permission or new SMART v2 ReadV2 permission
-            var grantedAccess = await AuthorizationService.CheckAccess(DataActions.Read | DataActions.ReadById, cancellationToken);
-            if ((grantedAccess & (DataActions.Read | DataActions.ReadById)) == DataActions.None)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckGetAccess(cancellationToken);
 
             var key = request.ResourceKey;
 
