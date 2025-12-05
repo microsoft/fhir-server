@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 {
     /// <summary>
     /// Default implementation of token introspection for OSS (single authority/audience).
-    /// PaaS can provide alternative implementation supporting multiple authorities.
+    /// PaaS can extend this class and override ValidateToken() to support multiple authorities.
     /// </summary>
     public class DefaultTokenIntrospectionService : ITokenIntrospectionService
     {
@@ -40,6 +40,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             _logger = logger;
         }
 
+        /// <summary>
+        /// Gets the security configuration for this service.
+        /// </summary>
+        protected SecurityConfiguration SecurityConfiguration => _securityConfiguration;
+
+        /// <summary>
+        /// Gets the JWT token handler for parsing and validating tokens.
+        /// </summary>
+        protected JwtSecurityTokenHandler TokenHandler => _tokenHandler;
+
         /// <inheritdoc />
         public Dictionary<string, object> IntrospectToken(string token)
         {
@@ -58,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 else
                 {
                     // Return inactive response for invalid tokens
-                    _logger.LogDebug("Token introspection returned inactive: {Reason}", validationResult.Reason);
+                    _logger.LogInformation("Token introspection returned inactive: {Reason}", validationResult.Reason);
                     return BuildInactiveResponse();
                 }
             }
@@ -73,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Validates a JWT token using configured validation parameters.
         /// </summary>
-        private TokenValidationResult ValidateToken(string token)
+        protected virtual TokenValidationResult ValidateToken(string token)
         {
             try
             {
@@ -81,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 JwtSecurityToken jwtToken;
                 try
                 {
-                    jwtToken = _tokenHandler.ReadJwtToken(token);
+                    jwtToken = TokenHandler.ReadJwtToken(token);
                 }
                 catch (Exception ex)
                 {
@@ -100,18 +110,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 var validationParameters = GetTokenValidationParameters();
 
                 // Validate token signature and claims
-                var principal = _tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+                var principal = TokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
 
                 return TokenValidationResult.Valid(jwtToken, principal);
             }
             catch (SecurityTokenExpiredException ex)
             {
-                _logger.LogDebug(ex, "Token validation failed: expired");
+                _logger.LogInformation(ex, "Token validation failed: expired");
                 return TokenValidationResult.Invalid("expired");
             }
             catch (SecurityTokenException ex)
             {
-                _logger.LogDebug(ex, "Token validation failed: security token exception");
+                _logger.LogInformation(ex, "Token validation failed: security token exception");
                 return TokenValidationResult.Invalid("invalid");
             }
             catch (Exception ex)
@@ -124,10 +134,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Builds TokenValidationParameters from SecurityConfiguration.
         /// </summary>
-        private TokenValidationParameters GetTokenValidationParameters()
+        protected virtual TokenValidationParameters GetTokenValidationParameters()
         {
-            var authority = _securityConfiguration.Authentication.Authority;
-            var audience = _securityConfiguration.Authentication.Audience;
+            var authority = SecurityConfiguration.Authentication.Authority;
+            var audience = SecurityConfiguration.Authentication.Audience;
 
             // Normalize authority to ensure consistent JWKS endpoint
             var normalizedAuthority = authority.TrimEnd('/');
@@ -161,7 +171,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Builds an RFC 7662 compliant active token response.
         /// </summary>
-        private Dictionary<string, object> BuildActiveResponse(JwtSecurityToken token, ClaimsPrincipal principal)
+        protected Dictionary<string, object> BuildActiveResponse(JwtSecurityToken token, ClaimsPrincipal principal)
         {
             var response = new Dictionary<string, object>
             {
@@ -215,7 +225,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Builds an RFC 7662 compliant inactive token response.
         /// </summary>
-        private static Dictionary<string, object> BuildInactiveResponse()
+        protected static Dictionary<string, object> BuildInactiveResponse()
         {
             return new Dictionary<string, object>
             {
@@ -243,10 +253,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Gets scope from multiple scope claims (scp claim pattern).
         /// </summary>
-        private string GetScopeFromMultipleClaims(ClaimsPrincipal principal)
+        protected string GetScopeFromMultipleClaims(ClaimsPrincipal principal)
         {
             // Check all configured scope claim names
-            var scopeClaimNames = _securityConfiguration.Authorization.ScopesClaim ?? new List<string> { "scp" };
+            var scopeClaimNames = SecurityConfiguration.Authorization.ScopesClaim ?? new List<string> { "scp" };
 
             foreach (var claimName in scopeClaimNames)
             {
@@ -264,7 +274,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Result of token validation.
         /// </summary>
-        private class TokenValidationResult
+        protected class TokenValidationResult
         {
             public bool IsValid { get; private set; }
 
