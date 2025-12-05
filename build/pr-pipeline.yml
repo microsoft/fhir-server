@@ -443,15 +443,3 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/aggregate-coverage.yml
-
-- stage: cleanup
-  displayName: 'Cleanup Azure Environment'
-  dependsOn:
-  - testStu3
-  - testR4
-  - testR4B
-  - testR5
-  condition: succeeded()
-  jobs:
-  - template: ./jobs/cleanup.yml
-
