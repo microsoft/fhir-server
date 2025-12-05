@@ -99,28 +99,6 @@ jobs:
         $deploymentName = $webAppName
         $resourceGroupName = "${{ parameters.resourceGroup }}"
 
-        # Check for soft-deleted vault with same name - try restore first, purge if restore fails
-        Write-Host "Check for keyvaults in removed state..."
-        $softDeletedVault = Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState -ErrorAction SilentlyContinue
-        if ($softDeletedVault) {
-            Write-Host "Found soft-deleted vault '$webAppName' - attempting restore..."
-            try {
-                Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $resourceGroupName -Location $(ResourceGroupRegion) -ErrorAction Stop
-                Write-Host "Successfully restored vault: $webAppName"
-            }
-            catch {
-                Write-Warning "Restore failed: $($_.Exception.Message)"
-                Write-Host "Attempting to purge soft-deleted vault '$webAppName'..."
-                try {
-                    Remove-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState -Force -ErrorAction Stop
-                    Write-Host "Successfully purged soft-deleted vault: $webAppName"
-                }
-                catch {
-                    Write-Warning "Failed to purge soft-deleted vault '$webAppName': $($_.Exception.Message)"
-                }
-            }
-        }
-
         Write-Host "Provisioning Resource Group"
         Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
 

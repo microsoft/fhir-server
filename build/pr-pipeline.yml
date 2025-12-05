@@ -159,18 +159,18 @@ stages:
   - provisionEnvironment
   jobs:
   - template: ./jobs/cleanup-aad.yml
-  - job: moveKeyVaults
-    displayName: 'Move Key Vaults to Current RG'
+  - job: deleteKeyVaults
+    displayName: 'Delete and Purge Key Vaults'
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: ./tasks/move-keyvaults-to-new-rg.yml
+    - template: ./tasks/delete-keyvaults.yml
   - job: setup
     displayName: 'Setup AAD'
     dependsOn:
     - cleanupAad
-    - moveKeyVaults
+    - deleteKeyVaults
     pool:
       vmImage: '$(WindowsVmImage)'
     steps:
