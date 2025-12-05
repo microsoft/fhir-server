@@ -121,14 +121,6 @@ stages:
     steps:
     - template: ./tasks/move-keyvaults-to-new-rg.yml
 
-  - job: purgeSoftDeletedVaults
-    displayName: 'Purge Soft-Deleted Key Vaults'
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./tasks/purge-soft-deleted-keyvaults.yml
-
 - stage: cleanupOldResources
   displayName: 'Cleanup Old PR Resources'
   dependsOn: 
