@@ -12,5 +12,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyBadRequestTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TokenIntrospectionTests.cs" />
   </ItemGroup>
 </Project>
