@@ -196,7 +196,7 @@ stages:
   - template: ./jobs/associate-keyvault-nsp.yml
     parameters:
       resourceGroup: $(UniqueResourceGroupName)
-      keyVaultName: '$(DeploymentEnvironmentName)-ts'
+      keyVaultName: '$(KeyVaultBaseName)-ts'
       nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
 
@@ -233,6 +233,7 @@ stages:
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -253,6 +254,7 @@ stages:
       version: Stu3
       sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
+      keyVaultName: $(KeyVaultNameSql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -275,6 +277,7 @@ stages:
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -295,6 +298,7 @@ stages:
       version: R4
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
+      keyVaultName: $(KeyVaultNameR4Sql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -317,6 +321,7 @@ stages:
     parameters: 
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
+      keyVaultName: $(KeyVaultNameR4B)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -337,6 +342,7 @@ stages:
       version: R4B
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
+      keyVaultName: $(KeyVaultNameR4BSql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -359,6 +365,7 @@ stages:
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -379,6 +386,7 @@ stages:
       version: R5
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
+      keyVaultName: $(KeyVaultNameR5Sql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
@@ -401,7 +409,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
       appServiceName: $(DeploymentEnvironmentName)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
@@ -416,7 +424,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
@@ -431,7 +439,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      keyVaultName: $(KeyVaultNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
@@ -446,7 +454,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 

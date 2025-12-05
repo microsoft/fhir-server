@@ -13,6 +13,7 @@ jobs:
       ScriptType: InlineScript
       Inline: |
         $deploymentEnvName = "$(DeploymentEnvironmentName)"
+        $keyVaultBaseName = "$(KeyVaultBaseName)"
         
         Get-AzResourceGroup -Name $(UniqueResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
         if ($notPresent) {
@@ -42,8 +43,8 @@ jobs:
         }
         
         # Purge any soft-deleted Key Vaults from this build
-        # Vault names start with DeploymentEnvironmentName (e.g., f20585pr5240-46482-ts)
-        $vaultPattern = "$deploymentEnvName*"
+        # Vault names use KeyVaultBaseName (e.g., f20585pr5240-ts, f20585pr5240-r4, etc.)
+        $vaultPattern = "$keyVaultBaseName*"
         Write-Host "Checking for soft-deleted Key Vaults matching pattern: $vaultPattern"
         $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
           $_.VaultName -like $vaultPattern

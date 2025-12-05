@@ -9,10 +9,10 @@ steps:
     azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
-      $deploymentEnvName = "$(DeploymentEnvironmentName)"
+      $keyVaultBaseName = "$(KeyVaultBaseName)"
       $currentRgName = "$(UniqueResourceGroupName)"
       $region = "$(ResourceGroupRegion)"
-      $pattern = "$deploymentEnvName*"
+      $pattern = "$keyVaultBaseName*"
       
       Write-Host "Looking for Key Vaults matching pattern: $pattern in region: $region"
       Write-Host "Current resource group (excluded): $currentRgName"

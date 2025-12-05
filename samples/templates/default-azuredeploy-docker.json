@@ -5,9 +5,16 @@
         "serviceName": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 24,
             "metadata": {
                 "description": "Name of the FHIR service Web App."
+            }
+        },
+        "keyVaultName": {
+            "type": "string",
+            "defaultValue": "",
+            "maxLength": 24,
+            "metadata": {
+                "description": "Name of the Key Vault. If empty, serviceName is used. Must be 24 characters or less."
             }
         },
         "appServicePlanResourceGroup": {
@@ -258,7 +265,8 @@
     "variables": {
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
         "serviceName": "[toLower(parameters('serviceName'))]",
-        "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
+        "keyVaultName": "[if(empty(parameters('keyVaultName')), variables('serviceName'), toLower(parameters('keyVaultName')))]",
+        "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('keyVaultName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('keyVaultName'), '.vault.azure.net/'))]",
         "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
         "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
@@ -310,7 +318,7 @@
         "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
-        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]",
+        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('keyVaultName'))]",
         "imageRepositoryName": "[if(contains(parameters('registryName'),'mcr.'), concat(toLower(parameters('fhirVersion')), '-fhir-server'), concat(toLower(parameters('fhirVersion')), '_fhir-server'))]",
         "networkSecurityPerimeterName": "[parameters('networkSecurityPerimeterName')]"
     },
@@ -641,7 +649,7 @@
         },
         {
             "type": "Microsoft.KeyVault/vaults",
-            "name": "[variables('serviceName')]",
+            "name": "[variables('keyVaultName')]",
             "apiVersion": "2022-07-01",
             "location": "[resourceGroup().location]",
             "tags": {
@@ -676,9 +684,9 @@
         {
             "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2022-04-01",
-            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]",
+            "name": "[concat(variables('keyVaultName'), '/Microsoft.Authorization/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('keyVaultName'))))]",
             "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
+                "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
@@ -688,9 +696,9 @@
         {
             "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2022-04-01",
-            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
+            "name": "[concat(variables('keyVaultName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('keyVaultName'))))]",
             "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
+                "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
@@ -700,28 +708,28 @@
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
+            "name": "[concat(variables('keyVaultName'), '/CosmosDb--Host')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
                 "value": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName'))).documentEndpoint, '')]"
             },
             "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
                 "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
             ]
         },
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/SqlServer--ConnectionString')]",
+            "name": "[concat(variables('keyVaultName'), '/SqlServer--ConnectionString')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
                 "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;Authentication=ActiveDirectoryMSI;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2018-11-30').clientId, ';')]"
             },
             "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
                 "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
             ]
         },
@@ -817,15 +825,15 @@
         {
             "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
             "apiVersion": "2023-07-01-preview",
-            "name": "[concat(variables('networkSecurityPerimeterName'), '/keyvault-', uniqueString(variables('serviceName')))]",
+            "name": "[concat(variables('networkSecurityPerimeterName'), '/keyvault-', uniqueString(variables('keyVaultName')))]",
             "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters', variables('networkSecurityPerimeterName'))]",
                 "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"
             ],
             "properties": {
                 "privateLinkResource": {
-                    "id": "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
+                    "id": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
                 },
                 "profile": {
                     "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', variables('networkSecurityPerimeterName'), parameters('networkSecurityPerimeterProfileName'))]"

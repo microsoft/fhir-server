@@ -33,6 +33,7 @@ steps:
       $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
 
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
+      $keyVaultName = "$(KeyVaultBaseName)-ts".ToLower() -replace "\.", ""
       Write-Host "Installed module and set variables"
 
       # Connect to Microsoft Graph using client credentials
@@ -44,4 +45,4 @@ steps:
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
       Write-Host "Imported modules"
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password
+      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -KeyVaultName $keyVaultName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password
