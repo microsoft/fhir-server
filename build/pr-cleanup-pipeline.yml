@@ -14,7 +14,10 @@ resources:
         include:
           - '*'
       stages:
-        - cleanup
+        - testStu3
+        - testR4
+        - testR4B
+        - testR5
 
 variables:
 - template: pr-variables.yml
