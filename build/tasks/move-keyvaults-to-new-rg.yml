@@ -29,26 +29,55 @@ steps:
       } else {
         Write-Host "Found $($vaults.Count) Key Vault(s) to move"
         
-        foreach ($vault in $vaults) {
-          $vaultName = $vault.VaultName
-          $sourceRg = $vault.ResourceGroupName
-          
-          # Check for resource locks that would prevent move
-          $locks = Get-AzResourceLock -ResourceGroupName $sourceRg -ResourceName $vaultName -ResourceType "Microsoft.KeyVault/vaults" -ErrorAction SilentlyContinue
+        # Filter out vaults with resource locks before parallel processing
+        $vaultsToMove = $vaults | Where-Object {
+          $locks = Get-AzResourceLock -ResourceGroupName $_.ResourceGroupName -ResourceName $_.VaultName -ResourceType "Microsoft.KeyVault/vaults" -ErrorAction SilentlyContinue
           if ($locks) {
-            Write-Warning "Vault '$vaultName' has resource locks - skipping move"
-            continue
+            Write-Warning "Vault '$($_.VaultName)' has resource locks - skipping move"
+            return $false
+          }
+          return $true
+        }
+        
+        if ($vaultsToMove.Count -eq 0) {
+          Write-Host "No vaults eligible for move after lock check"
+        } else {
+          Write-Host "Moving $($vaultsToMove.Count) vault(s) in parallel..."
+          
+          $results = $vaultsToMove | ForEach-Object -Parallel {
+            $vaultName = $_.VaultName
+            $sourceRg = $_.ResourceGroupName
+            $destRg = $using:targetRgName
+            try {
+              $resource = Get-AzResource -ResourceGroupName $sourceRg -ResourceName $vaultName -ResourceType "Microsoft.KeyVault/vaults"
+              Move-AzResource -DestinationResourceGroupName $destRg -ResourceId $resource.ResourceId -Force -ErrorAction Stop
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Moved" }
+            }
+            catch {
+              # Move failed - force delete so it can be recreated later
+              Write-Warning "Move failed for '$vaultName', attempting force delete..."
+              try {
+                Remove-AzKeyVault -VaultName $vaultName -ResourceGroupName $sourceRg -Force -ErrorAction Stop
+                [PSCustomObject]@{ Vault = $vaultName; Status = "Deleted" }
+              }
+              catch {
+                [PSCustomObject]@{ Vault = $vaultName; Status = "Failed: $($_.Exception.Message)" }
+              }
+            }
+          } -ThrottleLimit 10
+          
+          $results | ForEach-Object {
+            if ($_.Status -eq "Moved") {
+              Write-Host "Successfully moved vault: $($_.Vault)"
+            } elseif ($_.Status -eq "Deleted") {
+              Write-Host "Deleted vault (move failed): $($_.Vault)"
+            } else {
+              Write-Warning "$($_.Vault): $($_.Status)"
+            }
           }
           
-          Write-Host "Moving vault '$vaultName' from '$sourceRg' to '$targetRgName'..."
-          
-          try {
-            $resource = Get-AzResource -ResourceGroupName $sourceRg -ResourceName $vaultName -ResourceType "Microsoft.KeyVault/vaults"
-            Move-AzResource -DestinationResourceGroupName $targetRgName -ResourceId $resource.ResourceId -Force -ErrorAction Stop
-            Write-Host "Successfully moved vault: $vaultName"
-          }
-          catch {
-            Write-Warning "Failed to move vault '$vaultName': $($_.Exception.Message)"
-          }
+          $movedCount = ($results | Where-Object { $_.Status -eq "Moved" }).Count
+          $deletedCount = ($results | Where-Object { $_.Status -eq "Deleted" }).Count
+          Write-Host "Completed: $movedCount moved, $deletedCount deleted of $($vaultsToMove.Count) vaults"
         }
       }
