@@ -1,0 +1,57 @@
+# Task template to move Key Vaults from old resource groups to the current resource group
+# This prevents soft-delete conflicts when old RGs are deleted
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Move Key Vaults to Current RG'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    azurePowerShellVersion: latestVersion
+    ScriptType: inlineScript
+    Inline: |
+      $deploymentEnvName = "$(DeploymentEnvironmentName)"
+      $currentKeyVaultName = "$(UniqueKeyVaultName)"
+      $targetRgName = "$(UniqueResourceGroupName)"
+      $region = "$(ResourceGroupRegion)"
+      $pattern = "$deploymentEnvName*"
+      
+      Write-Host "Looking for Key Vaults matching pattern: $pattern in region: $region"
+      Write-Host "Excluding current AAD vault: $currentKeyVaultName"
+      Write-Host "Target resource group: $targetRgName"
+      
+      # Get all key vaults matching the pattern, excluding the current one
+      $vaults = Get-AzKeyVault | Where-Object { 
+        $_.VaultName -like $pattern -and 
+        $_.VaultName -ne $currentKeyVaultName -and
+        $_.Location -eq $region -and
+        $_.ResourceGroupName -ne $targetRgName
+      }
+      
+      if ($null -eq $vaults -or $vaults.Count -eq 0) {
+        Write-Host "No Key Vaults found to move"
+      } else {
+        Write-Host "Found $($vaults.Count) Key Vault(s) to move"
+        
+        foreach ($vault in $vaults) {
+          $vaultName = $vault.VaultName
+          $sourceRg = $vault.ResourceGroupName
+          
+          # Check for resource locks that would prevent move
+          $locks = Get-AzResourceLock -ResourceGroupName $sourceRg -ResourceName $vaultName -ResourceType "Microsoft.KeyVault/vaults" -ErrorAction SilentlyContinue
+          if ($locks) {
+            Write-Warning "Vault '$vaultName' has resource locks - skipping move"
+            continue
+          }
+          
+          Write-Host "Moving vault '$vaultName' from '$sourceRg' to '$targetRgName'..."
+          
+          try {
+            $resource = Get-AzResource -ResourceGroupName $sourceRg -ResourceName $vaultName -ResourceType "Microsoft.KeyVault/vaults"
+            Move-AzResource -DestinationResourceGroupName $targetRgName -ResourceId $resource.ResourceId -Force -ErrorAction Stop
+            Write-Host "Successfully moved vault: $vaultName"
+          }
+          catch {
+            Write-Warning "Failed to move vault '$vaultName': $($_.Exception.Message)"
+          }
+        }
+      }

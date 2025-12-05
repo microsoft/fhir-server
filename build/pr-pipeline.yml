@@ -107,77 +107,40 @@ stages:
       tag: $(ImageTag)
       buildPlatform: $(testDockerImagePlatforms)
 
-- stage: cleanupOldEnvironments
-  displayName: 'Cleanup Old PR Environments'
+- stage: prepareKeyVaults
+  displayName: 'Prepare Key Vaults'
   dependsOn: 
   - UpdateVersion
   - provisionEnvironment
   jobs:
-  - job: cleanupOldRGs
-    displayName: 'Remove Previous PR Resource Groups'
+  - job: moveKeyVaults
+    displayName: 'Move Key Vaults to Current RG'
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - task: AzurePowerShell@5
-      displayName: 'Cleanup Old RGs for this PR'
-      inputs:
-        azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
-        ScriptType: inlineScript
-        Inline: |
-          $prNumber = "$(prName)"
-          $resourceGroupRoot = "$(resourceGroupRoot)"
-          $currentRgName = "$(UniqueResourceGroupName)"
-          $pattern = "$resourceGroupRoot-$prNumber*"
-          
-          Write-Host "Looking for old resource groups matching pattern: $pattern (excluding current RG: $currentRgName)"
-          
-          $oldRGs = Get-AzResourceGroup | Where-Object { 
-            $_.ResourceGroupName -like $pattern -and 
-            $_.ResourceGroupName -ne $currentRgName
-          }
-          
-          if ($oldRGs.Count -eq 0) {
-            Write-Host "No old resource groups found to cleanup"
-          } else {
-            Write-Host "Found $($oldRGs.Count) old resource group(s) to cleanup"
-            
-            # Delete all RGs in parallel using ForEach-Object -Parallel with retry logic
-            $results = $oldRGs | ForEach-Object -Parallel {
-              $rgName = $_.ResourceGroupName
-              $maxRetries = 3
-              $retryCount = 0
-              $deleted = $false
-              
-              while (-not $deleted -and $retryCount -lt $maxRetries) {
-                try {
-                  Remove-AzResourceGroup -Name $rgName -Force -ErrorAction Stop
-                  $deleted = $true
-                  [PSCustomObject]@{ RG = $rgName; Status = "Success" }
-                }
-                catch {
-                  $retryCount++
-                  if ($retryCount -lt $maxRetries) {
-                    Start-Sleep -Seconds 30
-                  } else {
-                    [PSCustomObject]@{ RG = $rgName; Status = "Failed: $($_.Exception.Message)" }
-                  }
-                }
-              }
-            } -ThrottleLimit 10
-            
-            $results | ForEach-Object {
-              if ($_.Status -eq "Success") {
-                Write-Host "Successfully removed resource group: $($_.RG)"
-              } else {
-                Write-Warning "Failed to remove resource group $($_.RG). $($_.Status)"
-              }
-            }
-            
-            $successCount = ($results | Where-Object { $_.Status -eq "Success" }).Count
-            Write-Host "Completed removal: $successCount of $($oldRGs.Count) resource group(s)"
-          }
+    - template: ./tasks/move-keyvaults-to-new-rg.yml
+
+  - job: purgeSoftDeletedVaults
+    displayName: 'Purge Soft-Deleted Key Vaults'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./tasks/purge-soft-deleted-keyvaults.yml
+
+- stage: cleanupOldResources
+  displayName: 'Cleanup Old PR Resources'
+  dependsOn: 
+  - prepareKeyVaults
+  jobs:
+  - job: deleteOldResourceGroups
+    displayName: 'Delete Old Resource Groups'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./tasks/delete-resource-groups.yml
 
 - stage: provisionEnvironment
   displayName: Provision Environment
@@ -279,6 +242,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -298,6 +262,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -321,6 +286,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -340,6 +306,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -363,6 +330,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -382,6 +350,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -405,6 +374,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - createNsp
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -424,6 +394,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - prepareKeyVaults
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 

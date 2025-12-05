@@ -1,0 +1,56 @@
+# Task template to purge soft-deleted Key Vaults matching the deployment pattern
+# This prevents conflicts when creating new vaults with the same name
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Purge Soft-Deleted Key Vaults'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    azurePowerShellVersion: latestVersion
+    ScriptType: inlineScript
+    Inline: |
+      $deploymentEnvName = "$(DeploymentEnvironmentName)"
+      $currentKeyVaultName = "$(UniqueKeyVaultName)"
+      $region = "$(ResourceGroupRegion)"
+      $pattern = "$deploymentEnvName*"
+      
+      Write-Host "Looking for soft-deleted Key Vaults matching pattern: $pattern in region: $region"
+      Write-Host "Excluding current AAD vault: $currentKeyVaultName"
+      
+      # Get all soft-deleted key vaults matching the pattern
+      $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
+        $_.VaultName -like $pattern -and 
+        $_.VaultName -ne $currentKeyVaultName -and
+        $_.Location -eq $region
+      }
+      
+      if ($null -eq $softDeletedVaults -or $softDeletedVaults.Count -eq 0) {
+        Write-Host "No soft-deleted Key Vaults found to purge"
+      } else {
+        Write-Host "Found $($softDeletedVaults.Count) soft-deleted Key Vault(s) to purge"
+        
+        # Purge vaults in parallel
+        $results = $softDeletedVaults | ForEach-Object -Parallel {
+          $vaultName = $_.VaultName
+          $vaultLocation = $_.Location
+          
+          try {
+            Remove-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState -Force -ErrorAction Stop
+            [PSCustomObject]@{ Vault = $vaultName; Status = "Success" }
+          }
+          catch {
+            [PSCustomObject]@{ Vault = $vaultName; Status = "Failed: $($_.Exception.Message)" }
+          }
+        } -ThrottleLimit 10
+        
+        $results | ForEach-Object {
+          if ($_.Status -eq "Success") {
+            Write-Host "Successfully purged vault: $($_.Vault)"
+          } else {
+            Write-Warning "Failed to purge vault $($_.Vault). $($_.Status)"
+          }
+        }
+        
+        $successCount = ($results | Where-Object { $_.Status -eq "Success" }).Count
+        Write-Host "Completed purge: $successCount of $($softDeletedVaults.Count) vault(s)"
+      }
