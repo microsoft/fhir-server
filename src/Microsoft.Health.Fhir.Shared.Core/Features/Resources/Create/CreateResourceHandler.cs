@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -47,14 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // Check for granular Create permission (SMART v2) or legacy Write permission (SMART v1/backward compatibility)
-            DataActions requiredActions = DataActions.Create | DataActions.Write;
-            DataActions allowedActions = await AuthorizationService.CheckAccess(requiredActions, cancellationToken);
-
-            if ((allowedActions & requiredActions) == DataActions.None)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await AuthorizationService.CheckCreateAccess(cancellationToken);
 
             var resource = request.Resource.ToPoco<Resource>();
 
