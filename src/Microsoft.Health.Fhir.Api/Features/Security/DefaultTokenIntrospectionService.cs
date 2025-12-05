@@ -258,17 +258,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             // Check all configured scope claim names
             var scopeClaimNames = SecurityConfiguration.Authorization.ScopesClaim ?? new List<string> { "scp" };
 
-            foreach (var claimName in scopeClaimNames)
-            {
-                var scopeClaims = principal.FindAll(claimName).ToList();
-                if (scopeClaims.Any())
-                {
-                    // Join multiple scope claims with space separator
-                    return string.Join(" ", scopeClaims.Select(c => c.Value));
-                }
-            }
+            // Find the first claim name that has associated claims
+            var scopeClaims = scopeClaimNames
+                .Select(claimName => principal.FindAll(claimName))
+                .FirstOrDefault(claims => claims.Any());
 
-            return null;
+            // Join multiple scope claims with space separator
+            return scopeClaims != null
+                ? string.Join(" ", scopeClaims.Select(c => c.Value))
+                : null;
         }
 
         /// <summary>
