@@ -24,11 +24,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.SmartOnFhir)]
-    public class TokenIntrospectionControllerTests
+    public class TokenIntrospectionControllerTests : IDisposable
     {
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly TokenIntrospectionController _controller;
         private readonly ITokenIntrospectionService _introspectionService;
+        private readonly RSA _rsa;
         private readonly RsaSecurityKey _signingKey;
         private readonly SigningCredentials _signingCredentials;
         private readonly string _issuer = "https://test-issuer.com";
@@ -37,8 +38,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public TokenIntrospectionControllerTests()
         {
             // Create RSA key for signing test tokens
-            var rsa = RSA.Create(2048);
-            _signingKey = new RsaSecurityKey(rsa);
+            _rsa = RSA.Create(2048);
+            _signingKey = new RsaSecurityKey(_rsa);
             _signingCredentials = new SigningCredentials(_signingKey, SecurityAlgorithms.RsaSha256);
 
             // Configure security
@@ -114,8 +115,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
-            Assert.False((bool)response["active"]);
+            Assert.True(response.TryGetValue("active", out var active));
+            Assert.False((bool)active);
             Assert.Single(response); // Only 'active' field should be present
         }
 
@@ -131,8 +132,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
-            Assert.False((bool)response["active"]);
+            Assert.True(response.TryGetValue("active", out var active));
+            Assert.False((bool)active);
             Assert.Single(response); // Only 'active' field should be present
         }
 
@@ -166,8 +167,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
-            Assert.False((bool)response["active"]);
+            Assert.True(response.TryGetValue("active", out var active));
+            Assert.False((bool)active);
         }
 
         [Fact]
@@ -390,6 +391,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
+        }
+
+        public void Dispose()
+        {
+            _rsa?.Dispose();
         }
     }
 }
