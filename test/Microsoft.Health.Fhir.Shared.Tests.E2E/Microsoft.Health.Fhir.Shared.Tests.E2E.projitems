@@ -93,6 +93,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\FhirPathPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\TokenIntrospectionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchProxyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingAndSortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSortAndSearchValidationTestFixture.cs" />

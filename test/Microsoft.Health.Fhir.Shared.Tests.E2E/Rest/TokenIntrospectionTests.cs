@@ -115,6 +115,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             {
                 var fhirUser = response["fhirUser"].GetString();
                 Assert.NotEmpty(fhirUser);
+
                 // fhirUser should be a full URL to a Practitioner, Patient, Person, or RelatedPerson
                 Assert.Contains("http", fhirUser, StringComparison.OrdinalIgnoreCase);
             }
@@ -205,6 +206,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             {
                 Content = content,
             };
+
             // Explicitly no Authorization header
 
             var introspectionResponse = await _httpClient.SendAsync(request);
