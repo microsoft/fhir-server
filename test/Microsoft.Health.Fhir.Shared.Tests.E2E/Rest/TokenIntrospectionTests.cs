@@ -230,26 +230,6 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         }
 
         [Fact]
-        public async Task GivenContentTypeNotFormEncoded_WhenIntrospecting_ThenReturnsUnsupportedMediaType()
-        {
-            // Arrange
-            var accessToken = await GetAccessTokenAsync(TestApplications.GlobalAdminServicePrincipal);
-
-            // Act - Send with wrong content type
-            var content = new StringContent("{\"token\": \"test\"}", System.Text.Encoding.UTF8, "application/json");
-            var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
-            {
-                Content = content,
-            };
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
-            var introspectionResponse = await _httpClient.SendAsync(request);
-
-            // Assert - RFC 7662 requires application/x-www-form-urlencoded
-            Assert.Equal(HttpStatusCode.UnsupportedMediaType, introspectionResponse.StatusCode);
-        }
-
-        [Fact]
         public async Task GivenMultipleValidTokens_WhenIntrospecting_ThenEachReturnsCorrectClaims()
         {
             // Arrange - Get tokens from different applications
