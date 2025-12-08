@@ -251,7 +251,6 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Operations.MemberMatc
 
             // Assert
             Assert.NotNull(result);
-            var resultPatient = result.ToPoco<Patient>();
             Assert.Equal("patient1", matchingPatient.Id);
         }
 

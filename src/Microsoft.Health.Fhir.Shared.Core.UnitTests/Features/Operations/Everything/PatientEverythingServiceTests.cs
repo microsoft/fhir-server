@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             var emptyResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
             _searchService.SearchAsync(Arg.Any<SearchOptions>(), CancellationToken.None).Returns(emptyResult);
 
-            SearchResult actualResult = await _patientEverythingService.SearchAsync("123", null, null, null, null, null, CancellationToken.None);
+            await _patientEverythingService.SearchAsync("123", null, null, null, null, null, CancellationToken.None);
 
             // Should have called search multiple times (phase 0, then phase 1/2)
             await _searchService.Received().SearchAsync(Arg.Any<SearchOptions>(), Arg.Any<CancellationToken>());
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             var start = PartialDateTime.Parse("2020-01-01");
             var end = PartialDateTime.Parse("2020-12-31");
 
-            SearchResult actualResult = await _patientEverythingService.SearchAsync("123", start, end, null, null, null, CancellationToken.None);
+            await _patientEverythingService.SearchAsync("123", start, end, null, null, null, CancellationToken.None);
 
             // Should have searched with date parameters
             await _searchService.Received().SearchAsync(Arg.Any<SearchOptions>(), CancellationToken.None);
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             var emptyResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
             _searchService.SearchAsync(Arg.Any<SearchOptions>(), CancellationToken.None).Returns(emptyResult);
 
-            SearchResult actualResult = await _patientEverythingService.SearchAsync("123", null, null, null, null, null, CancellationToken.None);
+            await _patientEverythingService.SearchAsync("123", null, null, null, null, null, CancellationToken.None);
 
             // Should proceed through phases
             await _searchService.Received().SearchAsync(Arg.Any<SearchOptions>(), Arg.Any<CancellationToken>());
