@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <returns>Token introspection response with active status and claims.</returns>
         [HttpPost]
         [Route("/connect/introspect")]
-        [Authorize]
+        [Consumes("application/x-www-form-urlencoded")]
         [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
         public IActionResult Introspect([FromForm] string token)
         {

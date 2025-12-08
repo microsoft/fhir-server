@@ -197,9 +197,6 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         [Fact]
         public async Task GivenNoAuthentication_WhenIntrospecting_ThenReturnsUnauthorized()
         {
-            // This test is not working with in proc server
-            Skip.If(_fixture.IsUsingInProcTestServer);
-
             // Arrange - Get a token to introspect
             var someToken = await GetAccessTokenAsync(TestApplications.GlobalAdminServicePrincipal);
 
@@ -213,8 +210,6 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             {
                 Content = content,
             };
-
-            // Use the existing httpClient but send the request without any Authorization header
 
             // Create an unauthenticated client using the test infrastructure's message handler
             // This ensures requests are properly routed to the in-process test server without auth
