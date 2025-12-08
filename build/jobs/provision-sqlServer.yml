@@ -114,13 +114,34 @@ jobs:
               'nspProfile' = 'default'
           }
             
-          # Deploy using external template
-          $nspDeploymentResult = New-AzResourceGroupDeployment `
-            -ResourceGroupName $resourceGroup `
-            -Name "$sqlServerName-nsp-association" `
-            -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-            -TemplateParameterObject $templateParameters `
-            -Verbose
+          # Deploy using external template with retry logic for transient conflicts
+          $maxRetries = 3
+          $retryDelaySeconds = 15
+          $attempt = 0
+          $success = $false
+          
+          do {
+            try {
+              $attempt++
+              Write-Host "Attempt $attempt of $maxRetries to create NSP association..."
+              
+              $nspDeploymentResult = New-AzResourceGroupDeployment `
+                -ResourceGroupName $resourceGroup `
+                -Name "$sqlServerName-nsp-association" `
+                -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+                -TemplateParameterObject $templateParameters `
+                -Verbose
+              
+              $success = $true
+            } catch {
+              if ($_.Exception.Message -like "*Conflict*" -and $attempt -lt $maxRetries) {
+                Write-Host "Conflict detected. Retrying in $retryDelaySeconds seconds..."
+                Start-Sleep -Seconds $retryDelaySeconds
+              } else {
+                throw
+              }
+            }
+          } while (-not $success -and $attempt -lt $maxRetries)
             
           Write-Host "Successfully associated SQL Server with NSP using external ARM template"
           Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
