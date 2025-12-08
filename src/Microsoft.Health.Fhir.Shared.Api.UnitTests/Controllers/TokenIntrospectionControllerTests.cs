@@ -7,9 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -18,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.IdentityModel.Tokens;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
@@ -58,10 +61,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 },
             };
 
+            // Create mock HttpClientFactory
+            var httpClientFactory = Substitute.For<IHttpClientFactory>();
+            httpClientFactory.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
+
             // Create introspection service
             _introspectionService = new DefaultTokenIntrospectionService(
                 Options.Create(_securityConfiguration),
-                NullLogger<DefaultTokenIntrospectionService>.Instance);
+                NullLogger<DefaultTokenIntrospectionService>.Instance,
+                httpClientFactory);
 
             _controller = new TokenIntrospectionController(
                 _introspectionService,

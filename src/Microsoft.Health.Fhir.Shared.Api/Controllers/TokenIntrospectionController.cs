@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route("/connect/introspect")]
         [Authorize]
-        [Consumes("application/x-www-form-urlencoded")]
         [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
         public IActionResult Introspect([FromForm] string token)
         {

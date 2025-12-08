@@ -7,7 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Claims;
+using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,17 +29,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly JwtSecurityTokenHandler _tokenHandler;
         private readonly ILogger<DefaultTokenIntrospectionService> _logger;
+        private readonly ConfigurationManager<OpenIdConnectConfiguration> _configurationManager;
 
         public DefaultTokenIntrospectionService(
             IOptions<SecurityConfiguration> securityConfiguration,
-            ILogger<DefaultTokenIntrospectionService> logger)
+            ILogger<DefaultTokenIntrospectionService> logger,
+            IHttpClientFactory httpClientFactory)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
 
             _securityConfiguration = securityConfiguration.Value;
             _tokenHandler = new JwtSecurityTokenHandler();
             _logger = logger;
+
+            // Initialize configuration manager with HttpClient from factory
+            var authority = _securityConfiguration.Authentication.Authority.TrimEnd('/');
+
+#pragma warning disable CA2000 // HttpClient from factory should not be manually disposed
+            var httpClient = httpClientFactory.CreateClient();
+#pragma warning restore CA2000
+
+            _configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                $"{authority}/.well-known/openid-configuration",
+                new OpenIdConnectConfigurationRetriever(),
+                new HttpDocumentRetriever(httpClient));
         }
 
         /// <summary>
@@ -142,12 +159,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             // Normalize authority to ensure consistent JWKS endpoint
             var normalizedAuthority = authority.TrimEnd('/');
 
-            // Configure OpenID Connect configuration retriever for JWKS
-            var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-                $"{normalizedAuthority}/.well-known/openid-configuration",
-                new OpenIdConnectConfigurationRetriever(),
-                new HttpDocumentRetriever());
-
             return new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -161,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
                 {
                     // Retrieve signing keys from OpenID Connect configuration
-                    var config = configurationManager.GetConfigurationAsync().GetAwaiter().GetResult();
+                    var config = _configurationManager.GetConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
                     return config.SigningKeys;
                 },
                 ClockSkew = TimeSpan.FromMinutes(5), // Allow 5 minutes clock skew
