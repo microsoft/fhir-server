@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public async Task<ReindexSingleResourceResponse> Handle(ReindexSingleResourceRequest request, CancellationToken cancellationToken)
+        public async Task<ReindexSingleResourceResponse> HandleAsync(ReindexSingleResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

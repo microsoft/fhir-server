@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             // Mock mediator call for CreateExportRequest - throw exception to fail test if we get unexpected value.
             _mediator
-                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     var request = callInfo.Arg<CreateExportRequest>();
