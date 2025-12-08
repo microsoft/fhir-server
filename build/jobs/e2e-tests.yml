@@ -123,6 +123,8 @@ steps:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'app_smartUserClient_id': $(app_smartUserClient_id)
+      'app_smartUserClient_secret': $(app_smartUserClient_secret)
       'AZURESUBSCRIPTION_CLIENT_ID': $(AzurePipelinesCredential_ClientId)
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)

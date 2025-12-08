@@ -178,8 +178,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var accessToken = await GetAccessTokenAsync(TestApplications.GlobalAdminServicePrincipal);
 
             // Act - Send request without token parameter
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>());
-            var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>());
+            using var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
             {
                 Content = content,
             };
@@ -201,19 +201,19 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var someToken = await GetAccessTokenAsync(TestApplications.GlobalAdminServicePrincipal);
 
             // Act - Send request with NO authentication header (completely unauthenticated)
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "token", someToken },
             });
 
-            var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
+            using var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
             {
                 Content = content,
             };
 
             // Create an unauthenticated client using the test infrastructure's message handler
             // This ensures requests are properly routed to the in-process test server without auth
-            var unauthenticatedHandler = new TestAuthenticationHttpMessageHandler(null)
+            using var unauthenticatedHandler = new TestAuthenticationHttpMessageHandler(null)
             {
                 InnerHandler = _fixture.TestFhirServer.CreateMessageHandler(),
             };
@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         /// </summary>
         private async Task<string> GetAccessTokenAsync(TestApplication testApplication)
         {
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "grant_type", "client_credentials" },
                 { "client_id", testApplication.ClientId },
@@ -277,12 +277,12 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         /// </summary>
         private async Task<HttpResponseMessage> IntrospectTokenAsync(string authToken, string tokenToIntrospect)
         {
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "token", tokenToIntrospect },
             });
 
-            var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
+            using var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
             {
                 Content = content,
             };
