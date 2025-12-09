@@ -393,7 +393,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             record.FailureDetails = new JobFailureDetails(Core.Resources.ReindexFailedWithUnknownError, HttpStatusCode.InternalServerError);
         }
 
-        // To prevent sending consumer status that is wrong if there are still running prcessing jobs that were enqueued during race condition.
+        // To prevent sending consumer status that is wrong if there are still running processing jobs that were enqueued during race condition.
         if (inFlightJobsExist && status != JobStatus.Running)
         {
             status = JobStatus.Running;
