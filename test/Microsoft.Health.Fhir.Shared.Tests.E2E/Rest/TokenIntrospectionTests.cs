@@ -23,7 +23,6 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
     public class TokenIntrospectionTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly HttpClient _httpClient;
-        private readonly TestFhirClient _testFhirClient;
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly Uri _tokenUri;
         private readonly Uri _introspectionUri;
@@ -32,7 +31,6 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         {
             _fixture = fixture;
             _httpClient = fixture.TestFhirClient.HttpClient;
-            _testFhirClient = fixture.TestFhirClient;
             _tokenUri = fixture.TestFhirServer.TokenUri;
             _introspectionUri = new Uri(fixture.TestFhirServer.BaseAddress, "/connect/introspect");
         }
@@ -53,25 +51,25 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
             // Verify active status
-            Assert.True(response.ContainsKey("active"));
-            Assert.True(response["active"].GetBoolean());
+            Assert.True(response.TryGetValue("active", out JsonElement activeElement));
+            Assert.True(activeElement.GetBoolean());
 
             // Verify token type
-            Assert.True(response.ContainsKey("token_type"));
-            Assert.Equal("Bearer", response["token_type"].GetString());
+            Assert.True(response.TryGetValue("token_type", out JsonElement tokenTypeElement));
+            Assert.Equal("Bearer", tokenTypeElement.GetString());
 
             // Verify standard claims exist
             Assert.True(response.ContainsKey("sub"));
             Assert.True(response.ContainsKey("iss"));
             Assert.True(response.ContainsKey("aud"));
-            Assert.True(response.ContainsKey("exp"));
+            Assert.True(response.TryGetValue("exp", out JsonElement expirationElement));
             Assert.True(response.ContainsKey("client_id"));
 
             // Verify timestamps are Unix timestamps (positive numbers)
-            Assert.True(response["exp"].GetInt64() > 0);
-            if (response.ContainsKey("iat"))
+            Assert.True(expirationElement.GetInt64() > 0);
+            if (response.TryGetValue("iat", out JsonElement issuedAtElement))
             {
-                Assert.True(response["iat"].GetInt64() > 0);
+                Assert.True(issuedAtElement.GetInt64() > 0);
             }
         }
 
@@ -91,10 +89,10 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             Assert.True(response["active"].GetBoolean());
 
             // Scope should be a space-separated string, not an array
-            if (response.ContainsKey("scope"))
+            if (response.TryGetValue("scope", out JsonElement scopeElement))
             {
-                Assert.Equal(JsonValueKind.String, response["scope"].ValueKind);
-                var scope = response["scope"].GetString();
+                Assert.Equal(JsonValueKind.String, scopeElement.ValueKind);
+                var scope = scopeElement.GetString();
                 Assert.NotEmpty(scope);
             }
         }
@@ -115,9 +113,9 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             Assert.True(response["active"].GetBoolean());
 
             // SMART clients should have fhirUser claim
-            if (response.ContainsKey("fhirUser"))
+            if (response.TryGetValue("fhirUser", out JsonElement fhirUserElement))
             {
-                var fhirUser = response["fhirUser"].GetString();
+                var fhirUser = fhirUserElement.GetString();
                 Assert.NotEmpty(fhirUser);
 
                 // fhirUser should be a full URL to a Practitioner, Patient, Person, or RelatedPerson
@@ -142,8 +140,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
             // Verify inactive status
-            Assert.True(response.ContainsKey("active"));
-            Assert.False(response["active"].GetBoolean());
+            Assert.True(response.TryGetValue("active", out JsonElement inactiveElement));
+            Assert.False(inactiveElement.GetBoolean());
 
             // Per RFC 7662 section 2.2: "If the introspection call is properly authorized
             // but the token is not active, the authorization server MUST return ... {"active": false}"
@@ -167,7 +165,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var responseJson = await introspectionResponse.Content.ReadAsStringAsync();
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
-            Assert.False(response["active"].GetBoolean());
+            Assert.True(response.TryGetValue("active", out JsonElement inactiveElement));
+            Assert.False(inactiveElement.GetBoolean());
             Assert.Single(response); // Only 'active' field
         }
 
