@@ -1,0 +1,128 @@
+parameters:
+- name: version
+  type: string
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+
+  - bash: |
+      # Generate random password meeting SQL Server requirements
+      RANDOM_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-20)
+      SQL_PASSWORD="Sql${RANDOM_PASSWORD}9!"
+      echo "Generated secure SQL password"
+      echo "##vso[task.setvariable variable=SQL_SA_PASSWORD;issecret=true]$SQL_PASSWORD"
+    displayName: 'Generate random SQL Server password'
+
+  - task: DockerCompose@1
+    displayName: 'Start SQL Server and Azurite containers'
+    inputs:
+      action: 'Run services'
+      dockerComposeFile: '$(Build.SourcesDirectory)/build/docker-compose.test.yml'
+      projectName: 'fhir-server-test-${{ lower(parameters.version) }}-sql'
+      dockerComposeCommand: 'up -d sql azurite'
+      detached: true
+    env:
+      SQL_SA_PASSWORD: $(SQL_SA_PASSWORD)
+
+  - script: |
+      echo "Waiting for SQL Server to be ready..."
+      timeout=60
+      elapsed=0
+      until docker exec fhir-test-sql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SQL_SA_PASSWORD)" -C -Q "SELECT @@VERSION" -b > /dev/null 2>&1 || [ $elapsed -ge $timeout ]; do
+        echo "Waiting for SQL Server... ($elapsed seconds)"
+        sleep 5
+        elapsed=$((elapsed + 5))
+      done
+      docker exec fhir-test-sql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(SQL_SA_PASSWORD)" -C -Q "SELECT @@VERSION" -b
+    displayName: 'Verify SQL Server connectivity'
+
+  - script: |
+      echo "Waiting for Azurite to be ready..."
+      timeout=60
+      elapsed=0
+      until curl -f http://localhost:10000/devstoreaccount1?restype=account > /dev/null 2>&1 || [ $elapsed -ge $timeout ]; do
+        echo "Waiting for Azurite... ($elapsed seconds)"
+        sleep 5
+        elapsed=$((elapsed + 5))
+      done
+      echo "Azurite is ready"
+    displayName: 'Verify Azurite connectivity'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build ${{ parameters.version }} integration test project'
+    inputs:
+      command: build
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run ${{ parameters.version }} SQL Integration Tests'
+    inputs:
+      command: test
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~CosmosDb --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      testRunTitle: '${{ parameters.version }} Docker SQL Integration Tests'
+      publishTestResults: true
+    env:
+      'SqlServer:ConnectionString': 'Server=localhost,1433;Initial Catalog=master;User Id=sa;Password=$(SQL_SA_PASSWORD);TrustServerCertificate=true;Encrypt=false'
+      'TestExportStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+      'TestIntegrationStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build ${{ parameters.version }} E2E test project'
+    inputs:
+      command: build
+      projects: 'test/**/*${{ parameters.version }}.Tests.E2E.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run ${{ parameters.version }} SQL E2E Tests (In-Proc)'
+    inputs:
+      command: test
+      projects: 'test/**/*${{ parameters.version }}.Tests.E2E.csproj'
+      arguments: '--filter FullyQualifiedName~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      testRunTitle: '${{ parameters.version }} Docker SQL E2E Tests'
+      publishTestResults: true
+    env:
+      'SqlServer:ConnectionString': 'Server=localhost,1433;Initial Catalog=master;User Id=sa;Password=$(SQL_SA_PASSWORD);TrustServerCertificate=true;Encrypt=false'
+      'TestExportStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+      'TestIntegrationStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+
+  - task: reportgenerator@5
+    displayName: 'Aggregate ${{ parameters.version }} SQL test coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(Agent.TempDirectory)/coverage'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish ${{ parameters.version }} SQL test coverage'
+    condition: succeededOrFailed()
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      artifactName: 'Coverage_Docker_SQL_${{ parameters.version }}'
+      artifactType: 'container'
+
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish ${{ parameters.version }} SQL code coverage results'
+    condition: always()
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+      reportDirectory: '$(Agent.TempDirectory)/coverage'
+
+  - task: DockerCompose@1
+    displayName: 'Stop and remove containers'
+    condition: always()
+    inputs:
+      action: 'Run a Docker Compose command'
+      dockerComposeFile: '$(Build.SourcesDirectory)/build/docker-compose.test.yml'
+      projectName: 'fhir-server-test-${{ lower(parameters.version) }}-sql'
+      dockerComposeCommand: 'down -v'
