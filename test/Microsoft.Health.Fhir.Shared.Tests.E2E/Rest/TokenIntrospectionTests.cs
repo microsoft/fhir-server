@@ -255,13 +255,9 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         /// </summary>
         private async Task<string> GetAccessTokenAsync(TestApplication testApplication)
         {
-            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                { "grant_type", "client_credentials" },
-                { "client_id", testApplication.ClientId },
-                { "client_secret", testApplication.ClientSecret },
-                { "scope", "fhir-api" },
-            });
+            var tokenRequest = BuildTokenRequest(testApplication);
+
+            using var content = new FormUrlEncodedContent(tokenRequest);
 
             var response = await _httpClient.PostAsync(_tokenUri, content);
             response.EnsureSuccessStatusCode();
@@ -270,6 +266,40 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var tokenResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
             return tokenResponse["access_token"].GetString();
+        }
+
+        private static IDictionary<string, string> BuildTokenRequest(TestApplication testApplication)
+        {
+            var (scope, resource) = ResolveAudienceParameters(testApplication);
+
+            var request = new Dictionary<string, string>
+            {
+                { "grant_type", testApplication.GrantType },
+                { "client_id", testApplication.ClientId },
+                { "client_secret", testApplication.ClientSecret },
+            };
+
+            if (!string.IsNullOrWhiteSpace(scope))
+            {
+                request["scope"] = scope;
+            }
+
+            if (!string.IsNullOrWhiteSpace(resource))
+            {
+                request["resource"] = resource;
+            }
+
+            return request;
+        }
+
+        private static (string Scope, string Resource) ResolveAudienceParameters(TestApplication testApplication)
+        {
+            bool isWrongAudienceClient = testApplication.Equals(TestApplications.WrongAudienceClient);
+
+            string scope = isWrongAudienceClient ? testApplication.ClientId : AuthenticationSettings.Scope;
+            string resource = isWrongAudienceClient ? testApplication.ClientId : AuthenticationSettings.Resource;
+
+            return (scope, resource);
         }
 
         /// <summary>
@@ -286,7 +316,6 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             {
                 Content = content,
             };
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
 
             return await _httpClient.SendAsync(request);
         }
