@@ -149,25 +149,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public void GivenInvalidSignatureToken_WhenIntrospect_ThenReturnsInactive()
         {
             // Arrange - Create token with different signing key
-            var differentRsa = RSA.Create(2048);
-            var differentKey = new RsaSecurityKey(differentRsa);
-            var differentCredentials = new SigningCredentials(differentKey, SecurityAlgorithms.RsaSha256);
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
+            using (var differentRsa = RSA.Create(2048))
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim("sub", "test-user"),
-                }),
-                Expires = DateTime.UtcNow.AddHours(1),
-                Issuer = _issuer,
-                Audience = _audience,
-                SigningCredentials = differentCredentials, // Wrong key
-            };
+                var differentKey = new RsaSecurityKey(differentRsa);
+                var differentCredentials = new SigningCredentials(differentKey, SecurityAlgorithms.RsaSha256);
 
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(token);
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new[]
+                    {
+                        new Claim("sub", "test-user"),
+                    }),
+                    Expires = DateTime.UtcNow.AddHours(1),
+                    Issuer = _issuer,
+                    Audience = _audience,
+                    SigningCredentials = differentCredentials, // Wrong key
+                };
+
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var tokenString = tokenHandler.WriteToken(token);
+
+                // Act
+                var result = _controller.Introspect(tokenString);
+
+                // Assert
+                var okResult = Assert.IsType<OkObjectResult>(result);
+                var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
+                Assert.True(response.TryGetValue("active", out var active));
+                Assert.False((bool)active);
+            }
 
             // Act
             var result = _controller.Introspect(tokenString);
