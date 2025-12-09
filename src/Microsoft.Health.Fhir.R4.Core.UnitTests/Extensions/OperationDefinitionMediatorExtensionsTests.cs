@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Extensions
         {
             // Arrange
             const string operationName = "export";
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
             _mediator.Send(

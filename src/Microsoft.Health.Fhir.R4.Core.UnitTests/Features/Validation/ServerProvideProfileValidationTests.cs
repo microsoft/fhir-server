@@ -319,16 +319,13 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
                 .Returns(searchResult);
 
             // Setup for other resource types to return empty
-            foreach (var type in new[] { "ValueSet", "CodeSystem", "StructureDefinition" })
+            foreach (var type in new[] { "ValueSet", "CodeSystem", "StructureDefinition" }.Where(type => type != resourceType))
             {
-                if (type != resourceType)
-                {
-                    _searchService.SearchAsync(
-                        type,
-                        Arg.Any<List<Tuple<string, string>>>(),
-                        Arg.Any<CancellationToken>())
-                        .Returns(new SearchResult(new List<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()));
-                }
+                _searchService.SearchAsync(
+                    type,
+                    Arg.Any<List<Tuple<string, string>>>(),
+                    Arg.Any<CancellationToken>())
+                    .Returns(new SearchResult(new List<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()));
             }
         }
 
