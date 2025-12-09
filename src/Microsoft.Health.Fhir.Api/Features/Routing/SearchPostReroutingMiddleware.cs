@@ -41,7 +41,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             {
                 if (request != null
                     && request.Method == "POST"
-                    && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase))
+                    && request.Path.HasValue
+                    && request.Path.Value.EndsWith(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
                 {
                     if (request.ContentType is null || request.HasFormContentType)
                     {
@@ -49,14 +50,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
                         if (request.HasFormContentType)
                         {
-                            var mergedPairs = GetUniqueFormAndQueryStringKeyValues(HttpUtility.ParseQueryString(request.QueryString.ToString()), request.Form);
+                            _logger.LogInformation("Merging form content into query string.");
+                            var queryString = request.QueryString != null ? request.QueryString.ToString() : string.Empty;
+
+                            if (request.QueryString == null)
+                            {
+                                _logger.LogWarning("Request QueryString is null. Initializing to empty string.");
+                            }
+
+                            var queryCollection = HttpUtility.ParseQueryString(queryString);
+                            var mergedPairs = GetUniqueFormAndQueryStringKeyValues(queryCollection, request.Form);
                             request.Query = mergedPairs;
                         }
 
+                        // Safely trim the trailing search route from the path.
+                        var pathValue = request.Path.Value ?? string.Empty;
+                        if (pathValue.Length >= KnownRoutes.Search.Length)
+                        {
+                            _logger.LogInformation("Trimming search route from request path.");
+                            var newPath = pathValue.Substring(0, pathValue.Length - KnownRoutes.Search.Length);
+                            request.Path = new PathString(newPath);
+                        }
+                        else
+                        {
+                            _logger.LogError("Unexpected path length when attempting to trim search route: {PathLength}", pathValue.Length);
+                            throw new InternalServerErrorException("Cannot trim search route from request path due to unexpected length.");
+                        }
+
                         request.ContentType = null;
-                        request.Form = null;
-                        request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
                         request.Method = "GET";
+                        _logger.LogInformation("Rerouting complete.");
                     }
                     else
                     {
