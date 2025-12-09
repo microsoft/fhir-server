@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
+        private readonly IScoped<IFhirDataStore> _fhirDataStore;
         private readonly ILogger _logger;
 
         private const string HttpPostName = "POST";
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             IModelInfoProvider modelInfoProvider,
             ISearchParameterOperations searchParameterOperations,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
+            IScoped<IFhirDataStore> fhirDataStore,
             ILogger<SearchParameterValidator> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -62,6 +65,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchParameterComparer, nameof(searchParameterComparer));
+            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _authorizationService = authorizationService;
@@ -69,6 +73,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _modelInfoProvider = modelInfoProvider;
             _searchParameterOperations = searchParameterOperations;
             _searchParameterComparer = searchParameterComparer;
+            _fhirDataStore = fhirDataStore;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -89,7 +94,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 }
             }
 
-            if (string.IsNullOrEmpty(searchParam.Url) && (method.Equals(HttpDeleteName, StringComparison.Ordinal) || method.Equals(HttpPatchName, StringComparison.Ordinal)))
+            if ((string.IsNullOrEmpty(searchParam.Url) && method.Equals(HttpDeleteName, StringComparison.Ordinal)) || method.Equals(HttpPatchName, StringComparison.Ordinal))
             {
                 // Return out if this is delete OR patch call and no Url so FHIRController can move to next action
                 return;
@@ -143,7 +148,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                         }
                         else if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase))
                         {
-                            CheckForConflictingCodeValue(searchParam, validationFailures);
+                            await ValidateOperationOnExistingSearchParameter(searchParam, searchParameterInfo, validationFailures, cancellationToken);
                         }
                     }
                     else
@@ -168,6 +173,42 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             if (validationFailures.Any())
             {
                 throw new ResourceNotValidException(validationFailures);
+            }
+        }
+
+        private async Task ValidateOperationOnExistingSearchParameter(
+            SearchParameter searchParam,
+            SearchParameterInfo searchParameterInfo,
+            List<ValidationFailure> validationFailures,
+            CancellationToken cancellationToken)
+        {
+            // Check if this is a spec-defined SearchParameter by checking if it exists in the Resource table
+            // Spec-defined parameters exist only in SearchParam table (not in Resource table)
+            // Custom parameters exist in both SearchParam and Resource tables
+
+            // Extract the ID from the searchParameterInfo.Url (last segment after the last '/')
+            // For spec-defined parameters, the URL is like: http://hl7.org/fhir/SearchParameter/AllergyIntolerance-clinical-status
+            // For custom parameters, the ID would be in searchParam.Id or derived from the URL
+            string searchParamId = searchParam.Id ?? searchParameterInfo.Url.ToString().TrimEnd('/').Split('/').Last();
+
+            // Try to get the resource from the Resource table using the ID
+            var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, searchParamId);
+            var existingResource = await _fhirDataStore.Value.GetAsync(resourceKey, cancellationToken);
+
+            if (existingResource != null)
+            {
+                // Resource exists in Resource table, so it's a custom SearchParameter
+                // Allow the PUT operation and validate for code conflicts
+                CheckForConflictingCodeValue(searchParam, validationFailures);
+            }
+            else
+            {
+                // No resource in Resource table - this is a spec-defined SearchParameter
+                // Block PUT operations on spec-defined parameters with MethodNotAllowedException (405)
+                var errorMessage = string.Format(Resources.SearchParameterDefinitionCannotUpdateSpecDefined, searchParam.Url);
+
+                _logger.LogInformation("Attempted to update a spec-defined search parameter. url: {Url}", searchParam.Url);
+                throw new MethodNotAllowedException(errorMessage);
             }
         }
 

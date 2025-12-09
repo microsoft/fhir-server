@@ -10,8 +10,10 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -109,7 +111,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, searchParameterDefinitionManager);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
@@ -130,7 +133,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, searchParameterDefinitionManager);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
@@ -150,9 +154,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, searchParameterDefinitionManager);
             await behavior.Handle(request,  async (ct) => await Task.Run(() => response), CancellationToken.None);
 
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenADeleteResourceRequest_WhenDeletingASpecDefinedSearchParameterResource_ThenDeleteSearchParameterShouldNotBeCalled()
+        {
+            var searchParameter = new SearchParameter() { Id = "code", Url = "http://hl7.org/fhir/SearchParameter/code" };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "code");
+            var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
+
+            // Spec-defined parameters do not exist in the Resource table, so GetAsync returns null
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns((ResourceWrapper)null);
+
+            var response = new DeleteResourceResponse(key);
+
+            // Setup the definition manager to recognize this as a spec-defined parameter
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            var specDefinedInfo = new SearchParameterInfo(
+                "code",
+                "code",
+                ValueSets.SearchParamType.Token,
+                new System.Uri(searchParameter.Url))
+            {
+                SearchParameterStatus = SearchParameterStatus.Supported,
+            };
+
+            // Mock TryGetSearchParameter to return false (it won't match the simple URL pattern)
+            // But AllSearchParameters will contain it and be found by the EndsWith check
+            searchParameterDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(x =>
+                {
+                    x[1] = null;
+                    return false;
+                });
+
+            searchParameterDefinitionManager.AllSearchParameters.Returns(new[] { specDefinedInfo });
+
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, searchParameterDefinitionManager);
+
+            // Expect MethodNotAllowedException to be thrown for spec-defined parameters
+            await Assert.ThrowsAsync<MethodNotAllowedException>(() => behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None));
+
+            // Ensure DeleteSearchParameterAsync is not called for spec-defined parameters
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 

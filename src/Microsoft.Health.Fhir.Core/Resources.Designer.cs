@@ -1639,6 +1639,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cannot update a spec-defined search parameter with URL &apos;{0}&apos;. Only custom search parameters can be updated..
+        /// </summary>
+        internal static string SearchParameterDefinitionCannotUpdateSpecDefined {
+            get {
+                return ResourceManager.GetString("SearchParameterDefinitionCannotUpdateSpecDefined", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cannot delete a spec-defined search parameter with URL &apos;{0}&apos;. Only custom search parameters can be deleted..
+        /// </summary>
+        internal static string SearchParameterDefinitionCannotDeleteSpecDefined {
+            get {
+                return ResourceManager.GetString("SearchParameterDefinitionCannotDeleteSpecDefined", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to SearchParameter[{0}].component is null or empty..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponent {

@@ -8,9 +8,11 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -37,10 +39,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IModelInfoProvider _modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes("Patient").Build();
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
+        private readonly IScoped<IFhirDataStore> _fhirDataStoreScoped;
 
         public SearchParameterValidatorTests()
         {
-            SearchParameterInfo searchParameterInfo = new SearchParameterInfo("USCoreRace", "race")
+            _fhirDataStoreScoped = _fhirDataStore.CreateMockScope();
+
+            SearchParameterInfo searchParameterInfo = new SearchParameterInfo(
+                "USCoreRace",
+                "race",
+                ValueSets.SearchParamType.String,
+                new System.Uri("http://duplicate"))
             {
                 SearchParameterStatus = SearchParameterStatus.Supported,
             };
@@ -71,13 +81,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     return true;
                 });
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
+
+            // Setup GetAsync to return a resource for "duplicate" (custom parameter)
+            // Extract ID from URL: "http://duplicate" -> "duplicate"
+            var mockResourceWrapper = Substitute.For<ResourceWrapper>();
+            _fhirDataStore.GetAsync(
+                Arg.Is<ResourceKey>(key => key.Id == "duplicate"),
+                Arg.Any<CancellationToken>()).Returns(mockResourceWrapper);
         }
 
         [Theory]
         [MemberData(nameof(InvalidSearchParamData))]
         public async Task GivenInvalidSearchParam_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, _fhirDataStoreScoped, NullLogger<SearchParameterValidator>.Instance);
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
@@ -85,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(ValidSearchParamData))]
         public async Task GivenValidSearchParam_WhenValidatingSearchParam_ThenNoExceptionThrown(SearchParameter searchParam, string method)
         {
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, _fhirDataStoreScoped, NullLogger<SearchParameterValidator>.Instance);
             await validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None);
         }
 
@@ -94,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.Write);
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, _fhirDataStoreScoped, NullLogger<SearchParameterValidator>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => validator.ValidateSearchParameterInput(new SearchParameter(), "POST", CancellationToken.None));
         }
@@ -103,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(DuplicateCodeAtBaseResourceData))]
         public async Task GivenInvalidSearchParamWithDuplicateCode_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, _fhirDataStoreScoped, NullLogger<SearchParameterValidator>.Instance);
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
@@ -122,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     return true;
                 });
 
-            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, _fhirDataStoreScoped, NullLogger<SearchParameterValidator>.Instance);
             if (searchParameterStatus == SearchParameterStatus.PendingDelete)
             {
                 // Expecting no exception being thrown.
@@ -168,6 +185,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _modelInfoProvider,
                 _searchParameterOperations,
                 _searchParameterComparer,
+                _fhirDataStoreScoped,
                 NullLogger<SearchParameterValidator>.Instance);
 
             _searchParameterDefinitionManager.TryGetSearchParameter("DocumentReference", "relationship", Arg.Any<bool>(), out Arg.Any<SearchParameterInfo>()).Returns(
@@ -262,6 +280,139 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { searchParam, "POST", SearchParameterStatus.Supported });
             data.Add(new object[] { searchParam, "POST", SearchParameterStatus.PendingDelete });
             return data;
+        }
+
+        [Fact]
+        public async Task GivenPutRequestOnSpecDefinedSearchParameter_WhenValidatingSearchParam_ThenMethodNotAllowedExceptionThrown()
+        {
+            // Spec-defined search parameters exist in the definition manager but have NO stored resource
+            var specDefinedUrl = "http://spec-defined";
+            var searchParam = new SearchParameter { Url = specDefinedUrl, Id = "spec-123" };
+
+            // Setup: Parameter exists in definition manager
+            SearchParameterInfo specDefinedInfo = new SearchParameterInfo(
+                "SpecDefined",
+                "spec-code",
+                ValueSets.SearchParamType.String,
+                new System.Uri(specDefinedUrl))
+            {
+                SearchParameterStatus = SearchParameterStatus.Supported,
+            };
+            _searchParameterDefinitionManager.TryGetSearchParameter(specDefinedUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = specDefinedInfo;
+                    return true;
+                });
+
+            // Setup: No stored resource (returns null)
+            var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, searchParam.Id);
+            _fhirDataStore.GetAsync(resourceKey, Arg.Any<CancellationToken>()).Returns((ResourceWrapper)null);
+
+            var validator = new SearchParameterValidator(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                _authorizationService,
+                _searchParameterDefinitionManager,
+                _modelInfoProvider,
+                _searchParameterOperations,
+                _searchParameterComparer,
+                _fhirDataStoreScoped,
+                NullLogger<SearchParameterValidator>.Instance);
+
+            // PUT on spec-defined SearchParameter should fail
+            await Assert.ThrowsAsync<MethodNotAllowedException>(() => validator.ValidateSearchParameterInput(searchParam, "PUT", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenPutRequestOnCustomSearchParameter_WhenValidatingSearchParam_ThenNoExceptionThrown()
+        {
+            // Custom search parameters exist in BOTH the definition manager AND have a stored resource
+            var customUrl = "http://custom";
+            var searchParam = new SearchParameter { Url = customUrl, Id = "custom-123", Code = "custom-code" };
+#if Stu3 || R4 || R4B
+            searchParam.Base = new[] { ResourceType.Patient as ResourceType? };
+#else
+            searchParam.Base = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
+#endif
+
+            // Setup: Parameter exists in definition manager
+            SearchParameterInfo customInfo = new SearchParameterInfo(
+                "CustomParam",
+                "custom-code",
+                ValueSets.SearchParamType.String,
+                new System.Uri(customUrl))
+            {
+                SearchParameterStatus = SearchParameterStatus.Supported,
+            };
+            _searchParameterDefinitionManager.TryGetSearchParameter(customUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = customInfo;
+                    return true;
+                });
+
+            // Setup: Code does not conflict
+            _searchParameterDefinitionManager.TryGetSearchParameter("Patient", "custom-code", Arg.Any<bool>(), out _).Returns(false);
+
+            // Setup: Stored resource exists (does NOT throw ResourceNotFoundException)
+            var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, searchParam.Id);
+            var mockResourceWrapper = Substitute.For<ResourceWrapper>();
+            _fhirDataStore.GetAsync(resourceKey, Arg.Any<CancellationToken>()).Returns(mockResourceWrapper);
+
+            var validator = new SearchParameterValidator(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                _authorizationService,
+                _searchParameterDefinitionManager,
+                _modelInfoProvider,
+                _searchParameterOperations,
+                _searchParameterComparer,
+                _fhirDataStoreScoped,
+                NullLogger<SearchParameterValidator>.Instance);
+
+            // PUT on custom SearchParameter should succeed (no exception)
+            await validator.ValidateSearchParameterInput(searchParam, "PUT", CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenDeleteRequestOnCustomSearchParameter_WhenValidatingSearchParam_ThenNoExceptionThrown()
+        {
+            // Custom search parameters exist in BOTH the definition manager AND have a stored resource
+            var customUrl = "http://custom-delete";
+            var searchParam = new SearchParameter { Url = customUrl, Id = "custom-delete-123" };
+
+            // Setup: Parameter exists in definition manager
+            SearchParameterInfo customInfo = new SearchParameterInfo(
+                "CustomParamDelete",
+                "custom-delete-code",
+                ValueSets.SearchParamType.String,
+                new System.Uri(customUrl))
+            {
+                SearchParameterStatus = SearchParameterStatus.Supported,
+            };
+            _searchParameterDefinitionManager.TryGetSearchParameter(customUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = customInfo;
+                    return true;
+                });
+
+            // Setup: Stored resource exists (does NOT throw ResourceNotFoundException)
+            var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, searchParam.Id);
+            var mockResourceWrapper = Substitute.For<ResourceWrapper>();
+            _fhirDataStore.GetAsync(resourceKey, Arg.Any<CancellationToken>()).Returns(mockResourceWrapper);
+
+            var validator = new SearchParameterValidator(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                _authorizationService,
+                _searchParameterDefinitionManager,
+                _modelInfoProvider,
+                _searchParameterOperations,
+                _searchParameterComparer,
+                _fhirDataStoreScoped,
+                NullLogger<SearchParameterValidator>.Instance);
+
+            // DELETE on custom SearchParameter should succeed (no exception)
+            await validator.ValidateSearchParameterInput(searchParam, "DELETE", CancellationToken.None);
         }
     }
 }

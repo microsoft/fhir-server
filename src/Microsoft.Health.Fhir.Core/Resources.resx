@@ -398,6 +398,12 @@
   <data name="SearchParameterDefinitionDuplicatedEntry" xml:space="preserve">
     <value>A search parameter with the same definition URL '{0}' already exists.</value>
   </data>
+  <data name="SearchParameterDefinitionCannotUpdateSpecDefined" xml:space="preserve">
+    <value>Cannot update a spec-defined search parameter with URL '{0}'. Only custom search parameters can be updated.</value>
+  </data>
+  <data name="SearchParameterDefinitionCannotDeleteSpecDefined" xml:space="preserve">
+    <value>Cannot delete a spec-defined search parameter with URL '{0}'. Only custom search parameters can be deleted.</value>
+  </data>
   <data name="SearchParameterDefinitionInvalidComponent" xml:space="preserve">
     <value>SearchParameter[{0}].component is null or empty.</value>
     <comment>{0} Is the Uri Identifying the SearchParameter</comment>
