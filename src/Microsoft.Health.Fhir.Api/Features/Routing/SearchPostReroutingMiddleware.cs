@@ -51,13 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         if (request.HasFormContentType)
                         {
                             _logger.LogInformation("Merging form content into query string.");
-                            var queryString = request.QueryString != null ? request.QueryString.ToString() : string.Empty;
-
-                            if (request.QueryString == null)
-                            {
-                                _logger.LogWarning("Request QueryString is null. Initializing to empty string.");
-                            }
-
+                            var queryString = request.QueryString.ToString();
                             var queryCollection = HttpUtility.ParseQueryString(queryString);
                             var mergedPairs = GetUniqueFormAndQueryStringKeyValues(queryCollection, request.Form);
                             request.Query = mergedPairs;
@@ -113,8 +107,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
             catch (Exception ex)
             {
+                // Throwing an exception continues into the pipeline and results in a 415 when the route fails to match.
+                // However, we want to return a 500 here since this is an unexpected failure during the rerouting process.
                 _logger.LogError(ex, "Error occurred while rerouting POST search to GET.");
-                throw;
+                context.Response.Clear();
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+                var operationOutcome = new OperationOutcome
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Issue = new List<OperationOutcome.IssueComponent>()
+                {
+                    new OperationOutcome.IssueComponent()
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = OperationOutcome.IssueType.Unknown,
+                        Diagnostics = string.Empty,
+                    },
+                },
+                    Meta = new Meta()
+                    {
+                        LastUpdated = Clock.UtcNow,
+                    },
+                };
+
+                await context.Response.WriteAsJsonAsync(operationOutcome);
+                return;
             }
 
             await _next.Invoke(context);
