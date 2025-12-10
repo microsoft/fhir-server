@@ -12,6 +12,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string AzureSubscriptionClientId = "AZURESUBSCRIPTION_CLIENT_ID";
         public const string AzureSubscriptionServiceConnectionId = "AZURESUBSCRIPTION_SERVICE_CONNECTION_ID";
         public const string AzureSubscriptionTenantId = "AZURESUBSCRIPTION_TENANT_ID";
+        public const string CosmosDbConnectionMode = "CosmosDb__ConnectionMode";
         public const string CosmosDbDatabaseId = "CosmosDb__DatabaseId";
         public const string CosmosDbHost = "CosmosDb__Host";
         public const string CosmosDbKey = "CosmosDb__Key";

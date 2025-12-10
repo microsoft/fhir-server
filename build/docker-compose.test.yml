@@ -1,0 +1,55 @@
+services:
+  sql:
+    container_name: fhir-test-sql
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: ${SQL_SA_PASSWORD:-YourStrong!Passw0rd}
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${SA_PASSWORD}" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - sql-data:/var/opt/mssql
+
+  cosmos:
+    container_name: fhir-test-cosmos
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    mem_limit: 3g
+    cpu_count: 2
+    environment:
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 2
+      AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "false"
+      AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: "127.0.0.1"
+    ports:
+      - "8081:8081"
+      - "10250-10255:10250-10255"
+    healthcheck:
+      test: curl -k https://localhost:8081/_explorer/emulator.pem || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  azurite:
+    container_name: fhir-test-azurite
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose
+    healthcheck:
+      test: nc -z localhost 10000 || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  sql-data:

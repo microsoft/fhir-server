@@ -82,6 +82,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public CosmosDbFhirStorageTestsFixture()
         {
+            // Parse connection mode from environment variable (default to Direct if not specified)
+            var connectionModeString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbConnectionMode);
+            var connectionMode = ConnectionMode.Direct;
+            if (!string.IsNullOrEmpty(connectionModeString) && Enum.TryParse<ConnectionMode>(connectionModeString, ignoreCase: true, out var parsedMode))
+            {
+                connectionMode = parsedMode;
+            }
+
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration
             {
                 Host = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbHost),
@@ -91,6 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 AllowDatabaseCreation = true,
                 AllowCollectionSetup = true,
                 PreferredLocations = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CosmosDbPreferredLocations)?.Split(';', StringSplitOptions.RemoveEmptyEntries),
+                ConnectionMode = connectionMode,
             };
 
             _cosmosCollectionConfiguration = new CosmosCollectionConfiguration

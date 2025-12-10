@@ -1,0 +1,156 @@
+parameters:
+- name: version
+  type: string
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+
+  - task: DockerCompose@1
+    displayName: 'Start CosmosDB Emulator and Azurite containers'
+    inputs:
+      action: 'Run services'
+      dockerComposeFile: '$(Build.SourcesDirectory)/build/docker-compose.test.yml'
+      projectName: 'fhir-server-test-${{ lower(parameters.version) }}-cosmos'
+      dockerComposeCommand: 'up -d cosmos azurite'
+      detached: true
+
+  - script: |
+      echo "Waiting for Cosmos DB Emulator to be ready..."
+      timeout=240
+      elapsed=0
+      until docker exec fhir-test-cosmos curl -k https://localhost:8081/_explorer/emulator.pem > /dev/null 2>&1 || [ $elapsed -ge $timeout ]; do
+        echo "Waiting for Cosmos DB Emulator... ($elapsed seconds)"
+        sleep 10
+        elapsed=$((elapsed + 10))
+      done
+      echo "Cosmos DB Emulator is ready"
+    displayName: 'Verify Cosmos DB Emulator connectivity'
+
+  - script: |
+      echo "Exporting and trusting CosmosDB Emulator SSL certificate..."
+      # Extract certificate from the emulator
+      curl -k https://localhost:8081/_explorer/emulator.pem > ~/emulatorcert.crt
+
+      # Install to system certificate store (for curl/wget)
+      sudo cp ~/emulatorcert.crt /usr/local/share/ca-certificates/
+      sudo update-ca-certificates
+
+      # Also install as PEM file for .NET Core on Linux
+      # .NET on Linux uses OpenSSL and may need explicit cert configuration
+      sudo mkdir -p /etc/ssl/certs
+      sudo cp ~/emulatorcert.crt /etc/ssl/certs/cosmosdb-emulator.pem
+
+      # Create a combined bundle for .NET
+      cat /etc/ssl/certs/ca-certificates.crt ~/emulatorcert.crt > ~/combined-certs.crt
+      sudo cp ~/combined-certs.crt /etc/ssl/certs/ca-certificates-with-cosmos.crt
+
+      # Verify certificate installation
+      echo "Verifying certificate is installed..."
+      ls -la /usr/local/share/ca-certificates/
+      ls -la /etc/ssl/certs/cosmosdb-emulator.pem
+
+      echo "CosmosDB Emulator certificate trusted"
+    displayName: 'Trust CosmosDB Emulator SSL certificate'
+
+  - script: |
+      echo "Waiting for Azurite to be ready..."
+      timeout=60
+      elapsed=0
+      until curl -f http://localhost:10000/devstoreaccount1?restype=account > /dev/null 2>&1 || [ $elapsed -ge $timeout ]; do
+        echo "Waiting for Azurite... ($elapsed seconds)"
+        sleep 5
+        elapsed=$((elapsed + 5))
+      done
+      echo "Azurite is ready"
+    displayName: 'Verify Azurite connectivity'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build ${{ parameters.version }} integration test project'
+    inputs:
+      command: build
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run ${{ parameters.version }} CosmosDB Integration Tests'
+    inputs:
+      command: test
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      testRunTitle: '${{ parameters.version }} Docker CosmosDB Integration Tests'
+      publishTestResults: true
+    env:
+      'CosmosDb__Host': 'https://localhost:8081'
+      'CosmosDb__Key': 'C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=='
+      'CosmosDb__DatabaseId': 'FhirTests'
+      # Linux Cosmos Emulator only supports Gateway mode (Direct mode is not supported)
+      'CosmosDb__ConnectionMode': 'Gateway'
+      'TestExportStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+      'TestIntegrationStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+      # SSL certificate configuration for .NET on Linux
+      'SSL_CERT_FILE': '/etc/ssl/certs/ca-certificates-with-cosmos.crt'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build ${{ parameters.version }} E2E test project'
+    inputs:
+      command: build
+      projects: 'test/**/*${{ parameters.version }}.Tests.E2E.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run ${{ parameters.version }} CosmosDB E2E Tests (In-Proc)'
+    inputs:
+      command: test
+      projects: 'test/**/*${{ parameters.version }}.Tests.E2E.csproj'
+      arguments: '--filter FullyQualifiedName~CosmosDb --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      testRunTitle: '${{ parameters.version }} Docker CosmosDB E2E Tests'
+      publishTestResults: true
+    env:
+      'CosmosDb__Host': 'https://localhost:8081'
+      'CosmosDb__Key': 'C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=='
+      'CosmosDb__DatabaseId': 'FhirTests'
+      # Linux Cosmos Emulator only supports Gateway mode (Direct mode is not supported)
+      'CosmosDb__ConnectionMode': 'Gateway'
+      'TestExportStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+      'TestIntegrationStoreUri': 'http://127.0.0.1:10000/devstoreaccount1'
+      # SSL certificate configuration for .NET on Linux
+      'SSL_CERT_FILE': '/etc/ssl/certs/ca-certificates-with-cosmos.crt'
+
+  - task: reportgenerator@5
+    displayName: 'Aggregate ${{ parameters.version }} CosmosDB test coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(Agent.TempDirectory)/coverage'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish ${{ parameters.version }} CosmosDB test coverage'
+    condition: succeededOrFailed()
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      artifactName: 'Coverage_Docker_CosmosDB_${{ parameters.version }}'
+      artifactType: 'container'
+
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish ${{ parameters.version }} CosmosDB code coverage results'
+    condition: always()
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
+      reportDirectory: '$(Agent.TempDirectory)/coverage'
+
+  - task: DockerCompose@1
+    displayName: 'Stop and remove containers'
+    condition: always()
+    inputs:
+      action: 'Run a Docker Compose command'
+      dockerComposeFile: '$(Build.SourcesDirectory)/build/docker-compose.test.yml'
+      projectName: 'fhir-server-test-${{ lower(parameters.version) }}-cosmos'
+      dockerComposeCommand: 'down -v'

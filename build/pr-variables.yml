@@ -1,7 +1,7 @@
 variables:
     ResourceGroupRegion: 'westus2'
     resourceGroupRoot: 'msh-fhir-pr'
-    appServicePlanName: '$(resourceGroupRoot)-$(prName)-asp'    
+    appServicePlanName: '$(resourceGroupRoot)-$(prName)-asp'
     ResourceGroupName: '$(resourceGroupRoot)-$(prName)'
     DeploymentEnvironmentName: 'f$(build.BuildNumber)'
     TestEnvironmentName: 'OSS PR$(prName)'

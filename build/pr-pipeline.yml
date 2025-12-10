@@ -282,89 +282,46 @@ stages:
       sqlComputeTier: 'Standard'
       reindexEnabled: true
 
-- stage: deployR4B
-  displayName: 'Deploy R4B CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - createNsp
+- stage: testOssVersionsDocker
+  displayName: 'Test OSS Versions (R4B, R5) with Docker'
+  dependsOn: []
   jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4B)
-      appServicePlanName: '$(appServicePlanName)-cosmos'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      reindexEnabled: true
-
-- stage: deployR4BSql
-  displayName: 'Deploy R4B SQL Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - deploySqlServer
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: R4B
-      sql: true
-      webAppName: $(DeploymentEnvironmentNameR4BSql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
-      reindexEnabled: true
-
-- stage: deployR5
-  displayName: 'Deploy R5 CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - createNsp
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameR5)
-      appServicePlanName: '$(appServicePlanName)-cosmos'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      reindexEnabled: true
-
-- stage: deployR5Sql
-  displayName: 'Deploy R5 SQL Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - deploySqlServer
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: R5
-      sql: true
-      webAppName: $(DeploymentEnvironmentNameR5Sql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
-      reindexEnabled: true
+  - job: R4B_SqlTests
+    displayName: 'R4B SQL Tests'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/docker-sql-tests-only.yml
+      parameters:
+        version: R4B
+  - job: R4B_CosmosTests
+    displayName: 'R4B CosmosDB Tests'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/docker-cosmos-tests-only.yml
+      parameters:
+        version: R4B
+  - job: R5_SqlTests
+    displayName: 'R5 SQL Tests'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/docker-sql-tests-only.yml
+      parameters:
+        version: R5
+  - job: R5_CosmosTests
+    displayName: 'R5 CosmosDB Tests'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/docker-cosmos-tests-only.yml
+      parameters:
+        version: R5
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
@@ -396,35 +353,6 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR4)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR4B
-  displayName: 'Run R4B Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR4B
-  - deployR4BSql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-
-- stage: testR5
-  displayName: 'Run R5 Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR5
-  - deployR5Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
@@ -432,8 +360,7 @@ stages:
   - BuildUnitTests
   - testStu3
   - testR4
-  - testR4B
-  - testR5
+  - testOssVersionsDocker
   condition: succeeded()
   jobs:
   - job: AggregateCoverage
