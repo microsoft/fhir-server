@@ -1,0 +1,64 @@
+# Task template to delete old resource groups for a PR
+# Runs after Key Vaults have been moved out to prevent soft-delete conflicts
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Delete Old Resource Groups'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    azurePowerShellVersion: latestVersion
+    ScriptType: inlineScript
+    Inline: |
+      $prNumber = "$(prName)"
+      $resourceGroupRoot = "$(resourceGroupRoot)"
+      $currentRgName = "$(UniqueResourceGroupName)"
+      $pattern = "$resourceGroupRoot-$prNumber*"
+      
+      Write-Host "Looking for old resource groups matching pattern: $pattern"
+      Write-Host "Excluding current RG: $currentRgName"
+      
+      $oldRGs = Get-AzResourceGroup | Where-Object { 
+        $_.ResourceGroupName -like $pattern -and 
+        $_.ResourceGroupName -ne $currentRgName
+      }
+      
+      if ($oldRGs.Count -eq 0) {
+        Write-Host "No old resource groups found to cleanup"
+      } else {
+        Write-Host "Found $($oldRGs.Count) old resource group(s) to cleanup"
+        
+        # Delete all RGs in parallel with retry logic
+        $results = $oldRGs | ForEach-Object -Parallel {
+          $rgName = $_.ResourceGroupName
+          $maxRetries = 3
+          $retryCount = 0
+          $deleted = $false
+          
+          while (-not $deleted -and $retryCount -lt $maxRetries) {
+            try {
+              Remove-AzResourceGroup -Name $rgName -Force -ErrorAction Stop
+              $deleted = $true
+              [PSCustomObject]@{ RG = $rgName; Status = "Success" }
+            }
+            catch {
+              $retryCount++
+              if ($retryCount -lt $maxRetries) {
+                Start-Sleep -Seconds 30
+              } else {
+                [PSCustomObject]@{ RG = $rgName; Status = "Failed: $($_.Exception.Message)" }
+              }
+            }
+          }
+        } -ThrottleLimit 10
+        
+        $results | ForEach-Object {
+          if ($_.Status -eq "Success") {
+            Write-Host "Successfully removed resource group: $($_.RG)"
+          } else {
+            Write-Warning "Failed to remove resource group $($_.RG). $($_.Status)"
+          }
+        }
+        
+        $successCount = ($results | Where-Object { $_.Status -eq "Success" }).Count
+        Write-Host "Completed removal: $successCount of $($oldRGs.Count) resource group(s)"
+      }
