@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         else
                         {
                             _logger.LogError("Unexpected path length when attempting to trim search route: {PathLength}", pathValue.Length);
-                            throw new InternalServerErrorException("Cannot trim search route from request path due to unexpected length.");
+                            throw new ArgumentException("Cannot trim search route from request path due to unexpected length.");
                         }
 
                         request.ContentType = null;
