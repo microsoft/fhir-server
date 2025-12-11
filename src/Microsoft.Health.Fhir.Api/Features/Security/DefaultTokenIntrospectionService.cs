@@ -21,8 +21,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Microsoft.Health.Fhir.Api.Features.Security
 {
     /// <summary>
-    /// Default implementation of token introspection for OSS (single authority/audience).
-    /// PaaS can extend this class and override ValidateToken() to support multiple authorities.
+    /// Default implementation of token introspection.
     /// </summary>
     public class DefaultTokenIntrospectionService : ITokenIntrospectionService
     {

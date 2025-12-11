@@ -9,7 +9,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 {
     /// <summary>
     /// Service for performing token introspection per RFC 7662.
-    /// Allows different implementations for OSS (single authority) vs PaaS (multi-tenant).
     /// </summary>
     public interface ITokenIntrospectionService
     {

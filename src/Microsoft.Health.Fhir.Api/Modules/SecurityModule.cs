@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // This client is used by ConfigurationManager to fetch .well-known/openid-configuration
             services.AddHttpClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName);
 
-            // Register token introspection service (PaaS can provide multi-tenant implementation)
+            // Register token introspection service
             services.AddSingleton<ITokenIntrospectionService, DefaultTokenIntrospectionService>();
 
             // Set the token handler to not do auto inbound mapping. (e.g. "roles" -> "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
