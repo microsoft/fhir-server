@@ -78,9 +78,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [InlineData("http://hl7.org/fhir/StructureDefinition/daf-patient", null, true)]
-        [InlineData("/fhir/StructureDefinition/daf-patient", null, false)]
+        [InlineData("invalid uri", null, false)]
         [InlineData(null, "http://hl7.org/fhir/StructureDefinition/daf-patient", true)]
-        [InlineData(null, "/fhir/StructureDefinition/daf-patient", false)]
+        [InlineData(null, "invalid uri", false)]
         [InlineData("http://hl7.org/fhir/StructureDefinition/daf-patient", "http://hl7.org/fhir/StructureDefinition/daf-patient", false)]
         public async Task GivenResourceAndProfile_WhenValidating_ThenValidationShouldSucceed(
             string profile,
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [InlineData("http://hl7.org/fhir/StructureDefinition/daf-patient", true)]
-        [InlineData("/fhir/StructureDefinition/daf-patient", false)]
+        [InlineData("invalid uri", false)]
         [InlineData("", true)]
         [InlineData(null, true)]
         public async Task GivenResourceAndProfile_WhenValidatingById_ThenValidationShouldSucceed(
@@ -153,10 +153,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Theory]
         [InlineData("http://hl7.org/fhir/StructureDefinition/daf-patient", null, true, false, true)]
         [InlineData("http://hl7.org/fhir/StructureDefinition/daf-patient", null, true, true, true)]
-        [InlineData("/fhir/StructureDefinition/daf-patient", null, true, true, false)]
+        [InlineData("invalid uri", null, true, true, false)]
         [InlineData(null, "http://hl7.org/fhir/StructureDefinition/daf-patient", true, false, true)]
         [InlineData(null, "http://hl7.org/fhir/StructureDefinition/daf-patient", true, true, true)]
-        [InlineData(null, "/fhir/StructureDefinition/daf-patient", true, true, false)]
+        [InlineData(null, "invalid uri", true, true, false)]
         [InlineData("http://hl7.org/fhir/StructureDefinition/daf-patient", "http://hl7.org/fhir/StructureDefinition/daf-patient", true, true, false)]
         [InlineData("http://hl7.org/fhir/StructureDefinition/daf-patient", null, false, false, true)]
         public async Task GivenResourceAndProfile_WhenValidatingByIdPost_ThenValidationShouldSucceed(
