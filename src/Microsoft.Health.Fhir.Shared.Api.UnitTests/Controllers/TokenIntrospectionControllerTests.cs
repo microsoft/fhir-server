@@ -35,7 +35,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly RSA _rsa;
         private readonly RsaSecurityKey _signingKey;
         private readonly SigningCredentials _signingCredentials;
-        private readonly HttpClient _httpClient;
         private readonly string _issuer = "https://test-issuer.com";
         private readonly string _audience = "test-audience";
 
@@ -405,7 +404,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         public void Dispose()
         {
-            _httpClient?.Dispose();
             _rsa?.Dispose();
         }
     }
