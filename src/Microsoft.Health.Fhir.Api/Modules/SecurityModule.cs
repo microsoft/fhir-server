@@ -36,6 +36,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IBundleHttpContextAccessor, BundleHttpContextAccessor>();
 
+            // Register named HttpClient for OIDC configuration retrieval
+            // This client is used by ConfigurationManager to fetch .well-known/openid-configuration
+            services.AddHttpClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName);
+
             // Register token introspection service (PaaS can provide multi-tenant implementation)
             services.AddSingleton<ITokenIntrospectionService, DefaultTokenIntrospectionService>();
 

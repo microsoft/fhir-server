@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
     /// </summary>
     public class DefaultTokenIntrospectionService : ITokenIntrospectionService
     {
+        /// <summary>
+        /// Named HttpClient for retrieving OIDC configuration documents.
+        /// </summary>
+        public const string OidcConfigurationHttpClientName = "OidcConfiguration";
+
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly JwtSecurityTokenHandler _tokenHandler;
         private readonly ILogger<DefaultTokenIntrospectionService> _logger;
@@ -44,12 +49,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             _tokenHandler = new JwtSecurityTokenHandler();
             _logger = logger;
 
-            // Initialize configuration manager with HttpClient from factory
+            // Initialize configuration manager with named HttpClient
+            // Named HttpClient is designed for long-lived use and is managed by IHttpClientFactory
             var authority = _securityConfiguration.Authentication.Authority.TrimEnd('/');
-
-#pragma warning disable CA2000 // HttpClient from factory should not be manually disposed
-            var httpClient = httpClientFactory.CreateClient();
-#pragma warning restore CA2000
+            var httpClient = httpClientFactory.CreateClient(OidcConfigurationHttpClientName);
 
             _configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
                 $"{authority}/.well-known/openid-configuration",

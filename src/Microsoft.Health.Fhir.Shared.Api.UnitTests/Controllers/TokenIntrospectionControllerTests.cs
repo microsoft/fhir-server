@@ -62,10 +62,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 },
             };
 
-            // Create mock HttpClientFactory
+            // Create mock HttpClientFactory that returns HttpClient for named client
             var httpClientFactory = Substitute.For<IHttpClientFactory>();
-            _httpClient = new HttpClient();
-            httpClientFactory.CreateClient(Arg.Any<string>()).Returns(_httpClient);
+            httpClientFactory.CreateClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName)
+                .Returns(new HttpClient());
 
             // Create introspection service
             _introspectionService = new DefaultTokenIntrospectionService(
