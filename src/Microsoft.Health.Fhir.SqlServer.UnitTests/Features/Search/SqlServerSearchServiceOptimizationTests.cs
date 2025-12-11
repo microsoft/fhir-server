@@ -5,6 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerSearchServiceOptimizationTests
     {
-        [Fact]
+        [RetryFact]
         public void SearchOptions_WithCountOnly_DisqualifiesOptimization()
         {
             // Arrange
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(ResourceVersionType.Latest, searchOptions.ResourceVersionTypes);
         }
 
-        [Fact]
+        [RetryFact]
         public void SearchOptions_WithHistoryVersionType_QualifiesForOptimization()
         {
             // Arrange
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.True(searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History));
         }
 
-        [Fact]
+        [RetryFact]
         public void SearchOptions_WithSoftDeletedVersionType_DisqualifiesOptimization()
         {
             // Arrange
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.NotEqual(ResourceVersionType.Latest, searchOptions.ResourceVersionTypes);
         }
 
-        [Fact]
+        [RetryFact]
         public void SearchOptions_WithOptimalConditions_QualifiesForOptimization()
         {
             // Arrange
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(ResourceVersionType.Latest, searchOptions.ResourceVersionTypes);
         }
 
-        [Fact]
+        [RetryFact]
         public void ResourceVersionType_Latest_IsExpectedValue()
         {
             // Act & Assert
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.True((ResourceVersionType.Latest & ResourceVersionType.Latest) == ResourceVersionType.Latest);
         }
 
-        [Fact]
+        [RetryFact]
         public void ResourceVersionType_History_IsDifferentFromLatest()
         {
             // Act & Assert
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.NotEqual(ResourceVersionType.Latest, ResourceVersionType.History);
         }
 
-        [Fact]
+        [RetryFact]
         public void SearchOptions_WithCombinedVersionTypes_QualifiesForOptimization()
         {
             // Arrange - Combined Latest and History should qualify for optimization

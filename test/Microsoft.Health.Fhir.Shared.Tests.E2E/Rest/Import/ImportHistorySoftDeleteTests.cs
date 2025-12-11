@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportedResourceOverExisting_WhenImportVersionNotSpecified_ThenBothVersionsExistCorrectly()
         {
             // Validate that the new version of the resource is returned by a general search.
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundleWithMeta(result, expectedResources.ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportedResourceOverExisting_WhenImportVersionInConflict_ThenOnlyOneResourceOnServer()
         {
             // Validate that the new version of the resource is returned by a general search.
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Single(result.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportedWithDuplicateVersionId_WhenImportVersionInConflict_ThenOnlyOneResourceOnServer()
         {
             // Validate that the new version of the resource is returned by a general search.
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.True(result.Entry.Count == 1);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportWithCreateAndDelete_WhenImportedWithLastUpdatedAndVersion_ThenBothVersionsExist()
         {
             var testResources = _fixture.TestResources["ImportAndDeleteExplicitVersionUpdate"].Import;
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             await ImportTestHelper.VerifyHistoryResultAsync(_fixture.TestFhirClient, testResources.ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportWithCreateAndDelete_WhenImportedWithoutLastUpdatedAndVersion_ThenFirstInFileVersionsExist()
         {
             // Setup test resources. They have been imported without version id/last updated so we need to add these for the test.

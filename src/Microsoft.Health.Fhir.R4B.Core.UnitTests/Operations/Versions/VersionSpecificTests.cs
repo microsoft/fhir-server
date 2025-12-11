@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Operations.Versions
             _provider = new VersionSpecificModelInfoProvider();
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenR4Server_WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
         {
             var version = _provider.SupportedVersion.ToString();

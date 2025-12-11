@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -26,13 +27,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             _modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build();
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullUri_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameUri, () => new UriSearchValue(null, false));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidUri_WhenInitializing_ThenExceptionShouldBeThrown(string s)
@@ -40,13 +41,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameUri, () => new UriSearchValue(s, false));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => UriSearchValue.Parse(null, false, _modelInfoProvider));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => UriSearchValue.Parse(s, false, _modelInfoProvider));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned()
         {
             string expected = "http://uri2";
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.Uri);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
             var value = new UriSearchValue("http://uri", false);
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
             string expected = "http://uri3";

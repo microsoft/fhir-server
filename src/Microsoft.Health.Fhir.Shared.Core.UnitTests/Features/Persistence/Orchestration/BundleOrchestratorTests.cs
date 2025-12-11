@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
     [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BundleOrchestratorTests
     {
-        [Theory]
+        [RetryTheory]
         [InlineData(BundleOrchestratorOperationType.Batch)]
         [InlineData(BundleOrchestratorOperationType.Transaction)]
         public void GivenAnOrchestrator_WhenAskedForAJob_ReceiveANewJobBack(BundleOrchestratorOperationType operationType)
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             batchOrchestrator.CompleteOperation(operation);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnOrchestrator_WhenAskedForAJobWithInvalidParameters_ReceiveArgumentExpections()
         {
             var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();

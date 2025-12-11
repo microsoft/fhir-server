@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatientEverythingOperationWithId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatientEverythingOperationWithNonExistentId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAEverythingOperationWithUnsupportedType_WhenSearched_ThenNotFoundShouldBeReturned()
         {
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTypeSpecified_WhenAllValid_ThenResourcesOfValidTypesShouldBeReturned()
         {
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ExecuteAndValidateBundle(searchUrl, true, 1, Fixture.Patient, Fixture.Observation);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTypeSpecified_WhenAllInvalid_ThenAnEmptyBundleShouldBeReturned()
         {
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ExecuteAndValidateBundle(searchUrl);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTypeSpecified_WhenSomeInvalid_ThenResourcesOfValidTypesShouldBeReturned()
         {
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ExecuteAndValidateBundle(searchUrl, true, 1, Fixture.Patient, Fixture.Device);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenStartOrEndSpecified_WhenSearched_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
@@ -117,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSinceSpecified_WhenSearched_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ExecuteAndValidateBundle(searchUrl);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("abc")]
         [InlineData("Zm9v")]
         [InlineData("eyJQaGFzZSI6MSwgIkludGVybmFsQ29udGludWF0aW9uVG9rZW4iOiAiWm05diJ9")]
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleInputParametersSpecified_WhenAllValid_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ExecuteAndValidateBundle(searchUrl, true, 1, Fixture.Patient, Fixture.Observation);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleInputParametersSpecified_WhenAllInvalid_ThenInvalidInputParametersDoNotTakeEffect()
         {
@@ -172,7 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(bundle.Link.All(x => !x.Url.Contains("_count", StringComparison.OrdinalIgnoreCase) && !x.Url.Contains("foo", StringComparison.OrdinalIgnoreCase)));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleInputParametersSpecified_WhenSomeInvalid_ThenInvalidInputParametersDoNotTakeEffect()
         {
@@ -199,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateBundle(secondBundle, Fixture.Observation);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithSeeAlsoLink_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink()
         {
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithSeeAlsoLinkRemovedMidOperation_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink()
         {
@@ -255,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(fourthBundle.Resource.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithTwoSeeAlsoLinks_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLinks()
         {
@@ -280,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(fourthBundle.Resource.Entry);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("handling=lenient")]
         [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
@@ -311,7 +312,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Null(secondBundle.Resource.NextLink);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverythingWithPreferHeaderSetToStrictHandling_ThenMovedPermanentlyIsReturned()
         {
@@ -328,7 +329,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, Fixture.PatientWithReplacedByLink.Id, Fixture.PatientReferencedByReplacedByLink.Id), ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithReplacesLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored()
         {
@@ -344,7 +345,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Null(secondBundle.Resource.NextLink);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithReferLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored()
         {

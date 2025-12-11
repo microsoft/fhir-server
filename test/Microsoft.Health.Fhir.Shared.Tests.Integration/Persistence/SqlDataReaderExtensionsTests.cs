@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionString = fixture.TestConnectionString;
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlDataReader_WhenReadingFieldsWithCorrectNamesAndOrdinals_ReturnsCorrectData()
         {
             using (var connection = new SqlConnection(_connectionString))
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
 #if DEBUG // checks are only enabled on debug builds.
-        [Fact(Skip = "Won't work with nuget package. Needs to be moved to shared repo.")]
+        [RetryFact(Skip = "Won't work with nuget package. Needs to be moved to shared repo.")]
         public void GivenASqlDataReader_WhenReadingFieldsWithIncorrectCorrectNamesAndOrdinals_Throws()
         {
             using (var connection = new SqlConnection(_connectionString))

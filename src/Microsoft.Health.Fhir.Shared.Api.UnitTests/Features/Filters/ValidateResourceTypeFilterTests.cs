@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     [Trait(Traits.Category, Categories.Web)]
     public class ValidateResourceTypeFilterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnObservationAction_WhenPostingAPatientObject_ThenATypeMistatchExceptionShouldBeThrown()
         {
             var filter = new ValidateResourceTypeFilterAttribute();
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnObservationAction_WhenPostingAnObservationObject_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateResourceTypeFilterAttribute();
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             filter.OnActionExecuting(context);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnObservationAction_WhenPostingAParametersPatientObject_ThenATypeMistatchExceptionShouldBeThrown()
         {
             var filter = new ValidateResourceTypeFilterAttribute(true);
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnObservationAction_WhenPostingAParametersObservationObject_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateResourceTypeFilterAttribute(true);
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             filter.OnActionExecuting(context);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnObservationAction_WhenPostingAParametersObject_AndNotParsingParameters_ThenATypeMistatchExceptionShouldBeThrown()
         {
             var filter = new ValidateResourceTypeFilterAttribute();
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnPatchFhirAction_WhenPostingAParametersObject_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateResourceTypeFilterAttribute();
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             filter.OnActionExecuting(context);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnPatchFhirAction_WhenPostingAParametersObservationObject_ThenATypeMistatchExceptionShouldBeThrown()
         {
             var filter = new ValidateResourceTypeFilterAttribute();

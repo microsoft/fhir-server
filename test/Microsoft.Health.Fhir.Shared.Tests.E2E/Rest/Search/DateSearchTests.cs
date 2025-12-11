@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         // ge: the range above the search value intersects (i.e. overlaps) with the range of the target value, or the range of the search value fully contains the range of the target value.
         // sa: the range of the search value does not overlap with the range of the target value, and the range above the search value contains the range of the target value.
         // eb: the range of the search value does overlap not with the range of the target value, and the range below the search value contains the range of the target value.
-        [Theory]
+        [RetryTheory]
         [InlineData("1980", 1, 2, 3, 4, 5, 7)] // Any dates with start time greater than or equal to 1980-01-01T00:00:00.0000000 and end time less than or equal to 1980-12-31T23:59:59.9999999.
         [InlineData("1980-01", 1)] // Any dates with start time greater than or equal to 1980-01-01T00:00:00.0000000 and end time less than or equal to 1980-01-31T23:59:59.9999999.
         [InlineData("1980-05", 1, 2, 3, 4, 5, 7)] // Any dates with start time greater than or equal to 1980-05-01T00:00:00.0000000 and end time less than or equal to 1980-05-31T23:59:59.9999999.
@@ -169,7 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("gt1980-05-10", "lt1980-05-12", 1, 2, 3, 4, 5)] // Any dates with end time greater than 1980-05-10 and start time less than 1980-05-12.
         public async Task GivenTwoDateTimeSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue1, string queryValue2, params int[] expectedIndices)
         {
@@ -191,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("***")]
         [InlineData("!")]
         public async Task GivenAnInvalidDateTimeSearchParam_WhenSearched_ThenExceptionShouldBeThrown(string queryValue)
@@ -203,7 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a' {nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("1973-02-30")]
         [InlineData("1973-02-28T01:01:09.999999999999999999")]
         public async Task GivenAnOutOfRangeDateTimeSearchParam_WhenSearched_ThenExceptionShouldBeThrown(string queryValue)
@@ -215,7 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a '{nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("1980-05-16T16:32:15.500", 1, 2, 7)] // This should include the observation containing a period since the date is in that effective period.
         public async Task GivenADateTimeSearchParam_WhenSearchedAgainstAPeriod_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {

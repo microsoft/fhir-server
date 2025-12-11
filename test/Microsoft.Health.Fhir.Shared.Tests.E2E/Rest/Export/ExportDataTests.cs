@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.\
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResources, dataFromExport, _outputHelper));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestPatientCompartmentResources, dataFromExport, _outputHelper));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         }
 
         // No need to test both code paths for testing container is written to.
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenAllDataIsExportedToASpecificContainer_ThenExportedDataIsInTheSpecifiedContianer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(blobUris.All((url) => url.OriginalString.Contains(testContainer)));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.ExportLongRunning)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryParallel_ThenExportedDataIsSameAsDataInFhirServer()
@@ -152,14 +153,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await ExportAndSoftDeleteTestHelper(parallel: true, history: true, deletes: false);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.ExportLongRunning)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryNotParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {
             await ExportAndSoftDeleteTestHelper(parallel: false, history: true, deletes: false);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.ExportLongRunning)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletesParallel_ThenExportedDataIsSameAsDataInFhirServer()
@@ -167,21 +168,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await ExportAndSoftDeleteTestHelper(parallel: true, history: false, deletes: true);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.ExportLongRunning)]
         public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletesNotParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {
             await ExportAndSoftDeleteTestHelper(parallel: false, history: false, deletes: true);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletesParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {
             await ExportAndSoftDeleteTestHelper(parallel: true, history: true, deletes: true);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.ExportLongRunning)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletesNotParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {

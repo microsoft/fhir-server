@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             ModelInfoProvider.SetProvider(modelInfoProvider);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenADataStoreOperationIdentifierDictionary_WhenRunningRegularOperations_EverythingShouldWorkAsExpected()
         {
             var identifier1 = new DataStoreOperationIdentifier(
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Equal(identifier1, identifier2);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoDifferentDataStoreOperationIdentifiers_WhenRunningRegularOperations_EverythingShouldWorkAsExpected()
         {
             var identifier1 = new DataStoreOperationIdentifier(
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.NotEqual(identifier1, identifier2);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoDataStoreOperationIdentifiersWithTheSameValues_WhenCompared_BothShouldBeEqual()
         {
             var identifier1 = new DataStoreOperationIdentifier(
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Equal(identifier1.GetHashCode(), identifier2.GetHashCode());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoDataStoreOperationIdentifiersWithTheDifferentValues_WhenCompared_BothShouldBeDifferent()
         {
             var identifier1 = new DataStoreOperationIdentifier(

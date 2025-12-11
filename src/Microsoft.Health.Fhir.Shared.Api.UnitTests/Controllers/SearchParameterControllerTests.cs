@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _controller.ControllerContext = controllerContext;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
         {
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(act);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsTrue_ThenMediatorShouldBeCalled()
         {
             try
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received(1).Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnInvalidUpdateRequestBody_WhenParsingRequestBody_RequestNotValidExceptionIsThrown()
         {
             var requestBody = CreateInvalidRequestBody();
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(Core.Resources.SearchParameterRequestNotValid, exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidSearchParameterStatusUpdateRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
         {
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(act);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidSearchParameterStatusUpdateRequest_WhenServiceIsAzureApiForFhir_ThenRequestNotValidExceptionShouldBeReturned()
         {
             AzureApiForFhirRuntimeConfiguration azureApiForFhirConfiguration = new AzureApiForFhirRuntimeConfiguration();
@@ -117,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(act);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalled()
         {
             var requestBody = CreateValidRequestBody();
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received(1).Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalledWithCorrectParameters()
         {
             var requestBody = CreateValidRequestBody();
@@ -148,7 +149,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received(1).Send(Arg.Is<SearchParameterStateUpdateRequest>(x => x.SearchParameters.Any(sp => sp.Item1 == new Uri(DummyUrl) && sp.Item2 == SearchParameterStatus.Disabled)), default(CancellationToken));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenAnInvalidSearchParameterStatusUpdateRequest_WhenParametersAreEmpty_ThenRequestNotValidExceptionShouldBeThrown(

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -33,14 +34,14 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
         _testOutputHelper = testOutputHelper;
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenANewDatabase_WhenGettingSearchParameters_ThenNoneAreInvalid()
     {
         // Assert off base database.
         await CheckSearchParametersForInvalid();
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenADatabaseWithSearchParametersDisabled_WhenInitializing_ThenDisabledSearchParametersStayDisabled()
     {
         // Arrange

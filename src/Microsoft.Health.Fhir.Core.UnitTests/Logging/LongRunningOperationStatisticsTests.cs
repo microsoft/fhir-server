@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Logging;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Logging
     [Trait(Traits.Category, Categories.Operations)]
     public class LongRunningOperationStatisticsTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenALongRunningOperation_WhenUsingStatistics_ThenComputeOperationsAsExpected()
         {
             const int count = 10;

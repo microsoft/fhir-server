@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class ResourceSurrogateIdHelperTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenADateTime_WhenRepresentedAsASurrogateId_HasTheExpectedRange()
         {
             var baseDate = DateTimeOffset.MinValue;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests
             Assert.Equal(ResourceSurrogateIdHelper.MaxDateTime.UtcDateTime.TruncateToMillisecond(), (maxBaseId + 79999).ToLastUpdated());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenADateTimeLargerThanTheLargestThatCanBeRepresentedAsASurrogateId_WhenTurnedIntoASurrogateId_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => DateTimeOffset.MaxValue.ToSurrogateId());

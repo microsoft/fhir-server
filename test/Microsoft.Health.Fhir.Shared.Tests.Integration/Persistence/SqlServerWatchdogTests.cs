@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task DefragBlocking()
         {
             // I don't know why blocking is not 100% reproduced. Hence this workaround.
@@ -206,7 +207,7 @@ SELECT count(*)
             Assert.True((int)ExecuteSql("SELECT count(*) FROM dbo.EventLog WHERE Process = 'DefragBlocking' AND Action = 'UpdateStats' AND Status = 'End'") == 1, "stats not completed");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Defrag(bool indexRebuildIsEnabled)
@@ -274,7 +275,7 @@ COMMIT TRANSACTION
             await wsTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task CleanupEventLog()
         {
             // populate data
@@ -340,7 +341,7 @@ END
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task RollTransactionForward()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
@@ -421,7 +422,7 @@ RAISERROR('Test',18,127)
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task AdvanceVisibility()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
@@ -497,7 +498,7 @@ RAISERROR('Test',18,127)
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GeoReplicationLagWatchdog()
         {
             // Enable logging

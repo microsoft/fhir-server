@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private static ExportJobRecord exportJobRecord = CreateDummyExportJobRecord();
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRedactAnonymizationConfig_WhenAnonymizeResource_ThenPropertiesShouldBeRedacted()
         {
             string configurationContent =
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Empty(anonymizedResource.Name);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenGeneralizeAnonymizationConfig_WhenAnonymizeResource_ThenPropertiesShouldBeGeneralized()
         {
             string configurationContent =
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("2000-01-01", anonymizedResource.BirthDate);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCryptoHashAnonymizationConfig_WhenAnonymizeResource_ThenHashedNodeShouldBeReturned()
         {
             string configurationContent =
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("3cafe40f92be6ac77d2792b4b267c2da11e3f3087b93bb19c6c5133786984b44", anonymizedResource.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenDateShiftAnonymizationConfig_WhenAnonymizeResource_ThenShiftedNodeShouldBeReturned()
         {
             string configurationContent =
@@ -132,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("2001-02-20", anonymizedResource.BirthDate);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSubstituteAnonymizationConfig_WhenAnonymizeResource_ThenSubstitutedNodeShouldBeReturned()
         {
             string configurationContent =
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("test", anonymizedResource.Name.First().Family);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPerturbAnonymizationConfig_WhenAnonymizeResource_ThenPerturbedNodeShouldBeReturned()
         {
             string configurationContent =

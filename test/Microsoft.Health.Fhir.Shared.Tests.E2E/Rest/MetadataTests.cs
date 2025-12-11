@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Net;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Models;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenInvalidFormatParameter_WhenGettingMetadata_TheServerShouldReturnNotAcceptable()
         {
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotAcceptable, ex.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("abc")]
         [InlineData("")]
         [InlineData("1")]
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("abc")]
         [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(" ")]
         [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenBothDataStores_WhenGettingMetadata_TheServerShouldReturnPatientEverythingSupported()
         {

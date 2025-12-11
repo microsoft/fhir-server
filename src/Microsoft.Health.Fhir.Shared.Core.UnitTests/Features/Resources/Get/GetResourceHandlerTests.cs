@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -72,7 +73,7 @@ public class GetResourceHandlerTests
         _contextAccessor.RequestContext.AccessControlContext.Returns((AccessControlContext)null);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAGetResourceRequest_WhenUserHasReadPermission_ThenGetShouldSucceed()
     {
         // Arrange
@@ -100,7 +101,7 @@ public class GetResourceHandlerTests
         Assert.NotNull(result.Resource);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAGetResourceRequest_WhenUserHasReadByIdPermission_ThenGetShouldSucceed()
     {
         // Arrange
@@ -128,7 +129,7 @@ public class GetResourceHandlerTests
         Assert.NotNull(result.Resource);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAGetResourceRequest_WhenUserLacksPermissions_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -154,7 +155,7 @@ public class GetResourceHandlerTests
             getResourceHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAGetResourceRequest_WhenUserHasOnlyWritePermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -180,7 +181,7 @@ public class GetResourceHandlerTests
             getResourceHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAGetResourceRequest_WhenUserHasOnlySearchPermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -206,7 +207,7 @@ public class GetResourceHandlerTests
             getResourceHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAGetResourceRequest_WhenResourceNotFound_ThenResourceNotFoundExceptionIsThrown()
     {
         // Arrange

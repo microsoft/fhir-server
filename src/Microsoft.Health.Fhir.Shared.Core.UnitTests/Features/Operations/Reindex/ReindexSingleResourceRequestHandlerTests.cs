@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 searchParameterDefinitionManager);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUserDoesNotHavePermissionForReindex_WhenHandle_ThenUnauthorizedExceptionIsThrown()
         {
             _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.None);
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.Handle(request, _cancellationToken));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceDoesNotExist_WhenHandle_ThenResourceNotFoundExceptionIsThrown()
         {
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), _cancellationToken).Returns(Task.FromResult<ResourceWrapper>(null));
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _reindexHandler.Handle(request, _cancellationToken));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(HttpGetName)]
         [InlineData(HttpPostName)]
         public async Task GivenNewSearchIndicesGetRequest_WhenHandle_ThenTheirValuesArePresentInResponse(string httpMethodName)
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await ValidateUpdateCallBasedOnHttpMethodType(httpMethodName);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(HttpGetName)]
         [InlineData(HttpPostName)]
         public async Task GivenDuplicateNewSearchIndices_WhenHandle_ThenBothValuesArePresentInResponse(string httpMethodName)

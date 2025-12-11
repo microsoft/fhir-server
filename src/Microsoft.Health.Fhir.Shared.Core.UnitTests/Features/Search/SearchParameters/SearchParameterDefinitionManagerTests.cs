@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -15,6 +15,7 @@ using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public Task DisposeAsync() => Task.CompletedTask;
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -188,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchableParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -209,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenContextToIncludePatialIndexedParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -243,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoHeaderForPatiallyIndexedParams_WhenSearchingSupportedParameterByName_ThenExceptionThrown()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -255,7 +256,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenHeaderToIncludePatialIndexedParams_WhenSearchingSupportedParameterByName_ThenSupportedParamsReturned()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -269,7 +270,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterDefinitionManager_WhenGettingExistingSearchParameterByName_CorrectParameterIsReturned()
         {
             SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];
@@ -280,7 +281,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateSearchParam(expectedSearchParam, actualSearchParam);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByName_ExceptionIsThrown()
         {
             Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(
@@ -288,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _testSearchParamInfo.Code));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterDefinitionManager_WhenTryingToGetExistingSearchParameter_ReturnsTrue()
         {
             SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];
@@ -300,7 +301,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateSearchParam(expectedSearchParam, actualSearchParam);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterDefinitionManager_WhenTryingToGetNonexistentSearchParameter_ReturnsFalse()
         {
             Assert.False(_searchParameterDefinitionManager.TryGetSearchParameter(
@@ -309,7 +310,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 out SearchParameterInfo _));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterDefinitionManager_WhenGettingExistingSearchParameterByUrl_CorrectParameterIsReturned()
         {
             SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];
@@ -318,13 +319,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateSearchParam(expectedSearchParam, actualSearchParam);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByUrl_ExceptionIsThrown()
         {
             Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(_testSearchParamInfo.Url.OriginalString));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForExistingResourceType_ThenHashIsReturned()
         {
             // Initialize a search parameter
@@ -352,7 +353,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(searchParamHash);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchParameterDefinitionManager_WhenAddingACompositeSearchParameter_ThenComponentsAreResolvedAndValidated()
         {
 #if Stu3
@@ -405,14 +406,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(addedParam);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForMissingResourceType_ThenNullIsReturned()
         {
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Foo");
             Assert.Null(searchParamHash);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASPDefinitionManager_WhenInitialed_ThenSearchParametersHashHasValues()
         {
             await _searchParameterDefinitionManager.Handle(new Messages.Search.SearchParametersUpdatedNotification(new List<SearchParameterInfo>()), CancellationToken.None);
@@ -422,7 +423,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(patientHash, _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchParameterDefinitionManager_WhenAddingNewParameter_ThenParameterIsAdded()
         {
             var patientParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
@@ -453,7 +454,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenExistingSearchParameters_WhenStartingSearchParameterDefinitionManager_ThenExistingParametersAdded()
         {
             // Create some existing search paramters that will be returned when searching for resources
@@ -579,7 +580,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Single(questionnaireParams, p => p.Name == "questionnaire2");
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExistingSearchParameters_WhenDeletingSearchParameter_ThenSearchParameterShouldBeDeleted()
         {
             var searchParameters = new SearchParameterInfo[]

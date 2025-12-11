@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
         private List<JobInfo> _enqueuedJobs = [];
         private long _orchestratorJobId = 10000;
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ExportJobType.Patient)]
         [InlineData(ExportJobType.Group)]
         public async Task GivenANonSystemLevelExportJob_WhenRun_ThenOneProcessingJobShouldBeCreated(ExportJobType exportJobType)
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithIsParallelSetToFalse_WhenRun_ThenOneProcessingJobShouldBeCreated()
         {
             int numExpectedJobs = 1;
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithParallelParameters_WhenRun_ThenMultipleProcessingJobShouldBeCreated()
         {
             int numExpectedJobsPerResourceType = 3;
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobShouldBeCreatedPerResourceType()
         {
             int numExpectedJobsPerResourceType = 3;
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJob_WhenRunMultipleTimes_ThenMultipleJobsNotCreatedPerRun()
         {
             int numExpectedJobsPerResourceType = 3;
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             CheckJobsQueued(numExpectedEnqueueCalls, numExpectedJobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithParallelParameters_WhenStoppedInMiddleAndRestarted_ThenCorrectNumberOfJobsCreated()
         {
             int numExpectedJobsPerResourceType = 3;

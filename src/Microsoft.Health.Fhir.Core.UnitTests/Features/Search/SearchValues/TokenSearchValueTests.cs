@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
                    select new object[] { s1, s2, s3 };
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetEmptySystemCodeTextCombo))]
         public void GiveEmptySystemCodeAndText_WhenInitializing_ThenExceptionShouldBeThrown(string system, string code, string text)
         {
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(() => _builder.ToTokenSearchValue());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetNonEmptySystemCodeTextCombo))]
         public void GivenOneNonEmptyField_WhenInitialized_ThenTokenSearchValueShouldBeCreated(string system, string code, string text)
         {
@@ -70,13 +71,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(text, value.Text);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => TokenSearchValue.Parse(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
@@ -84,13 +85,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => TokenSearchValue.Parse(s));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringContainingMoreThanOneTokenSeparator_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<FormatException>(() => TokenSearchValue.Parse(@"s12\|s12|c12\|c12|c12"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(@"\|", null, @"|")]
         [InlineData(@"c1", null, "c1")]
         [InlineData(@"|c2", "", "c2")]
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Null(value.Text);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null, false)]
         [InlineData(null, "code", true)]
         [InlineData("system", null, true)]
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.IsValidAsCompositeComponent);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(@"system", "code", "system|code")]
         [InlineData(@"sys\|tem", @"\$code", @"sys\\\|tem|\\\$code")]
         [InlineData(null, "code", "code")]

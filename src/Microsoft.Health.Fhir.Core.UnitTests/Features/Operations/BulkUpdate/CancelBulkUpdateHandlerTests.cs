@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _handler = new CancelBulkUpdateHandler(_authorizationService, _queueClient, _supportedProfiles, new NullLogger<CancelBulkUpdateHandler>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenCancelationIsRequested_ThenTheJobIsCancelled()
         {
             await RunBulkUpdateTest(
@@ -68,14 +69,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 HttpStatusCode.Accepted);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(BulkUpdateJobConflictTestData))]
         public async Task GivenBulkUpdateJob_WhenCancelationIsRequested_ThenConflictIsReturned(IReadOnlyList<JobInfo> jobInfo)
         {
             await RunBulkUpdateTest(jobInfo, HttpStatusCode.Conflict);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSoftFailedBulkUpdateJobWithOtherJobRunning_WhenCancelationIsRequested_ThenTheJobIsAccepted()
         {
             var bulkUpdateResult = new BulkUpdateResult();
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 HttpStatusCode.Accepted);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCompletedJobWithProfileResourceUpdate_WhenCancelationIsRequested_ThenProfilesAreRefreshed()
         {
             var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfiles.Received(1).Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSoftFailedJobWithProfileResourceUpdate_WhenCancelationIsRequested_ThenProfilesAreRefreshed()
         {
             var profileTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
@@ -166,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfiles.Received(1).Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUnauthorizedDeleteUser_WhenCancelationIsRequested_ThenUnauthorizedIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Write);
@@ -175,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNonExistantBulkUpdateJob_WhenCancelationIsRequested_ThenNotFoundIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
@@ -185,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenQueueClientThrowsException_ThenExceptionIsPropagated()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<System.InvalidOperationException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenUserHasPartialAccess_ThenUnauthorizedFhirActionExceptionIsThrown()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
@@ -205,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJobWithNoJobsInGroup_WhenCancelationIsRequested_ThenNotFoundIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);

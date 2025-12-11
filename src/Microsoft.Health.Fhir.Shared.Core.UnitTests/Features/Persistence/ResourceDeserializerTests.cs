@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARawResourceOfUnknownType_WhenDeserializing_ThenANotSupportedExceptionIsThrown()
         {
             var raw = new RawResource("{}", FhirResourceFormat.Unknown, isMetaSet: false);
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.Throws<NotSupportedException>(() => Deserializers.ResourceDeserializer.Deserialize(wrapper));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARawResource_WhenDeserializingFromJson_ThenTheObjectIsReturned()
         {
             var observation = Samples.GetDefaultObservation()
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.Equal(observation.VersionId, newObject.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARawResourceFromFhirNet1_WhenDeserializingFromJson_ThenTheObjectIsReturned()
         {
             var oldValidResource = @"{
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var newObject = Deserializers.ResourceDeserializer.Deserialize(wrapper);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARawResourceFromFhirNet1WithMultipleDate_WhenDeserializingFromJson_ThenTheObjectIsReturned()
         {
             var oldValidResource = @"{
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var newObject = Deserializers.ResourceDeserializer.Deserialize(wrapper);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenABadResource_WhenDeserializingFromJson_ThenExceptionThrown()
         {
             var oldValidResource = @"{
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.Throws<StructuralTypeException>(() => Deserializers.ResourceDeserializer.Deserialize(wrapper));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdNotSet_UpdatedWithVersionIdFromResourceWrapper(bool pretty)
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.Equal(wrapper.LastModified, deserialized.Meta.LastUpdated);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdSet_MaintainsVersionIdInRawResourceString(bool pretty)

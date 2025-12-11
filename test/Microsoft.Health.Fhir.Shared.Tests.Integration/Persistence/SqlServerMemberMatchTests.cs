@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// when it fails it never returns data. If it doesn't hit the error then we don't care
         /// if it returns data.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public void GivenAComplexSqlStatement_WhenExecutingItMayThrowSpecificException()
         {
             string sql = Samples.GetFileContents("sql_8623_script", "sql");

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         private static KeyValuePair<string, string> ExpectedValue2 => new KeyValuePair<string, string>("claim1", "value1");
 
-        [Fact]
+        [RetryFact]
         public void GivenANullFhirContextAccessor_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 () => new PrincipalClaimsExtractor(null, Options.Create(new SecurityConfiguration())));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullSecurityConfiguration_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 () => new PrincipalClaimsExtractor(new FhirRequestContextAccessor(), null));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullPrincipal_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Empty(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyListOfClaims_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Empty(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyListOfLastModifiedClaims_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string>());
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Empty(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAMismatchedListOfClaimsAndLastModifiedClaims_WhenExtracting_ThenAnEmptyListShouldBeReturned()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim2" });
@@ -102,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Empty(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAMatchedListOfClaimsAndLastModifiedClaims_WhenExtracting_TheEntireSetShouldReturn()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Single(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAMatchedListOfClaimsAndLastModifiedClaimsWithMultipleDifferentClaims_WhenExtracting_TheEntireSetShouldReturn()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1", "claim2" });
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Equal(2, result.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAMatchedListOfClaimsAndLastModifiedClaimsWithMultipleSimilar_WhenExtracting_TheEntireSetShouldReturn()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1" });
@@ -139,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Equal(2, result.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAPartiallyMatchedListOfClaimsAndLastModifiedClaims_WhenExtracting_ASubsetShouldReturn()
         {
             _securityConfiguration.PrincipalClaims.Returns(new HashSet<string> { "claim1", "claim3" });

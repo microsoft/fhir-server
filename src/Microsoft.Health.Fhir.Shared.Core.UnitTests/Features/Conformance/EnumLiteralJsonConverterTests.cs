@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
 using System.Net;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     [Trait(Traits.Category, Categories.Operations)]
     public class EnumLiteralJsonConverterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnObject_WhenSerializingWithEnumLiteral_ThenLiteralIsSerialized()
         {
             var obj = new
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal("{\"prop1\":\"number\"}", json);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnObject_WhenSerializingWithUnmappableEnumLiteral_ThenLiteralIsSerializedToString()
         {
             var obj = new

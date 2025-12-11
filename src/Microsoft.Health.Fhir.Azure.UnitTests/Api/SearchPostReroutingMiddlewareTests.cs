@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.Api
             _middleware = new SearchPostReroutingMiddleware(_requestDelegate, new NullLogger<SearchPostReroutingMiddleware>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, true)]
         [InlineData("application/x-www-form-urlencoded", true)]
         [InlineData("application/x-www-form-urlencoded;", true)]

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
             _context.Response.Body = new MemoryStream();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Test exception", "There was an error processing your request.")]
         [InlineData("IDX10803: Unable to obtain configuration from:", "Unable to obtain OpenID configuration.")]
         [InlineData("The MetadataAddress or Authority must use HTTPS unless disabled for development by setting RequireHttpsMetadata=false.", "The security configuration requires the authority to be set to an https address.")]
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
             failureMetricHandler.Received(1).EmitHttpFailure(Arg.Any<IHttpFailureMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHttpContextWithNoException_WhenExecutingBaseExceptionMiddleware_TheResponseShouldBeEmpty()
         {
             IFailureMetricHandler failureMetricHandler = Substitute.For<IFailureMetricHandler>();

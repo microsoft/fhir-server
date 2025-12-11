@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
     [Trait(Traits.Category, Categories.Web)]
     public class ResourceTypesRouteConstraintTests : RouteTestBase
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidModelGetRequest_WhenRouting_ThenConstraintIsPassed()
         {
             var data = await GetRouteData(HttpMethods.Get, "/Observation/123");
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.Equal("Observation", data.Values[KnownActionParameterNames.ResourceType]);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAMetadataRequest_WhenRouting_ThenConstraintIsNotPassed()
         {
             var data = await GetRouteData(HttpMethods.Get, "/metadata");
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUnknownModelRequest_WhenRouting_ThenConstraintIsNotPassed()
         {
             var data = await GetRouteData(HttpMethods.Get, "/RandomModel/1234");

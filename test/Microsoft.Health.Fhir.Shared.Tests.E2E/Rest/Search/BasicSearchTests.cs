@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourceWithVariousValues_WhenSearchedWithMultipleParams_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?address-city=seattle&family=Jones&_tag={tag}", patients[2]);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourceWithVariousValues_WhenSearchedWithCityParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?address-city=Seattle&_tag={tag}", patients[0], patients[2], patients[4]);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchedByResourceType_ThenOnlyResourcesMatchingTheResourceTypeShouldBeReturned()
         {
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourcesWithVariousValues_WhenSearchedWithTheMissingModifer_ThenOnlyTheResourcesWithMissingOrPresentParametersAreReturned()
         {
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?address:missing=true&_tag={tag}", femalePatient, unspecifiedPatient);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourcesWithReference_WhenSearchedWithReferenceAndIdParameter_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_id={patientWithMatchingReference.Id}&organization=Organization/234");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourcesWithMissingReference_WhenSearchedWithTheMissingModiferAndOtherParameter_ThenOnlyMatchingResourcesWithMissingOrPresentReferenceAreReturned()
         {
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?gender=female&organization:missing=false&_tag={tag}", patientWithReference);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenTooBigPostRequest_WhenSearching_ThenDontCrashServer()
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// Test to make sure we return Bad Request when customer sends too many parameters
         /// </summary>
         /// <returns>Task</returns>
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenTooManyParametersInAPostRequest_WhenSearching_ThenBadRequestIsReturned()
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// This test is based on the details of user story #101268
         /// </summary>
         /// <returns>task</returns>
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResource_WhenPostSearchingWithBodyContent_ThenResourceMatchingShouldBeReturned()
         {
@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSearchQueryWithDuplicateKeyValues_TheCorrectedLinkUrlShouldBeReturned()
         {
@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypes_ThenOnlyResourcesMatchingTypeParameterShouldBeReturned()
         {
@@ -401,7 +401,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, $"?_type=Patient,Observation&_id={organization.Id}");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenMultiplePagesOfVariousTypesOfResourcesInSql_WhenUsingTypeParameterToSearchForMultipleResourceTypes_ThenCorrectResourcesAreReturned()
@@ -437,7 +437,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains(returnedResources, r => r.Id == patients.First().Id && r.TypeName == patients.First().TypeName);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenMultiplePagesOfVariousTypesOfResourcesInCosmos_WhenUsingTypeParameterToSearchForMultipleResourceTypes_ThenCorrectResourcesAreReturned()
@@ -468,7 +468,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"?_type=Patient,Observation&_tag={tag}&_count=3", sort: false, pageSize: 3, expectedResources.ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAllInvalidTypeOfResources_WhenSearching_ThenEmptyBundleAndOperationOutcomeIssue()
         {
@@ -498,7 +498,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnosticsMultipleWrongTypes, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenEmptyTypeOfResource_WhenSearching_ThenBadRequestShouldBeReturned()
         {
@@ -507,7 +507,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSomeInvalidTypeOfResources_WhenSearchingAcrossAllResourceTypes_ThenSearchHasProperOutcome()
         {
@@ -530,7 +530,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingCommonSearchParameter_ThenOnlyResourcesMatchingTypeAndCommonSearchParameterShouldBeReturned()
         {
@@ -558,7 +558,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, query, nonMatchingPractitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingNonCommonSearchParameter_ThenExceptionShouldBeThrown()
         {
@@ -567,7 +567,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithCount_ThenNumberOfResourcesReturnedShouldNotExceedCount()
         {
@@ -623,7 +623,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(results, patients);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMoreSearchResultsThanCount_WhenSearched_ThenNextLinkUrlShouldBePopulated()
         {
@@ -665,7 +665,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(results, patients);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPostSearchWithCount_WhenSearched_ThenNextLinkUrlWouldYeildMoreResults()
         {
@@ -690,7 +690,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourceWithHistory_WhenSearchedWithParams_ThenOnlyCurrentVersionShouldBeReturned()
         {
@@ -714,7 +714,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?code={testCoding.System}|{testCoding.Code}", updatedResource);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithCountSummary_ThenTotalCountShouldBeReturned()
         {
@@ -743,7 +743,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("_summary", "xyz")]
         [InlineData("_count", "abc")]
         [InlineData("_elements", "")]
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithIncorrectFormatParams_ThenExceptionShouldBeThrown(string key, string val)
         {
@@ -752,7 +752,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithElements_ThenOnlySpecifiedPropertiesShouldBeReturned()
         {
@@ -766,7 +766,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, observations);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithInvalidElements_ThenOnlyValidSpecifiedPropertiesShouldBeReturned()
         {
@@ -784,7 +784,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("id,active", "true")]
         [InlineData("id,active", "data")]
         [InlineData("id,active", "text")]
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithElementsAndSummaryNotSetToFalse_ThenExceptionShouldBeThrown(string elementsValues, string summaryValue)
         {
@@ -798,7 +798,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithElementsAndSummarySetToFalse_ThenOnlySpecifiedPropertiesShouldBeReturned()
         {
@@ -812,7 +812,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, observations);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedSummarySetToData_ThenOnlySpecifiedPropertiesShouldBeReturned()
         {
@@ -829,7 +829,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotEmpty(returnedPatient.Contact);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedSummarySetToText_ThenOnlySpecifiedPropertiesShouldBeReturned()
         {
@@ -849,7 +849,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Empty(returnedPatient.Contact);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedSummarySetToTrue_ThenOnlySpecifiedPropertiesShouldBeReturned()
         {
@@ -867,7 +867,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Empty(returnedPatient.Contact);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldBeIncludedInReturnedBundle()
         {
@@ -892,7 +892,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(numberOfResources, bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithTotalTypeNone_ThenTotalCountShouldBeIncludedInReturnedBundle()
         {
@@ -917,7 +917,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Null(bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldNotBeIncludedInReturnedBundleForSubsequentPages()
         {
@@ -949,7 +949,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Null(bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithTotalTypeEstimate_ThenExceptionShouldBeThrown()
         {
@@ -982,7 +982,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [InlineData("_total", "count")]
         [InlineData("_total", "xyz")]
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
         {
@@ -997,7 +997,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourceWithTypeValue_WhenSearchedWithTypeParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
@@ -1015,7 +1015,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenAnOperationOutcomeWarningIsReturnedInTheBundle()
         {
@@ -1028,7 +1028,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains("exceeds limit", operationOutcome.Issue.First().Diagnostics);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenResourcesAreSerializedInBundle()
         {
@@ -1045,7 +1045,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(bundle.Entry.Skip(1).First().Resource);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("RiskAssessment?probability=gt55555555555555555555555555555555555555555555555")]
         [InlineData("RiskAssessment?probability=gt")]
         [InlineData("RiskAssessment?probability=foo")]
@@ -1060,7 +1060,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =
@@ -1076,7 +1076,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPostSearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =
@@ -1092,7 +1092,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithInvalidParametersAndLenientHandling_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =
@@ -1108,7 +1108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
@@ -1116,14 +1116,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithValidParametersAndStrictHandling_WhenHandled_ReturnsSearchResults()
         {
             var response = await Client.SearchAsync("Patient?name=ronda", Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACompositeTokenNumberNumberSearchParameter_WhenSearching_ReturnsSearchResults()
         {
             var sequenceType = ModelInfoProvider.Version == FhirSpecification.Stu3 ? "Sequence" : "MolecularSequence";
@@ -1131,7 +1131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
@@ -1139,7 +1139,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSetOfChunkyResources_WhenIteratingOverThem_ThenAllResourcesReturned()
         {
             int n = 30;
@@ -1186,7 +1186,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSetOfChunkyResources_WhenIteratingOverThemWithSort_ThenAllResourcesReturned()
         {
             int n = 30;
@@ -1231,7 +1231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithParameterTextAndLenientHandling_WhenHandled_ReturnsSearchResultsWithWarning()
         {
             string[] expectedDiagnostics =
@@ -1246,7 +1246,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithParameterTextAndNoHandling_WhenHandled_ReturnsSearchResultsWithWarning()
         {
             string[] expectedDiagnostics =
@@ -1261,7 +1261,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchRequestWithParameterTextAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>

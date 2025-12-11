@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -30,14 +31,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceWrapper_WhenGettingVersion_TheETagShouldBeUsedWhenVersionIsEmpty()
         {
             var wrapper = Samples.GetJsonSample<FhirCosmosResourceWrapper>("ResourceWrapperNoVersion");
             Assert.Equal("00002804-0000-0000-0000-59f272c60000", wrapper.Version);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceWrapper_WhenConvertingToAHistoryObject_ThenTheCorrectPropertiesAreUpdated()
         {
             var wrapper = Samples.GetJsonSample<FhirCosmosResourceWrapper>("ResourceWrapperNoVersion");
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             Assert.Equal("version1", historyRecord.Version);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResource_WhenCreatingAResourceWrapper_ThenMetaPropertiesAreCorrect()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();

@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _logger);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null, null, null, null, null, null)]
         [InlineData(null, null, null, "launch", null, null, null)]
         [InlineData("code", null, null, "launch", null, null, null)]
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMissingAudParamToV1AAd_WhenAuthorizeRequestAction_ThenRedirectResultReturned()
         {
             _securityConfiguration.Authentication = new AuthenticationConfiguration
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Null(queryParams["resource"]);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetParamsDataForGivenInvalidQueryParams_RedirectUrlCodeStateSession))]
         public void GivenInvalidQueryParams_WhenCallbackRequestAction_ThenBadRequestExceptionThrown(
             string redirectUrl, string code, string state, string sessionState)
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             yield return new object[] { testUrl, "code", "state", null };
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null, null, null, null)]
         [InlineData("authorization_code", null, null, null, null)]
         [InlineData("authorization_code", "clientId", null, null, null)]
@@ -210,7 +211,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             yield return new object[] { "authorization_code", "clientId", "clientSecret", encoded, null };
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null)]
         [InlineData("user_impersonation test.scope", "user_impersonation test.scope")]
         [InlineData("patient$Observation.read", "patient/Observation.read")]

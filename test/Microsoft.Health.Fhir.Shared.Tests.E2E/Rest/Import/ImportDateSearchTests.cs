@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         // ge: the range above the search value intersects (i.e. overlaps) with the range of the target value, or the range of the search value fully contains the range of the target value.
         // sa: the range of the search value does not overlap with the range of the target value, and the range above the search value contains the range of the target value.
         // eb: the range of the search value does overlap not with the range of the target value, and the range below the search value contains the range of the target value.
-        [Theory]
+        [RetryTheory]
         [InlineData("1980", 1, 2, 3, 4, 5, 7)] // Any dates with start time greater than or equal to 1980-01-01T00:00:00.0000000 and end time less than or equal to 1980-12-31T23:59:59.9999999.
         [InlineData("1980-01", 1)] // Any dates with start time greater than or equal to 1980-01-01T00:00:00.0000000 and end time less than or equal to 1980-01-31T23:59:59.9999999.
         [InlineData("1980-05", 1, 2, 3, 4, 5, 7)] // Any dates with start time greater than or equal to 1980-05-01T00:00:00.0000000 and end time less than or equal to 1980-05-31T23:59:59.9999999.

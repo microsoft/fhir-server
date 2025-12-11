@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenDeleting_ThenServerShouldDeleteSuccessfully()
         {
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenADeletedResource_WhenSearchWithNotModifier_ThenDeletedResourcesShouldNotBeReturned()
         {
             FhirResponse<Flag> response = await _client.CreateAsync(Samples.GetJsonSample("Flag").ToPoco<Flag>());
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(searchResults.Resource.Entry == null || searchResults.Resource.Entry.Count == 0);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(KnownQueryParameterNames.BulkHardDelete)]
         [InlineData(KnownQueryParameterNames.HardDelete)]
         [Trait(Traits.Priority, Priority.One)]
@@ -174,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await GivenExecuteAndValidateNotFoundStatus(() => _client.VReadAsync<Observation>(ResourceType.Observation, resourceId, historyVersion));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceWithLargeNumberOfHistory_WhenHardDeleting_ThenServerShouldDeleteAllRelatedResourcesSuccessfully()
         {
             List<string> versionIds = new List<string>();

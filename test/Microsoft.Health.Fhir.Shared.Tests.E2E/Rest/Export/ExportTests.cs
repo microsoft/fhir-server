@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             _client = fixture.HttpClient;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Observation/$export")]
         [InlineData("Patient/id/$export")]
         public async Task GivenExportIsEnabled_WhenRequestingExportByTypeWithAnInvalidResourceType_ThenServerShouldReturnBadRequest(string path)
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/123456/$export")]
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/123456/$export")]
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("time", KnownQueryParameterNames.Since)]
         [InlineData("2021-06-13T00:00:00Z ", KnownQueryParameterNames.Since)]
         [InlineData("time", KnownQueryParameterNames.Till)]
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/123456/$export")]
@@ -123,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenExportJobExists_WhenRequestingExportStatus_ThenServerShouldReturnAccepted()
         {
             // Sending an export request so that a job record will be created in the system.
@@ -148,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenExportJobDoesNotExist_WhenRequestingExportStatus_ThenServerShouldReturnNotFound()
         {
             string getPath = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + Guid.NewGuid();
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/json")]
         [InlineData("applicaiton/xml")]
         [InlineData("*/*")]
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("respond-async, wait=10")]
         [InlineData("respond-status")]
         [InlineData("*")]

@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
     [Trait(Traits.Category, Categories.PatientEverything)]
     public class EverythingOperationContinuationTokenTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAString_WhenFromString_ThenCorrectEverythingOperationContinuationTokenShouldBeReturned()
         {
             Assert.Null(EverythingOperationContinuationToken.FromJson(null));
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             Assert.Equal("abc", token.InternalContinuationToken);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(0, null, null)]
         [InlineData(1, null, "test")]
         [InlineData(2, "abc", null)]

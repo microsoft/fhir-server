@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Filters;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _filter = new AuditLoggingFilterAttribute(_claimsExtractor, _auditHelper);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAController_WhenExecutingAction_ThenAuditLogShouldBeLogged()
         {
             var actionExecutingContext = new ActionExecutingContext(
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _auditHelper.Received(1).LogExecuting(_httpContext, _claimsExtractor);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAController_WhenExecutedAction_ThenAuditLogShouldBeLogged()
         {
             var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement());

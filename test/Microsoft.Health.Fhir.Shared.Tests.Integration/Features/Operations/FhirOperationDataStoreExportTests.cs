@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             return Task.CompletedTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANewExportRequest_WhenCreatingAnExportJob_ThenAnExportJobGetsCreated()
         {
             var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, ExportFormatTags.ResourceName, _exportRequest.ResourceType, null, "hash", rollingFileSizeInMB: 64);
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             Assert.NotNull(outcome.ETag);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAMatchingExportJob_WhenGettingById_ThenTheMatchingExportJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             Assert.Equal(jobRecord.Id, outcome?.JobRecord?.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoMatchingExportJob_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync("test", CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereIsNoRunningExportJob_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 job => ValidateExportJobOutcome(jobRecord, job.JobRecord));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereIsARunningExportJobThatExpired_WhenAcquiringExportJobs_ThenTheExpiredExportJobShouldBeReturned()
         {
             ExportJobOutcome jobOutcome = await CreateRunningExportJob();

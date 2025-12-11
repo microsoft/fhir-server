@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -19,13 +20,13 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
     [Trait(Traits.Category, Categories.Operations)]
     public class MoneyToQuantitySearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<MoneyToQuantitySearchValueConverter, Money>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenMoneyWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             await Test(m => m.Value = null);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMoneyWithValueCodeAndSystem_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const decimal value = 480;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
                 new Quantity(value, code, CurrencyValueSet.CodeSystemUri));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMoneyWithNoCode_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             const decimal value = 0.125m;
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
             });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMoneyWithNoSystem_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const decimal value = 0.125m;

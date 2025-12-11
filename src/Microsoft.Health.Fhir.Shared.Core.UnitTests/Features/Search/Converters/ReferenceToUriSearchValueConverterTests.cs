@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,13 +18,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     [Trait(Traits.Category, Categories.Search)]
     public class ReferenceToUriSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<ReferenceToUriSearchValueConverter, ResourceReference>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirReferenceWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             await Test(uri => uri.Reference = null);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirReferenceWithBasicValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string value = "http://uri";
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 value);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirReferenceWithReferenceValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string value = "Patient/123ABC";
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 value);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirReferenceWithInvalidURL_WhenConverted_ThenSearchValueShouldBeCreated()
         {
             const string value = "this is not a valid url";

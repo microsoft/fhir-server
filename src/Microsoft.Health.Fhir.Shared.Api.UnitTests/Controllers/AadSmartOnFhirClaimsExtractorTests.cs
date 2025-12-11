@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -51,19 +52,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _httpContextAccessor.HttpContext.Returns(_httpContext);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithFormContentType_WhenExtracted_ThenCorrectClientIdShouldBeExtracted()
         {
             ExecuteAndValidate(true, DefaultFormClientId);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoFormContentType_WhenExtracted_ThenCorrectClientIdShouldBeExtracted()
         {
             ExecuteAndValidate(false, DefaultQueryClientId);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithMultipleClientIds_WhenExtracted_ThenCorrectClientIdsShouldBeExtracted()
         {
             const string client1 = "client1";

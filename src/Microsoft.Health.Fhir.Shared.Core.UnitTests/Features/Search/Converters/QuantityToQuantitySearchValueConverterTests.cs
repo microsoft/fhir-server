@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,13 +18,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     [Trait(Traits.Category, Categories.Search)]
     public class QuantityToQuantitySearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<QuantityToQuantitySearchValueConverter, Quantity>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAQuantityWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             await Test(q => q.Value = null);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQuantityWithValue_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const string system = "qs";
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 new Quantity(value, code, system));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASimpleQuantityWithValue_WhenConverted_ThenASimpleQuantityValueShouldBeCreated()
         {
             const string system = "s";

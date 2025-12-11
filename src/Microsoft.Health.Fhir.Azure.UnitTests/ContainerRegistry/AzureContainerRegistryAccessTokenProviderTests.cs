@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             _convertDataConfiguration.ContainerRegistryServers.Add(RegistryServer);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARegistry_WithoutMIEnabled_WhenGetToken_TokenException_ShouldBeThrown()
         {
             IAccessTokenProvider tokenProvider = new AzureAccessTokenProvider(new NullLogger<AzureAccessTokenProvider>());
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             await Assert.ThrowsAsync<AzureContainerRegistryTokenException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARegistry_WithoutRbacGranted_WhenGetToken_ExceptionShouldBeThrown()
         {
             var acrTokenProvider = GetMockAcrTokenProvider(HttpStatusCode.Unauthorized);
@@ -53,14 +54,14 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANotFoundRegistry_WhenGetToken_ExceptionShouldBeThrown()
         {
             var acrTokenProvider = GetMockAcrTokenProvider(HttpStatusCode.NotFound);
             await Assert.ThrowsAsync<ContainerRegistryNotFoundException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("{\"refresh_token\":\"refresh_token_test\"}")]
         [InlineData("{\"access_token\":\"access_token_test\"}")]
         [InlineData("{\"refresh_token\":\"\", \"access_token\":\"access_token_test\"}")]
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             await Assert.ThrowsAsync<AzureContainerRegistryTokenException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidRegistry_WhenGetToken_CorrectResultShouldBeReturned()
         {
             var acrTokenProvider = GetMockAcrTokenProvider(HttpStatusCode.OK, "{\"refresh_token\":\"refresh_token_test\", \"access_token\":\"access_token_test\"}");

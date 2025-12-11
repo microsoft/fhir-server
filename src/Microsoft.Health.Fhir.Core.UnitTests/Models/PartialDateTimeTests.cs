@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             _originalCulture = Thread.CurrentThread.CurrentCulture;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("05")] // Year needs to be specified.
         [InlineData("05-18")]
         [InlineData("05-18T23:57")]
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedMessage, ex.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2013+01:00")] // Time needs to be specified if UTC offset is specified.
         [InlineData("2013-05+01:00")]
         [InlineData("2013-05-18+01:00")]
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedMessage, ex.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2013-05-18T23")] // Minutes need to be specified if hour is specified.
         [InlineData("2013-05-18T23+01:00")]
         public void GivenHourIsSpecifiedWithoutMinutes_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedMessage, ex.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2013-05-18T23:09+1:00")]
         [InlineData("2013-05-18T23:09-4:30")]
         [InlineData("2013-05-18T23:09+01:300")]
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedMessage, ex.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("0000-05-18T23:57:09.931094+01:00")] // Year cannot be less than 1.
         [InlineData("10000-05-18T23:57:09.931094+01:00")] // Year cannot be greater than 9999.
         [InlineData("2013-00-18T23:57:09.931094+01:00")] // Month cannot be less than 1.
@@ -146,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             yield return new object[] { "1999-10-18T12:35:55.9991532-02:30", 1999, 10, 18, 12, 35, 55, 0.9991532m, -150 };
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetParameterNullData))]
         public void GivenANullParameter_WhenInitialized_ThenCorrectPartialDateTimeShouldBeCreated(
             string inputString,
@@ -173,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(utcOffset, dateTime.UtcOffset);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenADateTimeOffset_WhenInitialized_ThenCorrectPartialDateTimeShouldBeCreated()
         {
             const int year = 2018;
@@ -200,7 +201,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(utcOffset, partialDateTime.UtcOffset);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         [InlineData("        ")]
@@ -209,13 +210,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Throws<ArgumentException>(() => PartialDateTime.Parse(inputString));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenArgumentNullExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(() => PartialDateTime.Parse(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("****")]
         [InlineData("!")]
         [InlineData("abc")]
@@ -237,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             yield return new object[] { "2017-01-01T04:30:20.100001+03:00", 2017, 01, 01, 04, 30, 20, 0.1000010m, 180 };
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetParseData))]
         public void GivenAValidString_WhenParsed_ThenCorrectPartialDateTimeShouldBeCreated(
             string inputString,
@@ -264,7 +265,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(utcOffset, dateTime.UtcOffset);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAPartialDateTimeWithNoMissingComponent_WhenToDateTimeOffsetWithoutArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
             var dateTime = PartialDateTime.Parse("2013-10-12T23:01:35.9995555+02:00");
@@ -285,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedOffset, actualOffset);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAPartialDateTimeWithNoMissingComponent_WhenToDateTimeOffsetWithArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
             var dateTime = PartialDateTime.Parse("2013-10-12T23:01:35.9995555+02:00");
@@ -313,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedOffset, actualOffset);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAPartialDateTimeWithMissingComponents_WhenToDateTimeOffsetWithoutArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
             const int expectedMonth = 1;
@@ -342,7 +343,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedOffset, actualOffset);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAPartialDateTimeWithMissingComponents_WhenToDateTimeOffsetWithArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
             const int expectedMonth = 2;
@@ -378,7 +379,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expectedOffset, actualOffset);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2017", "2017")]
         [InlineData("2017-01", "2017-01")]
         [InlineData("2018-01-25", "2018-01-25")]
@@ -398,7 +399,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(expected, dateTime.ToString());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("de-DE", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27,9110000+01:00")]
         [InlineData("en-GB", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]
         [InlineData("en-US", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]

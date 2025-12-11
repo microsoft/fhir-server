@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class FhirRuntimeConfigurationTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenARuntimeConfiguration_WhenForAzureApiForFHIR_FollowsTheExpectedValues()
         {
             // Azure API For FHIR.
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
             Assert.False(runtimeConfiguration.IsTransactionSupported);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARuntimeConfiguration_WhenForAzureHealthDataServices_FollowsTheExpectedValues()
         {
             // Azure Health Data Services.

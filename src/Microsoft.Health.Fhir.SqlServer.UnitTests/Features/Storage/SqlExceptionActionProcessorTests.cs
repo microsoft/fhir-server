@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Antlr4.Runtime.Tree;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             _mockLogger = Substitute.For<ILogger<SqlExceptionActionProcessor<string, SqlException>>>();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlTruncateException_WhenExecuting_ThenResourceSqlTruncateExceptionIsThrown()
         {
             // Arrange
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 $"A {nameof(ResourceSqlTruncateException)} occurred while executing request");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SqlErrorCodes.TimeoutExpired, typeof(RequestTimeoutException))]
         [InlineData(SqlErrorCodes.MethodNotAllowed, typeof(MethodNotAllowedException))]
         [InlineData(SqlErrorCodes.QueryProcessorNoQueryPlan, typeof(SqlQueryPlanException))]
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 $"A {nameof(SqlException)} occurred while executing request");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SqlErrorCodes.KeyVaultCriticalError)]
         [InlineData(SqlErrorCodes.KeyVaultEncounteredError)]
         [InlineData(SqlErrorCodes.KeyVaultErrorObtainingInfo)]
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 $"A {nameof(SqlException)} occurred while executing request");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlExceptionWithUnhandledError_WhenExecuting_ThenResourceSqlExceptionIsThrown()
         {
             // Arrange

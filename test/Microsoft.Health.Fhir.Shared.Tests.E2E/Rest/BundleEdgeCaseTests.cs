@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallel()
         {
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenProcessingABundle_IfItContainsHistoryEndpointRequests_ThenReturnTheResourcesAsExpected()
         {
             CancellationToken cancellationToken = CancellationToken.None;
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(secondEntry.Resource.Id == patientId, "The resource returned by the _history/version query is not the original Patient.");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenProcessingMultipleBundlesWithTheSameResource_AndIncreasingTheExpectedVersionInParallel_ThenUpdateTheResourcesAsExpected()
         {

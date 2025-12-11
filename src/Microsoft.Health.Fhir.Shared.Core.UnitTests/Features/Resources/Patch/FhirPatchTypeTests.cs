@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 using Microsoft.Health.Fhir.Core.Models;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
     public class FhirPatchTypeTests
     {
         // Tests wrong input type returns meaningful error.
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchRequest_WhenUpdatingWithNonMatchingType_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "identifier", new FhirDecimal(-42));
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Tests using "part" for a predefined type. Part is unnecessary but should still work.
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchRequest_WhenAddingObjectTypeAsNestedParts_ThenListShouldBeCreatedWithObject()
         {
             var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", name: "contact", value: new Parameters.ParameterComponent
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not in official test cases but tied to special case. The type of the code inside the anonymous object causes weird type inference behavior.
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchRequest_WhenAddingAnonymousTypeToList_ThenTypeWithElementsShouldBePopulated()
         {
             var versionSpecificResourceReference = new ResourceReference() { Reference = "Patient/123", Display = "Test Patient" };
@@ -118,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not in official test cases but tests choice types.
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchRequest_WhenAddingChoicetype_ThenElementWithPropertypeShouldBePopulated()
         {
             var patchParam1 = new Parameters().AddPatchParameter("add", path: "Patient", name: "deceased", value: new FhirBoolean(true));

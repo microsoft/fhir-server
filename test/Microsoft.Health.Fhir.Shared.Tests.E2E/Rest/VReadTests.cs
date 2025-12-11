@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnIdAndVersionId_WhenGettingAResource_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.Meta.LastUpdated, vReadResponse.Content.Headers.LastModified);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANonExistingIdAndVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAIdAndNonExistingVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenADeletedIdAndVersionId_WhenGettingAResource_TheServerShouldReturnAGoneStatus()
         {

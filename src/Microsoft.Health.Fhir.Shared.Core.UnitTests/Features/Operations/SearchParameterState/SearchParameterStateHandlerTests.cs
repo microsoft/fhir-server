@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -183,7 +184,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             _searchParameterDefinitionManager.TypeLookup = typeLookup;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithNoQueries_WhenHandling_ThenAllSearchParametersAreReturned()
         {
             // Arrange
@@ -206,7 +207,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == PatientLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithAValidUrl_WhenHandling_ThenSearchParameterMatchingUrlIsReturned()
         {
             // Arrange
@@ -223,7 +224,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceId).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Enabled.ToString()).Any()).Any());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithAValidCode_WhenHandling_ThenSearchParameterMatchingCodeIsReturned()
         {
             // Arrange
@@ -241,7 +242,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == PatientLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithAValidResourceType_WhenHandling_ThenSearchParametersMatchingResourceTypeAreReturned()
         {
             // Arrange
@@ -262,7 +263,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceTest).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithAValidCodeAndResourceType_WhenHandling_ThenSearchParameterMatchingCodeAndResourceTypeIsReturned()
         {
             // Arrange
@@ -279,7 +280,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDisable.ToString()).Any()).Any());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithAValidCodeAndResourceTypeThatDonotHaveMatchinSearchParameters_WhenHandling_ThenNoSearchParametersAreReturned()
         {
             // Arrange

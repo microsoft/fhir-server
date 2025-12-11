@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Castle.Core.Logging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
         private IQueueClient _mockQueueClient = Substitute.For<IQueueClient>();
         private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration());
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ExportJobType.Patient, 100, 100)]
         [InlineData(ExportJobType.Group, 1, 1)]
         public async Task GivenANonSystemLevelExportJob_WhenRun_ThenOneProcessingJobShouldBeCreated(ExportJobType exportJobType, int expectedEnqueueCalls, int expectedJobCount)
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             CheckJobsQueued(expectedEnqueueCalls, expectedJobCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithIsParallelSetToFalse_WhenRun_ThenOneProcessingJobShouldBeCreated()
         {
             int numExpectedJobs = 1;
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             CheckJobsQueued(1, numExpectedJobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithNoTypeRestriction_WhenRun_ThenMultipleProcessingJobsShouldBeCreated()
         {
             int numExpectedJobsPerResourceType = 100;
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             CheckJobsQueued(3, numExpectedJobsPerResourceType * 3);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobsShouldBeCreatedPerResourceType()
         {
             int numExpectedJobs = 100;

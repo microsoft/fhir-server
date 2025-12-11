@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
     [Trait(Traits.Category, Categories.Xml)]
     public class FhirXmlOutputFormatterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAXmlElementAndXmlContentType_WhenCheckingCanWrite_ThenFalseShouldBeReturned()
         {
             bool result = CanWrite(typeof(XmlElement), ContentType.XML_CONTENT_HEADER);
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirObjectAndXmlContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
         {
             bool result = CanWrite(typeof(Observation), ContentType.XML_CONTENT_HEADER);
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceWrapperObjectAndXmlContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
         {
             bool result = CanWrite(typeof(RawResourceElement), ContentType.XML_CONTENT_HEADER);
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public async System.Threading.Tasks.Task GivenAFhirObjectAndXmlContentType_WhenSerializing_ThenTheObjectIsSerializedToTheResponseStream()
         {
             var serializer = new FhirXmlSerializer();

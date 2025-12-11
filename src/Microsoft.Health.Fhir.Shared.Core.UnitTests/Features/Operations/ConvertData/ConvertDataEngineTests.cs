@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -14,6 +14,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             _config.ContainerRegistryServers.Add("test.azurecr.io");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenHl7V2ConvertDataRequest_WithDefaultTemplates_CorrectResultShouldReturn()
         {
             var convertDataEngine = GetDefaultEngine();
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1924-10-10", patient.BirthDate);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCcdaConvertDataRequest_WithADefaultTemplates_CorrectResultShouldReturn()
         {
             var convertDataEngine = GetDefaultEngine();
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1962-08-28", patient.BirthDate);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJsonConvertDataRequest_WithADefaultTemplates_CorrectResultShouldReturn()
         {
             var convertDataEngine = GetDefaultEngine();
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("2023-07-28T01:59:23.388-05:00", patient.Deceased.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJsonConvertDataRequest_WithTreatDatesAsStringDisabled_CorrectResultShouldReturn()
         {
             var expectedDate = "2023-07-28T01:59:23.388-05:00";
@@ -129,7 +130,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal(DateTime.Parse(expectedDate).ToString("G", CultureInfo.InvariantCulture), node!["deceasedDateTime"].ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirConvertDataRequest_WithADefaultTemplates_CorrectResultShouldReturn()
         {
             var convertDataEngine = GetDefaultEngine();
@@ -148,7 +149,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Single(patient.Extension);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("fakeacr.azurecr.io/template:default")]
         [InlineData("test.azurecr-test.io/template:default")]
         [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => convertDataEngine.Process(fhirRequest, CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("Abc")]
         [InlineData("¶Š™œãý£¾")]
@@ -183,7 +184,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is DataParseException);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("Abc")]
         [InlineData("¶Š™œãý£¾")]
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is DataParseException);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("Abc")]
         [InlineData("¶Š™œãý£¾")]
@@ -209,7 +210,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is DataParseException);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("Abc")]
         [InlineData("¶Š™œãý£¾")]
@@ -222,7 +223,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is DataParseException);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("ADT")]
         [InlineData("¶Š™œãý£¾")]
@@ -234,7 +235,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("CCD1")]
         [InlineData("¶Š™œãý£¾")]
@@ -246,7 +247,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("Example")]
         [InlineData("¶Š™œãý£¾")]
@@ -258,7 +259,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("       ")]
         [InlineData("Example")]
         [InlineData("¶Š™œãý£¾")]
@@ -270,7 +271,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenHl7V2TemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrown()
         {
             var wrongTemplateCollection = new List<Dictionary<string, Template>>
@@ -286,7 +287,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is PostprocessException);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCcdaTemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrown()
         {
             var wrongTemplateCollection = new List<Dictionary<string, Template>>
@@ -302,7 +303,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is PostprocessException);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJsonTemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrown()
         {
             var wrongTemplateCollection = new List<Dictionary<string, Template>>
@@ -318,7 +319,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is PostprocessException);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirTemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrown()
         {
             var wrongTemplateCollection = new List<Dictionary<string, Template>>
@@ -334,7 +335,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is PostprocessException);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirTemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrownButNotLoggedAsException()
         {
             var logger = Substitute.For<MockLogger<ConvertDataEngine>>();

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new DataResourceFilter(MissingDataFilterCriteria.Default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchResourceHistoryRequest_WhenHandled_ThenABundleShouldBeReturned()
         {
             var request = new SearchResourceHistoryRequest("Patient");
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedBundle, actualResponse.Bundle);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DataActions.Read)]
         [InlineData(DataActions.Search)]
         public async Task GivenASearchResourceHistoryRequest_WhenUserHasReadPermission_ThenSearchShouldSucceed(DataActions returnedDataAction)
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedBundle, actualResponse.Bundle);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DataActions.None)]
         [InlineData(DataActions.Write)]
         [InlineData(DataActions.ReadById)]

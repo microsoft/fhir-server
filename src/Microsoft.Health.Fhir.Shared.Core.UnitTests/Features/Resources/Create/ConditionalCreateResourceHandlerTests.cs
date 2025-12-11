@@ -14,6 +14,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -77,7 +78,7 @@ public class ConditionalCreateResourceHandlerTests
             logger);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalCreateResourceHandler_WhenUserHasSearchAndCreatePermissions_ThenCreateShouldSucceed()
     {
         // Arrange
@@ -97,7 +98,7 @@ public class ConditionalCreateResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalCreateResourceHandler_WhenUserHasLegacyReadAndWritePermissions_ThenCreateShouldSucceed()
     {
         // Arrange
@@ -117,7 +118,7 @@ public class ConditionalCreateResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<CreateResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalCreateResourceHandler_WhenUserHasOnlySearchPermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -133,7 +134,7 @@ public class ConditionalCreateResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalCreateResourceHandler_WhenUserHasOnlyCreatePermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -149,7 +150,7 @@ public class ConditionalCreateResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalCreateResourceHandler_WhenUserHasOnlyReadPermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -165,7 +166,7 @@ public class ConditionalCreateResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalCreateHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalCreateResourceHandler_WhenUserLacksAllPermissions_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange

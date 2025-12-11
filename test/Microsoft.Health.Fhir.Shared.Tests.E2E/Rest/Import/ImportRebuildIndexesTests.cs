@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Fact(Skip = "Disabling/rebuilding of indexes is disabled because every E2E $import test is affected. There are special tests still.")]
+        [RetryFact(Skip = "Disabling/rebuilding of indexes is disabled because every E2E $import test is affected. There are special tests still.")]
         public async Task GivenImportOperationEnabled_WhenRebuildIndexesEnabled_ThenAllIndexesShouldBeRebuild()
         {
             if (!_fixture.IsUsingInProcTestServer)

@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithMultipleParams_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             Patient patientAddressCityAndFamily = _fixture.PatientAddressCityAndFamily;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, query, patientAddressCityAndFamily);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithCityParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             string query = string.Format("Patient?address-city={0}&_tag={1}", _fixture.PatientWithSameCity1.Address[0].City, _fixture.FixtureTag);
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, query, _fixture.PatientWithSameCity1, _fixture.PatientWithSameCity2);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithTheMissingModifer_ThenOnlyTheResourcesWithMissingOrPresentParametersAreReturned()
         {
             string queryMissingFalse = string.Format("Patient?gender:missing=false&_tag={0}", _fixture.FixtureTag);

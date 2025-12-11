@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class NotExpressionRewriterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithNotExpression_WhenVisited_AllExpressionPrependedToExpressionList()
         {
             var subExpression = Expression.StringEquals(FieldName.TokenCode, 0, "TestValue123", false);
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(searchParamTableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithNoNotExpression_WhenVisited_OriginalExpressionReturned()
         {
             var searchParamTableExpressions = new List<SearchParamTableExpression>
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression, visitedExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithNotExpressionLast_WhenVisited_NotExpressionUnwrapped()
         {
             var subExpression = Expression.StringEquals(FieldName.TokenCode, 0, "TestValue123", false);

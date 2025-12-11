@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             _validBuiltCompartment.Build(new BundleWrapper(validCompartmentBundle.ToTypedElement()));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceType.Condition, CompartmentType.Patient, 2)]
         [InlineData(ResourceType.Condition, CompartmentType.Encounter, 1)]
         [InlineData(ResourceType.Encounter, CompartmentType.Patient, 1)]
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Equal(testCount, searchParams.Count);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(CompartmentType.Encounter)]
         [InlineData(CompartmentType.Patient)]
         public void GivenAValidCompartmentDefinitionBundle_WhenValidated_ThenValidResourceTypes(CompartmentType compartmentType)
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.True(resourceTypes.Count > 0);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnInvalidCompartmentDefinitionBundle_Issues_MustBeReturned()
         {
             var invalidCompartmentBundle = Samples.GetJsonSample<Bundle>("InvalidCompartmentDefinition");

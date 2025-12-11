@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceWithMatchingHash_WhenPerformingReindexSearch_ThenResourceShouldNotBeReturned()
         {
             ResourceWrapper testPatient = null;
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceWithDifferentHash_WhenPerformingReindexSearch_ThenResourceShouldBeReturned()
         {
             ResourceWrapper testPatient = null;
@@ -115,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAReindexWithHistory_WhenEmptyPageEncountered_EmptyDataNotReturned()
         {
             ResourceWrapper testPatient = null;

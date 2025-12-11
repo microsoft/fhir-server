@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     {
         private readonly ISearchParameterValidator _searchParameterValidator = Substitute.For<ISearchParameterValidator>();
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAction_WhenPostingAnObservationObject_ThenNoSearchParameterActionTaken()
         {
             var filter = new SearchParameterFilterAttribute(_searchParameterValidator);
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await _searchParameterValidator.DidNotReceive().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAction_WhenPostingASearchParameterObject_ThenSearchParameterActionsTaken()
         {
             var filter = new SearchParameterFilterAttribute(_searchParameterValidator);

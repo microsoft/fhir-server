@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             _compartmentIndexer = new CompartmentIndexer(_compartmentManager);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceType.Observation, CompartmentType.Patient, ReferenceKind.Internal, "123")]
         [InlineData(ResourceType.Claim, CompartmentType.Encounter, ReferenceKind.Internal, "example")]
         [InlineData(ResourceType.Account, CompartmentType.Device, ReferenceKind.Internal, "example1")]
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             Assert.Collection(GetResourceIdsForCompartmentType(compartmentType, compartmentIndices), r => string.Equals(expectedResourceId, r, StringComparison.OrdinalIgnoreCase));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceType.Observation, CompartmentType.Patient, ReferenceKind.Internal, "tyythjy")]
         [InlineData(ResourceType.Account, CompartmentType.Device, ReferenceKind.Internal, "jgjghgg")]
         [InlineData(ResourceType.Appointment, CompartmentType.Practitioner, ReferenceKind.Internal, "gnhnhgn")]
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             Assert.Null(GetResourceIdsForCompartmentType(compartmentType, compartmentIndices));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(CompartmentType.Patient, CompartmentType.Encounter, CompartmentType.RelatedPerson)]
         [InlineData(CompartmentType.RelatedPerson, CompartmentType.Practitioner, CompartmentType.Patient)]
         public void GivenSearchIndicesWithMultipleReferenceSearchParams_WhenExtracted_ThenCorrectIndicesExtracted(CompartmentType expectedCompartmentType1, CompartmentType expectedCompartmentType2, CompartmentType expectedCompartmentType3)

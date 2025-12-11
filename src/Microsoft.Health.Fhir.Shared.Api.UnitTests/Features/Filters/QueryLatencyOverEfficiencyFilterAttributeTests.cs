@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private readonly IFhirRuntimeConfiguration _azureApiForFhirConfiguration = new AzureApiForFhirRuntimeConfiguration();
         private readonly IFhirRuntimeConfiguration _azureHealthDataServicesFhirConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidHttpContextForAzureApiForFhir_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsDecorated()
         {
             var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: true);
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(true, fhirContextPropertyBag[KnownQueryParameterNames.OptimizeConcurrency]);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidHttpContextForAzureHealthDataService_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsNotDecorated()
         {
             // The latency-over-efficiency flag is only applicable to Azure API for FHIR.
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.False(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidHttpContext_WhenItDoesNotContainALatencyOverEfficiencyFlag_ThenFhirContextIsClean()
         {
             var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: false);

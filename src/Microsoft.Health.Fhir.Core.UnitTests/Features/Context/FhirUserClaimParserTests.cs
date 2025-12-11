@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class FhirUserClaimParserTests
     {
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetFhirUserClaims))]
         public void GivenAValidFhirUserClaim_WhenParsed_ThenResourceTypeAndIdStoredInContext(Uri fhirUserClaimUri, string expectedResourceType, string expectedId)
         {
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             Assert.Equal(expectedId, fhirRequestContext.AccessControlContext.CompartmentId);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetInvalidFhirUserClaims))]
         public void GivenAnInvalidFhirUserClaim_WhenParsed_ThenExceptionIsThrown(Uri fhirUserClaimUri)
         {

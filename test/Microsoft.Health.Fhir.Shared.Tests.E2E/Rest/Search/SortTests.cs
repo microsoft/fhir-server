@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Web;
 using DotLiquid;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithSortParams_ThenPatientsAreReturnedInTheAscendingOrder()
         {
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourcesAreInAscendingOrderByLastUpdateInRange(0, returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithSortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
         {
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(0, returnedResults.Count, returnedResults);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder(string sortParameterName)
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("birthdate")]
         [InlineData("-birthdate")]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(10, returnedResults.Count());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder(string sortParameterName)
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("birthdate")]
         [InlineData("-birthdate")]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -155,7 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInAscendingOrder()
         {
@@ -168,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdateWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
         {
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
-        /*[Fact]
+        /*[RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithNoFilter_WhenSearchedWithSortParam_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_sort=birthdate", false, patients.Cast<Resource>().ToArray());
         }*/
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithFamilySortParams_ThenPatientsAreReturnedInTheAscendingOrder()
         {
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(0, patients.OrderBy(x => x.Name.Min(n => n.Family)).ToList(), returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithTextSortAndInclude_ThenPatientsAreReturned()
         {
@@ -225,7 +226,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertNumberOfResources(patients, results);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithFamilySortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
         {
@@ -240,7 +241,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(0, patients.OrderByDescending(x => x.Name.Max(n => n.Family)).ToList(), returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithInvalidSortParamsAndHandlingLenient_ThenPatientsAreReturnedUnsortedWithWarning()
         {
@@ -261,7 +262,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedResources);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithInvalidSearchAndSortParamsAndHandlingLenient_ThenPatientsAreReturnedUnsortedWithWarning()
         {
@@ -282,7 +283,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedResources);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithInvalidSortParamsAndHandlingStrict_ThenErrorReturnedWithMessage()
         {
@@ -300,7 +301,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedOperationOutcome);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithInvalidSearchAndSortParamsAndHandlingStrict_ThenErrorReturnedWithMessage()
         {
@@ -318,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedOperationOutcome);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenQueryWithDatetimeFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
@@ -341,7 +342,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, patients.Length, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenQueryWitDatetimeFilter_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
@@ -364,7 +365,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, patients.Length, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
@@ -382,7 +383,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, patients.Length, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
@@ -401,7 +402,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, patients.Length, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenQueryWithMultipleFilters_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -419,7 +420,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, filteredPatients.Count(), returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenQueryWithMultipleFilters_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -437,7 +438,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, filteredPatients.Count(), returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -468,7 +469,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnDatetimeWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
         {
@@ -503,7 +504,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnLastupdated_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -540,7 +541,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourcesAreInAscendingOrderByLastUpdateInRange(patients.Count(), returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnLastupdatedWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
         {
@@ -578,7 +579,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(patients.Count(), returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithObservationInclude_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -613,7 +614,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourceTypeInRange<Patient>(observations.Count, returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithObservationInclude_WhenSearchedWithSortParamOnDatetimeWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
         {
@@ -649,7 +650,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourceTypeInRange<Patient>(observations.Count, returnedResults.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenSingleWrittenObservation_WhenSearched_ThenObservationWithMatchingIdAndLastUpdatedIsReturned()
         {
@@ -660,7 +661,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(written.Meta.LastUpdated, read.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithObservation_WhenSearchedForItemsWithSubjectAndSort_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -692,7 +693,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertObservationEffectiveDateAscendingOrderInRange(0, expected_resources.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithObservation_WhenSearchedForItemsWithNoSubjectAndSort_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -721,7 +722,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertObservationEffectiveDateAscendingOrderInRange(0, expected_resources.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithObservation_WhenSearchedForItemsWithNoSubjectAndLastUpdatedSort_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -750,7 +751,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourcesAreInAscendingOrderByLastUpdateInRange(0, expected_resources.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithObservation_WhenSearchedForItemsWithNoSubjectAndLastUpdatedSort_ThenResourcesAreReturnedInDescendingOrder()
         {
@@ -779,7 +780,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(0, expected_resources.Count, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
@@ -792,7 +793,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(expectedPatients.Length, expectedPatients, returnedPatients);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -826,7 +827,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(expectedPatients.Count, expectedPatients, returnedPatients);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenPatientsWithMultipleNamesForSql_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -841,7 +842,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(expectedPatients.Count, expectedPatients, returnedPatients);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -864,7 +865,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
          * For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order).
          * Hence we see a difference when sorting by Descending order.
         */
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -882,7 +883,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(count, expectedPatients, returnedPatients);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
@@ -901,7 +902,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertRangeOfCitiesInPatientsCollections(expectedPatients, returnedPatients.Cast<Patient>().ToArray());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -923,7 +924,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertRangeOfCitiesInPatientsCollections(expectedPatients, returnedPatients.Cast<Patient>().ToArray());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -957,7 +958,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
          * Hence we see a difference when sorting by Descending order.
          * */
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -976,7 +977,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(count, expectedPatients, returnedResults);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -992,7 +993,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertNumberOfResources(expectedPatients, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyNameWithTotal_ThenCorrectTotalReturned()
         {
             var tag = Guid.NewGuid().ToString();
@@ -1003,7 +1004,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertNumberOfResources(expectedPatients, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithManagingOrg_WhenSearchedWithOrgIdentifierAndSorted_ThenPatientsAreReturned()
         {
@@ -1034,7 +1035,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(expectedPatients.Length, expectedPatients, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenPatientWithManagingOrg_WhenSearchedWithOrgNameAndSortedByName_ThenPatientsAreReturned()
@@ -1073,7 +1074,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(expectedPatients.Length, expectedPatients, returnedResults);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenOrg_WhenSearchedWithPartOfAndSortedByName_ThenOrgsAreReturned()
@@ -1120,7 +1121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /*
          * Needs investigation, this breaks GivenPatients_WhenSearchedWithSortParamAndMissingIdentifier_SearchResultsReturnedShouldHonorMissingIdentifier
          */
-        [Theory]
+        [RetryTheory]
         [InlineData("address-postalcode")]
         [InlineData("-address-postalcode")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
@@ -1134,7 +1135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("birthdate", false)]
         [InlineData("-birthdate", true)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]

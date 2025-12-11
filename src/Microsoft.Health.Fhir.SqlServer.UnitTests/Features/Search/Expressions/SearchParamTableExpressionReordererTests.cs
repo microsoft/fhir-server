@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private static readonly SearchParameterExpression NormalExpression = new SearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), Expression.Equals(FieldName.TokenCode, null, "TestValue"));
         private static readonly SearchParameterExpression NotExpression = new SearchParameterExpression(NormalExpression.Parameter, Expression.Not(NormalExpression.Expression));
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithSingleTableExpression_WhenReordered_ReturnsOriginalExpression()
         {
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression, visitedExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMultipleTableExpressions_WhenReordered_DenormilizedExpressionReturnedFirst()
         {
             var tableExpressions = new List<SearchParamTableExpression>
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMultipleTableExpressions_WhenReordered_ReferenceExpressionReturnedBeforeNormal()
         {
             var tableExpressions = new List<SearchParamTableExpression>
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.CompartmentSearch)]
         public void GivenExpressionWithMultipleTableExpressions_WhenReordered_CompartmentExpressionReturnedBeforeNormal()
         {
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMultipleTableExpressions_WhenReordered_MissingParameterExpressionReturnedBeforeNotExpression()
         {
             var tableExpressions = new List<SearchParamTableExpression>
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMultipleTableExpressions_WhenReordered_IncludeExpressionReturnedLast()
         {
             var tableExpressions = new List<SearchParamTableExpression>

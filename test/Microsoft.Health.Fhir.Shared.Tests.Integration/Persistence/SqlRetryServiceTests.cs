@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -40,25 +41,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         // SQL fatal error tests.
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandAction_WhenFatalError_SingleRetryIsRun()
         {
             await SingleRetryTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithSingleFatalError, false, 0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandFunc_WhenFatalError_SingleRetryIsRun()
         {
             await SingleRetryTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithSingleFatalError, true, 0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandAction_WhenErrorAfterSelect_AllRetriesFail()
         {
             await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, false);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_AllRetriesFail()
         {
             await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, true);
@@ -66,19 +67,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         // SQL SELECT retry tests.
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandFunc_WhenErrorBeforeSelect_SingleRetryIsRun()
         {
             await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorBeforeSelect, true, 10);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandFunc_WhenErrorInSelect_SingleRetryIsRun()
         {
             await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorInSelect, true, 10);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_SingleRetryIsRun()
         {
             await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorAfterSelect, true, 10);
@@ -86,25 +87,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         // Connection error retry tests.
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
 
-        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
+        [RetryFact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
-        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
+        [RetryFact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(InvalidSearchParamData))]
         public async Task GivenInvalidSearchParam_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ValidSearchParamData))]
         public async Task GivenValidSearchParam_WhenValidatingSearchParam_ThenNoExceptionThrown(SearchParameter searchParam, string method)
         {
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUnauthorizedUser_WhenValidatingSearchParam_ThenExceptionThrown()
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => validator.ValidateSearchParameterInput(new SearchParameter(), "POST", CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(DuplicateCodeAtBaseResourceData))]
         public async Task GivenInvalidSearchParamWithDuplicateCode_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(DuplicateUrlData))]
         public async Task GivenValidSearchParamWithDuplicateUrl_WhenValidatingSearchParamByStatus_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method, SearchParameterStatus searchParameterStatus)
         {
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(0, 0)]
         [InlineData(1, 0)]
         [InlineData(-1, 0)]

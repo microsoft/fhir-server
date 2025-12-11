@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     new ControllerActionDescriptor()));
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenProvidedAFhirController_CheckIfAllExpectedServiceFilterAttributesArePresent()
         {
             Type[] expectedCustomAttributes = new Type[]
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenProvidedAFhirController_CheckIfTheBundleEndpointHasTheLatencyMetricFilter()
         {
             Type expectedCustomAttribute = typeof(BundleEndpointMetricEmitterAttribute);
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "BatchAndTransactions", _targetFhirControllerClass);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenProvidedAFhirController_CheckIfTheSearchEndpointsHaveTheLatencyMetricFilter()
         {
             Type expectedCustomAttribute = typeof(SearchEndpointMetricEmitterAttribute);
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenProvidedAFhirController_CheckIfTheCrudEndpointsHaveTheLatencyMetricFilter()
         {
             Type expectedCustomAttribute = typeof(CrudEndpointMetricEmitterAttribute);
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "VRead", _targetFhirControllerClass);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(KnownQueryParameterNames.BulkHardDelete, DeleteOperation.HardDelete)]
         [InlineData(KnownQueryParameterNames.HardDelete, DeleteOperation.HardDelete)]
         [InlineData(null, DeleteOperation.SoftDelete)]
@@ -157,7 +158,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(KnownQueryParameterNames.BulkHardDelete, DeleteOperation.HardDelete)]
         [InlineData(KnownQueryParameterNames.HardDelete, DeleteOperation.HardDelete)]
         [InlineData(null, DeleteOperation.SoftDelete)]

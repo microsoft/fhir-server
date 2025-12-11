@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Antlr4.Runtime.Misc;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlExceptionExtensionsTests
     {
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSqlTransientCheckData))]
         public void GivenSqlException_WhenCheckingTransiency_ThenIsSqlTransientExceptionShouldReturnCorrectValue(
             int errorNumber,

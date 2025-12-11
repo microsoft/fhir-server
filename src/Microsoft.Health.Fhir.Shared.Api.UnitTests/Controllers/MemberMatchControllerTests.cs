@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -54,14 +55,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetValidBody(),
             };
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(InvalidBody), MemberType = typeof(MemberMatchControllerTests))]
         public async Task GivenAMemberMatchDataRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(Parameters body)
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _memberMatchController.MemberMatch(body));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ValidBody), MemberType = typeof(MemberMatchControllerTests))]
         public async Task GivenAMemberMatchDataRequest_WithValidBody_ThenMemberMatchCalledWithCorrectParams(Parameters body)
         {

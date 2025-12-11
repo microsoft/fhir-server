@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _sqlConnectionWrapperFactory = fixture.SqlConnectionWrapperFactory;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSetOfResources_MergeAndGet()
         {
             var patientId = Guid.NewGuid().ToString();

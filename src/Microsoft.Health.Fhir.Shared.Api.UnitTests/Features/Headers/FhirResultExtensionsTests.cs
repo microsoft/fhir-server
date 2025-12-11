@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Net;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             }.ToResourceElement();
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenSettingALocationHeader_ThenFhirResultHasALocationHeader()
         {
             var locationUrl = new Uri($"http://localhost/{_mockResource.InstanceType}/{_mockResource.Id}/_history/{_mockResource.VersionId}");
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(locationUrl.AbsoluteUri, fhirResult.Headers[HeaderNames.Location]);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenSettingAnETagHeader_ThenFhirResultHasAnETagHeader()
         {
             var version = _mockResource.VersionId;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(string.Format(ETagFormat, version), fhirResult.Headers[HeaderNames.ETag]);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenSettingALastModifiedHeader_ThenFhirResultHasALastModifierHeader()
         {
             var fhirResult = FhirResult.Create(_mockResource).SetLastModifiedHeader();
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(_mockResource.LastUpdated?.ToString("r", CultureInfo.InvariantCulture), fhirResult.Headers[HeaderNames.LastModified]);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenCreatingAFhirResultAndNotSettingHeaders_ThenThereIsNoHeaders()
         {
             var fhirResult = FhirResult.Create(_mockResource);
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Empty(fhirResult.Headers);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenAddingTwoHeaders_ThenFhirResultHasAtLeastTwoHeaders()
         {
             var fhirResult = FhirResult.Create(_mockResource).SetLastModifiedHeader().SetETagHeader();
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(2, fhirResult.Headers.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenAddingSameHeaderTwice_ThenOnlyOneHeaderIsPresent()
         {
             var result = FhirResult.Create(_mockResource)
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Single(result.Headers);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenAddingStringEtag_ThenStringETagIsReturned()
         {
             var fhirResult = FhirResult.Create(_mockResource).SetETagHeader(WeakETag.FromVersionId("etag"));
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal("W/\"etag\"", fhirResult.Headers[HeaderNames.ETag]);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null)]
         [InlineData(ReturnPreference.Minimal, null)]
         [InlineData(ReturnPreference.Representation, null)]

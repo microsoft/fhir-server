@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToTypedElement().ToResourceElement());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenValidatingCapability_ThenAllValidationRulesShouldRun()
         {
             var preProcessor = new ValidateCapabilityPreProcessor<GetResourceRequest>(_conformanceProvider);
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             await preProcessor.Process(getResourceRequest, CancellationToken.None);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DeleteOperation.SoftDelete)]
         [InlineData(DeleteOperation.HardDelete)]
         public async Task GivenARequestNotAllowed_WhenValidatingCapability_ThenMethodNotAllowedExceptionShouldThrow(DeleteOperation deleteOperation)

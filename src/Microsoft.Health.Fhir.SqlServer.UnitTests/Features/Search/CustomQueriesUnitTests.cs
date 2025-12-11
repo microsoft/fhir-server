@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Data;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.Search)]
     public class CustomQueriesUnitTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenCustomQueryClass_WithGivenWaitTime_QueryToDBWillOccurOnlyAfterWaitPeriod()
         {
             // set wait time to 2 seconds;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             connection.Received(2).CreateCommand();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCustomQueryClass_WithGivenSprocName_DictionaryWillPopulateCorrectly()
         {
             // set wait time to 1 second

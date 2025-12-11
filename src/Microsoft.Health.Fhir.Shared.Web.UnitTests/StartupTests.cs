@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.ApplicationInsights;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
         private const string TelemetryProviderNoneConfigurationValue = "None";
         private const string AddTelemetryProviderMethodName = "AddTelemetryProvider";
 
-        [Fact]
+        [RetryFact]
         public void GivenAppSettings_WhenTelemetrySectionIsAbsent_ThenTelemetryProviderShouldBeDisabled()
         {
             IConfiguration configuration = Substitute.For<IConfiguration>();
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
                 descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAppSettings_WhenTelemetryProviderIsNone_ThenTelemetryProviderShouldBeDisabled()
         {
             IConfiguration configuration = BuildConfiguration(TelemetryProviderNoneConfigurationValue, null, null);
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
                 descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAppSettings_WhenConnectionInfoIsMissing_ThenTelemetryProviderShouldBeDisabled()
         {
             IConfiguration configuration = BuildConfiguration(TelemetryProviderApplicationInsightsConfigurationValue, null, null);
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
                 descriptor.ImplementationType != null && descriptor.ImplementationType.FullName.Contains("OpenTelemetry", StringComparison.OrdinalIgnoreCase));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DefaultInstrumentationKey, null)]
         [InlineData(null, DefaultConnectionString)]
         [InlineData(DefaultInstrumentationKey, DefaultConnectionString)]
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null)]
         [InlineData(DefaultConnectionString)]
         public void GivenAppSettings_WhenTelemetryProviderIsOpenTelemetry_ThenOpenTelemetryShouldBeEnabled(

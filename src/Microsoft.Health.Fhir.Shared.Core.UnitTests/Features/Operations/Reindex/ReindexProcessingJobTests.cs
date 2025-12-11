@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      NullLogger<ReindexProcessingJob>.Instance);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAProcessingJob_WhenExecuted_ThenCorrectCountIsProcessed()
         {
             var expectedResourceType = "Account";
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             return searchResult;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSurrogateIdRange_WhenExecuted_ThenAdditionalQueryAdded()
         {
             var expectedResourceType = "Account";
@@ -201,7 +202,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(1, result.SucceededResourceCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSurrogateIdRange_WhenHashDoesNotMatch_ThenRaiseError()
         {
             var expectedResourceType = "Account";

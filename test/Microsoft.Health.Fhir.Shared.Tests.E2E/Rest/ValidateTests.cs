@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Net;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
         [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", null)]
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.DoesNotContain(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Organization/$validate", "Organization", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Patient/$validate", "Patient", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
         [InlineData("CarePlan/$validate", "CarePlan", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(
             "Patient/$validate",
             "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}")]
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     string.Format(Api.Resources.ParsingError, exception.Message));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(
             "Observation/$validate",
             "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     expression);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
             var fhirSource = Samples.GetJson("Profile-Patient-uscore");
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.DoesNotContain(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUnpresentIdRequest_WhenValidateIt_ThenAnErrorShouldBeReturned()
         {
             var exception = await Assert.ThrowsAsync<FhirClientException>(async () =>
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidateByIdRequestWithStricterProfile_WhenRunningValidate_ThenAnErrorShouldBeReturned()
         {
             Patient createdResource = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
         {
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Success);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidateRequest_WhenAnInvalidResourceIsPassedByParameter_ThenADetailedErrorIsReturned()
         {
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}}]}";
@@ -198,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "TypeName");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenInvalidProfile_WhenValidateCalled_ThenBadRequestReturned()
         {
             var patient = Samples.GetJson("Patient");
@@ -218,7 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");

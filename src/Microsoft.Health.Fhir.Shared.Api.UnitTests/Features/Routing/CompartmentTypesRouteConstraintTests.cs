@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
     [Trait(Traits.Category, Categories.Web)]
     public class CompartmentTypesRouteConstraintTests : RouteTestBase
     {
-        [Theory]
+        [RetryTheory]
         [InlineData("/Patient/123/Observation", "Patient", "123", "Observation")]
         [InlineData("/Device/abc/Patient", "Device", "abc", "Patient")]
         [InlineData("/Encounter/asasasa/Condition", "Encounter", "asasasa", "Condition")]
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.Equal(resourceType, data.Values[KnownActionParameterNames.ResourceType]);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("/Condition/123/Observation")]
         [InlineData("/Observation/abc/Patient")]
         [InlineData("/asaadad/asasasa/Condition")]
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.CompartmentType));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("/Patient/123/aasdas")]
         [InlineData("/Device/abc/etrvfdv")]
         [InlineData("/Encounter/asasasa/ccs_sdfsdfsd")]
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.False(data.Values.ContainsKey(KnownActionParameterNames.CompartmentType));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("/patient/123/Condition")]
         [InlineData("/DevIce/abc/Account")]
         [InlineData("/EncoUnter/asasasa/Claim")]

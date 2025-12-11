@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAChainedSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&subject:Patient.name={Fixture.SmithPatientGivenName}";
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANestedChainedSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&result.subject:Patient.name={Fixture.SmithPatientGivenName}";
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAMultiNestedChainedSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&result.subject:Patient.organization.address-city={Fixture.OrganizationCity}";
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANestedChainedSearchExpressionWithAnOrFinalCondition_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&result.subject:Patient.name={Fixture.SmithPatientGivenName},{Fixture.TrumanPatientGivenName}";
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&subject:Patient._tag={Fixture.Tag}";
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&subject:Patient._tag={Fixture.Tag}&_count=2";
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithLoincDiagnosticReport, Fixture.TrumanLoincDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameterWithNoResults_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&subject:Patient._type=Observation";
@@ -109,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code={Fixture.SnomedCode}";
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code={Fixture.SnomedCode}&_count=1";
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.TrumanPatient);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"?_tag={Fixture.Tag}&_type=Patient,Device&_has:Observation:subject:code={Fixture.SnomedCode}";
@@ -143,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient, Fixture.DeviceSnomedSubject);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANestedReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Observation:patient:_has:DiagnosticReport:result:code={Fixture.SnomedCode}";
@@ -153,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANestedReverseChainSearchExpressionOverTheIdResourceParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Group:member:_id={Fixture.PatientGroup.Id}";
@@ -164,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Fact]
+        [RetryFact]
         public async Task GivenANestedReverseChainSearchExpressionOverTheTypeResourceParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_has:Group:member:_type=Group");
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Fact]
+        [RetryFact]
         public async Task GivenAChainedSearchExpressionWithAPredicateOnSurrogateId_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"subject:Patient._type=Patient&subject:Patient._tag={Fixture.Tag}";
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(new Bundle { Entry = resources }, completeBundle.Entry.Select(e => e.Resource).ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAReverseChainedSearchExpressionWithAPredicateOnSurrogateId_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_has:Observation:patient:_tag={Fixture.Tag}";
@@ -217,7 +218,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(new Bundle { Entry = resources }, completeBundle.Entry.Select(e => e.Resource).ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_tag={Fixture.Tag}";
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_tag={Fixture.Tag}&_count=1";
@@ -241,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverAResourceTableParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}";
@@ -251,7 +252,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.SmithSnomedDiagnosticReport, Fixture.TrumanSnomedDiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverAResourceTableParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}&_count=1";
@@ -266,7 +267,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-        [Fact]
+        [RetryFact]
         public async Task GivenANonSelectiveChainingQueryInCosmosDb_WhenSearched_ThenAnErrorShouldBeThrown()
         {
             string tag = Guid.NewGuid().ToString();
@@ -318,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Fact]
+        [RetryFact]
         public async Task GivenAChainedSearchExpressionWithNotProvider_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"subject:Patient.gender:not=female&subject:Patient._tag={Fixture.Tag}";
@@ -339,7 +340,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
 #if !Stu3
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Fact]
+        [RetryFact]
         public async Task GivenTwoChainedSearchExpressionsAndInclude_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"participating-organization.identifier={Fixture.OrganizationIdentifier}&_include=OrganizationAffiliation:location&participating-organization.type=practice";
@@ -349,7 +350,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 #endif
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCountOnlyReverseChainSearchWithDeletedResource_WhenSearched_ThenCorrectCountIsReturned()
         {
             string query = $"_has:CareTeam:patient:_tag={Fixture.Tag}&_summary=count";

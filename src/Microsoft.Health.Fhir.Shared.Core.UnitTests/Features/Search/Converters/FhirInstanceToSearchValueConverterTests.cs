@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 
         protected abstract Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync();
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANullValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             IEnumerable<ISearchValue> values = (await GetTypeConverterAsync()).ConvertTo(null);

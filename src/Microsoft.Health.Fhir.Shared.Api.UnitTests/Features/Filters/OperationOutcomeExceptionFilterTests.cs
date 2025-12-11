@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirBasedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(_correlationId, result.Result.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceGoneExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
@@ -92,13 +93,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(_correlationId, result.Result.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceNotFoundExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new ResourceNotFoundException("Exception"), HttpStatusCode.NotFound);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirBasedExceptionWithIssueMessage_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcomeWithIssueComponent()
         {
             var reason = "This is a test reason.";
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceNotValidExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             var propertyName = "test";
@@ -129,25 +130,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(reason, operation.Issue[0].Diagnostics);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUnsupportedMediaExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new UnsupportedMediaTypeException("Unsupported Media"), HttpStatusCode.UnsupportedMediaType);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnInvalidSearchOperationException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new InvalidSearchOperationException("Invalid search parameter."), HttpStatusCode.Forbidden);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchOperationNotSupportedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new SearchOperationNotSupportedException("Not supported."), HttpStatusCode.Forbidden);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestRateExceededException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             TimeSpan retryAfter = TimeSpan.FromSeconds(1.5);
@@ -159,25 +160,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 h => string.Equals(h.Key, "x-ms-retry-after-ms", StringComparison.Ordinal) && string.Equals(h.Value, "1500", StringComparison.Ordinal));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestNotValidException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new RequestNotValidException("Invalid request."), HttpStatusCode.BadRequest);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnOperationNotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.MethodNotAllowed);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAJobNotFoundException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new JobNotFoundException("Job not found."), HttpStatusCode.NotFound);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(HttpStatusCode.BadRequest)]
         [InlineData(HttpStatusCode.InternalServerError)]
         public void GivenAnOperationFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
@@ -185,7 +186,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new OperationFailedException("Operation failed.", statusCode), statusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(HttpStatusCode.BadRequest)]
         [InlineData(HttpStatusCode.PreconditionFailed)]
         [InlineData(HttpStatusCode.NotFound)]
@@ -194,73 +195,73 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new FhirTransactionFailedException("Transaction failed.", statusCode, Array.Empty<OperationOutcomeIssue>()), statusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANotAcceptableException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new NotAcceptableException("Not acceptable."), HttpStatusCode.NotAcceptable);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestEntityTooLargeException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new RequestEntityTooLargeException(), HttpStatusCode.RequestEntityTooLarge);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenCustomerManagedKeyException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new CustomerManagedKeyException("A customer-managed key error message"), HttpStatusCode.Forbidden);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenABundleEntryLimitExceededException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new BundleEntryLimitExceededException("Bundle entry limit exceeded."), HttpStatusCode.BadRequest);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATransactionFailedExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new TransactionFailedException(), HttpStatusCode.InternalServerError);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFormatException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new FormatException("Invalid format"), HttpStatusCode.BadRequest);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUnrecognizedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(), HttpStatusCode.InternalServerError);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenALoginFailedForUserException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new LoginFailedForUserException(Core.Resources.InternalServerError), HttpStatusCode.Unauthorized);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(null, new Exception()), HttpStatusCode.InternalServerError);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestRateExceededExceptionAsAnInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(null, new RequestRateExceededException(null)), HttpStatusCode.TooManyRequests);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATransactionDeadlockException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new TransactionDeadlockException(Core.Resources.TransactionDeadlock), HttpStatusCode.Conflict);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnOperationCanceledException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new System.OperationCanceledException(), HttpStatusCode.RequestTimeout);

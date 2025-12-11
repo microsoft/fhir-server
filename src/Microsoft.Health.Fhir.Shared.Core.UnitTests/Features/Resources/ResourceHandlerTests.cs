@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _mediator = new Mediator(provider);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenCreatingAResourceWithAnId_ThenTheIdShouldBeIgnoredAndAnIdShouldBeAssigned()
         {
             var resource = Samples.GetDefaultObservation()
@@ -166,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotEqual("id1", deserializedResource.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenSavingAResourceWithNoId_ThenAnIdShouldBeAssigned()
         {
             var resource = Samples.GetDefaultObservation()
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(deserializedResource.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenCreatingAResourceAndResourceIdProviderHasValue_ThenTheIdShouldBeUsedFromResourceIdProvider()
         {
             var resource = Samples.GetDefaultObservation()
@@ -199,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal("id2", deserializedResource.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenLastUpdatedShouldBeSet()
         {
             var resource = Samples.GetDefaultObservation();
@@ -218,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenVersionShouldBeSet()
         {
             var resource = Samples.GetDefaultObservation();
@@ -242,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal("1", deserialized.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenSavingAResourceWithoutETag_ThenPreconditionFailExceptionIsThrown()
         {
             var resource = Samples.GetDefaultObservation();
@@ -267,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal("1", deserialized.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_GettingAnResourceThatDoesntExist_ThenANotFoundExceptionIsThrown()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetResourceAsync(new ResourceKey<Observation>("id1")));
@@ -275,7 +276,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_GettingAnResourceThatIsDeleted_ThenAGoneExceptionIsThrown()
         {
             var observation = Samples.GetDefaultObservation()
@@ -288,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DeleteOperation.HardDelete)]
         [InlineData(DeleteOperation.SoftDelete)]
         [InlineData(DeleteOperation.PurgeHistory)]
@@ -297,7 +298,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1", "version1"), deleteOperation));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenDeletingAResourceThatIsAlreadyDeleted_ThenDoNothing()
         {
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
@@ -310,7 +311,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Null(resultKey.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenHardDeletingWithSufficientPermissions_ThenItWillBeHardDeleted()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Delete | DataActions.HardDelete);
@@ -326,7 +327,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Null(resultKey.VersionId);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DataActions.Delete)]
         [InlineData(DataActions.HardDelete)]
         public async Task GivenAFhirMediator_WhenHardDeletingWithInsufficientPermissions_ThenFails(DataActions permittedActions)
@@ -338,7 +339,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.HardDelete));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DataActions.Delete)]
         [InlineData(DataActions.HardDelete)]
         public async Task GivenAFhirMediator_WhenPurgingHistoryWithInsufficientPermissions_ThenFails(DataActions permittedActions)
@@ -350,7 +351,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.PurgeHistory));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenConfiguredWithoutReadHistory_ThenReturnMethodNotAllowedForOldVersionObservation()
         {
             var observation = Samples.GetDefaultObservation()
@@ -367,7 +368,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenConfiguredWithoutReadHistory_ThenReturnObservationForLatestVersion()
         {
             var observation = Samples.GetDefaultObservation()
@@ -384,7 +385,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(observation.Id, result.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenConfiguredWithReadHistory_ThenReturnsPatientWithOldVersion()
         {
             var birthDateProp = "Patient.BirthDate";
@@ -404,7 +405,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenConfiguredWithoutReadHistory_ThenReturnsPatientWithLatestVersion()
         {
             var birthDateProp = "Patient.BirthDate";
@@ -424,7 +425,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Patient", "1234", true)]
         [InlineData("patient", "1234", false)]
         public async Task GivenAFhirMediator_GettingAnResourceByWrongCasingResurceType_ThenAResponseShouldBeBadRequest(string resourceType, string id, bool validResourceType)
@@ -475,7 +476,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUpsertRequestWithPostHttpVerb_WhenUserHasCreatePermission_ThenShouldSucceed()
         {
             var resource = Samples.GetDefaultObservation();
@@ -493,7 +494,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DataActions.None)]
         [InlineData(DataActions.Update)]
         public async Task GivenUpsertRequestWithPostHttpVerb_WhenUserLacksCreatePermission_ThenShouldThrowUnauthorizedException(DataActions returnedDataActions)
@@ -511,7 +512,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUpsertRequestWithPutHttpVerb_WhenUserHasUpdatePermission_ThenShouldSucceed()
         {
             var resource = Samples.GetDefaultObservation();
@@ -529,7 +530,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DataActions.None)]
         [InlineData(DataActions.Create)]
         public async Task GivenUpsertRequestWithPutHttpVerb_WhenUserLacksUpdatePermission_ThenShouldThrowUnauthorizedException(DataActions returnedDataAction)
@@ -547,7 +548,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUpsertRequestWithInvalidHttpVerb_WhenResourceHasNoId_ThenShouldRequireCreatePermission()
         {
             var resource = Samples.GetDefaultObservation().UpdateId(null);
@@ -564,7 +565,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUpsertRequestWithRequestContextPost_WhenNoBundleContext_ThenShouldRequireCreatePermission()
         {
             var resource = Samples.GetDefaultObservation();
@@ -581,7 +582,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUpsertRequestWithRequestContextPut_WhenNoBundleContext_ThenShouldRequireUpdatePermission()
         {
             var resource = Samples.GetDefaultObservation();

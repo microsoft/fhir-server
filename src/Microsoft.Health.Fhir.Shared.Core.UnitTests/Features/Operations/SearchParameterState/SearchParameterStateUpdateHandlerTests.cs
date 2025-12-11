@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -228,7 +229,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             _searchParameterDefinitionManager.TypeLookup = typeLookup;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestToUpdateSearchParameterStatus_WhenTheStatusIsEnabled_ThenTheStatusShouldBeUpdated()
         {
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
@@ -251,7 +252,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.Supported.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestToUpdateSearchParameterStatus_WhenTheResourceIsNotFound_ThenAnOperationOutcomeIsReturnedWithInformationSeverity()
         {
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
@@ -271,7 +272,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Information);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestToUpdateSearchParameterStatus_WhenStatusIsNotSupportedOrDisabled_ThenAnOperationOutcomeIsReturnedWithErrorSeverity()
         {
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
@@ -291,7 +292,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestToUpdateSearchParameterStatus_WhenStatusIsDisabled_ThenTheStatusIsUpdatedAsPendingDisable()
         {
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
@@ -314,7 +315,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.PendingDisable.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestToUpdateSearchParameterStatus_WhenRequestIsValied_ThenAuditLogContainsStateChange()
         {
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);

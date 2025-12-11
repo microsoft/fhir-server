@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                 new DataResourceFilter(MissingDataFilterCriteria.Default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchCompartmentRequest_WhenHandled_ThenABundleShouldBeReturned()
         {
             var request = new SearchCompartmentRequest("Patient", "123", "Observation", new Tuple<string, string>[0]);

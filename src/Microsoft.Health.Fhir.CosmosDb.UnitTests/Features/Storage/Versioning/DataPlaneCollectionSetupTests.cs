@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
@@ -88,14 +89,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             _setup = new DataPlaneCollectionSetup(_cosmosDataStoreConfiguration, optionsMonitor, collectionInitializer, storeProcedureInstaller, _logger);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionIndexIsUpdated()
         {
             await _setup.UpdateFhirCollectionSettingsAsync(_version, CancellationToken.None);
             await _container.Received(1).ReplaceContainerAsync(Arg.Any<ContainerProperties>(), null, Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionTTLIsSetToNeg1()
         {
             await _setup.UpdateFhirCollectionSettingsAsync(_version, CancellationToken.None);

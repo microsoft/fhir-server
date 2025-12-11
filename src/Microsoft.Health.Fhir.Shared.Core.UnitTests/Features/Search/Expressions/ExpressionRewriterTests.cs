@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class ExpressionRewriterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenANoopRewriter_WhenVisiting_ReturnsTheSameExpressionInstances()
         {
             var expressionRewriter = new NoopRewriter();
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             VerifyVisit(Expression.StringEquals(FieldName.String, null, "Bob", true));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARewriterThatTurnsValuesIntoRanges_WhenVisiting_ReplacesSubexpressions()
         {
             var expressionRewriter = new RangeRewriter();

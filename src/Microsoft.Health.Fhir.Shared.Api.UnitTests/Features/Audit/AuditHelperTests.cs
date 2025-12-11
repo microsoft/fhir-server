@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -18,6 +18,7 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNoAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged()
         {
             _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerClaims: default);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(FhirAnonymousOperationType.Metadata)]
         [InlineData(FhirAnonymousOperationType.Versions)]
         public void GivenInvalidAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged(string auditEventType)
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerClaims: default);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerAgent: Arg.Any<string>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNoAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged()
         {
             _auditHelper.LogExecuted(_httpContext, _claimsExtractor);
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerClaims: default);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(FhirAnonymousOperationType.Metadata)]
         [InlineData(FhirAnonymousOperationType.Versions)]
         public void GivenInvalidAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged(string auditEventType)
@@ -161,7 +162,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerClaims: default);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
@@ -188,7 +189,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerAgent: Arg.Any<string>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenDuration_WhenLogExecutedIsCalled_ThenAdditionalPropertiesIsNotNullInAuditLog()
         {
             long durationMs = 1123;
@@ -216,7 +217,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 additionalProperties: Arg.Is<Dictionary<string, string>>(d => d.ContainsKey(AuditHelper.ProcessingDurationMs) && d.ContainsValue(durationMs.ToString())));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAuditHelper_WhenLogExecutingIsCalled_ThenCallerAgentShouldAlwaysBeDefaultCallerAgent()
         {
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
@@ -237,7 +238,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerAgent: AuditHelper.DefaultCallerAgent);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("DELETE", "DELETE")]
         [InlineData("GET", "GET")]
         [InlineData("PATCH", "PATCH")]
@@ -274,7 +275,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerAgent: AuditHelper.DefaultCallerAgent);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAuditEventWithLogInjectionAttack_WhenLogExecutedIsCalled_ThenAuditLogHasSanitzedInput()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;

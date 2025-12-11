@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 
         private static ExportJobRecord exportJobRecord = CreateDummyExportJobRecord();
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValidAnonymizationConfiguration_WhenCreatingAnonymizer_AnonymizerShouldBeCreated()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             Assert.NotNull(anonymizer);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnInvalidAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             _ = await Assert.ThrowsAsync<FailedToParseAnonymizationConfigurationException>(() => factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();

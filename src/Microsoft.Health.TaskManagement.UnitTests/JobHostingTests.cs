@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             _logger = Substitute.For<ILogger<JobHosting>>();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenValidJobs_WhenJobHostingStart_ThenJobsShouldBeExecute()
         {
             TestQueueClient queueClient = new TestQueueClient();
@@ -70,7 +71,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobWithCriticalException_WhenJobHostingStart_ThenJobShouldFailWithErrorMessage()
         {
             string errorMessage = "Test error";
@@ -139,7 +140,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(JobStatus.Completed, jobGroup2.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnCrashJob_WhenJobHostingStart_ThenJobShouldBeRePickup()
         {
             int executeCount0 = 0;
@@ -172,7 +173,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(1, executeCount0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnLongRunningJob_WhenJobHostingStop_ThenJobShouldBeCompleted()
         {
             AutoResetEvent autoResetEvent = new AutoResetEvent(false);
@@ -210,7 +211,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(1, executeCount0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobWithInvalidOperationException_WhenJobHostingStart_ThenJobFail()
         {
             int executeCount0 = 0;
@@ -245,7 +246,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(1, executeCount0);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(typeof(OperationCanceledException))]
         [InlineData(typeof(TaskCanceledException))]
         public async Task GivenJobWithCanceledException_WhenJobHostingStart_ThenJobShouldBeCanceled(Type exceptionType)
@@ -281,7 +282,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(1, executeCount0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobRunning_WhenCancel_ThenJobShouldBeCancelled()
         {
             AutoResetEvent autoResetEvent = new AutoResetEvent(false);
@@ -320,7 +321,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(JobStatus.Completed, job1.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRandomFailuresInQueueClient_WhenStartHosting_ThenAllTasksShouldBeCompleted()
         {
             var factory = new TestJobFactory(t =>

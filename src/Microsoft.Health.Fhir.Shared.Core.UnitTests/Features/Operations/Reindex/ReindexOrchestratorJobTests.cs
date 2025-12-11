@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             };
         }
 
-        [Theory(Skip = "Causing random timeouts")]
+        [RetryTheory(Skip = "Causing random timeouts")]
         [InlineData(DataStore.SqlServer)]
         [InlineData(DataStore.CosmosDb)]
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed(DataStore dataStore)
@@ -363,7 +364,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Contains(param.Url.ToString(), processingJobDefinition.SearchParameterUrls);
         }
 
-        [Fact(Skip = "Causing random timeouts")]
+        [RetryFact(Skip = "Causing random timeouts")]
         public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCompletesWithNoWork()
         {
             var job = CreateReindexJobRecord();

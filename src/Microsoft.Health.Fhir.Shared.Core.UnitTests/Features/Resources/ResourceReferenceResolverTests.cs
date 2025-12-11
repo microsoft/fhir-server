@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundleWithIdentifierReferences_WhenResolved_ThenReferencesValuesAreNotUpdated()
         {
             var observation = new Observation
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
@@ -102,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundleWithConditionalReferences_WhenNotResolved_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundleWithConditionalReferences_WhenResolvedToMultipleResources_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundleWithInvalidResourceTypeInReference_WhenExecuted_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidResourceType");

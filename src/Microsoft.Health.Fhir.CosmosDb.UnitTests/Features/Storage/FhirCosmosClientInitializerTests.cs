@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using Azure.Core;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _collectionInitializers = new List<ICollectionInitializer> { _collectionInitializer1, _collectionInitializer2 };
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_NullPreferredLocations_DoesNotSetPreferredLocations()
         {
             var client = _initializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Null(client.ClientOptions.ApplicationPreferredRegions);
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_WhenTwoTheSameKeyIsProvidedTwice_ThenCosmosDbClientsCreatedAreTheSame()
         {
             var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA" });
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.True(client1 == client3);
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_WhenTwoDifferentKeysAreProvided_ThenCosmosDbClientCreatedIsDifferent()
         {
             var client1 = _initializer.CreateCosmosClient(new CosmosDataStoreConfiguration() { Host = CosmosDbLocalEmulator.Host, Key = "AAAA"});
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.True(client1 != client3);
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_EmptyPreferredLocations_DoesNotSetPreferredLocations()
         {
             _cosmosDataStoreConfiguration.PreferredLocations = new string[] { };
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Null(client.ClientOptions.ApplicationPreferredRegions);
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_SetsPreferredLocations()
         {
             _cosmosDataStoreConfiguration.PreferredLocations = new[] { "southcentralus", "northcentralus" };
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             }
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_SetsMaxRetryAttemptsOnThrottledRequests()
         {
             _cosmosDataStoreConfiguration.RetryOptions.MaxNumberOfRetries = 10;
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal(10, client.ClientOptions.MaxRetryAttemptsOnRateLimitedRequests);
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_SetsMaxRetryWaitTimeInSeconds()
         {
             _cosmosDataStoreConfiguration.RetryOptions.MaxWaitTimeInSeconds = 99;
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal(TimeSpan.FromSeconds(99), client.ClientOptions.MaxRetryWaitTimeOnRateLimitedRequests);
         }
 
-        [Fact]
+        [RetryFact]
         public void CreateClient_CreatesNewHandlers()
         {
             // If new handlers are not created the second call will fail

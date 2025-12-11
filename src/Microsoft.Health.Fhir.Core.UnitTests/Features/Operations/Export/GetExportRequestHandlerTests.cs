@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _mediator = new Mediator(provider);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Canceled)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedOrCancelledStatus_ThenHttpResponseCodeShouldBeOk(OperationStatus operationStatus)
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(result.JobResult.Error);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenOutputShouldContainRequiredFields()
         {
             GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Completed);
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.False(string.IsNullOrWhiteSpace(issue.Severity));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Failed, HttpStatusCode.BadRequest)]
         [InlineData(OperationStatus.Failed, HttpStatusCode.InternalServerError)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus, HttpStatusCode failureStatusCode)
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Contains(_failureReason, ofe.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Running)]
         [InlineData(OperationStatus.Queued)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(OperationStatus operationStatus)
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Null(result.JobResult);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Failed)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatusAndNoFailureDetails_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus)
         {

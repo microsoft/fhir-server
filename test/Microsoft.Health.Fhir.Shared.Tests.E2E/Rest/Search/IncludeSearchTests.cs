@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_include=Location:organization:Organization&_tag={Fixture.Tag}";
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// <summary>
         /// Ensures that the _id predicate is not applied to the included resources.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithAPredicateOnId_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_include=Location:organization:Organization&_tag={Fixture.Tag}&_id={Fixture.Location.Id}";
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(1, bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), null, default, ("_include", "Location:organization:Organization"), ("_tag", Fixture.Tag));
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Location);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithOnlyResourceTablePredicates_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string lastUpdatedString = Uri.EscapeDataString(Fixture.PatientGroup.Meta.LastUpdated.Value.ToString("o"));
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains(results.Resource.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Include && e.Resource.Id == Fixture.AdamsPatient.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleResourceTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var guid = Guid.NewGuid().ToString();
@@ -132,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 locationResponse.Resource);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearch_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000";
@@ -146,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithMissingModifier_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&specimen:missing=true";
@@ -160,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1";
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithWildcard_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:*&code=429858000";
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000";
@@ -213,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleResourceTableParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
@@ -244,7 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithNoTargetType_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=Observation:performer";
@@ -262,7 +263,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesNotIncludeUntypedReferences()
         {
             string query = $"_id={Fixture.ObservationWithUntypedReferences.Id}&_include=Observation:*";
@@ -273,7 +274,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.ObservationWithUntypedReferences);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpressionWithAllResources_WhenSearched_DoesNotIncludeUntypedReferences()
         {
             string query = $"_id={Fixture.ObservationWithUntypedReferences.Id}&_include=*";
@@ -284,7 +285,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.ObservationWithUntypedReferences);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedOrUpdatedResources()
         {
             string query = $"_tag={Fixture.Tag}&_include=Patient:organization";
@@ -300,7 +301,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnRevIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedResources()
         {
 #if Stu3 || R4 || R4B
@@ -319,7 +320,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         // RevInclude
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             // Ask for reverse include to get all Locations which reference an org
@@ -347,7 +348,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         // RevInclude
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchWildcardSourceExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             // Ask for reverse include to get all Locations which reference an org
@@ -384,7 +385,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(7, bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await Client.SearchPostAsync(ResourceType.Organization.ToString(), null, default, ("_revinclude", "Location:organization"), ("_tag", Fixture.Tag));
@@ -403,7 +404,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Organization);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpressionWithSimpleSearch_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000";
@@ -417,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000&_count=1";
@@ -438,7 +439,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpressionWithWildcard_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:*&code=429858000";
@@ -452,7 +453,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturnedAndNothingElse()
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=Observation:patient&family=Truman";
@@ -465,7 +466,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanLoincObservation);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:patient&_revinclude=Observation:patient&family=Truman";
@@ -482,7 +483,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [InlineData("_include")]
         [InlineData("_revinclude")]
-        [Theory]
+        [RetryTheory]
         public async Task GivenAnIncludeSearchExpressionWithLocationLinkedToItself_WhenSearched_ThenCorrectBundleShouldBeReturned(string includeType)
         {
             string query = $"_id={Fixture.LocationPartOfSelf.Id}&{includeType}=Location:partof";
@@ -494,7 +495,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.LocationPartOfSelf);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleResourceTableParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
@@ -524,7 +525,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARevIncludeSearchExpressionWithNoReferences_WhenSearched_ThenCorrectBundleWithOnlyMatchesShouldBeReturned()
         {
             // looking for an appointment referencing a Patient, however this kind of reference was
@@ -543,7 +544,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         // Include Iterate
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -570,7 +571,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(3, bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeRecurseSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -589,7 +590,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -604,7 +605,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultipleIterations_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -626,7 +627,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithIncludeIterateParametersBeforeIncludeParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -648,7 +649,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -669,7 +670,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -690,7 +691,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Practitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithSpecificTargetType_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -709,7 +710,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TaylorPractitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeTargetReferenceWithOverlap_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -732,7 +733,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TaylorPractitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultipleResultsSets_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -755,7 +756,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TaylorPractitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeSearchExpressionWithWildcardAndIncludeIterate_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -775,7 +776,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeSearchExpressionWithIncludeWildcardAndIncludeIterateWildcard_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -796,7 +797,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeSearchExpressionWithIncludeIterateWildcard_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -814,7 +815,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeMedication_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -833,7 +834,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         // RecInclude Iterate
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -862,7 +863,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(5, bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithSingleIteration_WhenSearchedAndSorted_TheIterativeResultsShouldBeAddedToTheBundleAsc()
         {
@@ -891,7 +892,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(5, bundle.Total);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeRecurseSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -912,7 +913,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationDispense);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -929,7 +930,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
 #if Stu3
         // The following tests are enabled only on Stu3 version due to this issue: https://github.com/microsoft/fhir-server/issues/1308
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleIterations_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -956,7 +957,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationDispense);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeIterateParametersBeforeRevIncludeParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -984,7 +985,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 #endif
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultiTypeReferenceSpecifiedTarget_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -1009,7 +1010,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Practitioner);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -1032,7 +1033,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.CareTeam);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleResultsSets_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -1056,7 +1057,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.PatiPatient);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleResultsSetsWithoutSpecificRevIncludeIterateTargetType_WhenSearched_ShouldThrowBadRequestExceptionWithIssue()
         {
@@ -1072,7 +1073,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeMedication_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -1093,7 +1094,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
 #if Stu3
         // This test is enabled only on Stu3 version due to this issue: https://github.com/microsoft/fhir-server/issues/1308
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeWildCard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -1116,7 +1117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 #endif
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeIterateWildCard_WhenSearched_TheIterateWildcardShouldBeIgnored()
         {
@@ -1136,7 +1137,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeWildcardAndRevIncludeIterateWildcard_WhenSearched_TheIterateWildcardShouldBeIgnored()
         {
@@ -1156,7 +1157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         // Circular Reference - Iteration executed once
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithCircularReference_WhenSearched_SingleIterationIsExecutedAndInformationalIssueIsAdded()
         {
@@ -1193,7 +1194,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithCircularReference_WhenSearched_SingleIterationIsExecutedAndInformationalIssueIsAdded()
         {
@@ -1230,7 +1231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("_include")]
         [InlineData("_revinclude")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
@@ -1247,7 +1248,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("_include", "")]
         [InlineData("_include", "   ")]
         [InlineData("_revinclude", "")]
@@ -1266,7 +1267,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)] // Cosmos doesn't support the sort parameter
         public async Task GivenAnIncludeSearchWithSortAndResourcesWithAndWithoutTheIncludeParameter_WhenSearched_ThenCorrectResultsAreReturned()
         {

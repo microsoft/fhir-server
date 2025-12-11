@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             return GetStartDateTimeData().Zip(GetEndDateTimeData(), (first, second) => new[] { first[0], second[0], first[1], second[1] });
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSingleDateTimeData))]
         public void GivenAPartialDateTime_WhenInitialized_ThenCorrectStartDateTimeAndEndDateTimeShouldBeAssigned(string input, string start, string end)
         {
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expectedEndDateTime, value.End);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetStartDateTimeData))]
         public void GivenAPartialStartDateTime_WhenInitialized_ThenCorrectStartDateTimeShouldBeAssigned(string input, string start)
         {
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expectedStartDateTime, value.Start);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetEndDateTimeData))]
         public void GivenAPartialEndDateTime_WhenInitialized_ThenCorrectEndDateTimeShouldBeAssigned(string input, string start)
         {
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expectedEndDateTime, value.End);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2017", "2017")]
         [InlineData("2017-01", "2017-01")]
         [InlineData("2017-01-10", "2017-01-10")]
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             new DateTimeSearchValue(startDateTime, endDateTime);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2018", "2017")]
         [InlineData("2016-05-03T12:34:20.594Z", "2015")]
         [InlineData("2017", "2016-01")]
@@ -149,13 +150,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             new DateTimeSearchValue(startDateTime, endDateTime);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => DateTimeSearchValue.Parse(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => DateTimeSearchValue.Parse(s));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSingleDateTimeData))]
         public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned(string input, string expectedStart, string expectedEnd)
         {
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expectedEndDateTime, value.End);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
             var value = new DateTimeSearchValue(DateTimeOffset.Now);
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
             DateTimeSearchValue value = DateTimeSearchValue.Parse("2017");
@@ -193,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal("2017", value.ToString());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2017", "2018", -1, -1)]
         [InlineData("2016-01", "2017", -1, -1)]
         [InlineData("2016-12-31", "2017", -1, -1)]
@@ -220,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expectedMaxResult, maxResult);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringSearchValue_WhenCompareWithNull_ThenArgumentExceptionIsThrown()
         {
             DateTimeSearchValue value = DateTimeSearchValue.Parse("2020");

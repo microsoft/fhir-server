@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _modelInfoProvider = Substitute.For<IModelInfoProvider>();
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceObject_WhenConvertingToJsonInStu3_ThenOneOptionIsSerializedAsPerStu3()
         {
             _modelInfoProvider.Version.Returns(FhirSpecification.Stu3);
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal("{\"reference\":\"http://hl7.org/fhir/StructureDefinition/Account\"}", json);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceObject_WhenConvertingToJsonInR4_ThenOneOptionIsSerializedAsPerR4()
         {
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);

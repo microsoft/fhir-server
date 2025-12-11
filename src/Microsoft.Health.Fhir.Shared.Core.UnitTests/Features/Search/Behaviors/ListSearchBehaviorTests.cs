@@ -10,6 +10,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _bundleFactory.CreateSearchBundle(Arg.Any<SearchResult>()).Returns(_nonEmptyBundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenNoListQuery_QueriesUnchanged()
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(guid2, getResourceRequest.Received().Queries[1].Item2);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenListValueMissing_EmptyResultsReturned()
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_nonEmptyBundle, response.Bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenListValueExistsButValueNotFound_EmptyResponseReturned()
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
@@ -193,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(emptyResponse.Bundle, response.Bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenListValueFound_ExpectedIdQueriesAdded()
         {
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();

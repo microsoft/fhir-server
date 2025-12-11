@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
     [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BundleOrchestratorOperationTests
     {
-        [Theory]
+        [RetryTheory]
         [InlineData(10)]
         [InlineData(100)]
         [InlineData(500)]
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(10)]
         [InlineData(100)]
         [InlineData(500)]
@@ -109,7 +110,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABatchOperation_WhenJustOneResourcedIsAppendedAndAllOtherResourcesAreHanging_ThenCancelTheOperationAfter120SecondsToAvoidRunningForever()
         {
             // Long running test.
@@ -160,7 +161,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Fail("There is a security exit clause in Bundle Orchestrator Operation. This clause was not activated: internal cancellation was supposed to happen before the external cancellation.");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(10, BundleOrchestratorOperationType.Batch)]
         [InlineData(100, BundleOrchestratorOperationType.Transaction)]
         [InlineData(500, BundleOrchestratorOperationType.Batch)]
@@ -193,7 +194,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(0, operation.CurrentExpectedNumberOfResources);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(10)]
         [InlineData(100)]
         [InlineData(500)]
@@ -240,7 +241,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(numberOfResources / 2, operation.CurrentExpectedNumberOfResources);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABatchOperation_WhenAppendedOnlyOneOutOfAllSupposedResourcesIsAppended_ThenThrowATaskCanceledOperationDueTimeout()
         {
             // This test validated if the CancellationToken is respected and a Bundle Operation fails if waits for too long for all the resources.

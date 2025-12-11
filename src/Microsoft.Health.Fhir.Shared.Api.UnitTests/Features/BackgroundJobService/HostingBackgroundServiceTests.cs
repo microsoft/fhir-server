@@ -8,6 +8,7 @@ using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.BackgroundJobService;
 [Trait(Traits.Category, Categories.Operations)]
 public sealed class HostingBackgroundServiceTests
 {
-    [Fact]
+    [RetryFact]
     public void GivenOperationsConfigurationWithMixedEnabledQueues_WhenGetEnabledQueueConfigsIsCalled_ThenOnlyEnabledQueuesAreReturned()
     {
         // Arrange

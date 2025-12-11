@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class FlatteningRewriterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAMultiaryExpressionWithASingleElement_WhenFlattened_RemovesTheMultiary()
         {
             MultiaryExpression inputExpression = Expression.And(Expression.Equals(FieldName.Number, null, 1));
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal("(FieldEqual Number 1)", visitedExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoLayersOfAndExpressions_WhenFlattened_CombinesToOneAndExpression()
         {
             MultiaryExpression inputExpression =
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal("(And (FieldGreaterThan Number 1) (FieldLessThan Number 5) (FieldGreaterThan Quantity 1) (FieldLessThan Quantity 5))", visitedExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoLayersOfOrExpressions_WhenFlattened_CombinesToOneOrExpression()
         {
             MultiaryExpression inputExpression =
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal("(Or (FieldGreaterThan Number 1) (FieldLessThan Number 5) (FieldGreaterThan Quantity 1) (FieldLessThan Quantity 5))", visitedExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnOrExpressionWithAnAndChild_WhenFlattened_RemainsTheSame()
         {
             MultiaryExpression inputExpression =

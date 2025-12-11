@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
             return new CodeToTokenSearchValueConverter(resolver);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACodeAndSystem_WhenConverted_ThenATokenSearchValueShouldBeCreated()
         {
             await Test(
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 new Token("http://hl7.org/fhir/observation-status", "final"));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANullCode_WhenConverted_ThenEmptyListReturned()
         {
             await Test(

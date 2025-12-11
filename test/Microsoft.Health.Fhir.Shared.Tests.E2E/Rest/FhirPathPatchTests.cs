@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Net;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingASimplePropertyPatch_ThenServerShouldPatchCorrectly()
         {
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { new Parameters().AddPatchParameter("replace", path: "Patient.gender"), "Patch replace operations must have the 'value' part." };
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetIncorrectRequestTestData))]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingInvalidFhirPatch_ThenServerShouldBadRequest(Parameters patchRequest, string expectedError)
@@ -143,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(expectedValue.Display, patchedValue.Display);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingObjectPropertyPatch_ThenServerShouldPatchCorrectly()
         {
@@ -166,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(patch.Resource.Address);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingPatchUsingWhere_ThenServerShouldPatchCorrectly()
         {
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal("Portland", patch.Resource.Address.First().City);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingPatchOnInvalidProperty_ThenAnErrorShouldBeReturned()
         {
@@ -208,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.text.status", new Code("extensions")) };
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetForbiddenPropertyTestData))]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingPatchOnForbiddenProperty_ThenAnErrorShouldBeReturned(Parameters patchRequest)
@@ -233,7 +234,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             yield return new object[] { "Patient.address[0].use", new FhirString("dummyAddress"), "Invalid input for use at Patient.address[0].use when processing patch replace operation." };
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetInvalidDataValueTestData))]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingPatchWithInvalidValue_ThenAnErrorShouldBeReturned(string patchPath, DataType patchValue, string expectedError)
@@ -254,7 +255,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnMissingResource_WhenPatching_ThenAnErrorShouldBeReturned()
         {
@@ -270,7 +271,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnPatchWhichWouldAddOnExistingProperty_WhenPatching_ThenAnErrorShouldBeReturned()
         {
@@ -290,7 +291,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnPatchWhichWouldReplaceExistingProperty_WhenPatching_ThenServerShouldPatchCorrectly()
         {
@@ -307,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(new FhirDateTime("2015-02-14T13:42:00+10:00"), patch.Resource.Deceased);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAWrongVersionInETag_WhenPatching_ThenAnErrorShouldBeReturned()
         {
@@ -325,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidEtag_WhenPatching_ThenAnResourceShouldBeUpdated()
         {
@@ -340,7 +341,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnInvalidPartDefinition_WhenPatching_ThenAnErrorShouldBeReturned()
         {
@@ -370,7 +371,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnPatchWithAnonymousObjectContainingResource_WhenPatching_ThenAnResourceShouldBeUpdated()
         {
@@ -395,7 +396,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocumentWithDateTime_WhenDateTimeHasOffset_ThenOffsetShouldBePreserved()
         {
@@ -422,7 +423,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(expectedDTO.Offset, receivedDTO.Offset);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenContainsDate_ThenShouldParseWithoutTimeAndOffset()
         {
@@ -445,7 +446,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(new Date(dateString), ad.ApprovalDateElement);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocumentWithDate_WhenPassingDateTime_ThenExceptionShouldBeThrown()
         {
@@ -558,7 +559,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(version2Tag);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenPatchingMetaTagWithWrongVersion_ThenServerShouldReturnPreconditionFailed()
         {

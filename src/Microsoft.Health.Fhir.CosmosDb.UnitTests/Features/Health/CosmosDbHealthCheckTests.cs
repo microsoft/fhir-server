@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Health;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 _mockLogger);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosDbCanBeQueried_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.Equal(HealthStatus.Healthy, result.Status);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(typeof(CosmosOperationCanceledException))]
         [InlineData(typeof(CosmosException))]
         public async Task GivenCosmosDb_WhenRetryableExceptionIsAlwaysThrown_ThenUnhealthyStateShouldBeReturned(Type exceptionType)
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             _testProvider.ReceivedWithAnyArgs(3); // Ensure the maximum retries were attempted
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(typeof(CosmosOperationCanceledException))]
         [InlineData(typeof(CosmosException))]
         public async Task GivenCosmosDb_WhenRetryableExceptionIsOnceThrown_ThenHealthyStateShouldBeReturned(Type exceptionType)
@@ -161,7 +162,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             _testProvider.ReceivedWithAnyArgs(2); // Verify PerformTestAsync was called twice
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosDbCannotBeQueried_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             _testProvider.PerformTestAsync(default, CancellationToken.None).ThrowsForAnyArgs<HttpRequestException>();
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosAccessIsForbidden_IsClientCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
         {
             foreach (int clientCmkIssue in new List<int>(Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValueClientIssue)).Cast<int>()))
@@ -192,7 +193,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosAccessIsForbidden_IsNotClientCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             const int SomeNonClientErrorSubstatusCode = 12345;
@@ -213,7 +214,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error500.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCustomerManagedKeyException_IsCmkError_WhenHealthIsChecked_ThenDegradedStateShouldBeReturned()
         {
             foreach (int cmkIssue in Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValue)).Cast<int>())
@@ -234,7 +235,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosDbWithTooManyRequests_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
             _testProvider.PerformTestAsync(default, CancellationToken.None)
@@ -246,7 +247,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error429.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosDbWithTimeout_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
             var exception = new CosmosException(
@@ -265,7 +266,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             VerifyErrorInResult(result.Data, "Error", FhirHealthErrorCode.Error408.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosException_WhenLogged_ThenDiagnosticsShouldBeIncludedInLog()
         {
             // This test ensures the CosmosDiagnostics are logged when a CosmosException is thrown.
@@ -296,7 +297,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 Arg.Any<Func<object, Exception, string>>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCosmosExceptionWithoutDiagnostics_WhenLogged_ThenMessageShouldNotIncludeDiagnostics()
         {
             // Arrange

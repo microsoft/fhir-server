@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         private const string DefaultKey = "key";
         private const string DefaultValue = "value";
 
-        [Theory]
+        [RetryTheory]
         [InlineData(01 * Megabyte)]
         [InlineData(14 * Megabyte)]
         [InlineData(55 * Megabyte)]
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(expectedLimitSizeInBytes, cache.CacheMemoryLimit);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACacheWithCompressionPercentageZero_DoNotAddMoreElements_WhenTheTotalNumberCacheLimitIsReached()
         {
             // In this test, a few behaviors are validated:
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.True(totalSizeAddedToCache <= maxCacheSize, "In this test the total size added to cache should be lower than the max allowed cache size.");
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACache_RaiseErrorsIfParametersAreInvalid()
         {
             Assert.Throws<ArgumentNullException>(
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Throws<ArgumentNullException>(() => cache.TryAdd(DefaultKey, null));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAdded()
         {
             var cache = CreateRegularMemoryCache<string>();
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(DefaultValue, result1);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrieved()
         {
             var cache = CreateRegularMemoryCache<string>();
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(DefaultValue, result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenAddingValueIfIgnoreCaseEnabled_ThenMultipleSimilarKeysShouldWorkAsExpected()
         {
             var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), sizeLimit: Megabyte, TimeSpan.FromMinutes(1), _logger, ignoreCase: true);
@@ -178,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(DefaultValue, result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenGettingAnItemThatDoNotExist_ThenReturnFalse()
         {
             var cache = CreateRegularMemoryCache<string>();
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(default, result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenAddingValueIfIgnoreCaseDisabled_ThenMultipleSimilarKeysShouldWorkAsExpected()
         {
             var cache = CreateRegularMemoryCache<string>();
@@ -204,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.False(cache.TryGet("kEy", out result));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValue()
         {
             var cache = CreateRegularMemoryCache<string>();
@@ -216,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(1, cache.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingGet()
         {
             var cache = CreateRegularMemoryCache<string>();
@@ -228,7 +229,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(1, cache.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WorkForSupportedTypes()
         {
             var cache1 = CreateRegularMemoryCache<string>();
@@ -248,7 +249,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.Equal(1, cache4.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyCache_WhenRunningOperations_ThenItemsShouldBeRespected()
         {
             var cache = CreateRegularMemoryCache<long>();

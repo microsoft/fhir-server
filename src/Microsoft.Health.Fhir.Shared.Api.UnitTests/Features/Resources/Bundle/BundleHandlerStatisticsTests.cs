@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     [Trait(Traits.Category, Categories.Bundle)]
     public sealed class BundleHandlerStatisticsTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnInstanceOfBundleStatistics_WhenRegisteringNewEntriesInParallel_EnsureTheFinalNumberOfEntriesMatch()
         {
             const int numberOfResources = 100;

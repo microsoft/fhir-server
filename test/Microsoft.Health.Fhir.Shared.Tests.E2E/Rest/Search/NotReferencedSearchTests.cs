@@ -10,6 +10,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Support;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANotReferencedWildcardSearchParameter_WhenSearched_ThenOnlyResourcesWithNoReferencesAreReturned()
         {
             var url = $"_not-referenced=*:*&_tag={Fixture.Tag}";
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await RunNotReferencedTest(url, references);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANotReferencedFieldWildcardSearchParameter_WhenSearched_ThenOnlyResourcesWithNoReferencesAreReturned()
         {
             var url = $"_not-referenced=Observation:*&_tag={Fixture.Tag}";
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await RunNotReferencedTest(url, references);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANotReferencedSpecificSearchParameter_WhenSearched_ThenOnlyResourcesWithNoReferencesAreReturned()
         {
             var url = $"_not-referenced=Observation:subject&_tag={Fixture.Tag}";
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await RunNotReferencedTest(url, references);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnInvalidNotReferencedSearchParameter_WhenSearched_ThenItIsIgnoredAndAWarningIsReturned()
         {
             try

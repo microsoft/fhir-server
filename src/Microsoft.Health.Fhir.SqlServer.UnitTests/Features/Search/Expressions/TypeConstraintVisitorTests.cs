@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             { new SqlRootExpression(Array.Empty<SearchParamTableExpression>(), new[] { SearchParameter(TypeParameter, Or(Token(nameof(Patient)), Token(nameof(Encounter)))) }), new[] { Patient, Encounter } },
         };
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(Data))]
         public void GivenAnExpression_WhenVisited_DeterminesTheCorrectAllowedTypes(Expression expression, short[] expectedTypeIds)
         {

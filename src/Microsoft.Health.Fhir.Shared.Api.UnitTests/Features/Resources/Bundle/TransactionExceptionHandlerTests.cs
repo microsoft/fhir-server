@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     [Trait(Traits.Category, Categories.Bundle)]
     public class TransactionExceptionHandlerTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnOperationOutcome_WhenExecuted_ThenACorrectExceptionIsThrown()
         {
             string message = "Error Message";
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 cancelled: false));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnOperationOutcome_WhenCancelled_ThenACorrectExceptionIsThrown()
         {
             string message = "Error Message";
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(HttpStatusCode.RequestTimeout, tce.ResponseStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnOperationOutcome_WhenParsed_ThenACorrectListOfOperationOutComeIssuesIsReturned()
         {
             var operationOutcomeIssues = GetOperationOutcome().Issue;

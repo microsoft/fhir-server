@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter = new ValidateImportRequestFilterAttribute();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("respond-async, wait = 10")]
         [InlineData("return-content")]
         [InlineData("*")]
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("respond-async, wait = 10")]
         [InlineData("return-content")]
         [InlineData("*")]
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("respond-async, wait = 10")]
         [InlineData("return-content")]
         [InlineData("*")]
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoPreferHeader_WhenGettingABulkImportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoPreferHeader_WhenCreatingABulkImportRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoPreferHeader_WhenCancelABulkImportRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("multipart/form-data")]
         [InlineData("text/plain")]
         [InlineData("text/html")]
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoContentTypeHeader_WhenCreatingABulkImportRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
@@ -135,7 +136,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoContentTypeHeader_WhenGetABulkImportRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter.OnActionExecuting(context);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoContentTypeHeader_WhenCancelABulkImportRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
@@ -155,7 +156,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter.OnActionExecuting(context);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithCorrectHeader_WhenCreatingABulkImportRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();

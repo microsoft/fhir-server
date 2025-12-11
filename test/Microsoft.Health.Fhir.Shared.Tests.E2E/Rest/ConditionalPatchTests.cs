@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Net;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnObservation_WhenPatchingConditionally_TheServerRespondsWithCorrectMessage()
         {
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(exceptionFhir.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, observation.TypeName));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenConditionWithNoExistingResources_WhenPatching_TheServerShouldReturnNoFound()
         {
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, exceptionFhir.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenNoCondition_WhenPatching_ThenAnErrorShouldBeReturned()
         {
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionFhir.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenJsonPatchingConditionallyWithOneMatch_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, jsonPatchResponse.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenFhirPatchingConditionallyWithOneMatch_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, fhirPatchResponse.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenJsonPatchingConditionallyWithMultipleMatches_TheServerShouldFail()
         {
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenFhirPatchingConditionallyWithMultipleMatches_TheServerShouldFail()
         {
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSequentialVersionOfResource_WhenJsonPatchingConditionallyWithOneMatchAndExactVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
@@ -202,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, jsonPatchResponse.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSequentialVersionOfResource_WhenFhirPatchingConditionallyWithOneMatchAndExactVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, fhirPatchResponse.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSecondVersionOfResource_WhenPatchingConditionallyWithOneMatchAndWrongVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {

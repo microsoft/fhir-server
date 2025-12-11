@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private readonly string _progressToken = "progress token";
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJob_WhenItSucceeds_ThenOutputsAreInTheResult()
         {
             var expectedResults = GenerateJobRecord(OperationStatus.Completed);
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(expectedResults, taskResult);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJob_WhenItFails_ThenAnExceptionIsThrown()
         {
             var exceptionMessage = "Test job failed";
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(exceptionMessage, exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJob_WhenItIsCancelled_ThenAnExceptionIsThrown()
         {
             var expectedResults = GenerateJobRecord(OperationStatus.Canceled);
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await Assert.ThrowsAsync<OperationCanceledException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Queued)]
         [InlineData(OperationStatus.Running)]
         public async Task GivenAnExportJob_WhenItFinishesInANonTerminalState_ThenAnExceptionIsThrown(OperationStatus status)
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJob_WhenItFinishesAPageOfResults_ThenANewProgressJobIsQueued()
         {
             var expectedResults = GenerateJobRecord(OperationStatus.Running);
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Contains(_progressToken, queueClient.JobInfos[0].Definition);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJob_WhenItFinishesAPageOfResultsAndAFollowupJobExists_ThenANewProgressJobIsNotQueued()
         {
             var expectedResults = GenerateJobRecord(OperationStatus.Running);
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(followUpJob, queueClient.JobInfos[0]);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Patient", "Observation", null, null)]
         [InlineData(null, null, "range1", "range2")]
         public async Task GivenAnExportJob_WhenItFinishesAPageAndNewerParallelJobExists_ThenANewProgressJobIsQueued(string testRunningJobResourceType, string laterParallelJobResourceType, string testRunningJobFeedRange, string laterParallelJobFeedRange)
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Contains(_progressToken, queueClient.JobInfos[1].Definition); // This is a follow up job, not our orig testRunningJob.
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(JobStatus.Cancelled, false)]
         [InlineData(JobStatus.Running, true)]
         public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledGroupJobInQueue_ThenANewProgressJobIsNotQueued(JobStatus existingJobStatus, bool cancellationRequested)

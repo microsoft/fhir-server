@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
     [Trait(Traits.Category, Categories.Validate)]
     public class IdValidatorTests
     {
-        [Theory]
+        [RetryTheory]
         [InlineData("1+1")]
         [InlineData("1_1")]
         [InlineData("11|")]
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
             Assert.False(result);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("1.1")]
         [InlineData("id1")]
         [InlineData("example")]

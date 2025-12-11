@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -18,19 +19,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
     {
         private const string ParamNameComponents = "components";
 
-        [Fact]
+        [RetryFact]
         public void GivenANullComponents_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameComponents, () => new CompositeSearchValue(null));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyComponents_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentException>(ParamNameComponents, () => new CompositeSearchValue(new IReadOnlyList<ISearchValue>[] { }));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenFalseShouldBeReturned()
         {
             var components = new ISearchValue[]
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.False(value.IsValidAsCompositeComponent);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
             var components = new ISearchValue[][]

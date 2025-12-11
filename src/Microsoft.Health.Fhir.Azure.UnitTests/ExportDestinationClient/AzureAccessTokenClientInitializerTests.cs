@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Net;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [InlineData("")]
         [InlineData(null)]
         [InlineData("   ")]
-        [Theory]
+        [RetryTheory]
         public void GivenNullOrEmptyStorageUri_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string storageUriString)
         {
             _exportJobConfiguration.StorageAccountUri = storageUriString;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 
         [InlineData("randomUri")]
         [InlineData("https://")]
-        [Theory]
+        [RetryTheory]
         public void GivenInvalidStorageUri_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string storageUriString)
         {
             _exportJobConfiguration.StorageAccountUri = storageUriString;
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAbleToGetAccessToken_WhenGetAuthorizedClientAsync_ThenClientIsReturned()
         {
             _exportJobConfiguration.StorageAccountUri = "https://localhost/storage";

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
@@ -307,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             return Task.CompletedTask;
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ExportUriForSameJobs))]
         public async Task GivenThereIsNoMatchingJob_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated(Uri requestUrl, PartialDateTime since)
         {
@@ -320,7 +321,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [MemberData(nameof(ExportUriForDifferentJobs))]
-        [Theory]
+        [RetryTheory]
         public async Task GivenDifferentRequestUrl_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated(Uri requestUri, PartialDateTime since, Uri newRequestUri, PartialDateTime newSince)
         {
             var request = new CreateExportRequest(requestUri, ExportJobType.All, since: since);
@@ -335,7 +336,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenDifferentRequestor_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated()
         {
             _claimsExtractor.ExtractImpl = () => new[] { KeyValuePair.Create("oid", "user1") };
@@ -354,7 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotEqual(response.JobId, newResponse.JobId);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("test1", ExportFormatTags.ResourceName)]
         [InlineData(null, ExportFormatTags.Id)]
         public async Task GivenARequestWithDifferentFormatNames_WhenConverted_ThenTheProperFormatStringIsReturned(string formatName, string expectedFormat)
@@ -391,7 +392,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(false, ExportFormatTags.ResourceName)]
         [InlineData(true, ExportFormatTags.Timestamp + "-" + ExportFormatTags.Id + "/" + ExportFormatTags.ResourceName)]
         public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned(bool containerSpecified, string expectedFormat)
@@ -412,7 +413,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithANonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
         {
             var formatName = "invalid";
@@ -421,7 +422,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(string.Format(Resources.ExportFormatNotFound, formatName), exception.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ExportFilters))]
         public async Task GivenARequestWithFilters_WhenConverted_ThenTheFiltersArePopulated(string filters, IList<ExportJobFilter> expectedFilters)
         {
@@ -445,7 +446,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 })).ToArray());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("bad", "bad")]
         [InlineData("Observation?code=a,b,Observation?status=final", "b")] // Doesn't support nested 'or' currently
         [InlineData("Observation?status:final", "Observation?status:final")] // Incorrect divider
@@ -456,7 +457,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(string.Format(Resources.TypeFilterUnparseable, errorMessage), exception.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ValidateTypeFilters))]
         public async Task GivenARequestWithFilters_WhenInvalidParameterFound_ThenABadRequestIsReturned(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,
@@ -533,7 +534,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ValidateTypeFilters))]
         public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithLenientHandlingSpecified_ThenValidateTypeFiltersShouldBeSkipped(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,

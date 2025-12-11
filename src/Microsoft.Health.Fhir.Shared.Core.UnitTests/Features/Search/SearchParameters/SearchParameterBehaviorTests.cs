@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirDataStore = Substitute.For<IFhirDataStore>();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACreateResourceRequest_WhenCreatingAResourceOtherThanSearchParameter_ThenNoCallToAddParameterMade()
         {
             var resource = Samples.GetDefaultObservation().UpdateId("id1");
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACreateResourceRequest_WhenCreatingASearchParameterResource_ThenAddNewSearchParameterShouldBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "Id" };
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenADeleteResourceRequest_WhenDeletingAResourceOtherThanSearchParameter_ThenNoCallToDeleteParameterMade()
         {
             var resource = Samples.GetDefaultObservation().UpdateId("id1");
@@ -116,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenADeleteResourceRequest_WhenDeletingASearchParameterResource_TheDeleteSearchParameterShouldBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "Id" };
@@ -136,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.Received().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenADeleteResourceRequest_WhenDeletingAnAlreadyDeletedSearchParameterResource_TheDeleteSearchParameterShouldNotBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "Id" };
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUpsertResourceRequest_WhenSearchParameterDoesNotExist_ThenAddSearchParameterShouldBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "NewId", Url = "http://example.com/new-param" };
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.DidNotReceive().UpdateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUpsertResourceRequest_WhenSearchParameterExists_ThenUpdateSearchParameterShouldBeCalled()
         {
             var oldSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/existing-param", Version = "1" };

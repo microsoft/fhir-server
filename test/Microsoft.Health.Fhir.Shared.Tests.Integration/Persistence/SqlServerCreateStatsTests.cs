@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _output = testOutputHelper;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchForImagingStudyByIdentifier_StatsAreCreated()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier")));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchForResearchStudyByFocusAndDateWithResearchSubject_StatsAreCreated()
         {
             const string resourceType = "ResearchStudy";

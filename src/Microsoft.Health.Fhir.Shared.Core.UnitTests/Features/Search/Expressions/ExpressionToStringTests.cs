@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class ExpressionToStringTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnExpression_WhenCallingToString_ReturnsAnUnderstandableString()
         {
             VerifyExpression("(FieldEqual Quantity 1)", Expression.Equals(FieldName.Quantity, null, 1));

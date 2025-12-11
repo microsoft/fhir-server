@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             };
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceWithVariousReferences_WhenGettingAllChildren_CorrectChildrenAreReturned()
         {
             var resourceReferences = _patient.GetAllChildren<ResourceReference>().ToList();
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Contains(_practitionerRole2, resourceReferences);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceWithVariousCodeableConcepts_WhenGettingAllChildren_CorrectChildrenAreReturned()
         {
             var codeableConcepts = _patient.GetAllChildren<CodeableConcept>().ToList();

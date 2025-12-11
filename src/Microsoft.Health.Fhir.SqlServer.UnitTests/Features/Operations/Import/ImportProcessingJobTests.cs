@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -14,6 +14,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
     [Trait(Traits.Category, Categories.Import)]
     public class ImportProcessingJobTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenTextWithDifferentEndOfLines_WhenAccessingByOffsets_AllLinesAreRead()
         {
             var input = $"A123456789{"\n"}B123456789{"\r\n"}C123456789{"\n"}D123456789{"\r\n"}E123456789{"\n"}F123456789{"\r\n"}";
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             }
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenText_WhenAccessingByOffsets_AllLinesAreRead()
         {
             foreach (var endOfLine in new[] { "\n", "\r\n" })
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInput_WhenStartFromClean_ThenAllResoruceShouldBeImported()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             await VerifyCommonImportAsync(inputData, result);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenJobExecutionExceptionShouldBeThrown()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
@@ -151,7 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInput_WhenOperationWasCancelledExceptionThrow_ThenJobShouldFailed()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
@@ -191,7 +192,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInputWithErrorContainerName_WhenExecuted_ThenErrorContainerNameShouldBeUsed()
         {
             // Arrange
@@ -252,7 +253,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInputWithoutErrorContainerName_WhenExecuted_ThenDefaultErrorContainerShouldBeUsed()
         {
             // Arrange

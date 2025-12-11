@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class ResourceColumnPredicatePushdownRewriterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithNoTableExpressions_WhenRewritten_ReturnsOriginalExpression()
         {
             var inputExpression = SqlRootExpression.WithResourceTableExpressions(
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression, visitedExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithNoResourceColumnExpressions_WhenRewritten_ReturnsOriginalExpression()
         {
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression, visitedExpression);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchParameterNames.ResourceType)]
         [InlineData(SqlSearchParameters.ResourceSurrogateIdParameterName)]
         public void GivenExpressionWithExtractableResourceColumnExpression_WhenRewritten_CommonResourceExpressionAddedToTableExpressions(string paramName)
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 visitedExpression.SearchParamTableExpressions[0].Predicate.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMultipleExtractableResourceColumnExpressions_WhenRewritten_CommonResourceExpressionsAddedToTableExpressions()
         {
             var inputExpression = new SqlRootExpression(
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(Expression.And(inputExpression.ResourceTableExpressions).ToString(), visitedExpression.SearchParamTableExpressions[0].Predicate.ToString());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchParameterNames.ResourceType)]
         [InlineData(SqlSearchParameters.ResourceSurrogateIdParameterName)]
         public void GivenExpressionWithMultipleResourceColumnExpressions_WhenRewritten_ResourceColumnPredicatesClearedAndReplacedWithAllExpression(string paramName)
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(new SearchParamTableExpression(null, Expression.And(inputExpression.ResourceTableExpressions[0], inputExpression.ResourceTableExpressions[1]), SearchParamTableExpressionKind.All).ToString(), visitedExpression.SearchParamTableExpressions[0].ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSqlRootExpressionWithResourceColumnPredicateAndOnlyIncludeTableExpression_WhenRewritten_ResourceColumnIsPreserved()
         {
             var inputExpression = new SqlRootExpression(
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(inputExpression.ResourceTableExpressions, visitedExpression.ResourceTableExpressions);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchParameterNames.ResourceType)]
         [InlineData(SqlSearchParameters.ResourceSurrogateIdParameterName)]
         public void GivenExpressionWithResourceColumnnAndChainedExpressions_WhenRewritten_ResourceColumnPredicatesPromotedToChainTableExpression(string paramName)

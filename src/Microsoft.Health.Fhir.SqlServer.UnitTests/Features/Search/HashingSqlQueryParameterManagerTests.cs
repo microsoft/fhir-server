@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Text;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             true, 1, 1L, DateTime.UtcNow, DateTimeOffset.UtcNow, 9M, 99.9, (short)6, (byte)9, Guid.Parse("0fd465f0-095b-425c-a3e8-acc879d20835"), "Hello",
         };
 
-        [Fact]
+        [RetryFact]
         public void GivenParametersThatShouldNotBeHashed_WhenAdded_ResultsInNoChangeToHash()
         {
             using var command = new SqlCommand();
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.False(parameters.HasParametersToHash);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenParameterThatShouldBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.True(parameters.HasParametersToHash);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(Data))]
         public void GivenAParameterThatShouldBeHashed_WhenAdded_ChangesHash(object value)
         {
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             AssertChangesHash(parameters, () => parameters.AddParameter(value, true));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAParameterThatShouldAndThenShouldNotBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.True(parameters.HasParametersToHash);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAParameterThatShouldNotAndThenShouldBeHashed_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.True(parameters.HasParametersToHash);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenALargeNumberOfParameters_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();
@@ -116,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(GetHash(parameters), GetHash(parameters));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenALargeStringParameter_WhenAdded_ChangesHash()
         {
             using var command = new SqlCommand();

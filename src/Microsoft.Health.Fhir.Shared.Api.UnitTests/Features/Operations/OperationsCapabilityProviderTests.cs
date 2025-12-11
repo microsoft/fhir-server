@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             _implementationGuidesOptions.Value.Returns(new ImplementationGuidesConfiguration());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenAConformanceBuilder_WhenCallingOperationsCapabilityForSelectableSearchParameters_ThenStatusOperationIsAddedWhenEnabled(bool added)
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 .Apply(Arg.Is<Action<ListedCapabilityStatement>>(x => x.Method.Name == nameof(OperationsCapabilityProvider.AddSelectableSearchParameterDetails)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(KnownDataStores.SqlServer, true)]
         [InlineData(KnownDataStores.SqlServer, false)]
         [InlineData(KnownDataStores.CosmosDb, true)]

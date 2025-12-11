@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             _mediator = new Mediator(provider);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenGettingCompletedJob_ThenResponseCodeShouldBeOk()
         {
             var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Single(result.JobResult.Error);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(HttpStatusCode.BadRequest)]
         [InlineData(HttpStatusCode.InternalServerError)]
         [InlineData((HttpStatusCode)0)]
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, ofe.ResponseStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError : "Error", resourceLocation.OriginalString), ofe.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenGettingFailedJob_WithGenericException_ThenExecptionIsTrownWithCorrectResponseCode()
         {
             var coord = new JobInfo() { Status = JobStatus.Completed };
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, HttpStatusCode.InternalServerError, resourceLocation.OriginalString), ofe.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenGettingImpprtWithCancelledOrchestratorJob_ThenExceptionIsThrownWithBadResponseCode()
         {
             var coord = new JobInfo() { Status = JobStatus.Cancelled };
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenGettingImportWithCancelledWorkerJob_ThenExceptionIsThrownWithBadResponseCode()
         {
             var coord = new JobInfo() { Status = JobStatus.Completed };
@@ -108,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenGettingInFlightJob_ThenResponseCodeShouldBeAccepted()
         {
             var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(3, result.JobResult.Error.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenGettingANotExistingJob_ThenNotFoundShouldBeReturned()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(1, CancellationToken.None));

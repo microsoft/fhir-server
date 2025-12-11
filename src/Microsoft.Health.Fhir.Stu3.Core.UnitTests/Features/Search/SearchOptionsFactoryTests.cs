@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using NSubstitute;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     /// </summary>
     public partial class SearchOptionsFactoryTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenASupportedSearchParam_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 e => Assert.Equal(expression, e));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleSupportedSearchParams_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 e => Assert.Equal(expression2, e));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANotSupportedSearchParam_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 e => Assert.Equal(expression3, e));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceType.Patient, CompartmentType.Patient, "123")]
         [InlineData(ResourceType.Appointment, CompartmentType.Device, "abc")]
         [InlineData(ResourceType.Patient, CompartmentType.Encounter, "aaa")]

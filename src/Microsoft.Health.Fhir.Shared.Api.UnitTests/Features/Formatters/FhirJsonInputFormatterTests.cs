@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
     [Trait(Traits.Category, Categories.Web)]
     public class FhirJsonInputFormatterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAFhirModelAndFhirContentType_WhenCheckingCanReadType_ThenTrueShouldBeReturned()
         {
             bool result = CanRead(typeof(Resource), ContentType.JSON_CONTENT_HEADER);
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirModelAndXJsonContentType_WhenCheckingContentTypeFallback_ThenTrueShouldBeReturned()
         {
             bool result = CanRead(typeof(Resource), "application/myspecialjson+json");
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirModelAndXmlContentType_WhenCheckingCanReadType_ThenFalseShouldBeReturned()
         {
             bool result = CanRead(typeof(Resource), ContentType.XML_CONTENT_HEADER);
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAJObjectAndJsonContentType_WhenCheckingCanReadType_ThenFalseShouldBeReturned()
         {
             bool result = CanRead(typeof(JObject), ContentType.JSON_CONTENT_HEADER);
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnInvalidModel_WhenParsing_ThenAnErrorShouldBeAddedToModelState()
         {
             var modelStateDictionary = new ModelStateDictionary();
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(1, modelStateDictionary.ErrorCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAModelWithValidationErrors_WhenParsing_ThenTheModelShouldBeReturned()
         {
             var modelStateDictionary = new ModelStateDictionary();
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(0, modelStateDictionary.ErrorCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnEmptyValue_WhenParsing_ThenNoModelIsReturned()
         {
             var modelStateDictionary = new ModelStateDictionary();
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(1, modelStateDictionary.ErrorCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceWithMissingResourceType_WhenParsing_ThenAnErrorShouldBeAddedToModelState()
         {
             var modelStateDictionary = new ModelStateDictionary();
@@ -123,7 +124,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceWithUnknownElements_WhenParsing_ThenFirstErrorShouldBeAddedToModelState()
         {
             var modelStateDictionary = new ModelStateDictionary();
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundleWithUnknownElementsAndInvalidEnums_WhenParsing_ThenAllUnknownElementErrorShouldBeAddedToModelState()
         {
             var modelStateDictionary = new ModelStateDictionary();

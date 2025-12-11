@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -19,6 +19,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task CheckNumberOfDequeues()
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -81,7 +82,7 @@ SELECT count(*)
             Assert.True(dequeues > 16 && dequeues < 24, $"not expected dequeues={dequeues}");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(false)] // eventualConsistency=false
         [InlineData(true)] // eventualConsistency=true
         public async Task GivenIncremental_WithExceptionOnDate_ImportShouldFail_AndResourcesShouldBeCommittedDependingOnConsistencyLevel(bool eventualConsistency)
@@ -147,7 +148,7 @@ RAISERROR('TestError',18,127)
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -176,7 +177,7 @@ RAISERROR('TestError',18,127)
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForWorker_ImportShouldFail()
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -205,7 +206,7 @@ RAISERROR('TestError',18,127)
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(3)] // import should succeed
         [InlineData(6)] // import shoul fail
         public async Task GivenIncrementalLoad_WithExecutionTimeoutExceptionForWorker_ImportShouldReturnCorrectly(int requestedExceptions)
@@ -256,7 +257,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             return (checkLocation, id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_1001ResourcesWithSameLastUpdatedAndSequenceRollOver()
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -305,7 +306,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             ExecuteSql($"IF 100 <> (SELECT count(*) FROM dbo.EventLog WHERE Process = 'MergeResources' AND Status = 'Error' AND EventText LIKE '%2627%' AND EventDate > '{st}') RAISERROR('Number of errors is not 100', 18, 127)");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
         {
             // To minimize number of size dependent retries last batch should have max size - 1000.
@@ -335,7 +336,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return (await ImportTestHelper.UploadFileAsync(strbld.ToString(), _fixture.StorageAccount)).location;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task ProcessingUnitBytesToReadHonored()
         {
             var ndJson = CreateTestPatient(Guid.NewGuid().ToString("N"));
@@ -361,7 +362,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Single(result.Output);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_TruncatedLastUpdatedPreservedWithOffset()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -388,7 +389,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Single(history.Resource.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleImportsWithSameLastUpdatedAndExplicitVersion()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -425,7 +426,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleImportsWithSameLastUpdatedAndImplicitVersion()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -462,7 +463,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_WithNegativeVersions_MultipleImports_ResourceExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -488,7 +489,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("4", history.Resource.Entry[1].Resource.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_WithNegativeVersions_NegativeNotAllowed()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -498,7 +499,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             await ImportCheckAsync(request, null, 1);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_WithNegativeVersions_MultipleImports_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -533,7 +534,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("-100", history.Resource.Entry[2].Resource.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputsWithImplicitVersionsExplicitLastUpdatedBeforeImplicit()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -548,7 +549,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", history.Resource.Entry[0].Resource.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_LastUpdatedOnResourceCannotBeInTheFuture()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -561,7 +562,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Contains("LastUpdated in the resource cannot be in the future.", errorContent);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputsWithImplicitVersionsExplicitLastUpdatedAfterImplicit()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -577,7 +578,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.True(history.Resource.Entry[0].Resource.Meta.LastUpdated > history.Resource.Entry[1].Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsWithDelete()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -595,7 +596,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.False(history.Resource.Entry[1].IsDeleted());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder2NotExplicit_ResourceExisting_WithGap()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -624,7 +625,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", history.Resource.Entry[3].Resource.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder2NotExplicit_ResourceNotExisting_NoGap()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -657,7 +658,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", history.Resource.Entry[3].Resource.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_InputVersionsOutOfSyncWithLastUpdated_SeparateImports()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -682,7 +683,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_InputVersionsOutOfSyncWithLastUpdated_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -698,7 +699,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2004"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder1NotExplicit_ResourceNotExisting_NoGap_AllowNegative()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -721,7 +722,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder1NotExplicit_ResourceNotExisting_NoGap_DoNotAllowNegative()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -742,7 +743,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder1NotExplicit_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -765,7 +766,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success()
         {
             var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
@@ -784,7 +785,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenIncrementalLoad_MultipleNonSequentialInputVersions_ResourceExisting(bool setResourceType)
@@ -821,7 +822,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2000"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_SameLastUpdated_DifferentVersions_ResourceExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -850,7 +851,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_SameLastUpdated_DifferentVersions_DifferentImports_ResourceExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -882,7 +883,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_SameVersion_DifferentLastUpdated_ResourceExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -909,7 +910,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -939,7 +940,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -963,7 +964,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenIncrementalImportInvalidResource_WhenImportData_ThenErrorLogsShouldBeOutputAndFailedCountShouldMatch(bool setResourceType)
@@ -1016,7 +1017,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {
@@ -1056,7 +1057,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_WhenOutOfOrder_ThenCurrentDatabaseVersionShouldRemain()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -1087,7 +1088,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated); // version 1 imported
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_SameLastUpdated_SameVersion_DifferentContent_ShouldProduceConflict()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -1105,7 +1106,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_SameLastUpdated_SameVersion_Run2Times_ShouldProduceSameResult()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -1122,7 +1123,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_SameLastUpdated_Run2Times_ShouldProduceSameResult()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -1139,7 +1140,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenIncrementalLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -1159,7 +1160,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(versionId, result.Resource.Meta.VersionId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldNotBeKept()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -1247,7 +1248,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return ndJson;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         [Trait(Traits.Category, Categories.Authorization)]
@@ -1276,7 +1277,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden()
         {
@@ -1307,7 +1308,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportTriggered_ThenDataShouldBeImported()
         {
             _metricHandler?.ResetCount();
@@ -1348,7 +1349,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportTriggered_WithAndWithoutETag_Then2ImportsShouldBeRegistered()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -1374,7 +1375,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             await ImportWaitAsync(checkLocation3);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithoutEtag_ThenDataShouldBeImported()
         {
             _metricHandler?.ResetCount();
@@ -1414,7 +1415,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportResourceWithWrongType_ThenErrorLogShouldBeUploaded()
         {
             _metricHandler?.ResetCount();
@@ -1461,7 +1462,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportTriggeredWithMultipleFiles_ThenDataShouldBeImported()
         {
             _metricHandler?.ResetCount();
@@ -1516,7 +1517,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInvalidResource_ThenErrorLogsShouldBeOutput()
         {
             _metricHandler?.ResetCount();
@@ -1568,7 +1569,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportDuplicatedResource_ThenDupResourceShouldBeReported()
         {
             _metricHandler?.ResetCount();
@@ -1629,7 +1630,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportWithCancel_ThenTaskShouldBeCanceled()
         {
             _metricHandler?.ResetCount();
@@ -1672,7 +1673,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Contains("User requested cancellation", fhirException.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportHasCompleted_WhenCancel_ThenTaskShouldReturnConflict()
         {
             _metricHandler?.ResetCount();
@@ -1732,7 +1733,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(HttpStatusCode.OK, importStatus.StatusCode);
         }
 
-        [Fact(Skip = "long running tests for invalid url")]
+        [RetryFact(Skip = "long running tests for invalid url")]
         public async Task GivenImportOperationEnabled_WhenImportInvalidResourceUrl_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
@@ -1774,7 +1775,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInvalidETag_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
@@ -1821,7 +1822,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportInvalidResourceType_ThenBadRequestShouldBeReturned()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -1850,7 +1851,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportRequestWithMultipleSameFile_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
@@ -1886,7 +1887,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportRequest_WhenImportDataHasInvalidResourceIds_ResourcesShouldNotBeImported()
         {
             var errorContainerName = Guid.NewGuid().ToString("N").ToLower();

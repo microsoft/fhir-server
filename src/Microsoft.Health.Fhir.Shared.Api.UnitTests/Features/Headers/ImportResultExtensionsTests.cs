@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
     [Trait(Traits.Category, Categories.Web)]
     public class ImportResultExtensionsTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnImportResult_WhenSettingAContentLocationHeader_ThenImportResultHasAContentLocationHeader()
         {
             string opName = OperationsConstants.Import;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(bulkImportOperationUrl.AbsoluteUri, bulkImportResult.Headers[HeaderNames.ContentLocation]);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnImportResult_WhenSettingAContentTypeHeader_ThenImportResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";

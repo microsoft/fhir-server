@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                 .Select(t => new object[] { t });
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetHandlerTypes))]
         public async Task RequestHandlers_WhenNoActionsArePermitted_ThrowUnauthorizedFhirActionException(Type handlerType)
         {

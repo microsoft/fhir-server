@@ -12,6 +12,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -76,7 +77,7 @@ public class ConditionalPatchResourceHandlerTests
             .Returns(searchResult);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalPatchResourceHandler_WhenUserHasSearchAndUpdatePermissions_ThenPatchShouldSucceed()
     {
         // Arrange
@@ -95,7 +96,7 @@ public class ConditionalPatchResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalPatchResourceHandler_WhenUserHasLegacyReadAndWritePermissions_ThenPatchShouldSucceed()
     {
         // Arrange
@@ -114,7 +115,7 @@ public class ConditionalPatchResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalPatchResourceHandler_WhenUserHasOnlySearchPermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -129,7 +130,7 @@ public class ConditionalPatchResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalPatchResourceHandler_WhenUserHasOnlyUpdatePermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -144,7 +145,7 @@ public class ConditionalPatchResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalPatchResourceHandler_WhenUserHasOnlyReadPermission_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange
@@ -159,7 +160,7 @@ public class ConditionalPatchResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalPatchHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalPatchResourceHandler_WhenUserLacksAllPermissions_ThenUnauthorizedExceptionIsThrown()
     {
         // Arrange

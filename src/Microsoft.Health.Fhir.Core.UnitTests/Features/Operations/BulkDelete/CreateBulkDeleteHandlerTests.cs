@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Substitute.For<ILogger<CreateBulkDeleteHandler>>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkDeleteRequest_WhenJobCreationRequested_ThenJobIsCreated()
         {
             var searchParams = new List<Tuple<string, string>>()
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkDeleteRequestWithInvalidSearchParameter_WhenJobCreationRequested_ThenBadRequestIsReturned()
         {
             var searchParams = new List<Tuple<string, string>>()
@@ -116,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(DeleteOperation.SoftDelete, DataActions.Read)]
         [InlineData(DeleteOperation.HardDelete, DataActions.Delete)]
         [InlineData(DeleteOperation.PurgeHistory, DataActions.Delete)]
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkDeleteRequest_WhenJobCreationFails_ThenExceptionIsThrown()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete);

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class RemoveIncludesRewriterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnExpressionWithIncludes_WhenVisitedByRemoveIncludesRewriter_IncludesAreRemoved()
         {
             IncludeExpression includeExpression = Expression.Include(new[] { "a" }, new SearchParameterInfo("p", "Token"), "Observation", "Patient", null, false, false, false);

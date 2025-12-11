@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         // Basic Queries with 0-2 include search parameters with all the pair combinations
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithoutIncludes_WhenVisitedByIncludeRewriter_TheSameExpressionShouldBeReturnedAsIs()
         {
             // Leave the query as is if there's no Include expression. For example:
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.Top, rewrittenExpressions[1].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithTwoIncludes_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
         {
             // Order the following query:
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneIncludeAndOneIncludeIterate_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneIncludeAndOneRevInclude_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
         {
             // Order the following query:
@@ -241,7 +242,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneIncludeAndOneRevIncludeIterate_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -295,7 +296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithTwoRevIncludes_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
         {
             // Order the following query:
@@ -349,7 +350,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithTwoIncludesSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
         {
             // Order the following query:
@@ -403,7 +404,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneIncludeAndOneIncludeIterateSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -457,7 +458,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneIncludeAndOneRevIncludeSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
         {
             // Order the following query:
@@ -511,7 +512,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneIncludeAndOneRevIncludeIterateSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -565,7 +566,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithTwoRevIncludesSpecifyingTargetType_WhenVisitedByIncludeRewriter_TheOrderDoesNotMatterAndShouldRemainUnchanged()
         {
             // Order the following query:
@@ -619,7 +620,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneRevIncludeAndOneRevIncludeIterate_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -673,7 +674,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithOneRevIncludeAndOneIncludeIterate_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -730,7 +731,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         // Queries with indirect dependencies
         // All possible permutations of 3 parameters: _include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithThreeIncludesFirstPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -795,7 +796,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithThreeIncludesSecondPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -860,7 +861,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithThreeIncludesThirdPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -925,7 +926,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithThreeIncludesFourthPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -990,7 +991,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithThreeIncludesFifthPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1055,7 +1056,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithThreeIncludesSixthPermutation_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1122,7 +1123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         // Queries with multiple includes/revincludes
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithMultipleIncludes_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1187,7 +1188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithMultipleRevIncludes_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1252,7 +1253,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithMultipleIncludesAndRevIncludes_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1318,7 +1319,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         // Queries with search parameters unrelated to the query
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithParametersUnrelatedToTheQuery_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1395,7 +1396,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[10].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithParametersUnrelatedToTheQuerySortedDiferently_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1473,7 +1474,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         // Wildcard Queries
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithIncludeWildcard_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1538,7 +1539,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[8].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithRevIncludeWildcard_WhenVisitedByIncludeRewriter_TheExpressionsShouldBeOrderedCorrectly()
         {
             // Order the following query:
@@ -1592,7 +1593,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(SearchParamTableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASqlRootExpressionWithCyclicIncludeIterate_WhenVisitedByIncludeRewriter_AnErrorIsExpected()
         {
             // Order the following cyclic query:

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Net;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -216,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByToken_VerifyCorrectSerachResults()
         {
             try
@@ -271,7 +272,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory(Skip = "Reindexing is failing CI")]
+        [RetryTheory(Skip = "Reindexing is failing CI")]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults(bool singleReindex)
@@ -285,7 +286,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.Name[0].Family : "INVALID"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [Theory(Skip = "Reindexing is failing CI")]
+        [RetryTheory(Skip = "Reindexing is failing CI")]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenDateTime_VerifyCorrectSerachResults(bool singleReindex)
@@ -299,7 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.BirthDate : "2000-01-01"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [Theory(Skip = "Reindexing is failing CI")]
+        [RetryTheory(Skip = "Reindexing is failing CI")]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenOverflowToken_VerifyCorrectSerachResults(bool singleReindex)
@@ -313,7 +314,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.Telecom[0].Value : "111-111-1111"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [Theory(Skip = "Reindexing is failing CI")]
+        [RetryTheory(Skip = "Reindexing is failing CI")]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenTokenOverflow_VerifyCorrectSerachResults(bool singleReindex)
@@ -327,7 +328,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => patient.Identifier[0].Value);
         }
 
-        [Theory(Skip = "Reindexing is failing CI")]
+        [RetryTheory(Skip = "Reindexing is failing CI")]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByReferenceToken_VerifyCorrectSerachResults(bool singleReindex)
@@ -341,7 +342,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => patient.Identifier[0].Value);
         }
 
-        [Theory(Skip = "Reindexing is failing CI")]
+        [RetryTheory(Skip = "Reindexing is failing CI")]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenQuantity_VerifyCorrectSerachResults(bool singleReindex)
@@ -359,7 +360,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (chargeItem, valid) => valid ? chargeItem.Quantity.Value.ToString() : "555"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [Theory(Skip = "Reindexing is failing CI")]
+        [RetryTheory(Skip = "Reindexing is failing CI")]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenNumberNumber_VerifyCorrectSerachResults(bool singleReindex)

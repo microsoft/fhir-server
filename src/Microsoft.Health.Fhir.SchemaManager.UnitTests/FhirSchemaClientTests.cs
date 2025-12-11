@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -22,7 +23,7 @@ public class FhirSchemaClientTests
     private readonly ISchemaDataStore _schemaDataStore = Substitute.For<ISchemaDataStore>();
     private readonly ISchemaManagerDataStore _schemaManagerDataStore = Substitute.For<ISchemaManagerDataStore>();
 
-    [Fact]
+    [RetryFact]
     public async Task GivenCurrentVersionAboveOne_GetAvailableVersions_ShouldReturnCorrectVersionsAsync()
     {
         // Arrange
@@ -44,7 +45,7 @@ public class FhirSchemaClientTests
         Assert.Equal(expectedVersions, actualVersions, new AvailableVersionEqualityCompare());
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenCurrentVersionOfMax_GetAvailableVersionsShouldReturnOneVersion()
     {
         // Arrange

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Binders;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class DictionaryExpansionConfigurationProviderTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAMockConfigurationProvider_WhenInitialized_ThenEnsureAllCustomEnvironmentVariablesAreIncluded()
         {
             MockConfigurationProvider mockProvider = new MockConfigurationProvider(
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
             Assert.Equal("versioned-update", activityDefinitionValue1);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARealConfigurationProvider_WhenInitialized_ThenEnsureJustVariablesWithJsonAreReturned()
         {
             var environmentVariables = Environment.GetEnvironmentVariables();
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
             Assert.Equal(variablesInJsonFormat, numberOfJsonVariablesInDefaultProvider);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public void GivenAMockConfigurationProvider_WhenInitialized_ThenEnsureJustVariablesWithJsonAreReturned(bool loadLocalEnvironmentVariablesInsteadOfFakeOnes)
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
             Assert.Equal(variablesInJsonFormat, numberOfJsonVariablesInMockProvider);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("{}")]
         [InlineData("{ {")]

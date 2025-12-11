@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeFactory(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetAllowedSearchParameters))]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenOrAreAllowedAndIsParallelIsTrue_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges(List<Tuple<string, string>> searchParams)
         {
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenOrAreAllowedAndIsParallelIsTrueAndExistingEnqueuedJobs_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges()
         {
             SetupMockQueue(2);
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithSinglePageResults_ThenProcessingJobsAreCreatedAtContinuationTokenLevel()
         {
             _queueClient.ClearReceivedCalls();
@@ -224,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.ContinuationToken)).Select(sp => sp.Item2));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithMultiplePageResultsAndPartiallyEnqueuedJobs_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForRemainingPagesOnly()
         {
             _queueClient.ClearReceivedCalls();
@@ -316,7 +317,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithMultiplePageResultsAndCompletelyEnqueuedJobs_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForRemainingPagesOnly()
         {
             _queueClient.ClearReceivedCalls();
@@ -390,7 +391,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Empty(definitions);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueWithMultiplePageResults_ThenProcessingJobsAreCreatedAtContinuationTokenLevel()
         {
             _queueClient.ClearReceivedCalls();
@@ -453,7 +454,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnSingleIncludePage_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
         {
             _queueClient.ClearReceivedCalls();
@@ -530,7 +531,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Empty(actualDefinition.SearchParameters.Where(sp => sp.Item1.Equals(KnownQueryParameterNames.IncludesContinuationToken)).Select(sp => sp.Item2));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsGivenAndIsParallelIsTrueAndSearchReturnMultipageIncludesPages_ThenProcessingJobsAreCreatedAtContinuationTokenLevelForMatchResourcesOnly()
         {
             _queueClient.ClearReceivedCalls();
@@ -619,7 +620,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenIsParallelIsFalseWithSearchParameter_ThenOnlyOneProcessingJobsIsCreated()
         {
             _queueClient.ClearReceivedCalls();
@@ -672,7 +673,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Null(actualDefinition.EndSurrogateId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenIsParallelIsFalseWithoutSearchParameter_ThenOnlyOneProcessingJobsIsCreated()
         {
             _queueClient.ClearReceivedCalls();
@@ -722,7 +723,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Null(actualDefinition.EndSurrogateId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenIsParallelIsTrueWithoutSearchParamAndGetUsedResourceTypesReturnsEmpty_ThenNoProcessingJobsAreEnqueued()
         {
             // Arrange
@@ -747,7 +748,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _searchService.Received(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenIsParallelIsTrueWithSearchParamAndSearchReturnsNoResults_ThenNoProcessingJobsAreEnqueued()
         {
             // Arrange
@@ -781,7 +782,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _searchService.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenQueueClientThrowsException_ThenExceptionIsPropagated()
         {
             SetupMockQueue(2);
@@ -803,7 +804,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenSearchServiceThrowsException_ThenExceptionIsPropagated()
         {
             _queueClient.ClearReceivedCalls();
@@ -823,13 +824,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenJobInfoIsNull_ThenArgumentNullExceptionIsThrown()
         {
             await Assert.ThrowsAsync<ArgumentNullException>(async () => await _orchestratorJob.ExecuteAsync(null, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJob_WhenJobDefinitionIsMalformed_ThenExceptionIsPropagated()
         {
             var jobInfo = new JobInfo()

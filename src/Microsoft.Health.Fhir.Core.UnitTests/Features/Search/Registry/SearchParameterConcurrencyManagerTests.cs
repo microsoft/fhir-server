@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private const string TestUri1 = "http://test.com/searchparam1";
         private const string TestUri2 = "http://test.com/searchparam2";
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSingleSearchParameterUri_WhenExecutingWithLock_ThenOperationCompletes()
         {
             // Arrange
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(1, executionCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSingleSearchParameterUri_WhenExecutingWithLockVoidOperation_ThenOperationCompletes()
         {
             // Arrange
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(1, executionCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSameSearchParameterUri_WhenExecutingConcurrently_ThenOperationsExecuteSequentially()
         {
             // Arrange
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenDifferentSearchParameterUris_WhenExecutingConcurrently_ThenOperationsExecuteInParallel()
         {
             // Arrange
@@ -215,14 +216,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(operationsPerUri, uri2StartedCount);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenInitialState_WhenCheckingActiveLockCount_ThenReturnsZero()
         {
             // Act & Assert
             Assert.Equal(0, SearchParameterConcurrencyManager.ActiveLockCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenOperationsInProgress_WhenCheckingActiveLockCount_ThenReturnsCorrectCount()
         {
             // Arrange
@@ -286,7 +287,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(0, activeLockCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenExceptionInOperation_WhenExecutingWithLock_ThenExceptionIsPropagatedAndLockIsReleased()
         {
             // Arrange
@@ -323,7 +324,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(0, SearchParameterConcurrencyManager.ActiveLockCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCancellationToken_WhenOperationIsCancelled_ThenOperationCancelsAndLockIsReleased()
         {
             // Arrange
@@ -357,7 +358,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(0, activeLockCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenLongRunningOperations_WhenExecutingManySequentiallyOnSameUri_ThenMemoryIsReclaimed()
         {
             // Arrange
@@ -388,7 +389,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 $"Expected less than 10 active locks but found {activeLockCount}");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMultipleThreads_WhenExecutingSameOperation_ThenOnlyOneExecutes()
         {
             // Arrange
@@ -419,7 +420,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(threadCount, executionCount);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
@@ -430,7 +431,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 SearchParameterConcurrencyManager.ExecuteWithLockAsync(invalidUri, () => Task.FromResult(1)));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNullOperation_WhenExecutingWithLock_ThenThrowsArgumentNullException()
         {
             // Act & Assert
@@ -441,7 +442,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, null));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParameterConcurrencyException_WhenCreatedWithUris_ThenPropertiesAreSet()
         {
             // Arrange
@@ -459,7 +460,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Contains("http://test.com/param2", exception.ConflictedUris);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParameterConcurrencyException_WhenCreatedWithMessage_ThenMessageIsSet()
         {
             // Arrange
@@ -473,7 +474,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Empty(exception.ConflictedUris);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParameterConcurrencyException_WhenCreatedWithMessageAndInnerException_ThenBothAreSet()
         {
             // Arrange

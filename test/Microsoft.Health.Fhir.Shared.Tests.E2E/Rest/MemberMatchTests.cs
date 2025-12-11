@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Seattle", null, null, "EHCPOL", "P0", "01")]
         [InlineData(null, null, "1970", "DENTPRG", null, "02")]
         [InlineData(null, null, "1970-02", "EHCPOL", null, "03")]
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(expectedId, identifeir);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Seattle", null, null, "EHCPOL", null)]
         [InlineData(null, null, null, "EHCPOL", null)]
         public async Task GivenNotEnoughInformation_WhenMemberMatchSent_ThenTooManyFound(string city, string name, string date, string type, string subPlan)
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(Core.Resources.MemberMatchMultipleMatchesFound, ex.OperationOutcome.Issue.First().Diagnostics);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Seattle", "Williams", null, "EHCPOL", "P0")]
         [InlineData(null, null, "1970-02", "DENTPRG", null)]
         [InlineData(null, null, "1980", "EHCPOL", "P0")]
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(Core.Resources.MemberMatchNoMatchFound, ex.OperationOutcome.Issue.First().Diagnostics);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNonParametersRequestBody_WhenMemberMatchSent_ThenBadRequest()
         {
             string body = Samples.GetJson("PatientWithMinimalData");

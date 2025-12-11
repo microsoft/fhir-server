@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAJob_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             bool capturedSearch = false;
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(capturedSearch);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAJobWithSinceParameter_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             bool capturedSearch = false;
@@ -135,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(capturedSearch);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereAreTwoPagesOfSearchResults_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             const string continuationToken = "ct";
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(capturedSearch);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereAreTwoPagesOfSearchResultsWithSinceParameter_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             const string continuationToken = "ct";
@@ -215,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(capturedSearch);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereAreMultiplePagesOfSearchResults_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             const string continuationToken = "ct";
@@ -271,7 +272,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(secondCapturedSearch);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereAreMultiplePagesOfSearchResultsWithSinceParameter_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             const string continuationToken = "ct";
@@ -327,7 +328,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(secondCapturedSearch);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithHistoryAndSoftDeletes_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
         {
             bool capturedSearch = false;
@@ -393,7 +394,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 arg.Any(x => x.Item1 == "ct" && x.Item2 == continuationToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenStorageAccountConnectionDidNotChange_WhenExecuted_ThenJobShouldBeCompleted()
         {
             ExportJobConfiguration exportJobConfiguration = new ExportJobConfiguration();
@@ -426,7 +427,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchSucceeds_WhenExecuted_ThenJobStatusShouldBeUpdatedToCompleted()
         {
             _searchService.SearchAsync(
@@ -448,7 +449,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchFailed_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
             _searchService.SearchAsync(
@@ -474,7 +475,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(typeof(OperationCanceledException))]
         [InlineData(typeof(TaskCanceledException))]
         public async Task GivenSearchCanceled_WhenExecuted_ThenJobStatusShouldBeUpdatedToCanceled(Type exceptionType)
@@ -506,7 +507,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchHadIssues_WhenExecuted_ThenIssuesAreRecorded()
         {
             var issue = new OperationOutcomeIssue("warning", "code", "message");
@@ -533,7 +534,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(_exportJobRecord.Issues.Contains(issue));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNumberOfSearch_WhenExecuted_ThenItShouldCommitOneLastTime()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -572,7 +573,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             CheckAllSingleIdFiles(KnownResourceTypes.Patient, 3, 0, 1);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenConnectingToDestinationFails_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
             // Setup export destination client.
@@ -591,7 +592,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenStorageAccountConnectionChanged_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
             string connectionFailure = "Storage account connection string was updated during an export job.";
@@ -609,7 +610,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenStorageAccountUriChanged_WhenExecuted_ThenRecordsAreSentToOldStorageAccount()
         {
             var exportJobRecordWithChangedConnection = CreateExportJobRecord(
@@ -639,7 +640,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(exportJobRecordWithChangedConnection.StorageAccountUri, capturedConfiguration.StorageAccountUri);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobToResume_WhenExecuted_ThenItShouldExportAllRecordsAsExpected()
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task
@@ -694,7 +695,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPatientExportJob_WhenExecuted_ThenAllCompartmentResourcesShouldBeExported()
         {
             int numberOfCalls = 0;
@@ -751,7 +752,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPatientExportJobWithNoCompartmentResources_WhenExecuted_ThenJustAllPatientResourcesShouldBeExported()
         {
             int numberOfCalls = 0;
@@ -796,7 +797,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPatientExportJobToResumeWithMultiplePagesOfPatientsWithinACompartment_WhenExecuted_ThenItShouldExportAllResources()
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task
@@ -886,7 +887,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -926,7 +927,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPatientExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyCompartmentResourcesOfTheGivenTypesAreExported()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -981,7 +982,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobToResumeWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -1060,7 +1061,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGroupExportJob_WhenGroupDoesNotExist_ThenLogExceptionAsInfo()
         {
             string groupId = "groupdoesnotexist";
@@ -1089,7 +1090,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(groupId, logger.ResourceKeyList[0].Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGroupExportJob_WhenGroupExists_ThenDoNotLogExceptionAsInfo()
         {
             string groupId = "groupexists";
@@ -1153,7 +1154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Empty(logger.ResourceKeyList);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGroupExportJob_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -1220,7 +1221,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGroupExportJobWithMultiplePagesOfPatients_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -1291,7 +1292,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(3, countOfSearches);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGroupExportJobToResume_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -1395,7 +1396,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGroupExportJobWithTheTypeParameter_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -1472,7 +1473,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGroupExportJobWithANonExistantGroup_WhenExecuted_ThenTheJobIsMarkedAsFailed()
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
@@ -1497,7 +1498,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("test", _exportJobRecord.FailureDetails.FailureReason);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnonymizedExportJob_WhenExecuted_ThenItShouldExportAllAnonymizedResources()
         {
             bool capturedSearch = false;
@@ -1543,7 +1544,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(capturedSearch);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(typeof(AnonymizationConfigurationNotFoundException), "config not found", HttpStatusCode.BadRequest)]
         [InlineData(typeof(FailedToParseAnonymizationConfigurationException), "cannot parse the config", HttpStatusCode.BadRequest)]
         [InlineData(typeof(InvalidOperationException), "Unknown Error.", HttpStatusCode.InternalServerError)]
@@ -1568,7 +1569,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(expectedHttpStatusCode, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUnKnownExceptionThrowFromAnonymizer_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
             // First search should not have continuation token in the list of query parameters.
@@ -1604,7 +1605,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithACustomContainer_WhenExecuted_ThenAllResourcesAreExportedToThatContainer()
         {
             string containerName = "test_container";
@@ -1636,7 +1637,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(containerName, _inMemoryDestinationClient.ConnectedContainer);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithAFormat_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
         {
             var exportJobRecordWithFormat = CreateExportJobRecord(
@@ -1676,7 +1677,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithFilters_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
         {
             var filters = new List<ExportJobFilter>()
@@ -1755,7 +1756,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPatientExportJobWithFilters_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
         {
             var filters = new List<ExportJobFilter>()
@@ -1868,7 +1869,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPatientExportJobToResumeWithFilters_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
         {
             var filters = new List<ExportJobFilter>()
@@ -2043,7 +2044,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         // If a patient/group export job with type and type filters is run, and patients are in the types requested and filtered, the search should not be run as patients were searched above
         // If an export job with type and type filters is run, the search should not be run if all the types were searched above.
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAPatientExportJobWithFiltersAndPatientsAreNotRequested_WhenExecuted_ThenAllResourcesAreExported()
         {
             var filters = new List<ExportJobFilter>()
@@ -2066,7 +2067,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJobWithInvalidStorageAccount_WhenExecuted_ThenAnExceptionIsLogged()
         {
             string errorMessage = "from mock";
@@ -2085,7 +2086,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(errorMessage, _exportJobRecord.FailureDetails.FailureReason);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportJob_WhenSearchFailedWithRequestRateExceeded_ThenJobStatusShouldBeUpdatedToFailed()
         {
             _searchService.SearchAsync(

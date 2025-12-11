@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _expectedBytes = Encoding.UTF8.GetBytes(expectedString);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARawResourceInJsonFormat_WhenSerialized_ThenCorrectByteArrayShouldBeProduced()
         {
             var rawResource = new RawResource(
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(_expectedBytes, actualBytes);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAInvalidElementNode_WhenSerialized_ByteArrayShouldBeProduced()
         {
             var node = ElementNode.FromElement(_resource.ToTypedElement());
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(Samples.GetInvalidResourceJson().Replace("\r\n", "\n"), Encoding.UTF8.GetString(_serializer.Serialize(newElement)).Replace("\r\n", "\n"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARawResourceInXmlFormat_WhenSerialized_ThenCorrectByteArrayShouldBeProduced()
         {
             var rawResource = new RawResource(

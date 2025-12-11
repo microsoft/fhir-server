@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResource_WhenUpdatingAnExistingResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResourceAndMalformedHeader_WhenUpdatingAnExistingResource_ThenAnErrorShouldBeReturned()
         {
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceAndMalformedProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResource_WhenUpdatingANewResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.Meta.LastUpdated, createResponse.Content.Headers.LastModified);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPracititioner_WhenUpdatingAPatientWithAReferenceToAnIdentifier_ThenResolveTheReferenceProperly()
         {
@@ -139,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"Expected Practitioner reference is '{expectedPractitionerReference}', but it's '{currentPractitionerReference}'. Upserting commands are not resolving resource references correctly.");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResourceWithMetaSet_WhenUpdatingANewResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createResponse.Resource.Meta.LastUpdated, createResponse.Content.Headers.LastModified);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAMismatchedId_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse()
         {
@@ -175,7 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceWithNoId_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse()
         {
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnETagHeader_WhenUpdatingAResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
@@ -204,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updateResponse.Resource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("\"invalidVersion\"")]
         [InlineData("\"-1\"")]
         [InlineData("\"0\"")]
@@ -218,7 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnIncorrectETagHeader_WhenUpdatingAResource_TheServerShouldReturnAnError()
         {
@@ -239,7 +240,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResource_WhenUpdatingAnExistingResourceWithNoDataChange_ThenServerShouldNotCreateAVersionAndSendOk()
         {
@@ -299,7 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(updateResponseAfterMetaUpdated.Resource.Meta.Tag, t => t.Code == "TestCode2");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
         public async Task GivenTheResource_WhenUpdatingMetadataWithMetaHistoryParameterFalse_ThenNoHistoricalRecordIsCreated()
@@ -331,7 +332,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(historyResponse.Resource.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
         public async Task GivenTheResource_WhenUpdatingMetadataWithMetaHistoryParameterTrue_ThenHistoricalRecordIsCreated()
@@ -363,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(2, historyResponse.Resource.Entry.Count);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
         public async Task GivenTheResource_WhenUpdatingMetadataAndContentWithMetaHistoryParameterFalse_ThenHistoricalRecordIsCreated()

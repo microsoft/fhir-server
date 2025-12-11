@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterStatusManager);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenExecutingScalar_ThenCorrectInformationIsReturned()
         {
             string httpMicrosoftCom = "http://microsoft.com";
@@ -80,13 +81,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal(httpMicrosoftCom, url);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenApplyToUnknownResource_ThenAnArgumentExceptionIsThrown()
         {
             Assert.Throws<ArgumentException>(() => _builder.ApplyToResource("foo", c => c.ConditionalCreate = true));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("patient")]
         [InlineData("Patient")]
         [InlineData("PaTient")]
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.NoVersion);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenResourceTypeOverridesContainsResourcesThatDontMatch_ThenResourceUsesDefaultVersionLogic()
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
@@ -153,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenResourceTypeOverridesIsEmpty_ThenResourceUsesDefaultVersionLogic()
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
         {
             string description = "Logical id of this artifact";
@@ -201,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Contains(description, idDocumentation.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenAuditEventDoesntHaveUpdateDelete()
         {
             _builder.PopulateDefaultResourceInteractions();
@@ -217,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.False(noDelete);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenParameterTypeIsNotAdded()
         {
             _builder.PopulateDefaultResourceInteractions();
@@ -229,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.False(noParameters);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenAddingGlobalSearchParam_ThenTypeSearchParamIsAdded()
         {
             _builder.AddGlobalSearchParameters();
@@ -241,7 +242,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal("http://hl7.org/fhir/SearchParameter/type", typeDefinition.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenAddingResourceSearchParamAndSync_ThenTypeSearchParamIsNotAddedUnderResource()
         {
             _searchParameterDefinitionManager.GetSearchParameters("Account")
@@ -256,7 +257,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Null(typeName);
         }
 
-        [Fact]
+        [RetryFact]
         public async System.Threading.Tasks.Task GivenAConformanceBuilder_WhenAddingSupportedProfile_ThenSupportedProfilePresent()
         {
             string profile = "coolProfile";

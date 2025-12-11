@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Support;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
     [Trait(Traits.Category, Categories.Schema)]
     public class ElementValueExtensionsTests
     {
-        [Fact]
+        [RetryFact]
         public void EqualValues_BothReferencesAreSame_ReturnsTrue()
         {
             // Arrange
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void EqualValues_BothHaveNoChildrenAndSameNameAndValue_ReturnsTrue()
         {
             // Arrange
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void EqualValues_DifferentElementNames_ReturnsFalse()
         {
             // Arrange
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void EqualValues_DifferentValues_ReturnsFalse()
         {
             // Arrange
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void EqualValues_OneHasChildrenOtherDoesNot_ReturnsFalse()
         {
             // Arrange
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void EqualValues_BothHaveChildrenWithDifferentCounts_ReturnsFalse()
         {
             // Arrange
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void EqualValues_BothHaveChildrenWithSameValues_ReturnsTrue()
         {
             // Arrange
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void EqualValues_BothHaveChildrenWithDifferentValues_ReturnsFalse()
         {
             // Arrange

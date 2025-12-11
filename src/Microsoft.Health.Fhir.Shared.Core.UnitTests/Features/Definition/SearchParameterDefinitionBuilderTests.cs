@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -47,14 +48,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("SearchParametersWithInvalidBase.json", "SearchParameter[http://hl7.org/fhir/SearchParameter/DomainResource-text].resource.base is not defined.")]
         public void GivenAnInvalidSearchParameterDefinitionFile_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string fileName, string expectedIssue)
         {
             BuildAndVerify(fileName, expectedIssue);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Entry 1 is not a SearchParameter resource.")]
         [InlineData("SearchParameter[3].url is invalid.")]
         public void GivenASearchParameterDefinitionFileWithInvalidEntries_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string expectedIssue)
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             BuildAndVerify(_invalidEntriesFile, expectedIssue);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/DocumentReference-relationship].component is null or empty.")]
         [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/Group-characteristic-value].component[1].definition.reference is null or empty or does not refer to a valid SearchParameter resource.")]
         [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/Observation-code-value-quantity].component[0] cannot refer to a composite SearchParameter.")]
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             BuildAndVerify(_invalidDefinitionsFile, expectedIssue);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenUriDictionaryShouldContainAllSearchParameters()
         {
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 _uriDictionary.Values.Select(value => value.Url.ToString()).OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenAllResourceTypesShouldBeIncluded()
         {
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 _resourceTypeDictionary.Select(x => x.Key).OrderBy(x => x).ToArray());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenCorrectListOfSearchParametersIsBuiltForEntriesWithSingleBase()
         {
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 ("identifier", SearchParamType.Token, "Account.identifier"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceType.MedicationRequest)]
         [InlineData(ResourceType.MedicationAdministration)]
         [InlineData(ResourceType.Medication)]
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSearchParameterConflictsData))]
         public void GivenSearchParametersWithConflicts_WhenBuilt_ThenResourceTypeDictionaryShouldContainSuperSetSearchParameters(
             string resourceType,
@@ -198,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSearchParameterConflictsDataForReject))]
         public void GivenSearchParametersWithConflicts_WhenBuilt_ThenConflictingSearchParametersShouldBeRejected(
             string resourceType,

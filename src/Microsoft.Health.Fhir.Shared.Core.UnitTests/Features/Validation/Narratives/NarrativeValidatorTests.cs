@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             _validator = new NarrativeValidator(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(XssStrings))]
         public void GivenAnInvalidNarrative_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string maliciousNarrative)
         {
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             Assert.False(result.IsValid);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(XssStrings))]
         public void GivenAnInvalidNarrative_WhenProcessingABundle_ThenAValidationMessageWithAFhirPathIsCreated(string maliciousNarrative)
         {

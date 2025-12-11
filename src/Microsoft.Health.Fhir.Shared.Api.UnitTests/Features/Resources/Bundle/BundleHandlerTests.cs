@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -22,6 +22,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 NullLogger<BundleHandler>.Instance);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnEmptyBatchBundle_WhenProcessed_ReturnsABundleResponseWithNoEntries()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundleWithAGet_WhenNotAuthorized_ReturnsABundleResponseWithCorrectEntry()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -211,7 +212,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundle_WhenMultipleRequests_ReturnsABundleResponseWithCorrectOrder()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -266,7 +267,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Category, Categories.Profiles)]
         public async Task GivenABundle_WithMultipleProfileChanges_OnlyExecuteProfileRefreshOnce()
         {
@@ -360,7 +361,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundle_WithASingleRecordAndSequential_ProcessItAsABundle()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -405,7 +406,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransaction_WithACrashDuringCSharpTransaction_ReturnAProperError()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -453,7 +454,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(fhirTfe.ResponseStatusCode == System.Net.HttpStatusCode.InternalServerError);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransaction_WithACancellationHappens_ReturnAProperError()
         {
             using (CancellationTokenSource tokenSource = new CancellationTokenSource())
@@ -494,7 +495,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundleRequestWithNullUrl_WhenProcessing_ReturnsABadRequest()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -522,7 +523,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.Handle(bundleRequest, default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundleRequestWithNullRequestMethod_WhenProcessing_ReturnsABadRequest()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -549,7 +550,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.Handle(bundleRequest, default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundle_WhenProcessed_CertainResponseHeadersArePropagatedToOuterResponse()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -585,7 +586,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundle_WhenOneRequestProducesA429_429IsRetriedThenSubsequentRequestAreSkipped()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -625,7 +626,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundle_WhenOneRequestProducesA429_429IsRetriedThenSucceeds()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -676,7 +677,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAConfigurationEntryLimit_WhenExceeded_ThenBundleEntryLimitExceededExceptionShouldBeThrown()
         {
             _bundleConfiguration.EntryLimit = 1;
@@ -689,7 +690,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(exception.Message, expectedMessage);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenABundleWithAnExportPost_WhenProcessed_ThenItIsProcessedCorrectly()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -714,7 +715,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         // PUT calls are mocked to succeed while POST calls are mocked to fail.
-        [Theory]
+        [RetryTheory]
         [InlineData(BundleType.Batch, HTTPVerb.POST, HTTPVerb.PUT, 1, 1)]
         [InlineData(BundleType.Transaction, HTTPVerb.PUT, HTTPVerb.PUT, 2, 0)]
         public async Task GivenABundleWithMultipleCalls_WhenProcessed_ThenANotificationWillBeEmitted(BundleType type, HTTPVerb method1, HTTPVerb method2, int code200s, int code404s)
@@ -781,7 +782,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(bundleResponse.Info.ExecutionTime.TotalMilliseconds > 0, "ExecutionTime is not higher than zero.");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFailedTransaction_WhenProcessed_ThenNoNotificationWillBeEmitted()
         {
             var bundle = new Hl7.Fhir.Model.Bundle

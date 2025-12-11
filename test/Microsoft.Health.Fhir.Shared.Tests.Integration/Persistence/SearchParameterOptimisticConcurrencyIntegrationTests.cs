@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testHelper = fixture.TestHelper;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSchemaVersion94OrHigher_WhenGettingSearchParameterStatuses_ThenLastUpdatedIsReturned()
         {
             // Act
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNewSearchParameterStatus_WhenUpserting_ThenLastUpdatedIsReturned()
         {
             // Arrange
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithCorrectLastUpdated_ThenSucceeds()
         {
             // Arrange
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenExistingSearchParameterStatus_WhenUpdatingWithIncorrectLastUpdated_ThenEventuallySucceedsWithRetry()
         {
             // Arrange
@@ -189,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMultipleConsecutiveStaleUpdates_WhenUpdatingSearchParameter_ThenRetryMechanismIsTriggeredMultipleTimes()
         {
             // Arrange
@@ -255,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRapidConcurrentUpdates_WhenUsingStaleLastUpdated_ThenRetryMechanismHandlesHighContentionScenario()
         {
             // Arrange
@@ -324,7 +325,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenOptimisticConcurrencyDetection_WhenLastUpdatedChangesBeforeUpdate_ThenRetryMechanismHandlesConflict()
         {
             // Arrange
@@ -385,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMixedUpdatesWithAndWithoutRowVersion_WhenUpserting_ThenBothSucceed()
         {
             // Arrange

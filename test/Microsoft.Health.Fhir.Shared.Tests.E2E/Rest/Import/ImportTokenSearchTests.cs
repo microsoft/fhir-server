@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameter_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, expected);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("code1")]
         [InlineData("text", 2, 3, 4, 5, 6)]
         [InlineData("text2", 3, 6)]
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, expected);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, expected);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearchedOverMissingValue_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"category:not=test&_tag={_fixture.FixtureTag}");
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, expected);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("code1", 0, 5, 6, 8)]
         public async Task GivenMultipleTokenSearchParametersWithNotModifiers_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, expected);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(1)]
         [InlineData(2)]
         public async Task GivenIdWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(int count)
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, expected);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceType.Patient)]
         [InlineData(ResourceType.Patient, ResourceType.Organization)]
         public async Task GivenTypeWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(params ResourceType[] resourceTypes)
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, _fixture.Observations.ToArray());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearchedWithType_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {

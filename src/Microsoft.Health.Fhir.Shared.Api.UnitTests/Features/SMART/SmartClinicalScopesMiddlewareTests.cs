@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Smart;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 httpContext => Task.CompletedTask, _logger);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetTestScopesAndRoles))]
         public async Task GivenSmartScopesSplitAcrossClaims_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, string claims, ICollection<ScopeRestriction> expectedScopeRestrictions)
         {
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetTestScopes))]
         public async Task GivenSmartScope_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, ICollection<ScopeRestriction> expectedScopeRestrictions)
         {
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetTestScopes))]
         public async Task GivenSmartRawScope_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, ICollection<ScopeRestriction> expectedScopeRestrictions)
         {
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             Assert.Equal(expectedScopeRestrictions, fhirRequestContext.AccessControlContext.AllowedResourceActions);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetMixedTestScopes))]
         public async Task GivenMixedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
         {
@@ -199,7 +200,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("smartUser", true, true)]
         [InlineData("globalAdmin", true, false)]
         [InlineData("smartUser", false, false)]
@@ -235,7 +236,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             Assert.Equal(expectedApplyFineGrainedAccessControl, fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSmartDataAction_WhenFhirUserNotProvided_ThenBadRequestExceptionThrown()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -266,7 +267,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAllDataActionExceptSmart_WhenScopesProvided_ThenScopeRestrictionsNotApplied()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -302,7 +303,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirUserInExtensionClaim_WhenRequestMade_ThenFhirUserIsSaved()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -339,7 +340,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirUserAndExtensionFhirUserClaimsBothExist_WhenRequestMade_ThenFhirUserClaimIsUsed()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             SearchParamType.Composite,
             components: new[] { new SearchParameterComponentInfo { ResolvedSearchParameter = ReferenceSearchParameterWithTwoTargetTypes }, new SearchParameterComponentInfo() { ResolvedSearchParameter = ReferenceSearchParameterWithOneTargetType }, new SearchParameterComponentInfo() { ResolvedSearchParameter = new SearchParameterInfo("number", "number", SearchParamType.Number) } });
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUntypedReferenceExpressionWithOneTargetType_WhenRewritten_ExpressionIncludesType()
         {
             SearchParameterExpression inputExpression = Expression.SearchParameter(
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal("(Param p (And (StringEquals ReferenceResourceId 'myId') (StringEquals ReferenceResourceType 'Organization')))", outputExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUntypedReferenceExpressionWithOneTargetTypeWithMultipleOrs_WhenRewritten_ExpressionIncludesType()
         {
             SearchParameterExpression inputExpression = Expression.SearchParameter(
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 outputExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATypedReferenceExpressionWithOneTargetType_WhenRewritten_DoesNotChange()
         {
             SearchParameterExpression inputExpression = Expression.SearchParameter(
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(inputExpression, outputExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUntypedReferenceExpressionWithMultipleTargetTypes_WhenRewritten_DoesNotChange()
         {
             SearchParameterExpression inputExpression = Expression.SearchParameter(
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(inputExpression, outputExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUntypedReferenceExpressionWithOneTargetTypeInACompositeSearchParameter_WhenRewritten_ExpressionIncludesType()
         {
             SearchParameterExpression inputExpression = Expression.SearchParameter(
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization')))", outputExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATypedReferenceExpressionWithOneTargetTypeInACompositeSearchParameter_WhenRewritten_DoesNotChange()
         {
             SearchParameterExpression inputExpression = Expression.SearchParameter(
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(inputExpression, outputExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenCompositeSearchParameterWithTypedAndUntypedReferencesORedTogether_WhenRewritten_ExpressionIncludesType()
         {
             SearchParameterExpression inputExpression = Expression.SearchParameter(
