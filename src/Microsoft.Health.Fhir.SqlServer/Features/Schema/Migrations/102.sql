@@ -1371,16 +1371,30 @@ END
 
 GO
 CREATE PROCEDURE dbo.CaptureResourceIdsForChanges
-@Resources dbo.ResourceList READONLY
+@Resources dbo.ResourceList READONLY, @Resources_Temp dbo.ResourceList_Temp READONLY
 AS
 SET NOCOUNT ON;
-INSERT INTO dbo.ResourceChangeData (ResourceId, ResourceTypeId, ResourceVersion, ResourceChangeTypeId)
-SELECT ResourceId,
-       ResourceTypeId,
-       Version,
-       CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
-FROM   @Resources
-WHERE  IsHistory = 0;
+IF EXISTS (SELECT 1
+           FROM   @Resources_Temp)
+    BEGIN
+        INSERT INTO dbo.ResourceChangeData (ResourceId, ResourceTypeId, ResourceVersion, ResourceChangeTypeId)
+        SELECT ResourceId,
+               ResourceTypeId,
+               Version,
+               CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
+        FROM   @Resources_Temp
+        WHERE  IsHistory = 0;
+    END
+ELSE
+    BEGIN
+        INSERT INTO dbo.ResourceChangeData (ResourceId, ResourceTypeId, ResourceVersion, ResourceChangeTypeId)
+        SELECT ResourceId,
+               ResourceTypeId,
+               Version,
+               CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
+        FROM   @Resources
+        WHERE  IsHistory = 0;
+    END
 
 GO
 CREATE PROCEDURE dbo.CheckActiveReindexJobs
@@ -3428,12 +3442,64 @@ VALUES                                  (@message);
 
 GO
 CREATE PROCEDURE dbo.MergeResources
-@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @Resources_Tmp dbo.ResourceList_Temp READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @Resources_Temp dbo.ResourceList_Temp READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0, @HasDecompressedSize AS BIT = 0;
+DECLARE @WorkingResources TABLE (
+    ResourceTypeId       SMALLINT        NOT NULL,
+    ResourceSurrogateId  BIGINT          NOT NULL,
+    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Version              INT             NOT NULL,
+    HasVersionToCompare  BIT             NOT NULL,
+    IsDeleted            BIT             NOT NULL,
+    IsHistory            BIT             NOT NULL,
+    KeepHistory          BIT             NOT NULL,
+    RawResource          VARBINARY (MAX) NOT NULL,
+    IsRawResourceMetaSet BIT             NOT NULL,
+    RequestMethod        VARCHAR (10)    NULL,
+    SearchParamHash      VARCHAR (64)    NULL,
+    DecompressedSize     INT             NULL);
+IF EXISTS (SELECT 1
+           FROM   @Resources_Temp)
+    BEGIN
+        SET @HasDecompressedSize = 1;
+        INSERT INTO @WorkingResources (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedSize)
+        SELECT ResourceTypeId,
+               ResourceId,
+               Version,
+               IsHistory,
+               ResourceSurrogateId,
+               IsDeleted,
+               RequestMethod,
+               RawResource,
+               IsRawResourceMetaSet,
+               SearchParamHash,
+               HasVersionToCompare,
+               KeepHistory,
+               DecompressedSize
+        FROM   @Resources_Temp;
+    END
+ELSE
+    BEGIN
+        INSERT INTO @WorkingResources (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedSize)
+        SELECT ResourceTypeId,
+               ResourceId,
+               Version,
+               IsHistory,
+               ResourceSurrogateId,
+               IsDeleted,
+               RequestMethod,
+               RawResource,
+               IsRawResourceMetaSet,
+               SearchParamHash,
+               HasVersionToCompare,
+               KeepHistory,
+               NULL
+        FROM   @Resources;
+    END
 DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
-                                         FROM   @Resources), 'Input=Empty');
+                                         FROM   @WorkingResources), 'Input=Empty');
 SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL') + ' ST=' + CONVERT (VARCHAR, @SingleTransaction);
 SET @AffectedRows = 0;
 BEGIN TRY
@@ -3454,7 +3520,7 @@ BEGIN TRY
     IF @InitialTranCount = 0
         BEGIN
             IF EXISTS (SELECT *
-                       FROM   @Resources AS A
+                       FROM   @WorkingResources AS A
                               INNER JOIN
                               dbo.Resource AS B
                               ON B.ResourceTypeId = A.ResourceTypeId
@@ -3465,7 +3531,7 @@ BEGIN TRY
                     SELECT B.ResourceTypeId,
                            B.ResourceSurrogateId
                     FROM   (SELECT TOP (@DummyTop) *
-                            FROM   @Resources) AS A
+                            FROM   @WorkingResources) AS A
                            INNER JOIN
                            dbo.Resource AS B WITH (ROWLOCK, HOLDLOCK)
                            ON B.ResourceTypeId = A.ResourceTypeId
@@ -3475,7 +3541,7 @@ BEGIN TRY
                            AND B.Version = A.Version
                     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
                     IF @@rowcount = (SELECT count(*)
-                                     FROM   @Resources)
+                                     FROM   @WorkingResources)
                         SET @IsRetry = 1;
                     IF @IsRetry = 0
                         COMMIT TRANSACTION;
@@ -3495,7 +3561,7 @@ BEGIN TRY
                    B.Version,
                    B.ResourceSurrogateId
             FROM   (SELECT TOP (@DummyTop) *
-                    FROM   @Resources
+                    FROM   @WorkingResources
                     WHERE  HasVersionToCompare = 1) AS A
                    LEFT OUTER JOIN
                    dbo.Resource AS B
@@ -3537,7 +3603,7 @@ BEGIN TRY
                                RawResource          = 0xF,
                                SearchParamHash      = NULL,
                                HistoryTransactionId = @TransactionId,
-                               deCompressedSize     = 0
+                               DeCompressedSize     = 0
                         WHERE  EXISTS (SELECT *
                                        FROM   @PreviousSurrogateIds
                                        WHERE  TypeId = ResourceTypeId
@@ -3641,8 +3707,7 @@ BEGIN TRY
                                           AND SurrogateId = ResourceSurrogateId);
                     SET @AffectedRows += @@rowcount;
                 END
-            IF EXISTS (SELECT 1
-                       FROM   @Resources_Tmp)
+            IF @HasDecompressedSize = 1
                 BEGIN
                     INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, DecompressedSize)
                     SELECT ResourceTypeId,
@@ -3657,7 +3722,7 @@ BEGIN TRY
                            SearchParamHash,
                            @TransactionId,
                            DecompressedSize
-                    FROM   @Resources_Tmp;
+                    FROM   @WorkingResources;
                 END
             ELSE
                 BEGIN
@@ -3673,7 +3738,7 @@ BEGIN TRY
                            IsRawResourceMetaSet,
                            SearchParamHash,
                            @TransactionId
-                    FROM   @Resources;
+                    FROM   @WorkingResources;
                 END
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
@@ -4145,7 +4210,7 @@ BEGIN TRY
             SET @AffectedRows += @@rowcount;
         END
     IF @IsResourceChangeCaptureEnabled = 1
-        EXECUTE dbo.CaptureResourceIdsForChanges @Resources;
+        EXECUTE dbo.CaptureResourceIdsForChanges @Resources = @Resources, @Resources_Temp = @Resources_Temp;
     IF @TransactionId IS NOT NULL
         EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId;
     IF @InitialTranCount = 0

@@ -735,7 +735,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
             if (_schemaInformation.Current >= SchemaVersionConstants.DecompressedSize)
             {
-                new ResourceList_TempTableValuedParameterDefinition("@Resources_Tmp").AddParameter(cmd.Parameters, new ResourceListTempRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                new ResourceList_TempTableValuedParameterDefinition("@Resources_Temp").AddParameter(cmd.Parameters, new ResourceListTempRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             }
             else
             {
