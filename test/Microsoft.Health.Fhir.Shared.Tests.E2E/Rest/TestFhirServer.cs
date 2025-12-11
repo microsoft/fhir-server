@@ -43,7 +43,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
         private readonly SessionTokenContainer _sessionTokenContainer = new SessionTokenContainer();
 
-        private readonly Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
+        private readonly Dictionary<string, HttpMessageHandler> _authenticationHandlers = new Dictionary<string, HttpMessageHandler>();
+        private readonly Dictionary<string, RetryableCredentialProvider> _retryableCredentialProviders = new Dictionary<string, RetryableCredentialProvider>();
 
         protected TestFhirServer(Uri baseAddress)
         {
@@ -62,12 +63,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public ResourceElement Metadata { get; set; }
 
-        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, HttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
         }
 
-        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, HttpMessageHandler authenticationHandler = null)
         {
             if (!reusable)
             {
@@ -82,14 +83,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .Value;
         }
 
-        private TestFhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, AuthenticationHttpMessageHandler authenticationHandler = null)
+        private TestFhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, HttpMessageHandler authenticationHandler = null)
         {
-            if (SecurityEnabled && authenticationHandler == null)
+            HttpMessageHandler innerHandler;
+            if (authenticationHandler != null)
             {
-                authenticationHandler = GetAuthenticationHandler(clientApplication, user);
+                innerHandler = authenticationHandler;
             }
-
-            HttpMessageHandler innerHandler = authenticationHandler ?? CreateMessageHandler();
+            else if (SecurityEnabled)
+            {
+                innerHandler = GetAuthenticationHandler(clientApplication, user);
+            }
+            else
+            {
+                innerHandler = CreateMessageHandler();
+            }
 
             var sessionMessageHandler = new SessionMessageHandler(innerHandler, _sessionTokenContainer);
 
@@ -98,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return new TestFhirClient(httpClient, this, format, clientApplication, user);
         }
 
-        private AuthenticationHttpMessageHandler GetAuthenticationHandler(TestApplication clientApplication, TestUser user)
+        private HttpMessageHandler GetAuthenticationHandler(TestApplication clientApplication, TestUser user)
         {
             if (clientApplication.Equals(TestApplications.InvalidClient))
             {
@@ -120,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string scope = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Scope;
             string resource = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Resource;
 
-            ICredentialProvider credentialProvider;
+            ICredentialProvider innerCredentialProvider;
             if (user == null)
             {
                 var credentialConfiguration = new OAuth2ClientCredentialOptions(
@@ -134,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 optionsMonitor.CurrentValue.Returns(credentialConfiguration);
                 optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
 
-                credentialProvider = new OAuth2ClientCredentialProvider(optionsMonitor, authHttpClient);
+                innerCredentialProvider = new OAuth2ClientCredentialProvider(optionsMonitor, authHttpClient);
             }
             else
             {
@@ -151,16 +159,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 optionsMonitor.CurrentValue.Returns(credentialConfiguration);
                 optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
 
-                credentialProvider = new OAuth2UserPasswordCredentialProvider(optionsMonitor, authHttpClient);
+                innerCredentialProvider = new OAuth2UserPasswordCredentialProvider(optionsMonitor, authHttpClient);
             }
 
-            var authenticationHandler = new AuthenticationHttpMessageHandler(credentialProvider)
+            // Wrap the credential provider with retry capability to handle transient 401 errors
+            var retryableCredentialProvider = new RetryableCredentialProvider(innerCredentialProvider);
+            _retryableCredentialProviders.Add(authDictionaryKey, retryableCredentialProvider);
+
+            var authenticationHandler = new AuthenticationHttpMessageHandler(retryableCredentialProvider)
             {
                 InnerHandler = CreateMessageHandler(),
             };
-            _authenticationHandlers.Add(authDictionaryKey, authenticationHandler);
 
-            return authenticationHandler;
+            // Wrap with retry handler to automatically retry on 401 with token invalidation
+            var retryHandler = new RetryAuthenticationHttpMessageHandler(
+                retryableCredentialProvider,
+                authenticationHandler,
+                maxRetries: 3,
+                baseDelay: TimeSpan.FromSeconds(2));
+
+            _authenticationHandlers.Add(authDictionaryKey, retryHandler);
+
+            return retryHandler;
 
             string GenerateDictionaryKey()
             {

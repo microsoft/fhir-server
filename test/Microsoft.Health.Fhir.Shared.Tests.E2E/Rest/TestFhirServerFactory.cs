@@ -6,7 +6,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -26,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return await _cache.GetOrAdd(
                     (dataStore, startupType),
                     tuple =>
-                        new Lazy<Task<TestFhirServer>>(() =>
+                        new Lazy<Task<TestFhirServer>>(async () =>
                         {
                             TestFhirServer testFhirServer;
                             string environmentUrl = GetEnvironmentUrl(tuple.dataStore);
@@ -45,9 +48,67 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                                 testFhirServer = new RemoteTestFhirServer(environmentUrl);
                             }
 
-                            return testFhirServer.ConfigureSecurityOptions().ContinueWith(_ => testFhirServer, TaskContinuationOptions.ExecuteSynchronously);
+                            await testFhirServer.ConfigureSecurityOptions();
+
+                            // Perform auth warmup to fail fast if authentication is not working
+                            await WarmupAuthenticationAsync(testFhirServer, tuple.dataStore);
+
+                            return testFhirServer;
                         }))
                 .Value;
+        }
+
+        /// <summary>
+        /// Performs an authenticated request to verify that authentication is working.
+        /// If authentication fails after all retries (handled by RetryAuthenticationHttpMessageHandler),
+        /// this method throws an exception to fail the entire test assembly fast.
+        /// </summary>
+        private static async Task WarmupAuthenticationAsync(TestFhirServer testFhirServer, DataStore dataStore)
+        {
+            if (!testFhirServer.SecurityEnabled)
+            {
+                Console.WriteLine("[TestFhirServerFactory] Security is not enabled, skipping auth warmup.");
+                return;
+            }
+
+            Console.WriteLine($"[TestFhirServerFactory] Performing auth warmup for {dataStore} server at {testFhirServer.BaseAddress}...");
+
+            try
+            {
+                // Create a test client with authentication - this will use the retry handler
+                var testClient = testFhirServer.GetTestFhirClient(ResourceFormat.Json);
+
+                // Make a simple authenticated request - the Patient search with _count=0 is lightweight
+                using var request = new HttpRequestMessage(HttpMethod.Get, "Patient?_count=0");
+                using var response = await testClient.HttpClient.SendAsync(request);
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    // If we still get 401 after all retries, fail fast with a clear message
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    throw new AuthenticationWarmupException(
+                        $"Authentication warmup failed for {dataStore} server at {testFhirServer.BaseAddress}. " +
+                        $"The server returned 401 Unauthorized after all retry attempts. " +
+                        $"This indicates a persistent authentication issue. " +
+                        $"Response: {responseBody}");
+                }
+
+                // Any other response (200, 404, etc.) means auth is working
+                Console.WriteLine($"[TestFhirServerFactory] Auth warmup successful for {dataStore}. Response status: {response.StatusCode}");
+            }
+            catch (AuthenticationWarmupException)
+            {
+                // Re-throw auth warmup exceptions as-is
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Wrap other exceptions with context
+                throw new AuthenticationWarmupException(
+                    $"Authentication warmup failed for {dataStore} server at {testFhirServer.BaseAddress}. " +
+                    $"Exception: {ex.Message}",
+                    ex);
+            }
         }
 
         private static string GetEnvironmentUrl(DataStore dataStore)

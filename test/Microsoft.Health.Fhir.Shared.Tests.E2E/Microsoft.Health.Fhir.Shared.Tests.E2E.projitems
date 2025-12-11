@@ -131,6 +131,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\StartupForExportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\SuppressExecutionContextHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\AuthenticationWarmupException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\RetryableCredentialProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\RetryAuthenticationHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
