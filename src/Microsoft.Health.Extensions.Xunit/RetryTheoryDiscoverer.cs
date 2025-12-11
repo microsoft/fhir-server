@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -75,17 +74,17 @@ namespace Microsoft.Health.Extensions.Xunit
                 delayMs = 5000;
             }
 
-            // For theories without data (will be skipped), wrap in retry
-            return base.CreateTestCasesForTheory(discoveryOptions, testMethod, theoryAttribute)
-                .Select(testCase => new RetryTestCase(
-                    DiagnosticMessageSink,
-                    discoveryOptions.MethodDisplayOrDefault(),
-                    discoveryOptions.MethodDisplayOptionsOrDefault(),
-                    testMethod,
-                    maxRetries,
-                    delayMs,
-                    retryOnAssertionFailure,
-                    testCase.TestMethodArguments));
+            // This is called when data is not serializable (e.g., complex types in MemberData).
+            // Use RetryDelayEnumeratedTheoryTestCase which delays data resolution until runtime
+            // and wraps the execution with retry logic.
+            yield return new RetryDelayEnumeratedTheoryTestCase(
+                DiagnosticMessageSink,
+                discoveryOptions.MethodDisplayOrDefault(),
+                discoveryOptions.MethodDisplayOptionsOrDefault(),
+                testMethod,
+                maxRetries,
+                delayMs,
+                retryOnAssertionFailure);
         }
     }
 }
