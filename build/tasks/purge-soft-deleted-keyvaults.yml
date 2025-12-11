@@ -1,0 +1,66 @@
+# Task template to purge soft-deleted Key Vaults
+# This prevents soft-delete conflicts when deploying new vaults with the same name
+
+steps:
+- task: AzureCLI@2
+  displayName: 'Purge Soft-Deleted Key Vaults'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    scriptType: pscore
+    scriptLocation: inlineScript
+    inlineScript: |
+      $keyVaultBaseName = "$(KeyVaultBaseName)"
+      $region = "$(ResourceGroupRegion)"
+      $pattern = "$keyVaultBaseName*"
+      
+      Write-Host "Looking for soft-deleted Key Vaults matching pattern: $pattern in region: $region"
+      
+      # Get all soft-deleted key vaults using Azure CLI (more reliable than PowerShell cmdlet)
+      $deletedVaultsJson = az keyvault list-deleted --query "[?starts_with(name, '$keyVaultBaseName') && properties.location=='$region'].{name:name, location:properties.location}" -o json 2>$null
+      
+      if ([string]::IsNullOrEmpty($deletedVaultsJson) -or $deletedVaultsJson -eq "[]") {
+        Write-Host "No soft-deleted Key Vaults found matching pattern"
+        exit 0
+      }
+      
+      $deletedVaults = $deletedVaultsJson | ConvertFrom-Json
+      
+      if ($null -eq $deletedVaults -or $deletedVaults.Count -eq 0) {
+        Write-Host "No soft-deleted Key Vaults found matching pattern"
+        exit 0
+      }
+      
+      Write-Host "Found $($deletedVaults.Count) soft-deleted Key Vault(s) to purge"
+      
+      $purgedCount = 0
+      $failedCount = 0
+      
+      foreach ($vault in $deletedVaults) {
+        $vaultName = $vault.name
+        $location = $vault.location
+        
+        Write-Host "Purging vault: $vaultName in $location..."
+        
+        try {
+          az keyvault purge --name $vaultName --location $location 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Successfully purged: $vaultName"
+            $purgedCount++
+          } else {
+            Write-Warning "Failed to purge vault: $vaultName (exit code: $LASTEXITCODE)"
+            $failedCount++
+          }
+        }
+        catch {
+          $errorMessage = $_.Exception.Message
+          # Ignore "not found" errors - vault may have already been purged
+          if ($errorMessage -match "VaultNotFound|NotFound|does not exist") {
+            Write-Host "Vault $vaultName already purged or not found - skipping"
+          } else {
+            Write-Warning "Error purging vault $vaultName : $errorMessage"
+            $failedCount++
+          }
+        }
+      }
+      
+      Write-Host "Completed: $purgedCount purged, $failedCount failed"

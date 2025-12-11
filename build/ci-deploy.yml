@@ -76,7 +76,7 @@ stages:
     pool:
       vmImage: '$(WindowsVmImage)'
     steps:
-    - template: ./tasks/delete-keyvaults.yml
+    - template: ./tasks/purge-soft-deleted-keyvaults.yml
   - job: setup
     dependsOn: deleteKeyVaults
     pool:
