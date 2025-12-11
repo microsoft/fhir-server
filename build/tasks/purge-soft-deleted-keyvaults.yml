@@ -30,37 +30,49 @@ steps:
         exit 0
       }
       
-      Write-Host "Found $($deletedVaults.Count) soft-deleted Key Vault(s) to purge"
+      Write-Host "Found $($deletedVaults.Count) soft-deleted Key Vault(s) to purge in parallel"
       
-      $purgedCount = 0
-      $failedCount = 0
-      
-      foreach ($vault in $deletedVaults) {
-        $vaultName = $vault.name
-        $location = $vault.location
-        
-        Write-Host "Purging vault: $vaultName in $location..."
+      # Purge vaults in parallel using ForEach-Object -Parallel
+      $purgeResults = $deletedVaults | ForEach-Object -Parallel {
+        $vaultName = $_.name
+        $location = $_.location
         
         try {
-          az keyvault purge --name $vaultName --location $location 2>&1
+          $output = az keyvault purge --name $vaultName --location $location 2>&1
           if ($LASTEXITCODE -eq 0) {
-            Write-Host "Successfully purged: $vaultName"
-            $purgedCount++
+            [PSCustomObject]@{ Vault = $vaultName; Status = "Purged" }
           } else {
-            Write-Warning "Failed to purge vault: $vaultName (exit code: $LASTEXITCODE)"
-            $failedCount++
+            # Check if it's a "not found" error - vault may have already been purged
+            if ($output -match "VaultNotFound|NotFound|does not exist") {
+              [PSCustomObject]@{ Vault = $vaultName; Status = "AlreadyPurged" }
+            } else {
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Failed: $output" }
+            }
           }
         }
         catch {
           $errorMessage = $_.Exception.Message
-          # Ignore "not found" errors - vault may have already been purged
           if ($errorMessage -match "VaultNotFound|NotFound|does not exist") {
-            Write-Host "Vault $vaultName already purged or not found - skipping"
+            [PSCustomObject]@{ Vault = $vaultName; Status = "AlreadyPurged" }
           } else {
-            Write-Warning "Error purging vault $vaultName : $errorMessage"
-            $failedCount++
+            [PSCustomObject]@{ Vault = $vaultName; Status = "Failed: $errorMessage" }
           }
+        }
+      } -ThrottleLimit 10
+      
+      # Report results
+      $purgeResults | ForEach-Object {
+        if ($_.Status -eq "Purged") {
+          Write-Host "Successfully purged: $($_.Vault)"
+        } elseif ($_.Status -eq "AlreadyPurged") {
+          Write-Host "Vault $($_.Vault) already purged or not found - skipping"
+        } else {
+          Write-Warning "$($_.Vault): $($_.Status)"
         }
       }
       
-      Write-Host "Completed: $purgedCount purged, $failedCount failed"
+      $purgedCount = ($purgeResults | Where-Object { $_.Status -eq "Purged" }).Count
+      $skippedCount = ($purgeResults | Where-Object { $_.Status -eq "AlreadyPurged" }).Count
+      $failedCount = ($purgeResults | Where-Object { $_.Status -like "Failed:*" }).Count
+      
+      Write-Host "Completed: $purgedCount purged, $skippedCount already purged, $failedCount failed"
