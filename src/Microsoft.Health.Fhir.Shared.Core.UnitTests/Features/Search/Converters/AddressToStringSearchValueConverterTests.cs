@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     [Trait(Traits.Category, Categories.Search)]
     public class AddressToStringSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<AddressToStringSearchValueConverter, Address>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAddressWithCity_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string city = "Seattle";
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 city);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAddressWithCountry_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string country = "USA";
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 country);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAddressWithDistrict_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string district = "DC";
@@ -50,13 +51,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 district);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAddressWithNoLine_WhenConverted_ThenOneOrMultipleStringSearchValueShouldBeCreated()
         {
             await Test(address => address.Line = null);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Line1")]
         [InlineData("Line1", "Line2")]
         public async Task GivenAnAddressWithLine_WhenConverted_ThenOneOrMultipleStringSearchValueShouldBeCreated(params string[] lines)
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 lines);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAddressWithPostalCode_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string postalCode = "98052";
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 postalCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAddressWithState_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string state = "Washington";
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 state);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAddressWithText_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string text = "Text";

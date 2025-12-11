@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _processingJob = new BulkUpdateProcessingJob(_queueClient, _updater.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _supportedProfilesStore, _mediator, Substitute.For<ILogger<BulkUpdateProcessingJob>>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJob_WhenJobIsRun_ThenResourcesAreUpdated()
         {
             _updater.ClearReceivedCalls();
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 4), Arg.Any<CancellationToken>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(10, 1)]
         [InlineData(100, 1)]
         [InlineData(1000, 1)]
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _updater.ReceivedWithAnyArgs(1).UpdateMultipleAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), readUpto, Arg.Is<bool>(b => !b), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<BundleResourceContext>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobWithSurrogateIds_WhenJobIsRun_ThenIdsAreAddedToSearchParametersAndResourcesAreUpdated()
         {
             _updater.ClearReceivedCalls();
@@ -153,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 3), Arg.Any<CancellationToken>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(10000)]
         [InlineData(5000)]
         public async Task GivenProcessingJobWithSurrogateIds_WhenJobIsRun_QueryParametersAreBuiltForRangeSubjob(uint maximumNumberOfResourcesPerQuery)
@@ -204,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2500, "1000")]
         [InlineData(1000, "1000")]
         [InlineData(1500, "1000")] // above processing batch size; expect ProcessingBatchSize applied.
@@ -242,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal(expectedCount, countParam.Item2);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInPreviouslyCompleteOrFailedJob_WhenJobIsRun_ThenProfilesAreRefreshed(bool isFailed)
@@ -291,7 +292,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfilesStore.Received(1).Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsUpdatedInCurrentlyRunningJob_WhenJobIsRun_ThenProfilesAreRefreshed()
         {
             _updater.ClearReceivedCalls();
@@ -333,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfilesStore.Received(1).Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobLastOneFromGroupAndProfileResourceTypeIsNotUpdated_WhenJobIsRun_ThenProfilesAreNotRefreshed()
         {
             _updater.ClearReceivedCalls();
@@ -376,7 +377,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobNotTheLastOneFromGroupAndProfileResourceTypeIsUpdated_WhenJobIsRun_ThenProfilesAreNotRefreshed()
         {
             _updater.ClearReceivedCalls();
@@ -416,7 +417,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobWhenIncompleteOperationExceptionIsThrown_WhenJobIsRun_ThenJobExecutionExceptionIsThrownAndPartialResultsAreHandled()
         {
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: true);
@@ -447,7 +448,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _mediator.Received(1).Publish(Arg.Is<BulkUpdateMetricsNotification>(n => n.JobId == jobInfo.Id && n.ResourcesUpdated == 2), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobWhenResourcesPatchFailedIsNotEmpty_WhenJobIsRun_ThrowsJobExecutionSoftFailureException()
         {
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: true);
@@ -479,7 +480,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _supportedProfilesStore.DidNotReceiveWithAnyArgs().Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobWhenNoResourcesUpdatedAndNoErrors_WhenJobIsRun_ThenReturnsEmptyResult()
         {
             // Arrange
@@ -507,7 +508,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJobWhenUnexpectedExceptionIsThrownFromUpdateMultipleAsync_WhenJobIsRun_ThenExceptionIsPropagated()
         {
             // Arrange
@@ -529,13 +530,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<BulkUpdateMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJob_WhenJobInfoIsNull_ThenArgumentNullExceptionIsThrown()
         {
             await Assert.ThrowsAsync<ArgumentNullException>(async () => await _processingJob.ExecuteAsync(null, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJob_WhenJobDefinitionIsMalformed_ThenJsonExceptionIsThrown()
         {
             var jobInfo = new JobInfo
@@ -547,7 +548,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<JsonReaderException>(async () => await _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJob_WhenQueueClientThrowsException_ThenExceptionIsPropagated()
         {
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: true);
@@ -565,7 +566,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJob_WhenSupportedProfilesStoreThrowsException_ThenExceptionIsPropagated()
         {
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: true);
@@ -600,7 +601,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<InvalidOperationException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProcessingJob_WhenMediatorThrowsException_ThenExceptionIsPropagated()
         {
             var definition = new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null, isParallel: true, readNextPage: true);

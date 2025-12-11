@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenGroupDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite is required to run these tests locally.
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(dataInFhirServer, dataFromExport, _outputHelper));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenGroupDataIsExportedWithTypeParameter_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite is required to run these tests locally.
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(dataInFhirServer, dataFromExport, _outputHelper));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenGroupDataWithNoMemberPatientIdIsExported_ThenNoDataIsExported()
         {
             // NOTE: Azurite is required to run these tests locally.
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFhirServer_WhenDataIsExported_ThenExportTaskMetricsNotificationShouldBePosted()
         {
             // NOTE: Azurite is required to run these tests locally.

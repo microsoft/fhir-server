@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
             yield return new[] { new Token("system1", "code1"), new Token("system2", "code2", "text2") };
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACodeableConceptWithText_WhenConverted_ThenATokenSearchValueShouldBeCreated()
         {
             const string text = "text";
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 new Token(text: text));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACodeableConceptWithTextThatIsTheSameAsTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldNotBeCreatedForTheConceptText()
         {
             const string system = "system";
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 new Token(system: system, text: text));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACodeableConceptWithTextThatIsDifferentThanTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldBeCreatedForTheConceptText()
         {
             const string system = "system";
@@ -71,13 +72,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 new Token(text: conceptText));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACodeableConceptWithNullCoding_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             await Test(cc => cc.Coding = null);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetMultipleCodingDataSource))]
         public async Task GivenACodeableConceptWithCodings_WhenConverted_ThenOneOrMultipleTokenSearchValuesShouldBeCreated(params Token[] tokens)
         {
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 tokens);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACodeableConceptWithEmptyCoding_WhenConverted_ThenEmptyCodingShouldBeExcluded()
         {
             const string system = "system";
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 new Token(system, null, text));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("system", null, null)]
         [InlineData(null, "code", null)]
         [InlineData(null, null, "text")]

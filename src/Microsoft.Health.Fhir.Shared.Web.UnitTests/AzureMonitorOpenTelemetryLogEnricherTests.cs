@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using NSubstitute;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _enricher = new AzureMonitorOpenTelemetryLogEnricher(_httpContextAccessor, _failureMetricHandler);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenRequest_WhenOperationNameIsAbsent_ThenOperationNameShouldBeAddedWithMethodAndPath()
         {
             _httpContext.Request.RouteValues.ReturnsNull();
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenRequest_WhenOperationNameIsAbsent_ThenOperationNameShouldBeAddedWithRouteValues()
         {
             var routeValues = RouteValueDictionary.FromArray(new[]
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenRequest_WhenOperationNameIsAbsent_ThenOperationNameShouldBeAddedWithRouteValueAndParameters()
         {
             var routeValues = RouteValueDictionary.FromArray(new[]
@@ -123,7 +124,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenRequest_WhenOperationNameIsPresentAndEmpty_ThenOperationNameShouldBeAdded()
         {
             var routeValues = RouteValueDictionary.FromArray(new[]
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenRequest_WhenOperationNameIsAlreadySet_ThenOperationNameShouldNoteBeChanged()
         {
             var operationName = "MyOperationName";
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(0).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(LogLevel.Information)]
         [InlineData(LogLevel.Warning)]
         [InlineData(LogLevel.Critical)]
@@ -203,7 +204,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(1).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARecord_WhenAnErrorIsLogged_ThenGenerateTheMetricAccordingly()
         {
             LogRecord log = CreateLogRecord(
@@ -220,7 +221,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(1).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenRequest_WhenOperatoinNameIsAbsentAndHttpContextIsNull_ThenOperationNameShouldNotBeAdded()
         {
             _httpContextAccessor.HttpContext.ReturnsNull();

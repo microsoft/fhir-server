@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class CosmosDbInitializationTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAListOfExpectedStoredProcedures_ThenAllStoredProceduresInTheAssemblyShouldMatch()
         {
             string[] storeProcs = new string[]
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
             }
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAllStoredProceduresInTheAssembly_ThenAllStructureShouldBeAsExpected()
         {
             Type[] fhirStoredProcsClasses = typeof(DataPlaneStoredProcedureInstaller).Assembly

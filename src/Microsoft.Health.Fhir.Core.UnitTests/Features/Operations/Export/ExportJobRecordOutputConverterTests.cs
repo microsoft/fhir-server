@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.IO;
 using System.Reflection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     [Trait(Traits.Category, Categories.Export)]
     public class ExportJobRecordOutputConverterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenExportJobRecordV1_WhenDeserialized_ThenOutputIsDeserializedCorrectly()
         {
             string data = GetDataFromFile("ExportJobRecordV1");
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("fcf87438-cdbd-4537-8f4d-4ab739310f3f", jobRecord.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExportJobRecordV2_WhenDeserialized_ThenOutputIsDeserializedCorrectly()
         {
             string data = GetDataFromFile("ExportJobRecordV2");

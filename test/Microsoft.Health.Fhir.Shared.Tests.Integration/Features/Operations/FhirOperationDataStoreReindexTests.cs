@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.FhirPath.Sprache;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Empty(jobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAMatchingReindexJob_WhenGettingById_ThenTheMatchingReindexJobShouldBeReturned()
         {
             ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Equal(jobRecord.Id, jobWrapper?.JobRecord?.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoMatchingReindexJob_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
         {
             ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetReindexJobByIdAsync("test", CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereIsNoRunningReindexJob_WhenAcquiringReindexJobs_ThenAvailableReindexJobsShouldBeReturned()
         {
             ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
                 job => ValidateReindexJobRecord(jobRecord, job.JobRecord));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Canceled)]
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
@@ -118,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Empty(jobs);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAReindexJobWithQueryErrors_ThenErrorsAreNotDisplayed()
         {
             string queryListError = "An unhandled error has occurred.";
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Null(parm);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThereIsRunningReindexJobThatExpired_WhenAcquiringReindexJobs_ThenTheExpiredReindexJobShouldBeReturned()
         {
             ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
@@ -159,7 +160,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
                 expiredJobWrapper => ValidateReindexJobRecord(jobWrapper.JobRecord, expiredJobWrapper.JobRecord));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARunningReindexJob_WhenUpdatingTheReindexJob_ThenTheJobShouldBeUpdated()
         {
             ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
@@ -173,7 +174,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             ValidateReindexJobRecord(job, updatedJobWrapper?.JobRecord);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANonexistentReindexJob_WhenUpdatingTheReindexJob_ThenJobNotFoundExceptionShouldBeThrown()
         {
             Dictionary<string, string> searchParamHashMap = new Dictionary<string, string>();
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             await Assert.ThrowsAsync<JobNotFoundException>(() => CompleteReindexJobAsync(nonExistentJobRecord, JobStatus.Running, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnActiveReindexJob_WhenGettingActiveReindexJobs_ThenTheCorrectJobIdShouldBeReturned()
         {
             await CancelActiveReindexJobIfExists();
@@ -199,7 +200,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Equal(jobRecord.Id, activeReindexJobResult.Item2);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(JobStatus.Completed)]
         [InlineData(JobStatus.Failed)]
         [InlineData(JobStatus.Cancelled)]
@@ -218,7 +219,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Null(id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoReindexJobs_WhenGettingActiveReindexJobs_ThenNoJobIdShouldBeReturned()
         {
             (bool, string) activeReindexJobResult = await _operationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None);

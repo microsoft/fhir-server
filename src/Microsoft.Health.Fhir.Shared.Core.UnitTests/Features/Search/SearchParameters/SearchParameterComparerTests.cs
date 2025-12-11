@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Reflection;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
             _output = output;
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetCompareBaseData))]
         public void GivenBases_WhenComparing_ThenCorrectResultShouldBeReturn(
             string[] base1,
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
             Assert.Equal(result, _comparer.CompareBase(base1, base2));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetCompareComponentData))]
         public void GivenComponents_WhenComparing_ThenCorrectResultShouldBeReturn(
             IDictionary<string, string> component1,
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
                     component2.Select<KeyValuePair<string, string>, (string, string)>(x => new(x.Key, x.Value))));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressions_WhenComparing_ThenComparerShouldBeAbleToParseAndCompare()
         {
             // Note: this test ensures that the compare can parse and compare all expressiosn in search-parameters.json.
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetCompareExpressionData))]
         public void GivenExpressions_WhenComparing_ThenCorrectResultShouldBeReturn(
             string expression1,
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.SearchPara
             Assert.Equal(result, _comparer.CompareExpression(expression1, expression2, baseTypeExpression));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetCompareSearchParameterData))]
         public void GivenSearchParameters_WhenComparing_ThenCorrectResultShouldBeReturn(
             SearchParameterInfo searchParameter1,

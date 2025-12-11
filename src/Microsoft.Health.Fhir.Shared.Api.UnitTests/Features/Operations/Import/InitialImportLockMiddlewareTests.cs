@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
     [Trait(Traits.Category, Categories.Import)]
     public class InitialImportLockMiddlewareTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenPostResourceRequest_WhenInitialImportModeEnabled_Then423ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = true });
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(423, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCustomErrorRequest_WhenInitialImportModeEnabled_Then423ShouldNotBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = true });
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenGetResourceRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenStartImportRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCancelImportRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCancelImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
@@ -102,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPostResourceRequest_WhenImportNotEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPostResourceRequest_WhenInitialImportModeNotEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = false });
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("/Patient", "Post")]
         [InlineData("/$reindex", "Get")]
         [InlineData("/Observation", "Delete")]
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(423, httpContext.Response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("/Patient", "Get")]
         [InlineData("/$export", "Get")]
         [InlineData("/Patient/$export", "Get")]

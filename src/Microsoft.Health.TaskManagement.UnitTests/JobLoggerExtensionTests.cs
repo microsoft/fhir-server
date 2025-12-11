@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.IO;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class JobLoggerExtensionTests
     {
-        [Fact]
+        [RetryFact]
         public void WhenLoggingNullJobInformation_PrefixLogWithEmptyJobInformation()
         {
             const string expectedString = "[GroupId:(null)/JobId:(null)/Type:(null)] Message: test.";
@@ -27,7 +28,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             logger.LogJobInformation(info, "Message: {message}.", "test");
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenLoggingEmptyJobInformation_PrefixLogWithEmptyJobInformation()
         {
             const string expectedString = "[GroupId:0/JobId:0/Type:0] Message: test.";
@@ -38,7 +39,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             logger.LogJobInformation(info, "Message: {message}.", "test");
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenLoggingJobInformation_PrefixLogWithJobInformation_AndLogOneParameter()
         {
             const string expectedString = "[GroupId:2112/JobId:999/Type:33] Message: test.";
@@ -54,7 +55,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             logger.LogJobInformation(info, "Message: {message}.", "test");
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenLoggingJobInformation_PrefixLogWithJobInformation_AndLogThreeParameters()
         {
             const string expectedString = "[GroupId:1234/JobId:4321/Type:45] Param1: A / Param2: b / Param3: C3.";
@@ -70,7 +71,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             logger.LogJobError(info, "Param1: {param1} / Param2: {param2} / Param3: {param3}.", "A", "b", "C3");
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenLoggingJobInformation_PrefixLogWithJobInformation_AndLogFiveParameters()
         {
             const string expectedString = "[GroupId:222/JobId:333/Type:44] Param1: 'A' / Param2: B / Param3: 3 / Param4: 'D' / Param5: 55.";

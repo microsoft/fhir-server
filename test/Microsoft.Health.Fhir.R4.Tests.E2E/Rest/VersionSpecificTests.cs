@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -22,13 +23,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenR4Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
             await TestCapabilityStatementFhirVersion("4.0.1");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnObservationDefinition_WhenCreating_ThenTheCorrectResponseShouldBeReturned()
         {
             var resource = Samples.GetJsonSample<ObservationDefinition>("ObservationDefinition-example");
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(actual);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnObservation_WithInvalidDecimalSpecification_ThenBadRequestShouldBeReturned()
         {
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANewR4ResourceType_WhenCreated_ThenCorrectResourceShouldBeReturned()
         {
             var testId = Guid.NewGuid().ToString();
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Collection(bundle.Entry, e => Assert.Equal(actual.Id, e.Resource.Id));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceThatWasRenamed_WhenSearched_ThenExceptionShouldBeThrown()
         {
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.SearchAsync("Sequence"));

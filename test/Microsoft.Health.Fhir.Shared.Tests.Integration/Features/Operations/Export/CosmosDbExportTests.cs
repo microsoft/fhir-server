@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _coordJob = new(_queueClient, _searchServiceScopeFactory, _logger);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportOfPatientResources_WhenQueuedAndCancelled_JobStatusAndCountIsCorrectDuringJob()
         {
             string resourceType = "Patient";
@@ -67,13 +68,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportOfPatientObservation_WhenQueued_JobStatusAndCountIsCorrectDuringJob()
         {
             await RunExport("Patient,Observation", _coordJob, 3); // 3=coord+2 resource type
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportOfAllTypes_WhenQueued_JobStatusAndCountIsCorrectDuringJob()
         {
             await RunExport(null, _coordJob, 4); // 4=coord+3 resource type

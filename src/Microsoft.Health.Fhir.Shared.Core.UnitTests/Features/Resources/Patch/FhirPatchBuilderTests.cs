@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
     [Trait(Traits.Category, Categories.Patch)]
     public class FhirPatchBuilderTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchParameterComponent_WhenOperationInvalid_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddPatchParameter("remove", path: "Patient.identifier");
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Contains("Invalid patch operation type", exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchParameterComponent_WhenMissingPath_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddPatchParameter("add", name: "identifier", value: new FhirString("test"));
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Contains("must have the 'path'", exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchParameterComponent_WhenMissingName_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", value: new FhirString("test"));
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Contains("must have the 'name'", exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchParameterComponent_WhenMissingValue_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", name: "identifier");

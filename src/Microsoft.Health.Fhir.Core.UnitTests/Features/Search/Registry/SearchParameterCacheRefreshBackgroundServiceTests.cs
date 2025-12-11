@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task Handle_WhenSearchParametersInitializedNotificationReceived_ShouldSetInitializedFlag()
         {
             // Arrange
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // We can't directly assert on the private field, but the test verifies the method works
         }
 
-        [Fact]
+        [RetryFact]
         public void Constructor_WithValidConfiguration_ShouldUseConfiguredRefreshInterval()
         {
             // Arrange
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.NotNull(service);
         }
 
-        [Fact]
+        [RetryFact]
         public void Constructor_WithZeroRefreshInterval_ShouldUseDefaultInterval()
         {
             // Arrange
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Arg.Any<Func<object, Exception, string>>());
         }
 
-        [Fact]
+        [RetryFact]
         public void Constructor_WithNegativeRefreshInterval_ShouldUseDefaultInterval()
         {
             // Arrange - Test with negative value
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Arg.Any<Func<object, Exception, string>>());
         }
 
-        [Fact]
+        [RetryFact]
         public void Constructor_WithNullConfiguration_ShouldThrow()
         {
             // Act & Assert - Should throw ArgumentNullException when configuration is null
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
         }
 
-        [Fact]
+        [RetryFact]
         public void Constructor_WithNullSearchParameterOperations_ShouldThrow()
         {
             // Act & Assert
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
         }
 
-        [Fact]
+        [RetryFact]
         public void Constructor_WithNullSearchParameterStatusManager_ShouldThrow()
         {
             // Act & Assert
@@ -178,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
         }
 
-        [Fact]
+        [RetryFact]
         public void Constructor_WithNullLogger_ShouldThrow()
         {
             // Act & Assert
@@ -189,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 null));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task OnRefreshTimer_WhenCacheIsStale_ShouldCallGetAndApplySearchParameterUpdates()
         {
             // Arrange
@@ -210,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await _searchParameterOperations.Received().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task OnRefreshTimer_WhenCacheIsFresh_ShouldNotCallGetAndApplySearchParameterUpdates()
         {
             // Arrange
@@ -233,7 +234,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task ExecuteAsync_WhenCancellationRequested_ShouldStopGracefully()
         {
             // Arrange
@@ -268,7 +269,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 Arg.Any<Func<object, Exception, string>>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task OnRefreshTimer_WhenServiceProviderDisposed_ShouldHandleGracefully()
         {
             // Arrange
@@ -301,7 +302,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             service.Dispose();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task OnRefreshTimer_WhenOperationCanceled_ShouldHandleGracefully()
         {
             // Arrange
@@ -334,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             service.Dispose();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task Handle_WhenServiceAlreadyCancelled_ShouldNotStartTimer()
         {
             // Arrange

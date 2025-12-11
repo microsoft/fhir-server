@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnId_WhenGettingAResource_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertSecurityHeaders(readResponse.Headers);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANonExistantId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenADeletedId_WhenGettingAResource_TheServerShouldReturnAGoneStatus()
         {

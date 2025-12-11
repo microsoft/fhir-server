@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,13 +18,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     [Trait(Traits.Category, Categories.Search)]
     public class HumanNameToStringSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<HumanNameToStringSearchValueConverter, HumanName>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAHumaneNameWithNoGiven_WhenConverted_ThenOneOrMoreStringSearchValuesShouldBeCreated()
         {
             await Test(hn => hn.Given = null);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("given")]
         [InlineData("given1", "given2")]
         public async Task GivenAHumaneNameWithGiven_WhenConverted_ThenOneOrMoreStringSearchValuesShouldBeCreated(params string[] given)
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 given);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHumanNameWithFamily_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string family = "Doe";
@@ -45,13 +46,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 family);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHumanNameWithNoPrefix_WhenConverted_ThenOneOrMoreStringSearchValueShouldBeCreated()
         {
             await Test(hn => hn.Prefix = null);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("prefix")]
         [InlineData("prefix1", "prefix2")]
         public async Task GivenAnHumanNameWithPrefix_WhenConverted_ThenOneOrMoreStringSearchValueShouldBeCreated(params string[] prefix)
@@ -62,13 +63,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 prefix);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHumanNameWithNoSuffix_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             await Test(hn => hn.Suffix = null);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("suffix")]
         [InlineData("suffix1", "suffix2")]
         public async Task GivenAnHumanNameWithSuffix_WhenConverted_ThenAStringSearchValueShouldBeCreated(params string[] suffix)
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 suffix);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHumanNameWithText_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string text = "text";

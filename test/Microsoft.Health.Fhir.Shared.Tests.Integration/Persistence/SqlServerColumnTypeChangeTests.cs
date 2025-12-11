@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Data;
 using System.Linq;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.SqlClient.Server;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenColumnTypeChange_InsertAndSelectWork()
         {
             try

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Net;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [InlineData("   ")]
         [InlineData("storageAccount")]
         [InlineData("connectionString")]
-        [Theory]
+        [RetryTheory]
         public void GivenInvalidStorageAccountConnectionString_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string connectionString)
         {
             _exportJobConfiguration.StorageAccountConnection = connectionString;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenValidStorageAccountConnectionString_WhenGetAuthorizedClientAsync_ThenClientIsReturned()
         {
             _exportJobConfiguration.StorageAccountConnection = "DefaultEndpointsProtocol=https;AccountName=randomName;AccountKey=randomString;EndpointSuffix=core.windows.net";

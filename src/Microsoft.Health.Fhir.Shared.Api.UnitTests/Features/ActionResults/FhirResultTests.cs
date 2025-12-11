@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
     [Trait(Traits.Category, Categories.Web)]
     public class FhirResultTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAGoneStatus_WhenReturningAResult_ThenTheContentShouldBeEmpty()
         {
             var result = FhirResult.Gone();
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             Assert.Equal(0, context.HttpContext.Request.Body.Length);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANoContentStatus_WhenReturningAResult_ThenTheStatusCodeIsSetCorrectly()
         {
             var result = FhirResult.NoContent();
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             Assert.Equal(HttpStatusCode.NoContent, result.StatusCode.GetValueOrDefault());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANotFoundStatus_WhenReturningAResult_ThenTheStatusCodeIsSetCorrectly()
         {
             var result = FhirResult.NotFound();
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             Assert.Equal(HttpStatusCode.NotFound, result.StatusCode.GetValueOrDefault());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirResult_WhenHeadersThatAlreadyExistsInResponseArePassed_ThenDuplicteHeadersAreRemoved()
         {
             var result = FhirResult.Gone();

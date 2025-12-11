@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _referenceToElementResolver);
         }
 
-        [Fact]
+        [RetryFact]
         public async System.Threading.Tasks.Task GivenAGroupId_WhenPatientIdsAreRequested_ThenThePatientsIdsAreReturned()
         {
             SetUpGroupMock();
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Contains(_patientReference, patientSet);
         }
 
-        [Fact]
+        [RetryFact]
         public async System.Threading.Tasks.Task GivenAGroupIdForAGroupWithANestedGroup_WhenPatientIdsAreRequested_ThenThePatientsIdsAreReturned()
         {
             var structureDefinitionSummaryProvider = new PocoStructureDefinitionSummaryProvider();
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Contains(patientReference2, patientSet);
         }
 
-        [Fact]
+        [RetryFact]
         public async System.Threading.Tasks.Task GivenAGroupId_WhenActiveGroupMembersAreRequested_ThenTheActiveMembersIdsAreReturned()
         {
             SetUpGroupMock();
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(3, groupMembers.Count);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2003, 1)]
         [InlineData(2007, 3)]
         [InlineData(2012, 2)]

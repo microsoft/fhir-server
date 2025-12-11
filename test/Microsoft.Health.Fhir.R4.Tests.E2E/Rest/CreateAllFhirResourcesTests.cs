@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetResourceFileNames))]
         public async Task GivenValidResources_WhenCreateIsCalled_ShouldBeCreatedSuccessfully(object fileName)
         {

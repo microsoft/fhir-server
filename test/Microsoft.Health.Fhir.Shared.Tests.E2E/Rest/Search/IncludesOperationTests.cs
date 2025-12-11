@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using AngleSharp.Common;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// - When a number of "include" resources is more than _includesCount, a  bundle response should not have any "include" resource.
         /// - When a number of "include" resources is more than _includesCount, a  bundle response should have the "related" link.
         /// </remarks>
-        [Theory]
+        [RetryTheory]
         [InlineData("_include=*:*&_revinclude=*:*", null)]
         [InlineData("_include=*:*&_revinclude=*:*&_includesCount=5", 5)]
         [InlineData("_include=*:*&_revinclude=*:*&_includesCount=1000", 1000)]

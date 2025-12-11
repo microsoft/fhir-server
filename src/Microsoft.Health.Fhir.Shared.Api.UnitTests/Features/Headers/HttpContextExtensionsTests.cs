@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
     public sealed class HttpContextExtensionsTests
     {
         [Trait(Traits.Category, Categories.Bundle)]
-        [Theory]
+        [RetryTheory]
         [InlineData(BundleProcessingLogic.Sequential)]
         [InlineData(BundleProcessingLogic.Parallel)]
         public void WhenHttpContextDoesNotHaveCustomHeaders_ReturnDefaultValues(BundleProcessingLogic defaultAndExpectBundleProcessingLogic)
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(ConditionalQueryProcessingLogic.Sequential, conditionalQueryProcessingLogic);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("", false)]
         [InlineData(null, false)]
         [InlineData("false", false)]
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.Equal(isEnabled, isLatencyOverEfficiencyEnabled);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("", ConditionalQueryProcessingLogic.Sequential)]
         [InlineData(null, ConditionalQueryProcessingLogic.Sequential)]
         [InlineData("sequential", ConditionalQueryProcessingLogic.Sequential)]
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         }
 
         [Trait(Traits.Category, Categories.Bundle)]
-        [Theory]
+        [RetryTheory]
         [InlineData("", BundleProcessingLogic.Sequential)]
         [InlineData(null, BundleProcessingLogic.Sequential)]
         [InlineData("sequential", BundleProcessingLogic.Sequential)]
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         }
 
         [Trait(Traits.Category, Categories.Bundle)]
-        [Theory]
+        [RetryTheory]
         [InlineData("2112")]
         [InlineData("red barchetta")]
         public void WhenHttpContextHasCustomHeaders_WithInvalidValues_ThatShouldBeIdentified(string value)
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             Assert.False(isBundleProcessingLogicValid);
         }
 
-        [Fact]
+        [RetryFact]
         public void WhenProvidedAFhirRequestContext_ThenDecorateItWithOptimizeConcurrency()
         {
             // #conditionalQueryParallelism

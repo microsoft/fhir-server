@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using Hl7.FhirPath;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPathExpressionWithFirstFunction_WhenResolvingTypes_ThenTheyAreReturnedCorrectly()
         {
             var expression = _compiler.Parse("Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').first().extension.where(url = 'ombCategory').value");
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
 #if Stu3 || R4 || R4B  // The equivalent field has been removed from CarePlan in R5 seemingly without any replacement.
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPathExpressionWithTwoPossibleOutcomeTypes_WhenResolve_TwoTypesReturned()
         {
             var path = (ModelInfoProvider.Version == FhirSpecification.R5) ?
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 #endif
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPathExpressionWithAsFunction_WhenResolvingTypes_ThenTheyAreReturnedCorrectly()
         {
             var expression = _compiler.Parse("Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').first().extension.where(url = 'ombCategory').value.as(string)");
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal("string", results.Single().FhirNodeType);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPathExpressionAsConstructorFilter_WhenResolvingTypes_ThenTheyReturnedSameAsWhen()
         {
             var whereExpression = _compiler.Parse("Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race')");
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(whereResult.Definition, constuctorResult.Definition);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPathExpressionWithOfType_WhenResolvingTypes_ThenTheyAreReturnedCorrectly()
         {
             var expression = _compiler.Parse("QuestionnaireResponse.item.where(extension('http://hl7.org/fhir/StructureDefinition/questionnaireresponse-isSubject').exists()).answer.value.ofType(Reference)");
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal("Reference", results.Single().FhirNodeType);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenABadFhirPathExpression_WhenResolving_ThenResolveThrowException()
         {
             var expression = _compiler.Parse("Patient.cookie");

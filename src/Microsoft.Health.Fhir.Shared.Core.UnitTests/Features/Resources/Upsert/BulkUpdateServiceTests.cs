@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 _logger);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(0)]
         [InlineData(10)]
         public async Task UpdateMultipleAsync_WhenNoResults_ReturnsEmptyBulkUpdateResult(uint readUpto)
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.Empty(result.ResourcesPatchFailed);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(0)]
         [InlineData(1)]
         [InlineData(5)]
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1 * timesFactor); // Observations ignored as no applicable patch request
         }
 
-        [Fact]
+        [RetryFact]
         public async Task UpdateMultipleAsync_WhenResultsReturnedWithHistoricalRecords_OnlyLatestResourcesAreUpdated()
         {
             // Arrange
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, 0)]
         [InlineData(true, 1)]
         [InlineData(true, 5)]
@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, 0)]
         [InlineData(true, 1)]
         [InlineData(true, 5)]
@@ -327,7 +327,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, 0)]
         [InlineData(true, 1)]
         [InlineData(true, 5)]
@@ -439,7 +439,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task UpdateMultipleAsync_WhenMultipleMatchAndZeroIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
@@ -487,7 +487,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task UpdateMultipleAsync_WhenMultipleMatchAndSingleIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
@@ -549,7 +549,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task UpdateMultipleAsync__WhenMultipleMatchAndMultipleIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
@@ -682,7 +682,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task UpdateMultipleAsync_WhenMergeAsyncThrowsIncompleteOperationException_ThrowsIncompleteOperationExceptionBulkUpdateResult()
         {
             // Arrange
@@ -785,7 +785,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(ex.PartialResults.ResourcesPatchFailed["Practitioner"] == 2);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task UpdateMultipleAsync_WhenOperationTimesout_ReturnsPartialResults()
         {
             // Arrange
@@ -851,7 +851,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(ex.PartialResults.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
-        [Fact]
+        [RetryFact]
         public async Task UpdateMultipleAsync_WhenUpdateTaskFaults_ThrowsAggregateException()
         {
             // Arrange
@@ -901,7 +901,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.Contains(aggEx.InnerExceptions, e => e is InvalidOperationException && e.Message == "Simulated failure");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task UpdateMultipleAsync_WhenCancelled_ReturnsPartialResults()
         {
             // Arrange

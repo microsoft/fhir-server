@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using System.Net;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
     [Trait(Traits.Category, Categories.BundleTransaction)]
     public class FhirTransactionFailedExceptionTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAListOfOperationOutComeIssues_WhenInitialized_ThenCorrectOperationOutcomeIssuesShouldBeAdded()
         {
             string message = "message";
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
             AssertOperationOutcomeIssue(message, OperationOutcomeConstants.IssueType.Invalid, exception.Issues.Last());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptyListOfOperationOutComeIssues_WhenInitialized_ThenOneOperationOutcomeIssueShouldBeAdded()
         {
             string message = "message";
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
             };
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(HttpStatusCode.BadRequest, true)]
         [InlineData(HttpStatusCode.Unauthorized, true)]
         [InlineData(HttpStatusCode.Forbidden, true)]

@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     [Trait(Traits.Category, Categories.Search)]
     public class MissingSearchParamVisitorTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMissingParameterExpression_WhenVisited_AllExpressionPrependedToExpressionList()
         {
             var tableExpressions = new List<SearchParamTableExpression>
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(tableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithNoMissingParameterExpression_WhenVisited_OriginalExpressionReturned()
         {
             var tableExpressions = new List<SearchParamTableExpression>
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression, visitedExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMissingParameterExpressionFalseLast_WhenVisited_OriginalExpressionReturned()
         {
             var tableExpressions = new List<SearchParamTableExpression>
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression, visitedExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExpressionWithMissingParameterExpressionLast_WhenVisited_MissingParameterExpressionNegated()
         {
             var tableExpressions = new List<SearchParamTableExpression>

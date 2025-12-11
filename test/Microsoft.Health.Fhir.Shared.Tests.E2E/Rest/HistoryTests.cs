@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAType_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(readResponse.Resource.Entry);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("?_sort=-_lastUpdated")]
         [Trait(Traits.Priority, Priority.One)]
@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATypeAndId_WhenGettingResourceHistoryWithAlternateSort_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 userMessage: $"Record 0's latest update ({readResponse[0].Resource.Meta.LastUpdated}) is not minor or equal than Record's 1 latest update ({readResponse[1].Resource.Meta.LastUpdated}).");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenNoType_WhenGettingSystemHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(readResponse.Resource.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAType_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfullyWithResponseStatus()
         {
             Observation newCreatedResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValueForSince_WhenGettingSystemHistory_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
         {
             var tag = Guid.NewGuid().ToString();
@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceInsideAndOutsideHistoryRange_WhenGettingSystemHistory_ServerShouldReturnOnlyIfInside()
         {
             var tag = Guid.NewGuid().ToString();
@@ -328,7 +328,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             AssertCount(1, response, since);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValueForSinceAndBeforeWithModifications_WhenGettingSystemHistory_TheServerShouldOnlyCorrectResources()
         {
             var tag = Guid.NewGuid().ToString();
@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValueForSinceAndBeforeCloseToLastModifiedTime_WhenGettingSystemHistory_TheServerShouldNotMissRecords()
         {
             var tag = Guid.NewGuid().ToString();
@@ -443,7 +443,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQueryThatReturnsMoreThan10Results_WhenGettingSystemHistory_TheServerShouldBatchTheResponse()
         {
             var tag = Guid.NewGuid().ToString();
@@ -505,7 +505,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValueForSinceAfterAllModificatons_WhenGettingSystemHistory_TheServerShouldReturnAnEmptyResult()
         {
             var tag = Guid.NewGuid().ToString();
@@ -521,7 +521,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(readResponse);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValueForSinceAndBeforeWithNoModifications_WhenGettingSystemHistory_TheServerShouldReturnAnEmptyResult()
         {
             var tag = Guid.NewGuid().ToString();
@@ -548,7 +548,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(readResponse);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValueForBeforeInTheFuture_WhenGettingSystemHistory_AnErrorIsReturned()
         {
             var before = DateTime.UtcNow.AddSeconds(300);
@@ -558,7 +558,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("Parameter _before cannot a be a value in the future", ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnInvalidSortValue_WhenGettingSystemHistory_AnErrorIsReturned()
         {
             var ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.SearchAsync("_history?_sort=_id"));
@@ -566,7 +566,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("Sorting by the '_id' parameter is not supported.", ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAValueForUnSupportedAt_WhenGettingSystemHistory_TheAtIsDroppedFromUrl()
         {
             var tag = Guid.NewGuid().ToString();

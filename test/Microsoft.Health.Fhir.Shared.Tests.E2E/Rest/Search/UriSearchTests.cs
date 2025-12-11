@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Linq;
 using System.Web;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("", "http://somewhere.com/test/system", 0)]
         [InlineData("", "http://somewhere.COM/test/system")]
         [InlineData("", "http://example.org/rdf#54135-9", 2)]

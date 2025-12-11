@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter = new ValidateExportRequestFilterAttribute();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/fhir+xml")]
         [InlineData("application/xml")]
         [InlineData("text/xml")]
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("respond-async, wait = 10")]
         [InlineData("return-content")]
         [InlineData("*")]
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoPreferHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("since")]
         [InlineData("_SINCE")]
         [InlineData("queryParam")]
-        [Theory]
+        [RetryTheory]
         public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryParamName)
         {
             var context = CreateContext();
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation)]
         [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation, KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
-        [Theory]
+        [RetryTheory]
         public void GivenARequestWithAnonymizedExportQueryParam_WhenGettingAnDefaultExportOperationRequest_ThenTheResultIsSuccessful(params string[] queryParamNames)
         {
             var context = CreateContext();
@@ -129,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData(KnownQueryParameterNames.Since)]
         [InlineData(KnownQueryParameterNames.Type)]
         [InlineData(KnownQueryParameterNames.Since, KnownQueryParameterNames.Type)]
-        [Theory]
+        [RetryTheory]
         public void GivenARequestWithCorrectHeaderAndSupportedQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(params string[] queryParamNames)
         {
             var context = CreateContext();
@@ -150,7 +151,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("application/fhir+ndjson")]
         [InlineData("application/ndjson")]
         [InlineData("ndjson")]
-        [Theory]
+        [RetryTheory]
         public void GivenARequestWithCorrectHeaderAndSupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(string outputFormat)
         {
             var context = CreateContext();
@@ -165,7 +166,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter.OnActionExecuting(context);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithCorrectHeaderAndUnsupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithCorrectHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
@@ -190,7 +191,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter.OnActionExecuting(context);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("respond-async", true)]
         [InlineData("respond-async,handling=strict", true)]
         [InlineData("  respond-async ,  handling    =   strict  ", true)]

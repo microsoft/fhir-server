@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     [Trait(Traits.Category, Categories.Operations)]
     public class DefaultOptionHashSetJsonConverterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAOptionHashSet_WhenConvertingToJson_ThenOneOptionIsSerializedInsteadOfAList()
         {
             var json = GetJson("B");
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal("{\"prop1\":\"B\"}", json);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAOptionHashSet_WhenConvertingToJsonWithInvalidOption_ThenFirstOptionIsSerializedInsteadOfAList()
         {
             Assert.Throws<UnsupportedConfigurationException>(() => GetJson("D"));

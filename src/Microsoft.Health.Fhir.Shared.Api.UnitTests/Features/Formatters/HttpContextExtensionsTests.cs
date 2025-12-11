@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithSummaryType_WhenSerializingTheResponse_ThenTheCorrectSummaryTypeIsApplied()
         {
             var context = new DefaultHttpContext();
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.Text, summary);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithCapsSummaryType_WhenSerializingTheResponse_ThenTheCorrectSummaryTypeIsApplied()
         {
             var context = new DefaultHttpContext();
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.Data, summary);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithCountType_WhenSerializingTheResponse_ThenTheCorrectSummaryTypeIsApplied()
         {
             var context = new DefaultHttpContext();
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.Count, summary);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithUnknownSummaryType_WhenSerializingTheResponse_DefaultSummaryReturned()
         {
             var context = new DefaultHttpContext();
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.False, summary);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(500)]
         [InlineData(400)]
         [InlineData(202)]
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.False, context.GetSummaryTypeOrDefault());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoSummaryType_WhenSerializingTheResponse_ThenFalseIsReturned()
         {
             var context = new DefaultHttpContext();
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.False, summary);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithElementsParam_WhenSerializingTheResponse_ThenTheCorrectElementsAreReturned()
         {
             var context = new DefaultHttpContext();
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Collection(elements, el => Assert.Equal("prop1", el));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithCapsElementsParam_WhenSerializingTheResponse_ThenTheCorrectElementsAreReturned()
         {
             var context = new DefaultHttpContext();
@@ -108,7 +109,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Collection(elements, el => Assert.Equal("PROP2", el));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithMultipleElementsParam_WhenSerializingTheResponse_ThenTheCorrectElementsAreReturned()
         {
             var context = new DefaultHttpContext();
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Collection(elements, el => Assert.Equal("prop1", el), el => Assert.Equal("prop2", el));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(500)]
         [InlineData(400)]
         [InlineData(202)]
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Null(context.GetElementsOrDefault());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithNoElementsParam_WhenSerializingTheResponse_ThenNullIsReturned()
         {
             var context = new DefaultHttpContext();
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Null(elements);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData(" ")]
         public void GivenARequestWithEmptyElementsParam_WhenSerializingTheResponse_ThenNullIsReturned(string elementsParam)
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Null(elements);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("true")]
         [InlineData("True")]
         [InlineData("TRUE")]
@@ -169,7 +170,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(isPretty);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("false")]
         [InlineData("False")]
         [InlineData("FALSE")]
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(isPretty);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("true")]
         [InlineData("True")]
         [InlineData("TRUE")]
@@ -200,7 +201,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(isPretty);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("false")]
         [InlineData("False")]
         [InlineData("FALSE")]
@@ -216,7 +217,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(isPretty);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithPrettyIndentationSetToTrueInCaps_WhenSerializingTheResponse_ThenPrettyIndentationIsApplied()
         {
             var context = new DefaultHttpContext();
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(isPretty);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithPrettyIndentationSetToFalseInCaps_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
         {
             var context = new DefaultHttpContext();
@@ -238,7 +239,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(isPretty);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("abc")]
         [InlineData("")]
         [InlineData("1")]
@@ -253,7 +254,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(isPretty);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARequestWithPrettyIndentationUnset_WhenSerializingTheResponse_ThenPrettyIndentationIsNotApplied()
         {
             var context = new DefaultHttpContext();

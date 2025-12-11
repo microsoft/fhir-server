@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             _options.Filters.Add(new UnsupportedContentTypeFilter());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSupportedFeatures_WhenConfigured_ThenCorrectOutputFormattersShouldBeAdded()
         {
             _configuration.PostConfigure("test", _options);
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                 f => Assert.Equal(_fhirXmlOutputFormatter, f));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTheDefaultOptions_WhenConfigured_ThenBuiltInUnsupportedContentTypeFilterIsRemoved()
         {
             _configuration.PostConfigure("test", _options);

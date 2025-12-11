@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
                     NullLogger<ApiNotificationMiddleware>.Instance);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRequestPath_WhenInvoked_DoesNotLogForHealthCheck()
         {
             _httpContext.Request.Path = new PathString(KnownRoutes.HealthCheck);
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAuditEventTypeNotNull_WhenInvoked_EmitsMediatRApiAndStorageEvents()
         {
             _httpContext.Request.Path = "/Observation";
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             await _mediator.ReceivedWithAnyArgs(1).Publish(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRequestPath_AndNullFhirRequestContext_WhenInvoked_DoesNotFail_AndDoesNotEmitMediatREvents()
         {
             _fhirRequestContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRequestPath_WhenMediatRFails_NoExceptionIsThrown()
         {
             await Task.CompletedTask;

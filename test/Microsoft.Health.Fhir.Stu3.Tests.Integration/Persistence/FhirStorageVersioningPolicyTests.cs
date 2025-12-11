@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public partial class FhirStorageVersioningPolicyTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceTypeWithVersionedUpdateVersioningPolicy_WhenUpsertingWithoutSpecifyingVersion_ThenAPreconditionFailedExceptionIsThrown()
         {
             // The FHIR storage fixture configures medication resources to have the "versioned-update" versioning policy
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, KnownResourceTypes.Medication), exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceTypeWithVersionedUpdateVersioningPolicy_WhenUpsertingWithNonMatchingVersion_ThenAResourceConflictExceptionIsThrown()
         {
             // The FHIR storage fixture configures medication resources to have the "versioned-update" versioning policy

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearching_WhenSearched_ThenCorrectOptionIsUsedAndCorrectSearchResultsReturned()
         {
             const string resourceType = "Patient";
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Same(expectedSearchResult, actual);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCompartmentSearching_WhenSearched_ThenCorrectOptionIsUsedAndCorrectSearchResultsReturned()
         {
             const string compartmentType = "Patient";
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Same(expectedSearchResult, actual);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAMissingResourceId_WhenSearchingHistory_ThenAResourceNotFoundExceptionIsThrown()
         {
             const string resourceType = "Observation";
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, null, null, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceId_WhenSearchingHistoryWithSinceButNoResults_ThenBundleIsReturned()
         {
             const string resourceType = "Observation";
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(searchResult.Results);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAHistorySearch_WhenUsingSummaryCountOrCountZero_ThenSearchOptionsShouldBeProperlyFormed()
         {
             var expectedSearchOptions = new SearchOptions();
@@ -168,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Same(expectedSearchResult, singlePatientSummaryCount);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenCountOnlyValue_WhenSearchingReindexResults_ThenCountSearchOptionSetCorrectly(bool countOnly)

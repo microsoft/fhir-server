@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -60,7 +61,7 @@ public class PatchResourceHandlerTests
             .Returns(Task.FromResult(wrapper));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAPatchResourceHandler_WhenHandlingAPatchResourceRequestWithETag_ThenTheRequestIsForwardedToTheMediator()
     {
         var etag = WeakETag.FromWeakETag("W/\"1\"");
@@ -73,7 +74,7 @@ public class PatchResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Is<UpsertResourceRequest>(x => x.WeakETag.VersionId == etag.VersionId), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAPatchResourceHandler_WhenHandlingAPatchResourceRequestWithMismatchingETag_ThenTheAnExceptionIsThrown()
     {
         var etag = WeakETag.FromWeakETag("W/\"2\"");
@@ -83,7 +84,7 @@ public class PatchResourceHandlerTests
         await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _patchHandler.Handle(request, CancellationToken.None));
     }
 
-    [Theory]
+    [RetryTheory]
     [InlineData(DataActions.Update)]
     [InlineData(DataActions.Read | DataActions.Write)]
     public async Task GivenAPatchResourceHandler_WhenUserHasSufficientPermissions_ThenPatchShouldSucceed(DataActions returnedDataAction)
@@ -122,7 +123,7 @@ public class PatchResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Theory]
+    [RetryTheory]
     [InlineData(DataActions.None)]
     [InlineData(DataActions.Read)]
     [InlineData(DataActions.Write)]

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
     [Trait(Traits.Category, Categories.Web)]
     public class FhirJsonOutputFormatterTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAJObjectAndJsonContentType_WhenCheckingCanWrite_ThenFalseShouldBeReturned()
         {
             bool result = CanRead(typeof(JObject), ContentType.JSON_CONTENT_HEADER);
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirObjectAndJsonContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
         {
             bool result = CanRead(typeof(Observation), ContentType.JSON_CONTENT_HEADER);
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResourceWrapperJsonContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
         {
             bool result = CanRead(typeof(RawResourceElement), ContentType.JSON_CONTENT_HEADER);

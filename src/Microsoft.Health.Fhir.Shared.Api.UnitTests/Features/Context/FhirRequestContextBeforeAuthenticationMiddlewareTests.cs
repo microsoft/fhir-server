@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                 _auditEventTypeMapping);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRouteNameSet_WhenInvoked_ThenAuditLogShouldNotBeLogged()
         {
             _fhirRequestContext.RouteName = "route";
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Null(_fhirRequestContext.ResourceType);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRouteNameNotSetAndNotAuthXFailure_WhenInvoked_ThenAuditLogShouldNotBeLogged()
         {
             _httpContext.Response.StatusCode = (int)HttpStatusCode.OK;
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Null(_fhirRequestContext.ResourceType);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(HttpStatusCode.Unauthorized)]
         [InlineData(HttpStatusCode.Forbidden)]
         public async Task GivenRouteNameNotSetAndAuthXFailed_WhenInvoked_ThenAuditLogShouldBeLogged(HttpStatusCode statusCode)
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(resourceType, _fhirRequestContext.ResourceType);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRouteNameNotSetAuthXFailedAndControllerActionNotSet_WhenInvoked_ThenAuditLogShouldBeLogged()
         {
             _auditEventTypeMapping.GetAuditEventType(default, default).ReturnsForAnyArgs((string)null);
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Null(_fhirRequestContext.ResourceType);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRouteNameNotSetAuthXFailedAndResourceTypeNotSet_WhenInvoked_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode statusCode = HttpStatusCode.Forbidden;

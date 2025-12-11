@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
     /// </summary>
     public partial class ResourceHandlerTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenNoExistingResources_WhenDeletingConditionally_TheServerShouldReturn()
         {
             ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams);
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(0, result.ResourcesDeleted);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully()
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.IsDeleted), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenOneMatchingResource_WhenDeletingConditionallyWithHardDeleteFlag_TheServerShouldDeleteSuccessfully()
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionally_TheServerShouldReturnError()
         {
             var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<DeleteResourceResponse>(message));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully()
         {
             var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));

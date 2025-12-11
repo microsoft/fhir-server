@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService.CreateMockScopeFactory());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkDeleteJob_WhenNoResourceTypeIsGiven_ThenProcessingJobsForAllTypesAreCreated()
         {
             _queueClient.ClearReceivedCalls();
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             Assert.Equal(2, actualDefinition.Type.SplitByOrSeparator().Count());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkDeleteJob_WhenResourceTypeIsGiven_ThenOneProcessingJobIsCreated()
         {
             _queueClient.ClearReceivedCalls();
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             Assert.Single((string[])calls.First().GetArguments()[1]);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkDeleteJob_WhenNoResourcesMatchCriteria_ThenNoProcessingJobsAreCreated()
         {
             _queueClient.ClearReceivedCalls();

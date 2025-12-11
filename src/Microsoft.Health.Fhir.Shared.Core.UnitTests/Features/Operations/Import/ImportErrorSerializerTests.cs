@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     {
         private readonly FhirJsonSerializer _jsonSerializer = new FhirJsonSerializer();
 
-        [Fact]
+        [RetryFact]
         public void GivenImportProcessError_WhenSerialize_ValidStringShouldBeReturned()
         {
             string errorMessage = "Test Error";

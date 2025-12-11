@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,13 +18,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
     {
         private const string ParamNameS = "s";
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenInitializing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => new StringSearchValue(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenInitializing_ThenExceptionShouldBeThrown(string s)
@@ -31,13 +32,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => new StringSearchValue(s));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => StringSearchValue.Parse(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => StringSearchValue.Parse(s));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned()
         {
             string expected = "test string";
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.String);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
             var value = new StringSearchValue("test");
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("testing", "testing")]
         [InlineData(@"t\e|s$t,i|\ng", @"t\e|s$t,i|\ng")]
         [InlineData(@"a\\b\,c\$d\|", @"a\b,c$d|")]
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.String);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("testing", "testing")]
         [InlineData(@"t\e|s$t,i|\ng", @"t\e|s$t,i|\ng")]
         [InlineData(@"a\\b\,c\$d\|", @"a\b,c$d|")]
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.String);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(@"testing", "testing")]
         [InlineData(@"t\e|s$t,i|\ng", @"t\\e\|s\$t\,i\|\\ng")]
         [InlineData(@"a\\b\,c\$d\|", @"a\\b\,c\$d\|")]
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.ToString());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Country", "country", 0)]
         [InlineData("Country", "city", 1)]
         [InlineData("123433", "798012", -1)]
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expectedResult, result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringSearchValue_WhenCompareWithNull_ThenArgumentExceptionIsThrown()
         {
             StringSearchValue value = new StringSearchValue("string");

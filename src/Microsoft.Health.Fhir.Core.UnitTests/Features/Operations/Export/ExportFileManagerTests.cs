@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportFileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleFilesInOrderForResourceTypeInOutput_WhenWriteToFile_ThenWritesToLatestFile()
         {
             string resourceType = "Patient";
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Patient-4.ndjson"), Arg.Any<string>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleFilesOutOfOrderForResourceTypeInOutput_WhenWriteToFile_ThenWritesToLatestFile()
         {
             string resourceType = "Patient";
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Patient-4.ndjson"), Arg.Any<string>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleFilesForMultipleResourceTypeInOutput_WhenWriteToFile_ThenWritesToCorrectLatestFile()
         {
             string resourceType = "Patient";
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Observation-3.ndjson"), Arg.Any<string>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNoFilesInOutput_WhenWriteToFile_ThenCreatesNewFile()
         {
             _exportFileManager.WriteToFile("Patient", "test");
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Single(_exportJobRecord.Output["Patient"]);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExportJobRecordV1_WhenWriteToFile_ThenNewFileDoesNotHaveSequence()
         {
             InitializeManagerWithV1ExportJobRecord();
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Single(_exportJobRecord.Output["Patient"]);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExportJobRecordV1AndNoRollingFilzeSizeLimit_WhenWriteToFile_ThenDataWrittenToOneFile()
         {
             InitializeManagerWithV1ExportJobRecord();

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 _searchParameterExpressionParser);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAChainedParameterPointingToASingleResourceType_WhenParsed_ThenCorrectExpressionShouldBeCreated()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAChainedParameterPointingToMultipleResourceTypes_WhenParsed_Throws()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAChainedParameterPointingToMultipleResourceTypesAndWithResourceTypeSpecified_WhenParsed_ThenOnlyExpressionForTheSpecifiedResourceTypeShouldBeCreated()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 actualSearchExpression => Assert.Equal(expectedExpressions[0], actualSearchExpression));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAChainedParameterPointingToMultipleResourceTypesAndSearchParamIsNotSupportedByAllTargetResourceTypes_WhenParsed_ThenOnlyExpressionsForResourceTypeThatSupportsSearchParamShouldBeCreated()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANestedChainedParameter_WhenParsed_ThenCorrectExpressionShouldBeCreated()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -217,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     actualSearchExpression => Assert.Equal(expectedExpression, actualSearchExpression)));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAModifier_WhenParsed_ThenExceptionShouldBeThrown()
         {
             ResourceType resourceType = ResourceType.Patient;
@@ -243,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Equal(expression, actualExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAChainedParameterThatIsNotReferenceType_WhenParsing_ThenExceptionShouldBeThrown()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -260,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnInvalidResourceTypeToScope_WhenParsing_ThenExceptionShouldBeThrown()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -277,7 +278,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, "Error"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATargetResourceTypeThatIsNotSupported_WhenParsing_ThenExceptionShouldBeThrown()
         {
             ResourceType sourceResourceType = ResourceType.Patient;
@@ -295,7 +296,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, "Error"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleModifierSeparators_WhenParsing_ThenExceptionShouldBeThrown()
         {
             ResourceType resourceType = ResourceType.Patient;
@@ -306,7 +307,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { resourceType.ToString() }, "param1:param2:param3", "Error"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnInvalidParameterName_WhenParsing_ThenSearchParaemterNotSupportedExceptionShouldBeThrown()
         {
             ResourceType resourceType = ResourceType.Location;
@@ -315,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(new[] { resourceType.ToString() }, invalidParameterName, "value"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("*", true, true)]
         [InlineData("*:*", true, true)]
         [InlineData(":*", true, false)]
@@ -340,7 +341,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetNotReferencedExpressions))]
         public void GivenNotReferenced_WhenParsing_ThenExpressionIsReturned(string value, NotReferencedExpression expected)
         {
@@ -352,7 +353,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Equal(expected.WildCard, actual.WildCard);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetNotReferencedExceptionTypes))]
         public void GivenNotReferencedWithInvalidValue_WhenParsing_ThenExceptionIsThrown(string value, string expectedMessage)
         {

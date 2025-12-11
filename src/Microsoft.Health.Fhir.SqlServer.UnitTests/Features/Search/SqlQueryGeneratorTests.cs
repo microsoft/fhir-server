@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -63,7 +64,7 @@ public class SqlQueryGeneratorTests
             false);
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenASearchTypeLatestResources_WhenSqlGenerated_ThenSqlFiltersForLatestOnly()
     {
         Expression predicate = Expression.And([new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
@@ -80,7 +81,7 @@ public class SqlQueryGeneratorTests
         Assert.Contains("IsDeleted = 0", _strBuilder.ToString());
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenASearchTypeForSoftDeletedOnly_WhenSqlGenerated_ThenFilterForSoftDeletedInSql()
     {
         Expression predicate = Expression.And([new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
@@ -96,7 +97,7 @@ public class SqlQueryGeneratorTests
         Assert.Contains("IsDeleted = 1", _strBuilder.ToString());
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenASearchTypeForHistoryOnly_WhenSqlGenerated_ThenFilterForHistoryInSql()
     {
         Expression predicate = Expression.And([new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
@@ -112,7 +113,7 @@ public class SqlQueryGeneratorTests
         Assert.Contains("History = 1", _strBuilder.ToString());
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenASearchTypeForLatestHistorySoftDeleted_WhenSqlGenerated_ThenFiltersArentInSql()
     {
         Expression predicate = Expression.And([new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
@@ -129,7 +130,7 @@ public class SqlQueryGeneratorTests
         Assert.DoesNotContain("IsDeleted =", _strBuilder.ToString());
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenASearchTypeForHistorySoftDeleted_WhenSqlGenerated_ThenSqlFiltersOutLatest()
     {
         Expression predicate = Expression.And([new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);

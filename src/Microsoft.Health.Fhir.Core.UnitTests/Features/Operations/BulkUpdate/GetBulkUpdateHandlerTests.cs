@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _handler = new GetBulkUpdateHandler(_authorizationService, _queueClient);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateJobGroupWithOnlyCreatedJobs_WhenStatusRequested_ThenAcceptedWithNoResults()
         {
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>();
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSuccessfullyCompletedBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMixedStatusJobs_WhenStatusRequested_ThenAggregatedStatusIsReturned()
         {
             var completedResult = new BulkUpdateResult();
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await RunGetBulkUpdateTest(jobs, new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAllRunningBulkUpdateJobs_WhenStatusRequested_ThenAcceptedWithNoResultsAndInProgressIssue()
         {
             // Arrange: All jobs in the group are in Running status, no results.
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFailedBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
@@ -242,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenRunningBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
@@ -312,7 +313,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSoftFailedBulkUpdateJob_WhenStatusRequestedAndJobIsRunning_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
@@ -379,7 +380,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenEmptyResultsJob_WhenStatusRequested_ThenReturnsNoResults()
         {
             var result = new BulkUpdateResult(); // No resources updated/ignored/failed
@@ -393,7 +394,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await RunGetBulkUpdateTest(jobs, new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobWithNullOrMissingDefinitionOrResult_WhenStatusRequested_ThenHandlesGracefully()
         {
             var jobs = new List<Tuple<JobInfo, int>>
@@ -408,7 +409,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await RunGetBulkUpdateTest(jobs, new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSoftFailedBulkUpdateJob_WhenStatusRequestedAndJobIsComplete_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
@@ -468,7 +469,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCancelledBulkUpdateJob_WhenStatusRequested_ThenStatusIsReturned()
         {
             var patientResult1 = new BulkUpdateResult();
@@ -527,7 +528,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUnauthorizedUser_WhenStatusRequested_ThenUnauthorizedIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
@@ -536,7 +537,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNonExistantBulkUpdateJob_WhenStatusRequested_ThenNotFoundIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Shared.Tests;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
     [Trait(Traits.Category, Categories.Search)]
     public class HttpRequestExtensionsTests
     {
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("_count=1&ct=foobarbaz+foobarbazCni1WdU46vh6NveXlWhkmAU6AjFNjaKgeFWBkqhwQ5WxkqewaHWRkpe7r6W5mZmpqZKwc6u1lZKLsFOFs5Blq4wfS4BobCmLZKOkpFiXnpqUpW1Uq5mSDblHSUchMrlKyU3NyUamtjAQAAAP//")]
         public async Task GivenAnUrlWithAContinuationToken_WhenEncoded_ThenCompareTheExpectedResults(string queryString)
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             AssertQueryParameters(encodedUrlExpectedParameters, encodedRequestParameters);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(null, 0)]
         [InlineData("", 0)]
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             AssertQueryParameters(rawRequestParameters, encodedRequestParameters);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUrl_WhenEncoded_ThenCompareTheExpectedResults()
         {
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             await AssertHttpRequestsWithQueryParameters(queryString, expectedParameters);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUrlWithMultipleParameters_WhenEncoded_ThenCompareTheExpectedResults()
         {
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             await AssertHttpRequestsWithQueryParameters(queryString, expectedParameters);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUrlWithDuplicatedParameters_WhenEncoded_ThenCompareTheExpectedResults()
         {
@@ -165,7 +166,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             await AssertHttpRequestsWithQueryParameters(queryString, expectedParameters);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("2022-09-20T18:35:41.6098088-07:00")]
         [InlineData("2022-09-21T20:34:37.0000000 00:00")]

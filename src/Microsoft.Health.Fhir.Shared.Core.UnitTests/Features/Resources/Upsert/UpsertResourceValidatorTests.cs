@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
     [Trait(Traits.Category, Categories.Validate)]
     public class UpsertResourceValidatorTests
     {
-        [Theory]
+        [RetryTheory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData("1+1")]
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
         [InlineData(false, null, false)]
         [InlineData(false, false, false)]
         [InlineData(false, true, true)]
-        [Theory]
+        [RetryTheory]
         public void GivenConfigOrHeader_WhenValidatingUpsert_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

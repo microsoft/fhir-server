@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAProperBundle_WhenSubmittingATransactionForCosmosDbDataStore_ThenNotSupportedIsReturned()
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAProperBundle_WhenSubmittingATransaction_ThenSuccessIsReturnedWithExpectedStatusCodesPerRequests()
         {
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True("204".Equals(fhirResponse.Resource.Entry[6].Response.Status), "Delete");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithInvalidRoutes_WhenSubmittingATransaction_ThenBadRequestExceptionIsReturnedWithProperOperationOutCome()
         {
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(bundle.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithMutipleEntriesReferringToSameResource_WhenSubmittingATransaction_ThenProperOperationOutComeIsReturned()
         {
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithUnauthorizedUser_WhenSubmittingATransaction_ThenOperationOutcomeWithUnAuthorizedStatusIsReturned()
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithForbiddenUser_WhenSubmittingATransaction_ThenOperationOutcomeWithForbiddenStatusIsReturned()
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal($"Patient/{patientId}", consentPatientReference);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -551,7 +551,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal($"Patient/{patientId}", devicePatientReference);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithInvalidConditionalReferenceInResourceBody_WhenSubmittingATransaction_ThenProperOperationOutComeIsReturned()
         {
@@ -607,7 +607,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithForeignReferenceInResourceBody_WhenSubmittingATransaction_ThenReferenceShouldNotBeResolvedAndProcessShouldSucceed()
         {
@@ -629,7 +629,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleReferencesInResourceBody_WhenSuccessfulExecution_ReferencesAreResolvedCorrectlyAsync()
         {
@@ -665,7 +665,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -689,7 +689,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionWithConditionalUpdateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync()
         {

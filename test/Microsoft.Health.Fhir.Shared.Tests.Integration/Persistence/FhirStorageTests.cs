@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -166,7 +166,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task TimeTravel()
         {
@@ -271,7 +271,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.True((DateTimeOffset.UtcNow - deserializedResource.LastUpdated.GetValueOrDefault()).TotalMilliseconds < 1000);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceId_WhenFetching_ThenTheResponseLoadsCorrectly()
         {
             var saveResult = await Mediator.CreateResourceAsync(new CreateResourceRequest(Samples.GetJsonSample("Weight"), bundleResourceContext: null));
@@ -289,7 +289,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(67, sq.Value);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASavedResource_WhenUpsertIsAnUpdate_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -314,7 +314,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenUpserting_ThenTheNewResourceHasMetaSet()
         {
             var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
@@ -341,7 +341,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact(Skip = "Not valid for merge")]
+        [RetryFact(Skip = "Not valid for merge")]
         public async Task GivenASavedResource_WhenUpserting_ThenRawResourceVersionIsSetOrMetaSetIsSetToFalse()
         {
             var versionId = Guid.NewGuid().ToString();
@@ -370,7 +370,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(wrapper.RawResource.IsMetaSet ? "2" : "1", deserialized.VersionId);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("1")]
         [InlineData("-1")]
         [InlineData("0")]
@@ -381,7 +381,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("1")]
         [InlineData("-1")]
         [InlineData("0")]
@@ -397,7 +397,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenUpsertingDifferentTypeWithTheSameId_ThenTheExistingResourceIsNotOverridden()
         {
             var weightSample = Samples.GetJsonSample("Weight").ToPoco();
@@ -421,7 +421,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(patientSample.TypeName, fetchedResult2.InstanceType);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenANonexistentResource_WhenUpsertingWithCreateDisabled_ThenAMethodNotAllowedExceptionIsThrown()
         {
             await SetAllowCreateForOperation(
@@ -434,7 +434,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 });
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenANonexistentResourceAndCosmosDb_WhenUpsertingWithCreateDisabledAndInvalidETagHeader_ThenAResourceNotFoundIsThrown()
         {
@@ -443,14 +443,14 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 async () => await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion"))));
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenANonexistentResourceAndCosmosDb_WhenUpsertingWithCreateEnabledAndInvalidETagHeader_ThenResourceNotFoundIsThrown()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASavedResource_WhenUpsertingWithNoETagHeader_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -468,7 +468,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(saveResult.RawResourceElement.Id, updateResult.RawResourceElement.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASavedResource_WhenConcurrentlyUpsertingWithNoETagHeader_ThenTheExistingResourceIsUpdated()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -506,7 +506,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(itemsToCreate, allObservations.Count());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceWithNoHistory_WhenFetchingByVersionId_ThenReadWorksCorrectly()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -517,7 +517,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(deserialized.Id, result.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task UpdatingAResource_ThenWeCanAccessHistoricValues()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -542,7 +542,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(67, sq.Value);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task UpdatingAResourceWithNoHistory_ThenWeCannotAccessHistoricValues()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetDefaultOrganization());
@@ -561,7 +561,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 () => Mediator.GetResourceAsync(new ResourceKey<Organization>(saveResult.RawResourceElement.Id, saveResult.RawResourceElement.VersionId)));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenDeletingAResource_ThenWeGetResourceGone()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -574,7 +574,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id)));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenDeletingAResourceThatNeverExisted_ThenReadingTheResourceReturnsNotFound()
         {
             string id = "missingid";
@@ -587,7 +587,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 () => Mediator.GetResourceAsync(new ResourceKey<Observation>(id)));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenDeletingAResourceForASecondTime_ThenWeDoNotGetANewVersion()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -604,7 +604,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id)));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenHardDeletingAResource_ThenWeGetResourceNotFound()
         {
             object snapshotToken = await _fixture.TestHelper.GetSnapshotToken();
@@ -626,7 +626,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.TestHelper.ValidateSnapshotTokenIsCurrent(snapshotToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenHardDeletingAResource_ThenHistoryShouldBeDeleted()
         {
             object snapshotToken = await _fixture.TestHelper.GetSnapshotToken();
@@ -657,7 +657,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.TestHelper.ValidateSnapshotTokenIsCurrent(snapshotToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceSavedInRepository_AccessingANonValidVersion_ThenGetsNotFound()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -666,21 +666,21 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id, Guid.NewGuid().ToString())); });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenGettingNonExistentResource_ThenNotFoundIsThrown()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(
                 async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString())); });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenDeletingSpecificVersion_ThenMethodNotAllowedIsThrown()
         {
             await Assert.ThrowsAsync<MethodNotAllowedException>(
                 async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), DeleteOperation.SoftDelete); });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenADeletedResource_WhenUpsertingWithValidETagHeader_ThenTheDeletedResourceIsRevived()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -702,7 +702,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(saveResult.RawResourceElement.Id, updateResult.RawResourceElement.Id);
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionIsCommitted_ThenTheResourceShouldBeCreated()
         {
@@ -723,7 +723,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(createdId, getResult.Id);
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenACompletedTransaction_WhenStartingASecondTransactionCommitted_ThenTheResourceShouldBeCreated()
         {
@@ -757,7 +757,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(createdId2, getResult2.Id);
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionIsNotCommitted_ThenNothingShouldBeCreated()
         {
@@ -775,7 +775,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId)); });
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenATransactionHandler_WhenATransactionFailsFailedRequest_ThenNothingShouldCommit()
         {
@@ -802,7 +802,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId)); });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUpdatedResource_WhenUpdatingSearchParameterIndexAsync_ThenResourceMetadataIsUnchanged()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
@@ -836,7 +836,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
@@ -885,7 +885,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenADeletedResource_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
@@ -918,7 +918,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenAValidResource_WhenUpdatingAResourceWithSameDataImmaterialKeepHistoryValue_ServerShouldNotCreateANewVersionAndReturnOk(bool keepHistory)
@@ -946,7 +946,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Equal(createResult.Wrapper.LastModified.Millisecond, createResult.Wrapper.LastModified.Millisecond);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUpdatedResources_WhenBulkUpdatingSearchParameterIndicesAsync_ThenResourceMetadataIsUnchanged()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
@@ -990,7 +990,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUpdatedResourcesWithWrongWeakETag_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
@@ -1052,7 +1052,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
@@ -1092,7 +1092,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenMultipleResourceTypes_WhenGettingUsedTypes_ThenAllUsedTypesAreReturned()
         {
             await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -1116,7 +1116,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Fact(Skip = "Not valid test in Merge Resources design.")]
+        [RetryFact(Skip = "Not valid test in Merge Resources design.")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
         {

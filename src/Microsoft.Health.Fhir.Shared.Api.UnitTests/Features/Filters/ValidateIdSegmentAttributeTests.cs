@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     [Trait(Traits.Category, Categories.Web)]
     public class ValidateIdSegmentAttributeTests
     {
-        [Theory]
+        [RetryTheory]
         [InlineData(" ")]
         [InlineData(null)]
         public void GivenAPatientAction_WhenPuttingAPatinetObjectWithNullResourceId_ThenAResourceNotValidExceptionShouldBeThrown(string id)
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAPatientAction_WhenPuttingAPatinetObjectwithValidResourceId_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateIdSegmentAttribute();
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Null(exception);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(" ")]
         [InlineData(null)]
         public void GivenAPatinetAction_WhenPuttingAParametersPatientObjectwithNullResourceId_ThenAResourceNotValidExceptionShouldBeThrown(string id)
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAPatientAction_WhenPuttingAParametersPatientObjectwithValidResourceId_ThenTheResultIsSuccessful()
         {
             var filter = new ValidateResourceIdFilterAttribute(true);

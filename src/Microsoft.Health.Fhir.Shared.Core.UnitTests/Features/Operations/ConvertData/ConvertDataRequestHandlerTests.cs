@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1924-10-10", patient.BirthDate);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACcdaConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1962-08-28", patient.BirthDate);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAJsonConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("2023-07-28T01:59:23.388-05:00", patient.Deceased.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();

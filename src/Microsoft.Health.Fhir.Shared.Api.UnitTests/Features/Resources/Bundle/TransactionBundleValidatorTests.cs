@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _idDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundle_WhenContainsUniqueResources_ThenNoExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             ValidateIdDictionaryPopulatedCorrectly(_idDictionary, Array.Empty<Action<KeyValuePair<string, (string resourceId, string resourceType)>>>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundle_WhenContainsAnExistingResource_ThenIdDictionaryShouldBeUpdated()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 expectedEntries);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundle_WhenContainsMultipleMatchingExistingResource_ThenPreconditionFailedExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Bundle-TransactionWithConditionalReferenceReferringToSameResource", "Patient?identifier=http:/example.org/fhir/ids|234234")]
         [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource", "Patient/123")]
         public async Task GivenATransactionBundle_WhenContainsMultipleEntriesWithTheSameResource_ThenRequestNotValidExceptionShouldBeThrown(string inputBundle, string requestedUrlInErrorMessage)
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedMessage, exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionBundle_WhenContainsEntryWithConditionalDelete_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var expectedMessage = "Requested operation 'Patient?identifier=123456' is not supported using DELETE.";
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedMessage, exception.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Patient?")]
         [InlineData("")]
         [InlineData("?test")]

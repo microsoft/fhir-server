@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -76,33 +77,33 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNormalRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
             ExecuteAndValidateFilter(NormalAuditEventType, NormalAuditEventType);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNormalBatchRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
             _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultBatch().ToPoco<Hl7.Fhir.Model.Bundle>());
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Batch);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNormalTransactionRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
             _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultTransaction().ToPoco<Hl7.Fhir.Model.Bundle>());
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.Transaction);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenABundleRequestWithNoArgumentRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.BundlePost);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenABundleRequestWithANonBundleResourceRequest_WhenExecutingAnAction_ThenValuesShouldBeSetOnFhirRequestContext()
         {
             _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultObservation().ToPoco<Observation>());
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.BundlePost);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANonResourceActionResult_WhenExecutedAnAction_ThenResourceTypeShouldBeSet()
         {
             _actionExecutedContext.Result = new StatusCodeResult(200);
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Null(_fhirRequestContext.ResourceType);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenPartialIndexHeader_WhenSearchReqeust_ThenFhirContextPropertySet()
         {
             _httpContext.Request.Headers[KnownHeaders.PartiallyIndexedParamsHeaderName] = new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" });

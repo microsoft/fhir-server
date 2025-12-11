@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using System.Text;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Validation;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("binary-example", "Binary")]
         [InlineData("Weight", "Observation")]
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             DotNetAttributeValidation.Validate(resource, true);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceAndProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, provenanceResponse.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceAndMalformedProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(2)]
         [InlineData(5)]
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.RequestEntityTooLarge, exception.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceWithIdAndMeta_WhenPostingToHttp_TheServerShouldRespondSuccessfullyWithUpdatedContents()
         {
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             DotNetAttributeValidation.Validate(observation, true);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenALocationResourceWithPosition_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUnsupportedResourceType_WhenPostingToHttp_TheServerShouldRespondWithANotFoundResponse()
         {
@@ -161,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUnsetContentType_WhenPostingToHttp_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
@@ -171,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUnsupportedContentType_WhenPostingToHttp_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnInvalidResource_WhenPostingToHttp_TheServerShouldRespondWithBadRequestResponse()
         {
@@ -190,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnInvalidDateTime_WhenPostingToHttp_ThenTheServerShouldRespondWithBadRequestResponse()
         {
@@ -202,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("format", ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnObservationWithLargePrecisionValue_WhenPostingToHttp_ThenTheServerShouldRespondSuccessfully()
         {
@@ -213,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(AllXssStrings))]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPostingToHttpWithMaliciousUrl_TheServerShouldHandleRequest(string code)
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(response.Content.Headers.LastModified);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPostingToHttpWithMaliciousId_TheServerShouldThrowBadRequestOrNotFound()
         {
@@ -240,7 +241,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(HandledXssStrings))]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPostingToHttpWithMaliciousNarrative_TheServerShouldHandleRequest(string code)
@@ -260,7 +261,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(response.Content.Headers.LastModified);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(BadRequestXssStrings))]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPostingToHttpWithMaliciousNarrative_TheServerShouldBlockRequest(string code)

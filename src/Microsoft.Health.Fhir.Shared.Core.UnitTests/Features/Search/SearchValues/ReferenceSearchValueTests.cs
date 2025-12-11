@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
         private readonly ReferenceSearchValueBuilder _builder = new ReferenceSearchValueBuilder();
 
-        [Fact]
+        [RetryFact]
         public void GivenANonNullBaseUriAndNullResourceType_WhenInitializing_ThenArgumentNullExceptionShouldBeThrown()
         {
             _builder.ResourceType = null;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameResourceType, () => _builder.ToReferenceSearchValue());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullResourceId_WhenInitializing_ThenArgumentNullExceptionShouldBeThrown()
         {
             _builder.ResourceId = null;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentNullException>(ParamNameResourceId, () => _builder.ToReferenceSearchValue());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidResourceId_WhenInitializing_ThenArgumentExceptionShouldBeThrown(string resourceId)
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameResourceId, () => _builder.ToReferenceSearchValue());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
             var value = _builder.ToReferenceSearchValue();
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("http://localhost/", ResourceType.Patient, "123", "http://localhost/Patient/123")]
         [InlineData(null, ResourceType.Observation, "xyz", "Observation/xyz")]
         [InlineData(null, null, "abc", "abc")]

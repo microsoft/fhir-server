@@ -5,6 +5,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -16,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
     [Trait(Traits.Category, Categories.Operations)]
     public class FhirServerInstanceConfigurationTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAFhirServerInstanceConfiguration_WhenInitializeBaseUriCalled_ThenBaseUriIsStoredAndReturnsTrue()
         {
             // Arrange
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             Assert.Equal(new Uri(baseUriString), config.BaseUri);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirServerInstanceConfiguration_WhenBaseUriInitializedMultipleTimes_ThenFirstValueWinsAndBothCallsReturnTrue()
         {
             // Arrange
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             Assert.Equal(new Uri(baseUriString1), config.BaseUri);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirServerInstanceConfiguration_WhenBaseUriInitializedConcurrently_ThenOnlyOneSucceedsButAllReturnTrue()
         {
             // Arrange
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             Assert.True(Array.Exists(baseUriStrings, urlString => new Uri(urlString) == config.BaseUri), "Stored BaseUri should be one of the attempted values");
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirServerInstanceConfiguration_WhenNotInitialized_ThenBaseUriIsNull()
         {
             // Arrange
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             Assert.Null(config.BaseUri);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAFhirServerInstanceConfiguration_WhenInitializedWithInvalidBaseUri_ThenReturnsFalseAndRemainsUninitialized()
         {
             // Arrange

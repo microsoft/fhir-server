@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             while (true);
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundle_WhenSubmittingABatchTwiceWithAndWithoutChanges_ThenVersionIsCreatedWhenDataIsChanged()
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             BundleTestsUtil.ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
@@ -211,7 +212,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             BundleTestsUtil.ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -224,7 +225,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -236,7 +237,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             BundleTestsUtil.ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, FhirBundleProcessingLogic.Parallel)]
         [InlineData(false, FhirBundleProcessingLogic.Parallel)]
         [InlineData(true, FhirBundleProcessingLogic.Sequential)]
@@ -306,7 +307,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, FhirBundleProcessingLogic.Parallel)]
         [InlineData(false, FhirBundleProcessingLogic.Parallel)]
         [InlineData(true, FhirBundleProcessingLogic.Sequential)]

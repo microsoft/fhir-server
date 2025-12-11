@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
     {
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L51
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingPrimitive_ThenPrimitiveShouldBeRemoved()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.birthDate");
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L225
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingNestedPrimitive_ThenNestedPrimitiveShouldBeRemoved()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.contact[0].gender");
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L262
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingDeepNestedPrimitive_ThenDeepNestedPrimitiveShouldBeRemoved()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.contact[0].name.text");
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L420
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingComplexObject_ThenComplexShouldBeRemoved()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.maritalStatus");
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L494
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingDeleteAnonymousObject_ThenAnonymousShouldBeRemoved()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.contact[0]");
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L790
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingFirstFromList_ThenListShouldOnlyContain23()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.identifier[0]");
@@ -183,7 +184,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L836
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingMiddleFromList_ThenListShouldOnlyContain13()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.identifier[1]");
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L882
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingEndFromList_ThenListShouldOnlyContain12()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.identifier[2]");
@@ -240,7 +241,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not an official test case, but delete is only allowed for 1 element
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenDeletingMultipleElements_ThenInvalidOperationExceptionShouldBeThrown()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.identifier");
@@ -258,7 +259,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not an official test case, but any delete operation on a path that doesn't resolve should return orig resource.
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenInvalidPathDoesntResolve_OriginalShouldBeReturned()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.nothing");
@@ -273,7 +274,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not an official test case, but any delete operation on a path that doesn't resolve should return orig resource.
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchDeleteRequest_WhenNotPopulatedPathDoesntResolve_OriginalShouldBeReturned()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Contact.name");

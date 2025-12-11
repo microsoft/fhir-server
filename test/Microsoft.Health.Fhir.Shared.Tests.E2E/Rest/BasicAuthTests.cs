@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _convertDataEnabled = convertDataConfiguration?.Enabled ?? false;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoCreatePermissions_WhenCreatingAResource_TheServerShouldReturnForbidden()
         {
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoWritePermissions_WhenUpdatingAResource_TheServerShouldReturnForbidden()
         {
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync(createdResource));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoHardDeletePermissions_WhenHardDeletingAResource_TheServerShouldReturnForbidden()
         {
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.HardDeleteAsync(createdResource));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithHardDeletePermissions_WhenHardDeletingAResource_TheServerShouldReturnSuccess()
         {
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithUpdatePermissions_WhenUpdatingAResource_TheServerShouldReturnSuccess()
         {
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEqual(createdResource.Meta.LastUpdated, updatedResource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAClientWithNoAuthToken_WhenCreatingAResource_TheServerShouldReturnUnauthorized()
         {
@@ -159,7 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(Uri.TryCreate(authorizationUri, UriKind.Absolute, out _));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAClientWithInvalidAuthToken_WhenCreatingAResource_TheServerShouldReturnUnauthorized()
         {
@@ -169,7 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAClientWithWrongAudience_WhenCreatingAResource_TheServerShouldReturnUnauthorized()
         {
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithReadPermissions_WhenGettingAResource_TheServerShouldReturnSuccess()
         {
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(createdResource.Meta.LastUpdated, readResource.Meta.LastUpdated);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoExportPermissions_WhenExportResources_TheServerShouldReturnForbidden()
         {
@@ -207,7 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithExportPermissions_WhenExportResources_TheServerShouldReturnSuccess()
         {
@@ -245,7 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(result);
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
@@ -255,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync<ValueSet>(resource));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
@@ -265,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync<ValueSet>(resource));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
@@ -275,7 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync<ValueSet>(resource, "identifier=boo"));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
@@ -286,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync<ValueSet>(resource, weakETag));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenDeleteProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
@@ -296,7 +297,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.DeleteAsync<ValueSet>(resource));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithProfileAdminPermission_WhenCUDActionOnProfileDefinitionResource_ThenServerShouldReturnOk()
         {

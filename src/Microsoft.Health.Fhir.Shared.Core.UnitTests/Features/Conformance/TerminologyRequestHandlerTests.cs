@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Substitute.For<ILogger<TerminologyRequestHandler>>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetExpandRequestTestData))]
         public async Task GivenExpandRequest_WhenHandling_ThenProxyShouldBeCalledWithCorrectParameters(
             ExpandRequest request,

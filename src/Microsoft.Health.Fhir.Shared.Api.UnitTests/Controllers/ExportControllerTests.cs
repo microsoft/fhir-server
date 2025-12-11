@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _exportEnabledController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(new ExportJobConfiguration() { Enabled = false }, _featureConfiguration, _artifactStoreConfig);
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 anonymizationConfigFileETag: null));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportByResourceTypeRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(new ExportJobConfiguration() { Enabled = false }, _featureConfiguration, _artifactStoreConfig);
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportByIdRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(new ExportJobConfiguration() { Enabled = false }, _featureConfiguration, _artifactStoreConfig);
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 idParameter: "id"));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Observation.ToString()));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 idParameter: "id"));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAnonymizedExportRequest_WhenNoContainerName_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
@@ -168,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAnonymizedExportRequestWithAnonymizationConfigEtag_WhenNoAnonymizationConfig_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAnonymizedExportRequestWithAnonymizationConfigCollectionReference_WhenNoAnonymizationConfig_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
@@ -206,7 +207,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnAnonymizedExportRequestWithAnonymizationConfigCollectionReference_WhenHasAnonymizationConfigEtag_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
@@ -225,7 +226,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportRequestWithHistoryOrDeletedIncluded_WhenHasTypeFilter_ThenRequestNotValidExceptionShouldBeThrown()
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
@@ -247,7 +248,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 includeAssociatedData: "_deleted"));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExportRequestWithDataIncluded_WhenKeyIsInvalid_ThenRequestNotValidExceptionShouldBeThrown()
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
@@ -264,7 +265,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         // If ImageName and Digest are null, all images under the specified LoginSever are allowed to be used.
         // Similarly, if LoginSever and ImageName are specified and Digest is empty, all digests under the specified ImageName are allowed to be used.
         // If all three fields are provided, only the specified digest is allowed to be used.
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null, null, "abc.azurecr.io/deidconfigs:1ae21c6e33deb90f105982404c867671da624deda7dff364107ec8c2910b4992")]
         [InlineData("abc.azurecr.io", null, null, "dummy.azurecr.io/deidconfigs:1ae21c6e33deb90f105982404c867671da624deda7dff364107ec8c2910b4992")]
         [InlineData("abc.azurecr.io", "configs", null, "abc.azurecr.io/deidconfigs:1ae21c6e33deb90f105982404c867671da624deda7dff364107ec8c2910b4992")]
@@ -296,7 +297,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, false, null)]
         [InlineData(false, true, null)]
         [InlineData(true, true, true)]

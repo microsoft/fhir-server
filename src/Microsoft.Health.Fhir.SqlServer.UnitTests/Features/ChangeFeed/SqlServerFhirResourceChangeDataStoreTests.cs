@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             resourceChangeDataStore = GetResourcChangeDataStoreWithGivenConnectionString(new SqlConnectionStringBuilder(LocalConnectionString) { InitialCatalog = "testDb" }.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenTheStartIdLessThanOne_WhenGetResourceChanges_ThenExceptionShouldBeThrown()
         {
             var expectedStartString = "Value '-1' is not greater than or equal to limit '1'. (Parameter 'startId')";
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             Assert.StartsWith(expectedStartString, exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThePageSizeLessThanOne_WhenGetResourceChanges_ThenExceptionShouldBeThrown()
         {
             var expectedStartString = "Value '-1' is not greater than or equal to limit '1'. (Parameter 'pageSize')";
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             Assert.StartsWith(expectedStartString, exception.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenThePageSizeLessThanOne_WhenGetResourceChanges_ThenArgumentOutOfRangeExceptionShouldBeThrown()
         {
             try
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenEmptyConnectionString_WhenGetResourceChanges_ThenInvalidOperationExceptionShouldBeThrown()
         {
             try
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenOperationCanceled_WhenGetResourceChanges_ThenTaskCanceledExceptionShouldBeThrown()
         {
             var source = new CancellationTokenSource();

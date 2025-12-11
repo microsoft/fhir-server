@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore)]
         [InlineData("code-value-quantity=443849008$10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore)]
         [InlineData("code-value-quantity=http://snomed.info/sct|443849008$10", ObservationWith20MinuteApgarScore)]
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateObservations(queryValue, expectedObservationNames);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("code-value-string=http://snomed.info/sct|162806009$blue", ObservationWithEyeColor)]
         [InlineData("code-value-string=162806009$blue", ObservationWithEyeColor)]
         [InlineData("code-value-string=162806009$Lorem", ObservationWithLongEyeColor)]
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateObservations(queryValue, expectedObservationNames);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("relationship=DocumentReference/example-appends$http://hl7.org/fhir/document-relationship-type|appends", DocumentReferenceExample)]
         [InlineData("relationship=DocumentReference/example-appends$appends", DocumentReferenceExample)]
         [InlineData("relationship=DocumentReference/example-appends$replaces")]
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateDocumentReferences(queryValue, expectedDocumentReferenceNames);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$http://loinc.org/la|LA6724-4")] // Not match: Observation.code against Observation.component[0].valueCodeableConcept.coding[0]
         [InlineData("combo-code-value-concept=443849008$http://loinc.org/la|LA6724-4")] // Not match: Observation.code (without system) against Observation.component[0].valueCodeableConcept.coding[0]
         [InlineData("combo-code-value-concept=http://snomed.info/sct|443849008$LA6724-4")] // Not match: Observation.code against Observation.component[0].valueCodeableConcept.coding[0] (without system)

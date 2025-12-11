@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -22,6 +22,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -318,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenReindexJobQueuedWithBackgroundService_WhenJobCompleted_ThenStatusIsUpdated()
         {
             await CancelActiveReindexJobIfExists();
@@ -371,7 +372,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Completed, finalJob.JobRecord.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public Task GivenALegacyReindexJobRecord_WhenGettingJobStatus_ThenJobRecordShouldReturn()
         {
             string legacyJobRecord = Samples.GetJson("LegacyRawReindexJobRecord");
@@ -380,7 +381,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return Task.CompletedTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenLessThanMaximumRunningJobs_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated()
         {
             await CancelActiveReindexJobIfExists();
@@ -392,7 +393,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery + 1)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery - 1)]
         [InlineData("Foo", 4)]
@@ -429,7 +430,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery)]
         [InlineData("Patient", 4)]
@@ -453,7 +454,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSingleResourceReindex_ThenReindexJobShouldComplete()
         {
             string observationId = Guid.NewGuid().ToString();
@@ -473,7 +474,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return new ReindexSingleResourceRequest(httpMethod, resourceType, resourceId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchParametersToReindex_ThenReindexJobShouldComplete()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -524,7 +525,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAlreadyRunningJob_WhenCreatingAReindexJob_ThenActiveJobShouldBeReturned()
         {
             await CancelActiveReindexJobIfExists();
@@ -546,7 +547,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.Equal(originalJobId, secondResponse.Job.JobRecord.Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCompleted()
         {
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
@@ -564,7 +565,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoMatchingResources_WhenRunningReindexJob_ThenJobIsCompleted()
         {
 #if Stu3 || R4 || R4B
@@ -592,7 +593,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNewSearchParamCreatedBeforeResourcesToBeIndexed_WhenReindexJobCompleted_ThenResourcesAreIndexedAndParamIsSearchable()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -657,7 +658,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenReindexJobRunning_WhenReindexJobCancelRequest_ThenReindexJobStopsAndMarkedCanceled()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -739,7 +740,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNewSearchParamCreatedAfterResourcesToBeIndexed_WhenReindexJobCompleted_ThenResourcesAreIndexedAndParamIsSearchable()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -805,7 +806,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSecondFHIRServiceSynced_WhenReindexJobCompleted_ThenSecondServiceHasSyncedEnabledParameter()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -895,7 +896,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSecondFHIRServiceSynced_WhenSyncParametersOccursDuringDelete_ThenSecondServiceHandlesMissingResourceCorrectly()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -953,7 +954,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNewSearchParamWithResourceBaseType_WhenReindexJobCompleted_ThenAllResourcesAreIndexedAndParamIsSearchable()
         {
             string patientId = Guid.NewGuid().ToString();

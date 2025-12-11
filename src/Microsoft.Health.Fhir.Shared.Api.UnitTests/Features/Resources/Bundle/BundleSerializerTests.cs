@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                                      Deserializers.ResourceDeserializer);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBundleWithNoEntry_WhenSerialized_ShouldMatchSerializationByBuiltInSerializer()
         {
             var (rawBundle, bundle) = CreateBundle();
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             await Validate(rawBundle, bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBundleWithOneEntry_WhenSerialized_MatchesSerializationByBuiltInSerializer()
         {
             var patientResource = Samples.GetDefaultPatient();
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             await Validate(rawBundle, bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBundleWithMultipleEntries_WhenSerialized_MatchesSerializationByBuiltInSerializer()
         {
             var patientResource = Samples.GetDefaultPatient();

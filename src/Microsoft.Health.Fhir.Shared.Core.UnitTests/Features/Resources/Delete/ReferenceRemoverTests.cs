@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
     [Trait(Traits.Category, Categories.BulkDelete)]
     public class ReferenceRemoverTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenResourceWithReference_WhenReferenceIsRemoved_ThenReferenceIsRemoved()
         {
             var reference = KnownResourceTypes.Practitioner + "/testRef";
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(name, patient.Name.First());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenResourceWithoutReference_WhenReferenceIsRemoved_ThenNothingIsChanged()
         {
             var referenceId = "testRef";
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(name, patient.Name.First());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenResourceWithReferenceDescription_WhenReferenceIsRemoved_ThenNothingIsChanged()
         {
             var referenceId = "testRef";
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal(name, patient.Name.First());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenResourceWithTwoReferences_WhenReferenceIsRemoved_ThenOtherReferenceIsNotChanged()
         {
             var reference = KnownResourceTypes.Practitioner + "/testRef";

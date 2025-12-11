@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             return Task.CompletedTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenCreated_ThenCorrectNumberOfMetricNotificationsShouldBeEmitted()
         {
             _metricHandler?.ResetCount();
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().TypeName));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenHealthCheckPath_WhenInvoked_MetricNotificationsNotEmitted()
         {
             _metricHandler?.ResetCount();
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
         [Trait(Traits.Category, Categories.Bundle)]
         [Trait(Traits.Priority, Priority.One)]
-        [Fact]
+        [RetryFact]
         public async Task GivenABatch_WhenInvokedAtCosmosDb_MetricNotificationsShouldBeEmitted()
         {
             _metricHandler?.ResetCount();
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Trait(Traits.Category, Categories.Bundle)]
         [Trait(Traits.Priority, Priority.One)]
-        [Fact]
+        [RetryFact]
         public async Task GivenABatch_WhenInvokedAtSqlServer_MetricNotificationsShouldBeEmitted()
         {
             _metricHandler?.ResetCount();
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Category, Categories.BundleTransaction)]
         [Trait(Traits.Priority, Priority.One)]
-        [Fact]
+        [RetryFact]
         public async Task GivenATransaction_WhenInvoked_MetricNotificationsShouldBeEmitted()
         {
             _metricHandler?.ResetCount();

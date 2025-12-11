@@ -15,6 +15,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -65,7 +66,7 @@ public class ConditionalUpsertResourceHandlerTests
             logger);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalUpsertResourceHandler_WhenUserHasSearchAndUpdatePermissions_ThenUpsertShouldSucceed()
     {
         // Arrange
@@ -96,7 +97,7 @@ public class ConditionalUpsertResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalUpsertResourceHandler_WhenUserHasLegacyReadAndWritePermissions_ThenUpsertShouldSucceed()
     {
         // Arrange
@@ -127,7 +128,7 @@ public class ConditionalUpsertResourceHandlerTests
             .Send<UpsertResourceResponse>(Arg.Any<UpsertResourceRequest>(), Arg.Any<CancellationToken>());
     }
 
-    [Theory]
+    [RetryTheory]
     [InlineData(DataActions.Search)]
     [InlineData(DataActions.Update)]
     [InlineData(DataActions.Read)]
@@ -159,7 +160,7 @@ public class ConditionalUpsertResourceHandlerTests
         await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _conditionalUpsertHandler.Handle(request, CancellationToken.None));
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenAConditionalUpsertResourceHandler_WhenNoMatchFoundAndResourceHasNoId_ThenCreateIsExecuted()
     {
         IReadOnlyCollection<SearchResultEntry> searchResults = Array.Empty<SearchResultEntry>().AsReadOnly();

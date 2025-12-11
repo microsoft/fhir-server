@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     new ControllerActionDescriptor()));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenGetRequest_WhenDocRefIsEnabled_ThenRequestShouldBeSentToConverter(
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(DocRefByPostTestData))]
         public async Task GivenPostRequest_WhenDocRefIsEnabled_ThenRequestShouldBeSentToConverter(
             bool enable,

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 Substitute.For<ILogger<CreateBulkUpdateHandler>>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSearchParamsForJobCreation))]
         public async Task GivenBulkUpdateRequestWithVariousSearchParams_WhenJobCreationRequested_ThenJobIsCreated(List<Tuple<string, string>> searchParams)
         {
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequest_WhenResourceTypeIsNull_ThenJobIsCreated()
         {
             var searchParams = new List<Tuple<string, string>>
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequest_WhenSearchParamsIsNull_ThenJobIsCreated()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequest_WhenQueueClientThrowsUnexpectedException_ThenExceptionIsPropagated()
         {
             var searchParams = new List<Tuple<string, string>>
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequest_WhenJobCreationRequestedWhileAnotherJobAlreadyRunning_ThenBadRequestIsReturned()
         {
             var searchParams = new List<Tuple<string, string>>()
@@ -201,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal("A bulk update job is already running.", ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequestWithInvalidSearchParameter_WhenJobCreationRequested_ThenBadRequestIsReturned()
         {
             var searchParams = new List<Tuple<string, string>>()
@@ -217,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("SearchParameter")]
         [InlineData("StructureDefinition")]
         public async Task GivenBulkUpdateRequest_WhenResourceTypeIsExcluded_ThenBadRequestIsReturned(string resourceType)
@@ -235,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Assert.Equal($"Bulk update is not supported for resource type {resourceType}.", ex.Message);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequest_WhenMultipleOperationTypesAndOneIsUnsupported_ThenBadRequestIsReturned()
         {
             var searchParams = new List<Tuple<string, string>>
@@ -280,7 +281,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequest_WhenUserIsUnauthorized_ThenUnauthorizedFhirActionExceptionIsThrown()
         {
             var searchParams = new List<Tuple<string, string>>
@@ -297,7 +298,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkUpdateRequest_WhenJobCreationFails_ThenExceptionIsThrown()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);

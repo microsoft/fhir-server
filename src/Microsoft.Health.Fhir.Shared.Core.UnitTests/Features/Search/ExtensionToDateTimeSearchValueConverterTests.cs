@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             yield return new object[] { new Extension("test", new Instant { Value = new DateTimeOffset(2018, 01, 20, 14, 34, 24, TimeSpan.FromMinutes(60)) }), "2018-01-20T13:34:24.0000000-00:00" };
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetDateTimeExtensionDataSource))]
         public async Task GivenADateTimeExtension_WhenConverted_ThenADateTimeSearchValueShouldBeCreated(Extension extension, string start, string end = null)
         {

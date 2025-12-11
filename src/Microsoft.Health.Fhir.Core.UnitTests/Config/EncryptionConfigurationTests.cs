@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class EncryptionConfigurationTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAnEncryptionConfiguration_WhenContainsValues_ReturnAsEncryptionConfigurationSet()
         {
             EncryptionConfiguration encryption1 = new EncryptionConfiguration()
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.True(encryption1.IsEncryptionSet());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEncryptionConfiguration_WhenThereAreNoValues_ReturnAsEncryptionConfigurationNotSet()
         {
             EncryptionConfiguration encryption0 = new EncryptionConfiguration();

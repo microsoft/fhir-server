@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         {
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASmartConfigurationHandler_WhenSecurityConfigurationNotEnabled_Then400ExceptionThrown()
         {
             var request = new GetSmartConfigurationRequest();
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASmartConfigurationHandler_WhenSecurityConfigurationEnabled_ThenSmartConfigurationReturned()
         {
             var request = new GetSmartConfigurationRequest();
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.NotNull(response.ResponseTypesSupported);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASmartConfigurationHandler_WhenBaseEndpointIsInvalid_Then400ExceptionThrown()
         {
             var request = new GetSmartConfigurationRequest();
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("https://ehr.example.com/user/introspect", null, null)]
         [InlineData(null, "https://ehr.example.com/user/manage", null)]
         [InlineData(null, null, "https://ehr.example.com/user/revoke")]

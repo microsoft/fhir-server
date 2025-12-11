@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetBulkImportRequestConfigurationWithRelativeInputUrl(),
             };
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ValidBody), MemberType = typeof(ImportControllerTests))]
         public async Task GivenAnBulkImportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(InvalidBody), MemberType = typeof(ImportControllerTests))]
         public async Task GivenAnBulkImportRequest_WhenRequestConfigurationNotValid_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnBulkImportRequest_WhenRequestWithNullParameters_ThenRequestNotValidExceptionShouldBeThrown()
         {
             Parameters parameters = null;
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(parameters));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnBulkImportRequest_WhenRequestWithDuplicateFiles_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var requestWithDuplicateUrls = GetDuplicateFileImportRequest();

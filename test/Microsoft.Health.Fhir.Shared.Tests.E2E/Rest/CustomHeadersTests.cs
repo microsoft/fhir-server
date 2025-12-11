@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenRequestIdHeader_WhenSendRequest_TheServerShouldReturnSameValueInCorrelationHeader()
         {
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.DoesNotContain(id, response.Headers.GetValues(KnownHeaders.RequestId));
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenNoRequestHeader_WhenSendRequest_TheServerShouldntReturnCorrelationId()
         {
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.False(response.Headers.Contains(KnownHeaders.CorrelationId));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("1")]
         [InlineData("2")]
         [InlineData("3")]
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("invalid")]
         [InlineData("5")]
         [InlineData("-1")]

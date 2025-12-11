@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -18,6 +18,7 @@ using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Substitute.For<ILogger<FirelyTerminologyServiceProxy>>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetExpandTestData))]
         public async Task GivenParameters_WhenExpanding_ThenProxyShouldCallServiceWithCorrectParameters(
             IReadOnlyList<Tuple<string, string>> parameterList,
@@ -164,7 +165,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Arg.Any<bool>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetExpandFailureTestData))]
         public async Task GivenParameters_WhenExpandingFails_ThenProxyShouldHandleErrorFromServiceCorrectly(
             IReadOnlyList<Tuple<string, string>> parameterList,
@@ -199,7 +200,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 Arg.Any<bool>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetExpandContextTestData))]
         public async Task GivenContextParameter_WhenExpanding_ThenProxyShouldCallServiceWithCorrectParameters(
             IReadOnlyList<Tuple<string, string>> parameterList,

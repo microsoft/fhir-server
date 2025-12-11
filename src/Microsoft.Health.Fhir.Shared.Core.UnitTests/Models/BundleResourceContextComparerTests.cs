@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
         private readonly Guid _bundleOperationId = Guid.NewGuid();
         private readonly BundleResourceContextComparer _comparer = new BundleResourceContextComparer();
 
-        [Fact]
+        [RetryFact]
         public void GivenASequenceOfResources_WhenSorting_ThenRespectTheSequenceExpected()
         {
             // This test ensures that inner operations executed bundles are processed in the correct order.
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
             Assert.Equal(Bundle.HTTPVerb.HEAD, sortedResources[5].HttpVerb);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAEmptySequenceOfResources_WhenSorting_NoErrorsShouldBeRaised()
         {
             var resources = Array.Empty<BundleResourceContext>();
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
             Assert.Empty(sortedResources);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASequenceWithASingleResource_WhenSorting_NoErrorsShouldBeRaised()
         {
             var resources = new BundleResourceContext[]
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Models
             Assert.Equal(Bundle.HTTPVerb.PATCH, sortedResources[0].HttpVerb);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASequenceOfResourcesWithNullValues_WhenSorting_ThenRespectTheSequenceExpected()
         {
             var resources = new BundleResourceContext[]

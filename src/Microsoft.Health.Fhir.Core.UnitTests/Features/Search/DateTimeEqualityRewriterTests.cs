@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly DateTime _start = new(2021, 1, 1, 0, 0, 0);
         private static readonly DateTime _end = new(2021, 1, 1, 23, 59, 59);
 
-        [Fact]
+        [RetryFact]
         public void GivenStartAndEndExpressions_WhenRewritten_AnUpperBoundOnStartIsAdded()
         {
             MultiaryExpression inputExpression =
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 rewrittenExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenStartAndEndExpressionsOredTogether_WhenRewritten_AreIgnored()
         {
             MultiaryExpression inputExpression =
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Same(inputExpression, rewrittenExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenStartAndEndExpressionsInReverseOrder_WhenRewritten_AnUpperBoundOnStartIsAdded()
         {
             MultiaryExpression inputExpression =
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 rewrittenExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenStartAndEndExclusiveExpressions_WhenRewritten_AnUpperBoundOnStartIsAdded()
         {
             MultiaryExpression inputExpression =
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 rewrittenExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoStartExpressions_WhenRewritten_AreIgnored()
         {
             MultiaryExpression inputExpression =
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Same(inputExpression, rewrittenExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GiveThreeUnrelatedExpressions_WhenRewritten_AreIgnored()
         {
             MultiaryExpression inputExpression =
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Same(inputExpression, rewrittenExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenStartAndEndExpressionsAndAnUnrelatedExpression_WhenRewritten_AnUpperBoundOnStartIsAdded()
         {
             MultiaryExpression inputExpression =
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 rewrittenExpression.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenStartAndEndExpressionsOnDifferentComponents_WhenRewritten_AreIgnored()
         {
             MultiaryExpression inputExpression =

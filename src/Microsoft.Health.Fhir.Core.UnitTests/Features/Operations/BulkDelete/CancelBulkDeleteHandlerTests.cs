@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _handler = new CancelBulkDeleteHandler(_authorizationService, _queueClient, new NullLogger<CancelBulkDeleteHandler>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenBulkDeleteJob_WhenCancelationIsRequested_ThenTheJobIsCancelled()
         {
             await RunBulkDeleteTest(
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 HttpStatusCode.Accepted);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCompletedBulkDeleteJob_WhenCancelationIsRequested_ThenConflictIsReturned()
         {
             await RunBulkDeleteTest(
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 HttpStatusCode.Conflict);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenFailedBulkDeleteJob_WhenCancelationIsRequested_ThenConflictIsReturned()
         {
             await RunBulkDeleteTest(
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 HttpStatusCode.Conflict);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenCancelledBulkDeleteJob_WhenCancelationIsRequested_ThenConflictIsReturned()
         {
             await RunBulkDeleteTest(
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 HttpStatusCode.Conflict);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUnauthorizedDeleteUser_WhenCancelationIsRequested_ThenUnauthorizedIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNonExistantBulkDeleteJob_WhenCancelationIsRequested_ThenNotFoundIsReturned()
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Delete);

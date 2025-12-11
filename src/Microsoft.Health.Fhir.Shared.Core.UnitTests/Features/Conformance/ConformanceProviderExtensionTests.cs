@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Models;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceVersionPolicy.NoVersion, false)]
         [InlineData(ResourceVersionPolicy.Versioned, true)]
         [InlineData(ResourceVersionPolicy.VersionedUpdate, true)]

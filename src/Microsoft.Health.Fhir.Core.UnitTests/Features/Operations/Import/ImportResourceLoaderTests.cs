@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -24,25 +25,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
     [Trait(Traits.Category, Categories.Import)]
     public class ImportResourceLoaderTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceLoader_WhenLoadResources_ThenAllResoruceShouldBeLoad()
         {
             await VerifyResourceLoaderAsync(1234, 21, 0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceLoader_WhenLoadResourcesCountEqualsBatchSize_ThenAllResoruceShouldBeLoad()
         {
             await VerifyResourceLoaderAsync(21, 21, 0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceLoader_WhenLoadResourcesCountLessThanBatchSize_ThenAllResoruceShouldBeLoad()
         {
             await VerifyResourceLoaderAsync(1, 21, 0);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceLoader_WhenLoadResourcesWithParseException_ThenAllResoruceShouldBeLoadAndErrorShouldBeReturned()
         {
             string errorMessage = "error";
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(1, errorCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceLoader_WhenLoadResourcesWithDifferentResourceType_ThenResourcesWithDifferentTypeShouldBeSkipped()
         {
             string errorMessage = "Resource type not match.";
@@ -136,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(1, errorCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceLoader_WhenLoadResourcesWithSearchParameterResourceType_ThenResourcesWithSearchParameterTypeShouldBeSkipped()
         {
             string errorMessage = "SearchParameter resources cannot be processed by import.";
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(1, errorCount);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenResourceLoader_WhenCancelLoadTask_ThenDataLoadTaskShouldBeCanceled()
         {
             string errorMessage = "error";
@@ -266,7 +267,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(0, 240, 5)] // Exactly the first four resources and the /r/n after.
         [InlineData(0, 299, 6)] // Exactly the first five resources and the /r/n after. Note: resource 5 has one more byte (57) vs the others (56). Index 299 is just after the } of the fifth resource.
         [InlineData(58, 58, 1)] // Start with the /n of the first resource, and load through the end of the } on the second resource.
@@ -323,7 +324,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(expectedResourceCount, actualResourceCount);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(0, 115, 3)] // Start at the first resource and ends at \n of second resource
         [InlineData(0, 229, 4)] // Start at the first resource and ends at } right before \n of 4th line
         [InlineData(59, 56, 0)] // Start at second resource and ends at } of the same resource.

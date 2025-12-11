@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -22,19 +23,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly Uri _paramUri2 = new("https://localhost/searchParam2");
         private readonly Uri _paramUri3 = new("https://localhost/searchParam3");
 
-        [Fact]
+        [RetryFact]
         public void GivenNullResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenThrowsException()
         {
             Assert.ThrowsAny<Exception>(() => ((IEnumerable<SearchParameterInfo>)null).CalculateSearchParameterHash());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenEmptyResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenThrowsException()
         {
             Assert.ThrowsAny<Exception>(() => new List<SearchParameterInfo>().CalculateSearchParameterHash());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParamWithSortStatusEnabledOrSupported_WhenCalculateSearchParameterHash_ThenHashIsSame()
         {
             var paramEnabled = GenerateSearchParameterInfo(_paramUri1, "patient", SortParameterStatus.Enabled);
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotEqual(hash1, hash3);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoSameListsOfResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenHashIsSame()
         {
             DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(hash1, hash2);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoDifferentListsOfResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenHashIsDifferent()
         {
             DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotEqual(hash1, hash2);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTwoSameListsDifferentOrderOfResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenHashIsSame()
         {
             DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;

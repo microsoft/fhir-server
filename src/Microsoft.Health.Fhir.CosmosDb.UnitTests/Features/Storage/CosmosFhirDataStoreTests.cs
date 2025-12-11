@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -22,6 +22,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 ModelInfoProvider.Instance);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQuery_WhenASinglePageReturnsRequestedCount_ASingleQueryIsPerformced()
         {
             ICosmosQuery<int> cosmosQuery = Substitute.For<ICosmosQuery<int>>();
@@ -102,7 +103,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Null(continuationToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQuery_WhenFetchingSubsequentPagesYieldsA429_ReturnsExistingResults()
         {
             ICosmosQuery<int> cosmosQuery = Substitute.For<ICosmosQuery<int>>();
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal("token", continuationToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQuery_WhenFetchingSubsequentPagesTimesOut_ReturnsExistingResults()
         {
             ICosmosQuery<int> cosmosQuery = Substitute.For<ICosmosQuery<int>>();
@@ -148,7 +149,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQueryWhereItemCountCanBeExceeded_WhenExecuted_FetchesSubsequentPages()
         {
             CreateResponses(
@@ -168,7 +169,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Null(continuationToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQueryWhereItemCountMustNotBeExceeded_WhenExecuted_FetchesSubsequentPagesByIssuingNewQueries()
         {
             CreateResponses(
@@ -193,7 +194,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Null(continuationToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAQuery_WithPagesWithFewResults_GivesUpAfterHalfTheResultsHaveBeenCollected()
         {
             CreateResponses(
@@ -219,7 +220,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal("5", continuationToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUpsertDuringABatch_When503ExceptionOccurs_RetryWillHappen()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
@@ -252,7 +253,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _container.Value.ReceivedWithAnyArgs(7).CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnUpsertDuringABatch_When408ExceptionOccurs_RetryWillHappen()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
@@ -284,7 +285,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _container.Value.ReceivedWithAnyArgs(7).CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAHardDeleteRequest_WhenPartiallySuccessful_ThenAnExceptionIsThrown()
         {
             var resourceKey = new ResourceKey(KnownResourceTypes.Patient, "test");

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _output = output;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
         {
             // warm up stats

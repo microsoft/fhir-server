@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -21,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _httpContext.RequestServices = _provider;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(0)]
         [InlineData(1)]
         [InlineData(4)]
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _cts.Dispose();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenRequestsAtOrAboveThreshold_WhenInvoked_ReturnsTooManyRequests(int numberOfConcurrentRequests)
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _cts.Dispose();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenRequestsAtOrAboveThreshold_AndSecurityDisabled_Executes(int numberOfConcurrentRequests)
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _cts.Dispose();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenRequestsToExcludedEndpoint_WhenInvoked_Executes(int numberOfConcurrentRequests)
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _cts.Dispose();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenRequestToExcludedEndpoint_WhenAlreadyThrottled_Succeeds(int numberOfConcurrentRequests)
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _cts.Dispose();
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenExistingRequestCompletes_TheQueuedRequestCompletes(int numberOfConcurrentRequests)
@@ -206,7 +207,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.All(existingRequests.Skip(1), tuple => Assert.False(tuple.task.IsCompleted));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenMaxQueueTimeElapses_TheQueuedRequestReturns429(int numberOfConcurrentRequests)
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.All(existingRequests, tuple => Assert.False(tuple.task.IsCompleted));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenQueueIsSaturated_RequestsAreRejected(int numberOfConcurrentRequests)
@@ -253,7 +254,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.Equal(200, _httpContext.Response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenARequest_ThatResultsInRequestRateExceeded_Returns429(int numberOfConcurrentRequests)
@@ -272,7 +273,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.Equal("1", values.ToString());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)ThrottlingLimitDefault.Gen1)]
         [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenARequest_ThatResultsInRequestRateExceeded_ReturnsValidFhirResource(int numberOfConcurrentRequests)

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 .Select(modifier => new object[] { new SearchModifier(modifier) });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("true", true)]
         [InlineData("false", false)]
         public void GivenMissingModifierIsSpecified_WhenBuilt_ThenMissingExpressionShouldBeCreated(string isMissingString, bool expectedIsMissing)
@@ -82,14 +83,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             ValidateMissingParamExpression(expression, DefaultParamName, expectedIsMissing);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMissingModifierWithAnInvalidValue_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown()
         {
             Assert.Throws<InvalidSearchOperationException>(
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.String), new SearchModifier(SearchModifierCode.Missing), "test"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleValues_WhenBuilding_ThenCorrectExpressionShouldBeCreated()
         {
             const string value1 = "value1";
@@ -108,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     nestedExpression => ValidateStringExpression(nestedExpression, FieldName.String, StringOperator.StartsWith, value2, true)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchParamType.Date, "lt2018,2019")]
         [InlineData(SearchParamType.Number, "gt10,11")]
         [InlineData(SearchParamType.Quantity, "ne15|s|c,5|s|c")]
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 value));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACompositeExceedingNumberOfComponents_WhenBuilt_ThenInvalidSearchOperationExceptionShouldBeThrown()
         {
             SearchParameterComponentInfo[] components = new[] { new SearchParameterComponentInfo() };
@@ -135,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _parser.Parse(searchParameter, null, "a$b$c"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACompositeWithVariousTypes_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string system = "system";
@@ -183,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                             e2 => ValidateBinaryExpression(e2, FieldName.Quantity, BinaryOperator.LessThanOrEqual, 10.5m)))));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACompositeWithIndividualPrefix_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string quantitySystem1 = "qs1";
@@ -228,7 +229,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                         e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.LessThanOrEqual, quantity2))));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetAllModifiersExceptMissing))]
         public void GivenACompositeWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifier modifier)
         {
@@ -254,7 +255,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Composite), modifier, "10|s|c$10|s|c"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2018")]
         [InlineData("2018-02")]
         [InlineData("2018-02-01")]
@@ -276,7 +277,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateDateTimeBinaryOperatorExpression(e1, FieldName.DateTimeEnd, BinaryOperator.LessThanOrEqual, dateTimeSearchValue.End)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2018")]
         [InlineData("2018-02")]
         [InlineData("2018-02-01")]
@@ -298,7 +299,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateDateTimeBinaryOperatorExpression(e1, FieldName.DateTimeEnd, BinaryOperator.LessThanOrEqual, dateTimeSearchValue.End)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2018")]
         [InlineData("2018-02")]
         [InlineData("2018-02-01")]
@@ -320,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e2 => ValidateDateTimeBinaryOperatorExpression(e2, FieldName.DateTimeEnd, BinaryOperator.GreaterThan, dateTimeSearchValue.End)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("lt", "2018", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
         [InlineData("lt", "2018-02", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
         [InlineData("lt", "2018-02-01", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
@@ -367,7 +368,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     expectStartTimeValue ? dateTimeSearchValue.Start : dateTimeSearchValue.End));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("2016", "2015-11-25T12:00:00.0000000+00:00", "2017-02-06T11:59:59.9999999+00:00")]
         [InlineData("2016-02", "2015-11-25T21:36:00.0000000+00:00", "2016-05-07T02:23:59.9999999+00:00")]
         [InlineData("2016-02-01", "2015-11-23T02:24:00.0000000+00:00", "2016-04-11T21:35:59.9999999+00:00")]
@@ -397,7 +398,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetAllModifiersExceptMissing))]
         public void GivenADateWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifier modifier)
         {
@@ -405,7 +406,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Date), modifier, "1980"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
         [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
         [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 13.45, 16.55)]
@@ -429,7 +430,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateBinaryExpression(e1, FieldName.Number, upperBoundOperator, upperBoundValue)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("gt", BinaryOperator.GreaterThan)]
         [InlineData("ge", BinaryOperator.GreaterThanOrEqual)]
         [InlineData("lt", BinaryOperator.LessThan)]
@@ -447,7 +448,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateBinaryExpression(e, FieldName.Number, binaryOperator, expected));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetAllModifiersExceptMissing))]
         public void GivenANumberWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifier modifier)
         {
@@ -455,7 +456,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Number), modifier, "123"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
         [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
         [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 5.440, 6.66)]
@@ -487,7 +488,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                         e2 => ValidateBinaryExpression(e2, FieldName.Quantity, upperBoundOperator, upperBoundValue))));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("gt", BinaryOperator.GreaterThan)]
         [InlineData("ge", BinaryOperator.GreaterThanOrEqual)]
         [InlineData("lt", BinaryOperator.LessThan)]
@@ -514,7 +515,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateBinaryExpression(e1, FieldName.Quantity, binaryOperator, expected)));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAQuantityWithEmptySystemSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string code = "code";
@@ -531,7 +532,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.GreaterThan, expected)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("|")]
         public void GivenAQuantityWithEmptyCodeSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string suffix)
@@ -550,7 +551,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateBinaryExpression(e1, FieldName.Quantity, BinaryOperator.LessThanOrEqual, expected)));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAQuantityWithEmptySystemAndCodeSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const decimal expected = 135m;
@@ -562,7 +563,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateBinaryExpression(e, FieldName.Quantity, BinaryOperator.GreaterThan, expected));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetAllModifiersExceptMissing))]
         public void GivenAQuantityWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifier modifier)
         {
@@ -570,7 +571,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Quantity), modifier, "1"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceUsingResourceId_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string resourceId = "123";
@@ -584,7 +585,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceUsingResourceTypeAndResourceIdTargetingInternalResource_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const ResourceType resourceType = ResourceType.Patient;
@@ -605,7 +606,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceUsingResourceIdWithTargetTypeModifierTargetingInternalResource_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const ResourceType resourceType = ResourceType.Patient;
@@ -625,7 +626,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ReferenceKind.InternalOrExternal)]
         [InlineData(ReferenceKind.External)]
         public void GivenAReferenceUsingResourceTypeAndResourceId_WhenBuilt_ThenCorrectExpressionShouldBeCreated(ReferenceKind referenceLocations)
@@ -647,7 +648,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ReferenceKind.InternalOrExternal, true)]
         [InlineData(ReferenceKind.InternalOrExternal, false)]
         [InlineData(ReferenceKind.External, true)]
@@ -671,7 +672,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceUsingAbsoluteUrl_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const ResourceType resourceType = ResourceType.Account;
@@ -694,7 +695,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateStringExpression(e1, FieldName.ReferenceResourceId, StringOperator.Equals, resourceId, false)));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetAllModifiersExceptMissingOrType))]
         public void GivenAReferenceWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifier modifier)
         {
@@ -704,7 +705,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), modifier, "Patient/test"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Patient", "Group", "test")]
         [InlineData("InvalidModifier", null, "test")]
         public void GivenAReferenceWithInvalidTargetTypeModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(string targetTypeModifier, string resourceType, string resourceId)
@@ -715,7 +716,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), new SearchModifier(SearchModifierCode.Type, targetTypeModifier), $"{resourceType}{(string.IsNullOrEmpty(resourceType) ? null : "/")}{resourceId}"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringWithNoModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string input = "TestString123";
@@ -727,7 +728,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.String, StringOperator.StartsWith, input, true));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringWithExact_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string input = "TestString123";
@@ -739,7 +740,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.String, StringOperator.Equals, input, false));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringWithContainsModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string input = "TestString123";
@@ -751,7 +752,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.String, StringOperator.Contains, input, true));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchModifierCode.Above)]
         [InlineData(SearchModifierCode.Below)]
         [InlineData(SearchModifierCode.In)]
@@ -765,7 +766,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.String), new SearchModifier(modifier, targetTypeModifier?.ToString()), "test"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenWithTextModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string input = "TestString123";
@@ -777,7 +778,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.StartsWith, input, true));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenWithNotModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string input = "TestString123";
@@ -789,7 +790,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateNotExpression(e, x => ValidateStringExpression(x, FieldName.TokenCode, StringOperator.Equals, input, false)));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetNoneTokenSearchParamTypeAsMemberData))]
         public void GivenASearchParameterThatDoesNotSupportTextModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated(SearchParamType searchParameterType)
         {
@@ -803,7 +804,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Assert.Throws<InvalidSearchOperationException>(() => _parser.Parse(searchParameter.ToInfo(), new SearchModifier(SearchModifierCode.Text), "test"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenWithNoSystemSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string code = "code";
@@ -815,7 +816,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.TokenCode, StringOperator.Equals, code, false));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenWithEmptySystemSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string code = "code";
@@ -831,7 +832,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     childExpression => ValidateStringExpression(childExpression, FieldName.TokenCode, StringOperator.Equals, code, false)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenATokenWithEmptyCodeSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string code)
@@ -845,7 +846,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.TokenSystem, StringOperator.Equals, system, false));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenWithSystemAndCodeSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             const string system = "system";
@@ -865,7 +866,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchModifierCode.Exact)]
         [InlineData(SearchModifierCode.Contains)]
         [InlineData(SearchModifierCode.Type, ResourceType.Patient)]
@@ -875,7 +876,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Token), new SearchModifier(modifier, targetTypeModifier?.ToString()), "test"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAUriWithNoModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             string input = "http://example.com/valueset";
@@ -887,7 +888,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.Uri, StringOperator.Equals, input, false));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAUriWithAboveModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             string input = "http://example.com/valueset";
@@ -903,7 +904,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e2 => ValidateStringExpression(e2, FieldName.Uri, StringOperator.NotStartsWith, "urn:", false)));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAUriWithBelowModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
         {
             string input = "http://example.com/valueset";
@@ -919,7 +920,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e2 => ValidateStringExpression(e2, FieldName.Uri, StringOperator.NotStartsWith, "urn:", false)));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchModifierCode.Exact)]
         [InlineData(SearchModifierCode.Contains)]
         [InlineData(SearchModifierCode.Not)]

@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSystemAndCode))]
         public void GivenAValue_WhenInitialized_ThenAnySystemAndCodeShouldBeAllowed(string system, string code)
         {
@@ -51,13 +52,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(code, value.Code);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => TokenSearchValue.Parse(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => TokenSearchValue.Parse(s));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(@"abc")]
         [InlineData(@"|system|code")]
         [InlineData(@"abc|system|code")]
@@ -74,13 +75,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<BadRequestException>(() => QuantitySearchValue.Parse(s));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringContainingMoreThanTwoTokenSeparators_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<FormatException>(() => QuantitySearchValue.Parse(@"50|sys\|tem|co|de|"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(@"123.3", "", "", 123.3)]
         [InlineData(@"234.5|system|", "system", "", 234.5)]
         [InlineData(@"0|system|code", "system", "code", 0)]
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(value.Low, value.High);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringWithTrailingZero_WhenParsed_ThenTrailingZeroShouldBePreserved()
         {
             string expected = "0.010|system|code";
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
             var value = new QuantitySearchValue("system", "code", 1);
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(12, "system", "code", "12|system|code")]
         [InlineData(3.3, @"sy|ste\|m", @"c$o,\de", @"3.3|sy\|ste\\\|m|c\$o\,\\de")]
         [InlineData(2, null, null, "2")]

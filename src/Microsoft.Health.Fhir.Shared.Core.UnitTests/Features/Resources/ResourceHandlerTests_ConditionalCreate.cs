@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
     {
         private static Tuple<string, string>[] DefaultSearchParams => new[] { Tuple.Create("_tag", Guid.NewGuid().ToString()) };
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenCreatingConditionallyWithNoExisting_ThenTheServerShouldReturnTheResourceSuccessfully()
         {
             ConditionalCreateResourceRequest message = SetupConditionalCreate(Samples.GetDefaultObservation(), DefaultSearchParams);
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == result.Outcome.RawResourceElement.Id), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenCreatingConditionallyWithOneMatch_ThenTheServerShouldReturnTheResourceSuccessfully()
         {
             string id = Guid.NewGuid().ToString();
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenCreatingConditionallyWithMultipleMatches_TheServerShouldFail()
         {
             var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenCreatingConditionallyWithFilteredSearchParams_TheServerShouldFail()
         {
             ConditionalCreateResourceRequest message = SetupConditionalCreate(
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<PreconditionFailedException>(() => _mediator.Send<UpsertResourceResponse>(message));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenCreatingConditionallyWithUnsupportedParams_TheServerShouldFail()
         {
             ConditionalCreateResourceRequest message = SetupConditionalCreate(

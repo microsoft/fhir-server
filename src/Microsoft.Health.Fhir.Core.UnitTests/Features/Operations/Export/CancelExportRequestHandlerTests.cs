@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _mediator = new Mediator(provider);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Canceled)]
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Null(outcome.JobRecord.CanceledTime);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(OperationStatus.Queued)]
         [InlineData(OperationStatus.Running)]
         public async Task GivenAFhirMediator_WhenCancelingExistingExportJobThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(OperationStatus operationStatus)
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenCancelingExistingExportJobEncountersJobConflictException_ThenItWillBeRetried()
         {
             _retryCount = 3;
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAFhirMediator_WhenCancelingExistingExportJobEncountersJobConflictExceptionExceedsMaxRetry_ThenExceptionShouldBeThrown()
         {
             _retryCount = 3;

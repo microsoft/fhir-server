@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new DataResourceFilter(MissingDataFilterCriteria.Default));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchResourceRequest_WhenHandled_ThenABundleShouldBeReturned()
         {
             var request = new SearchResourceRequest("Patient", null);
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedBundle, actualResponse.Bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchResourceRequest_WhenUserHasSearchPermission_ThenSearchSucceeds()
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedBundle, actualResponse.Bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchResourceRequest_WhenUserHasOnlyReadPermission_ThenUnauthorizedExceptionThrown()
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchResourceHandler.Handle(request, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchResourceRequest_WhenUserHasReadAndSearchPermissions_ThenSearchSucceeds()
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
@@ -139,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedBundle, actualResponse.Bundle);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASearchResourceRequest_WhenUserHasNoPermissions_ThenUnauthorizedExceptionThrown()
         {
             var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();

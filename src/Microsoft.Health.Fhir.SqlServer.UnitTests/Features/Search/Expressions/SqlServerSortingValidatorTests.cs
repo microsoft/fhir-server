@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             _sqlServerSortingValidator = new SqlServerSortingValidator(_schemaInformation);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSupportedSearchParamTypes))]
         public void GivenSupportedSortParametersType_WhenValidating_ThenReturnsTrue(SearchParamType searchParamType)
         {
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Empty(errorMessage);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSupportedSearchParamTypes))]
         public void GivenSupportedSortParametersTypeForSchemaOlderThanV17_WhenValidating_ThenReturnsFalse(SearchParamType searchParamType)
         {
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.NotEmpty(errorMessage);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetUnsupportedSearchParamTypes))]
         public void GivenUnsupportedSortParametersType_WhenValidating_ThenReturnsFalse(SearchParamType searchParamType)
         {
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.NotEmpty(errorMessage);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleSortParameters_WhenValidating_ThenReturnsFalse()
         {
             SearchParameterInfo dateParamInfo = new SearchParameterInfo(name: "birthdate", code: "birthdate", SearchParamType.Date, new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"));
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.NotEmpty(errorMessage);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)SchemaVersion.V7)]
         [InlineData((int)SchemaVersion.V8)]
         public void GivenLastUpdatedAndResourceTypeSortForSchemaOlderThanV9_WhenValidating_ThenReturnsFalse(int schemaVersion)
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.NotEmpty(errorMessage);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData((int)SchemaVersion.V9)]
         [InlineData((int)SchemaVersion.V10)]
         public void GivenLastUpdatedAndResourceTypeSortForSchemaNewerThanV9_WhenValidating_ThenReturnsTrue(int schemaVersion)
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Empty(errorMessage);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SortOrder.Ascending, SortOrder.Ascending, true)]
         [InlineData(SortOrder.Ascending, SortOrder.Descending, false)]
         [InlineData(SortOrder.Descending, SortOrder.Ascending, false)]

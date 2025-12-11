@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     new ControllerActionDescriptor()));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, false)]
         [InlineData(true, false, true)]
         [InlineData(true, false, false)]
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23", true, false)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, false)]
         [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, false)]
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetExpandByPostTestData))]
         public async Task GivenPostRequest_WhenExpanding_ThenCorrectRequestShouldBeSentToHandler(
             Parameters parameters,

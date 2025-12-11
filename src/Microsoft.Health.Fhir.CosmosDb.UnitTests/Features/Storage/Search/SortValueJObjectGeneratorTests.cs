@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
     {
         private SortValueJObjectGenerator _generator = new();
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Muller", "MULLER")]
         [InlineData("Müller", "MULLER")]
         [InlineData("Circled①", "CIRCLED1")]

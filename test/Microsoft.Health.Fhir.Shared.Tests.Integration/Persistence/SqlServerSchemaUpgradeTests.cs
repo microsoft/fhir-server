@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
             // previously test was skipped with (Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")

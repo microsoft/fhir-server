@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Linq;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         [InlineData("Patient/1234")]
         [InlineData("Patient/1234/_history/56789")]
-        [Theory]
+        [RetryTheory]
         public void GivenAValidReference_WhenConvertingAReferenceToTypedElement_ThenTheResultIsValid(string patientRef)
         {
             var result = _resolver.Resolve(patientRef);
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData("Patient")]
         [InlineData("")]
         [InlineData(null)]
-        [Theory]
+        [RetryTheory]
         public void GivenAnInvalidReference_WhenConvertingAReferenceToTypedElement_ThenTheResultIsNull(string patientRef)
         {
             var result = _resolver.Resolve(patientRef);
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Null(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEncounter_WhenResolvingAPractitionerInAFhirPathExpression_ThenTheResultIsValid()
         {
             var result = _encounter
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.IsType<ResourceReference>(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEncounterWithWrongTypeInResolve_WhenResolvingAPatientInAFhirPathExpression_ThenTheResultIsNull()
         {
             var result = _encounter

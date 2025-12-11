@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
@@ -52,7 +53,7 @@ public class CosmosQueueClientTests
             NullLogger<CosmosQueueClient>.Instance);
     }
 
-    [Theory]
+    [RetryTheory]
     [InlineData(HttpStatusCode.ServiceUnavailable)]
     [InlineData(HttpStatusCode.TooManyRequests)]
     [InlineData(HttpStatusCode.Gone)]
@@ -84,7 +85,7 @@ public class CosmosQueueClientTests
         await cosmosQuery.ReceivedWithAnyArgs(2).ExecuteNextAsync(Arg.Any<CancellationToken>());
     }
 
-    [Theory]
+    [RetryTheory]
     [InlineData(typeof(CosmosException))]
     [InlineData(typeof(RequestRateExceededException))]
     public async Task GivenADequeueJobOperation_WhenExceptionWithRetryAfterIsProvided_PolicyRespectsRetryAfter(Type exceptionType)

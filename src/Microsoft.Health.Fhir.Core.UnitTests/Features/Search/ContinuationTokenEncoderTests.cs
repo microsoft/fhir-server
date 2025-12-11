@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Text;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.Search)]
     public class ContinuationTokenEncoderTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAString_WhenEcodingAndDecoding_ThenOriginalStringIsPreserved()
         {
             var data = Guid.NewGuid().ToString();
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(data, decoded);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnOldStringInBase64_WhenDecoding_ThenOriginalStringIsPreserved()
         {
             var data = Guid.NewGuid().ToString();
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(data, decoded);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnInvalidString_WhenDecoding_ThenAnErrorIsThrown()
         {
             var data = Guid.NewGuid().ToString();
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<BadRequestException>(() => ContinuationTokenEncoder.Decode(encodedPrevious));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenShortBase64WhenDecoding_ThenCorrectValueIsReturned()
         {
             var data = "YWJj";

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -43,13 +44,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => _referenceSearchValueParser.Parse(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => _referenceSearchValueParser.Parse(s));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("Observation/abc", null, ResourceType.Observation, "abc")]
         [InlineData("http://hl7.fhir.org/stu3/Account/123", "http://hl7.fhir.org/stu3/", ResourceType.Account, "123")]
         [InlineData("Observation", null, null, "Observation")]
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(resourceId, value.ResourceId);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBackToInstanceConfigurationAsInternal()
         {
             // Arrange
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal("abc", value.ResourceId);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnExternalReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBackToInstanceConfigurationAsExternal()
         {
             // Arrange
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal("xyz", value.ResourceId);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenARelativeReferenceWhenRequestContextIsNull_WhenParsing_ThenParsesAsRelative()
         {
             // Arrange

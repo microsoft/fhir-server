@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class MetricEmitterAttributeTests
     {
-        [Fact]
+        [RetryFact]
         public async Task BundleEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
         {
             IBundleMetricHandler metricHandler = Substitute.For<IBundleMetricHandler>();
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
             metricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task SearchEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
         {
             ISearchMetricHandler metricHandler = Substitute.For<ISearchMetricHandler>();
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
             metricHandler.Received(1).EmitLatency(Arg.Any<SearchMetricNotification>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task CrudEndpointMetricEmitterAttribute_WhenCalled_EmittsMetrics()
         {
             ICrudMetricHandler metricHandler = Substitute.For<ICrudMetricHandler>();

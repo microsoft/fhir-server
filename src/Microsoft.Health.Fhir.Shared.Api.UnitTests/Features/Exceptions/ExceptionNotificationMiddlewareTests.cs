@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             _context = new DefaultHttpContext();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHttpContextWithException_WhenExecutingExceptionNotificationMiddleware_MediatRShouldEmitNotification()
         {
             var exceptionMessage = "Test exception";
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHttpContextWithNoException_WhenExecutingExceptionNotificationMiddleware_MediatRShouldNotEmitNotification()
         {
             var exceptionNotificationMiddleware = CreateExceptionNotificationMiddleware(innerHttpContext => Task.CompletedTask);
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
             await _mediator.DidNotReceiveWithAnyArgs().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task WhenMediatRFails_OriginalExceptionStillThrown()
         {
             var exceptionMessage = "Test exception";

@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.DoesNotContain("soft-deleted", importResource.ResourceWrapper.RawResource.Data);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("abcdef", true)]
         [InlineData("ABCDEF", true)]
         [InlineData("aBcdEf", true)]

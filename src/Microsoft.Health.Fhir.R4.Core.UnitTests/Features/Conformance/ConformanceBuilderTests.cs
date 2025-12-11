@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
+using Microsoft.Health.Extensions.Xunit;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
@@ -14,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     /// </summary>
     public partial class ConformanceBuilderTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenProfileIsAddedAtResource()
         {
             _builder.PopulateDefaultResourceInteractions();

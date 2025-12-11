@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model.CdsHooks;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
     [Trait(Traits.Category, Categories.Security)]
     public class AuthorizationServiceExtensionsTests
     {
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Write | DataActions.Create, DataActions.Write | DataActions.Create)]
         [InlineData(false, true, DataActions.Write, DataActions.Write)]
         [InlineData(true, true, DataActions.Write | DataActions.Create, DataActions.Write)]
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(false, false, DataActions.Delete, DataActions.Delete)]
         [InlineData(true, false, DataActions.Delete | DataActions.HardDelete, DataActions.Delete | DataActions.HardDelete)]
         [InlineData(true, false, DataActions.Delete | DataActions.HardDelete, DataActions.Delete)]
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Read | DataActions.ReadById, DataActions.Read | DataActions.ReadById)]
         [InlineData(false, true, DataActions.Read, DataActions.Read)]
         [InlineData(true, true, DataActions.Read | DataActions.ReadById, DataActions.Read)]
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Update, DataActions.Read | DataActions.Write | DataActions.Update)]
         [InlineData(false, true, DataActions.Read | DataActions.Write, DataActions.Read | DataActions.Write)]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Update, DataActions.Read | DataActions.Write)]
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Read | DataActions.Search, DataActions.Read | DataActions.Search)]
         [InlineData(false, true, DataActions.Read, DataActions.Read)]
         [InlineData(true, true, DataActions.Read | DataActions.Search, DataActions.Read)]
@@ -151,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Write | DataActions.Update, DataActions.Write | DataActions.Update)]
         [InlineData(false, true, DataActions.Write, DataActions.Write)]
         [InlineData(true, true, DataActions.Write | DataActions.Update, DataActions.Write)]
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Write | DataActions.Update | DataActions.Create, DataActions.Write | DataActions.Update | DataActions.Create)]
         [InlineData(false, true, DataActions.Write, DataActions.Write)]
         [InlineData(true, true, DataActions.Write | DataActions.Update | DataActions.Create, DataActions.Write)]
@@ -203,7 +204,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Create, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Create)]
         [InlineData(false, true, DataActions.Read | DataActions.Write, DataActions.Read | DataActions.Write)]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Create, DataActions.Read | DataActions.Write)]
@@ -229,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(false, true, true, DataActions.Read | DataActions.Delete | DataActions.Search, DataActions.Read | DataActions.Delete | DataActions.Search)]
         [InlineData(true, true, true, DataActions.Read | DataActions.Delete | DataActions.Search | DataActions.HardDelete, DataActions.Read | DataActions.Delete | DataActions.Search | DataActions.HardDelete)]
         [InlineData(false, false, true, DataActions.Read | DataActions.Delete, DataActions.Read | DataActions.Delete)]
@@ -259,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update)]
         [InlineData(false, true, DataActions.Read | DataActions.Write, DataActions.Read | DataActions.Write)]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write)]
@@ -285,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update)]
         [InlineData(false, true, DataActions.Read | DataActions.Write, DataActions.Read | DataActions.Write)]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write)]

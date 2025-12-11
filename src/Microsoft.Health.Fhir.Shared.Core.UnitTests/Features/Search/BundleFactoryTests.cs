@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnEmptySearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_selfUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='self').url"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public void GivenASearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned(bool pretty)
@@ -153,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 null);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
             string encodedContinuationToken = ContinuationTokenEncoder.Encode(_continuationToken);
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_nextUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='next').url"));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("123", "1", "POST", "201 Created")]
         [InlineData("123", "1", "PUT", "201 Created")]
         [InlineData("123", "2", "PUT", "200 OK")]
@@ -198,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(statusString, actual.ToPoco<Bundle>().Entry[0].Response.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAHistoryResultWithAllHttpVerbs_WhenCreateHistoryBundle_ThenBundleShouldNotCrash()
         {
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
@@ -224,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(RouteNames.SearchResources, _includesContinuationToken)]
         [InlineData(RouteNames.Includes, _includesContinuationToken)]
         [InlineData(RouteNames.SearchResources, null)]

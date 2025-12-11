@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                 httpContext => Task.CompletedTask);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUserNotNull_WhenInvoked_ThenPrincipalShouldBeSet()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

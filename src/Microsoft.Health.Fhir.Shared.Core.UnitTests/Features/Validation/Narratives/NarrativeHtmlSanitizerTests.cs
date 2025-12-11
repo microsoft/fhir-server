@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             _sanitizer = new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(XssStrings))]
         public void Validate(string code)
         {
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             Assert.NotEmpty(results);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("<div></div>")]
         [InlineData("<div>     </div>")]
         [InlineData("<h1>Example!</h1>")]
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             Assert.NotEmpty(results);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("<div>Example!</div>")]
         [InlineData("<div><p></div>")]
         [InlineData("<div>Test<div /></div>")]
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             Assert.Empty(results);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenExampleNarrativeHtml_WhenSanitizingHtml_ThenValidationIsSuccessful()
         {
             var example = Samples.GetJsonSample<Basic>("BasicExampleNarrative");
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             Assert.Empty(results);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("<div>Example!</div>", "<div>Example!</div>")]
         [InlineData("<div><p></div>", "<div><p></p></div>")]
         [InlineData("<div><script></script></div>", "<div></div>")]

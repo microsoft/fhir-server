@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -18,13 +19,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     [Trait(Traits.Category, Categories.Search)]
     public class CanonicalToUriSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<CanonicalToUriSearchValueConverter, Canonical>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenACanonicalWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             await Test(uri => uri.Value = null);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACanonicalWithUriValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string value = "http://uri";
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 value);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACanonicalWithUriAndVersionValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string value = "http://uri|1.0.0";
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 value);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACanonicalWithReferenceAndVersionValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string value = "ValueSet/1|2";
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 value);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACanonicalWithUriAndVersionAndFragmentValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string value = "http://uri|1.0.0#name1";

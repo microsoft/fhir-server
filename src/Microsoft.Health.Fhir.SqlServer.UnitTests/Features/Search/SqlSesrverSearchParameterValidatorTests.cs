@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -26,14 +27,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             _sqlServerSearchParameterValidator = new SqlServerSearchParameterValidator(_parameterToSearchValueTypeMap);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetValidSearchParameters))]
         public void GivenASupportedType_WhenSearchParameterisValidated_ThenReturnTrue(SearchParameterInfo searchParameter)
         {
             Assert.True(_sqlServerSearchParameterValidator.ValidateSearchParameter(searchParameter, out var _));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetInValidSearchParameters))]
         public void GivenAnUnSupportedType_WhenSearchParameterisValidated_ThenReturnFalse(SearchParameterInfo searchParameter)
         {

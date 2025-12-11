@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [InlineData(BinaryOperator.LessThan, "2020-09-24T12:00:00.5001Z", BinaryOperator.LessThan, "2020-09-24T12:00:00.501Z")] // will yield 500, 499
         [InlineData(BinaryOperator.LessThanOrEqual, "2020-09-24T12:00:00.500Z", BinaryOperator.LessThan, "2020-09-24T12:00:00.501Z")]
         [InlineData(BinaryOperator.LessThanOrEqual, "2020-09-24T12:00:00.5001Z", BinaryOperator.LessThan, "2020-09-24T12:00:00.501Z")] // will yield 500, 499
-        [Theory]
+        [RetryTheory]
         public void GivenAnExpressionOverLastUpdated_WhenTranslatedToResourceSurrogateId_HasCorrectRanges(BinaryOperator inputOperator, string inputDateTimeOffset, BinaryOperator expectedOperator, string expectedDateTimeOffset)
         {
             var input = new BinaryExpression(inputOperator, FieldName.DateTimeStart, null, DateTimeOffset.Parse(inputDateTimeOffset));

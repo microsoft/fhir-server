@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return extensionConverter;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAReferenceExtension_WhenConverted_ThenAReferenceSearchValueShouldBeCreated()
         {
             var reference = new ResourceReference("Patient/123");

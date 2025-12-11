@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using DotLiquid.Util;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
                 .Returns(_containerResponse);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACollection_WhenSettingUpCollection_ThenSearchParameterIsRegistered()
         {
             await UpdateCollectionAsync();

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
                 _logger);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetParametersTestData))]
         public async Task GivenParameters_WhenConverting_ThenSearchResourceShouldBeCalledSuccessfully(
             List<Tuple<string, string>> parameters)

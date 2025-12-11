@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -189,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return searchParams;
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullQueryParameters_WhenCreated_ThenDefaultSearchOptionsShouldBeCreated()
         {
             SearchOptions options = CreateSearchOptions(queryParameters: null);
@@ -201,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateResourceTypeSearchParameterExpression(options.Expression, DefaultResourceType);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
         {
             const string encodedContinuationToken = "MTIz";
@@ -214,7 +215,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 }));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACount_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
         {
             SearchOptions options = CreateSearchOptions(
@@ -227,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(5, options.MaxItemCount);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACountWithValueZero_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
         {
             const ResourceType resourceType = ResourceType.Encounter;
@@ -244,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.True(options.CountOnly);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("a")]
         [InlineData("1.1")]
         public void GivenACountWithInvalidValue_WhenCreated_ThenExceptionShouldBeThrown(string value)
@@ -260,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             queryParameters: queryParameters));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNoneOfTheSearchParamIsSupported_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
@@ -283,7 +284,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateResourceTypeSearchParameterExpression(options.Expression, resourceType.ToString());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenASearchParamWithEmptyValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList(string value)
@@ -304,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters, options.UnsupportedSearchParams);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParameterWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
@@ -317,7 +318,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParametersWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
@@ -332,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParametersWithEmptyKeyEmptyValue_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
@@ -349,7 +350,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams.Skip(1).Take(1));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherValidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
@@ -365,7 +366,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherInvalidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
@@ -382,7 +383,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams.Skip(1).Take(1));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParamWithInvalidValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
         {
             const string paramName1 = "_count";
@@ -404,7 +405,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchWithUnsupportedSortValue_WhenCreated_ThenSortingShouldBeEmptyAndOperationOutcomeIssueCreated()
         {
             const string paramName = SearchParameterNames.ResourceType;
@@ -434,7 +435,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics == errorMessage);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(SearchParameterNames.LastUpdated, SortOrder.Ascending)]
         [InlineData("-" + SearchParameterNames.LastUpdated, SortOrder.Descending)]
         public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList(string paramName, SortOrder sortOrder)
@@ -455,7 +456,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal((_lastUpdatedSearchParameterInfo, sortOrder), Assert.Single(options.Sort));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenAnOperationOutcomeIssueIsCreated()
         {
             const string paramName = "unknownParameter";
@@ -476,7 +477,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Code == OperationOutcomeConstants.IssueType.NotSupported);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Category, Categories.CompartmentSearch)]
         [InlineData(ResourceType.Patient, CompartmentType.Patient, "123")]
         [InlineData(ResourceType.Appointment, CompartmentType.Device, "abc")]
@@ -500,7 +501,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 e => ValidateCompartmentSearchExpression(e, compartmentType.ToString(), compartmentId));
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Category, Categories.CompartmentSearch)]
         [InlineData(CompartmentType.Patient, "123")]
         [InlineData(CompartmentType.Device, "abc")]
@@ -520,7 +521,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ValidateCompartmentSearchExpression(options.Expression, compartmentType.ToString(), compartmentId);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("abc")]
         [InlineData("12223a2424")]
         [InlineData("fsdfsdf")]
@@ -538,7 +539,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(exception.Message, $"Compartment type {invalidCompartmentType} is invalid.");
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("    ")]
         [InlineData("")]
         [InlineData("       ")]
@@ -554,7 +555,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal("Compartment id is null or empty.", exception.Message);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(TotalType.Accurate)]
         [InlineData(TotalType.None)]
         public void GivenNoTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldHaveCountWhenConfiguredByDefault(TotalType type)
@@ -566,7 +567,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(type, options.IncludeTotal);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldOverrideDefault()
         {
             _coreFeatures.IncludeTotalInBundle = TotalType.Accurate;
@@ -576,7 +577,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(TotalType.None, options.IncludeTotal);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNoTotalParameterWithInvalidDefault_WhenCreated_ThenDefaultSearchOptionsThrowException()
         {
             _coreFeatures.IncludeTotalInBundle = TotalType.Estimate;
@@ -584,7 +585,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<SearchOperationNotSupportedException>(() => CreateSearchOptions(queryParameters: null));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNoCountParameter_WhenCreated_ThenDefaultSearchOptionShouldUseConfigurationValue()
         {
             _coreFeatures.MaxItemCountPerSearch = 10;
@@ -594,7 +595,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(3, options.MaxItemCount);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenCountParameterBelowThanMaximumAllowed_WhenCreated_ThenDefaultSearchOptionShouldBeCreatedAndCountParameterShouldBeUsed()
         {
             _coreFeatures.MaxItemCountPerSearch = 20;
@@ -604,7 +605,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(10, options.MaxItemCount);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsAddIssueToContext()
         {
             _coreFeatures.MaxItemCountPerSearch = 10;
@@ -615,7 +616,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains("exceeds limit"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSetCoreFeatureForIncludeCount_WhenCreated_ThenSearchOptionsHaveSameValue()
         {
             _coreFeatures.DefaultIncludeCountPerSearch = 9;
@@ -624,7 +625,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSearchParameterText_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
@@ -637,7 +638,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Single(options.UnsupportedSearchParams);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(ResourceVersionType.Latest)]
         [InlineData(ResourceVersionType.History)]
         [InlineData(ResourceVersionType.SoftDeleted)]
@@ -653,7 +654,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNotReferencedParameterWithWildcards_WhenCreated_ThenProperExpressionIsAdded()
         {
             _expressionParser.ParseNotReferenced(Arg.Any<string>()).Returns(new NotReferencedExpression(null, null, true));
@@ -666,7 +667,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains((options.Expression as MultiaryExpression).Expressions, expression => expression is NotReferencedExpression);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenNotReferencedParameterWithInvalidValue_WhenCreated_ThenExceptionIsThrown()
         {
             var message = "test";
@@ -679,7 +680,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(message));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleIncludesContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
         {
             const string encodedContinuationToken = "MTIz";
@@ -693,7 +694,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 isIncludesOperation: true));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true, 0)]
         [InlineData(false, 1)]
         public void GivenIncludesContinuationToken_WhenCreated_ThenOperationOutcomeIssueShouldBeAddedForNonIncludesOperation(bool isIncludesOperation, int operationOutcomeIssueCount)
@@ -713,7 +714,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _defaultFhirRequestContext.BundleIssues.Count(x => x.Diagnostics == Core.Resources.IncludesContinuationTokenIgnored));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(100, 100)]
         [InlineData(null, 1000)]
         [InlineData(int.MaxValue, 1000)]
@@ -728,13 +729,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(valueExpected, options.IncludeCount);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnIncludesOperationRequest_WhenIncludesContinuationTokenIsMissing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetSearchParameterTestData))]
         public void Create_AddsFineGrainedAccessControlWithSearchParametersExpressions_UsingMemberData(string resourceType, List<ScopeRestriction> scopeRestrictions, List<Tuple<string, string>> queryParameters, string expectedSubstring)
         {

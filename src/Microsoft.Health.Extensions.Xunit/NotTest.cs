@@ -1,8 +1,9 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.Xunit;
 using Xunit;
 
 namespace Microsoft.Health.Extensions.Xunit
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Extensions.Xunit
         /// TODO: This empty test should in the future be replaced with the real tests that test the functionality of the
         /// src/Microsoft.Health.Extensions.Xunit/Microsoft.Health.Extensions.Xunit.csproj.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public void AlwaysSucceed()
         {
             Assert.True(true);

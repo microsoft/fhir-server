@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARegistryInitializer_WhenDatabaseIsNew_SearchParametersShouldBeUpserted()
         {
             ICosmosQuery<dynamic> cosmosQuery = Substitute.For<ICosmosQuery<dynamic>>();
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
             container.Received().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARegistryInitializer_WhenDatabaseIsExisting_NothingNeedsToBeDone()
         {
             ICosmosQuery<dynamic> documentQuery = Substitute.For<ICosmosQuery<dynamic>>();

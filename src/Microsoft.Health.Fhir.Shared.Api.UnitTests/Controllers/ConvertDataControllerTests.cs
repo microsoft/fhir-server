@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -102,21 +103,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetFhirValidConvertDataParamsIgnoreCasesAllUppercase(),
             };
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(InvalidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(Parameters body)
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataEnabledController.ConvertData(body));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(InconsistentBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WhenInconsistentBodySent_ThenInconsistentThrown(Parameters body)
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataEnabledController.ConvertData(body));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("abc.azurecr.io")]
         [InlineData("abc.azurecr.io/:tag")]
         [InlineData("testimage:tag")]
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataEnabledController.ConvertData(body));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null, null, "abc.azurecr.io/template:123")]
         [InlineData("abc.azurecr.io", null, null, "dummy.azurecr.io/template:123")]
         [InlineData("abc.azurecr.io", "template", null, "abc.azurecr.io/convertertemplate:123")]
@@ -151,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => localController.ConvertData(body));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null, null, "test.azurecr.io/template:123")] // configured in ConvertData config
         [InlineData("abc.azurecr.io", null, null, "abc.azurecr.io/template:123")]
         [InlineData("abc.azurecr.io", "template", null, "abc.azurecr.io/template:123")]
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _mediator.ClearReceivedCalls();
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(Hl7v2ValidBody), MemberType = typeof(ConvertDataControllerTests))]
         [MemberData(nameof(CcdaValidBody), MemberType = typeof(ConvertDataControllerTests))]
         [MemberData(nameof(JsonValidBody), MemberType = typeof(ConvertDataControllerTests))]

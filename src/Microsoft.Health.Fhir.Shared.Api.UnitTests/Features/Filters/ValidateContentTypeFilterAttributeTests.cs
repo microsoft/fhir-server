@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(_statement.ToTypedElement().ToResourceElement());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/fhir+json")]
         [InlineData("application/json")]
         [InlineData("json")]
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithAValidFormatQueryStringAndAnEmptyAcceptHeader_WhenValidatingTheContentType_ThenNoExceptionShouldBeThrown()
         {
             var filter = CreateFilter();
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/fhir+json")]
         [InlineData("application/json")]
         [InlineData("json")]
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/fhir+xml")]
         [InlineData("application/xml")]
         [InlineData("application/blah")]
@@ -117,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("json", "application/fhir+xml")]
         [InlineData("application/fhir+json", "application/fhir+xml")]
         public async Task GivenARequestWithAValidFormatQueryStringAndAnInvalidContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown(string requestFormat, string contentTypeHeader)
@@ -135,7 +136,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/fhir+xml")]
         [InlineData("application/xml")]
         [InlineData("application/blah")]
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/json")]
         [InlineData("application/fhir+json")]
         [InlineData("application/json+fhir")]
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         // Invalid Accept headers are ignored, unless they are formatted "application/<invalid_format>".
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("xml")]
         [InlineData("json")]
@@ -195,7 +196,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         // Invalid Accept headers that are formatted "application/<invalid_format>" should throw an exception.
-        [Theory]
+        [RetryTheory]
         [InlineData("application/blah")]
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         // Invalid Accept headers are ignored, unless they are formatted "application/<invalid_format>".
-        [Theory]
+        [RetryTheory]
         [InlineData("", "application/blah")]
         [InlineData("", "application/fhir+xml")]
         [InlineData("", "")]
@@ -239,7 +240,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         // Invalid Accept headers that are formatted "application/<invalid_format>" should throw an exception.
-        [Theory]
+        [RetryTheory]
         [InlineData("application/blah", "application/blah")]
         [InlineData("application/blah", "application/fhir+xml")]
         [InlineData("application/blah", "")]
@@ -262,7 +263,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/blah")]
         [InlineData("application/fhir+xml")]
         [InlineData("")]
@@ -279,7 +280,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/json")]
         [InlineData("application/fhir+json")]
         [InlineData("application/json+fhir")]
@@ -297,7 +298,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/blah")]
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
@@ -317,7 +318,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithNoContentTypeHeader_WhenValidatingTheContentType_ThenAnUnsupportedMediaTypeExceptionShouldBeThrown()
         {
             var filter = CreateFilter();
@@ -330,7 +331,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(new[] { "json", "application/fhir+json" }, "json")]
         [InlineData(new[] { "xml", "application/fhir+xml" }, "xml")]
         public async Task GivenACapabilityStatementWithMultipleFormats_WhenValidatingTheContentType_ThenNoExceptionShouldBeThrown(string[] formats, string formatQuerystring)
@@ -351,7 +352,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _statement.Format = tempFormat;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequestWithAValidAcceptHeaderAndFormatOverride_WhenSettingTheContentType_ThenClientAcceptHeadersShouldBeConsidered()
         {
             string applicationXml = "application/xml";

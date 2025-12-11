@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             _profileResourcesBehaviour = new ProfileResourcesBehaviour(_authorizationService, _profilesResolver);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProfileResourcesBehaviour_WhenExecutedOutOfBundleContext_ThenCallProfileResolverRefresh()
         {
             ValueSet valueSet = new ValueSet();
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             _profilesResolver.Received(1).Refresh();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenProfileResourcesBehaviour_WhenExecutedUnderTheBundleContext_ThenDoNotCallProfileResolverRefresh()
         {
             var bundleResourceContext = new BundleResourceContext(

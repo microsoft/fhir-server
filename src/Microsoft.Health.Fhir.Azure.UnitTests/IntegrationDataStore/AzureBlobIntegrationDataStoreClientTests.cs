@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Azure.IntegrationDataStore;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class AzureBlobIntegrationDataStoreClientTests
     {
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenTextFileOnBlob_WhenDownloadContent_ThenContentShouldBeSame()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenTextFileOnBlob_WhenLoadFromMiddle_ThenContentShouldBeSame()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
@@ -117,7 +118,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenBlobUri_WhenCreateContainer_ThenContainerShouldBeCreated()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenABlob_WhenGetProperties_ThenProtertiesShouldBeReturned()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenDataStream_WhenUploadToBlob_ThenAllDataShouldBeUploaded()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
@@ -233,7 +234,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenDataStream_WhenAppendToBlob_ThenDataShouldBeAppended()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
@@ -286,7 +287,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenStorageBlob_WhenAcquireLease_ThenLeaseIdShouldBeReturned()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
@@ -328,7 +329,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
-        [Fact(Skip = "Local tests need emulator.")]
+        [RetryFact(Skip = "Local tests need emulator.")]
         public async Task GivenBlobUri_WhenCreateBlobClient_ThenBlobClientShouldBeFunctional()
         {
             IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();

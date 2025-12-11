@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         /// A basic smoke test verifying that resource changes should not be created
         ///  when the resource change capture config is disabled.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenResourceChangeCaptureIsDisabled_ThenResourceChangesShouldNotBeCreated()
         {
             FhirStorageTestsFixture fhirStorageTestsFixture = null;

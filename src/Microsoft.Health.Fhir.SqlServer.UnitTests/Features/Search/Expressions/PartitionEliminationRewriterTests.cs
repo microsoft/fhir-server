@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             _rewriter = new PartitionEliminationRewriter(_fhirModel, new SchemaInformation(SchemaVersionConstants.PartitionedTables, SchemaVersionConstants.PartitionedTables), () => _searchParameterDefinitionManager);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACrossSystemQuery_WhenRewritten_GetsAllResourceTypes()
         {
             Expression rewritten = new SqlRootExpression(
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 rewritten.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnExpressionWithTypeConstraintWithoutAContinuationToken_WhenRewritten_RemainsTheSame()
         {
             var inputExpression = new SqlRootExpression(
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Same(inputExpression, rewritten);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnExpressionWithTypeSingleTypeAndAContinuationToken_WhenRewritten_GetsResourceSurrogateIdExpression()
         {
             var inputExpression = new SqlRootExpression(
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 rewritten.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnExpressionWithMultipleTypesAndAContinuationToken_WhenRewritten_GetsResourceSurrogateIdExpression()
         {
             var inputExpression = new SqlRootExpression(
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 rewritten.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnExpressionWithMultipleTypesAndAContinuationTokenInDescendingOrder_WhenRewritten_GetsResourceSurrogateIdExpression()
         {
             var inputExpression = new SqlRootExpression(

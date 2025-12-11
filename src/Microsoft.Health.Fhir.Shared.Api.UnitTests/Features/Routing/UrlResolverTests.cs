@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             _bundleHttpContextAccessor.HttpContext.Returns((HttpContext)null);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResource_WhenResourceUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
             const string id = "12345";
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAResource_WhenResourceUrlIsResolvedWithHistory_ThenCorrectUrlShouldBeReturned()
         {
             const string id = "12345";
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullUnsupportedSearchParams_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
             _urlResolver.ResolveRouteUrl(unsupportedSearchParams: null, null, continuationToken: null);
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAllSearchParamsAreSupported_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReReturned()
         {
             string inputQueryString = "?param1=value1&param2=value2";
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, null, expectedRouteValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchParamThatIsNotSupported_WhenSearchUrlIsResolved_ThenUnsupportedSearchParamShouldBeRemoved()
         {
             string inputQueryString = "?param1=value1&param2=value2";
@@ -170,7 +171,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, null, expectedRouteValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleSearchParamsThatAreNotSupported_WhenSearchUrlIsResolved_ThenUnsupportedSearchParamShouldBeRemoved()
         {
             string inputQueryString = "?param1=value1&param1=value2&param2=value3&param2=value4&param3=value5";
@@ -188,7 +189,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, null, expectedRouteValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAContinuationToken_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
             string inputQueryString = "?param1=value1&param2=value2";
@@ -204,7 +205,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAQueryWithExistingContinuationToken_WhenSearchUrlIsResolvedWithANewContinuationToken_ThenContinuationTokenShouldBeUpdated()
         {
             string inputQueryString = $"?param1=value1&param2=value2&{ContinuationTokenQueryParamName}=abc";
@@ -220,7 +221,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAQueryWithExistingContinuationToken_WhenSearchUrlIsResolvedWithNoNewContinuationToken_ThenContinuationTokenShouldBeRetained()
         {
             string inputQueryString = $"?param1=value1&{ContinuationTokenQueryParamName}=abc&param2=value2";
@@ -236,7 +237,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenMultipleQueryParameterWithSameNameButOneHasInvalidValue_WhenSearchUrlIsResolved_ThenTheQueryParameterWithInvalidValueShouldBeRemoved()
         {
             string inputQueryString = $"?param1=value1&param2=123&param3=value3&param2=value2";
@@ -257,7 +258,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 
         [InlineData("?_sort=a,-b")]
         [InlineData("?_sort=a,-b&_sort=-c,d")]
-        [Theory]
+        [RetryTheory]
         public void GivenSortingParameters_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReReturned(string queryString)
         {
             TestAndValidateRouteWithQueryParameter(
@@ -268,7 +269,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 new Dictionary<string, object> { { KnownQueryParameterNames.Sort, "a,-b" } });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenSortingParametersButWhenNoneAreApplied_WhenSearchUrlIsResolved_ThenTheUrlWillNotContainTheSortParameter()
         {
             TestAndValidateRouteWithQueryParameter(
@@ -279,7 +280,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 new Dictionary<string, object>());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnExportOperation_WhenOperationResultUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
             const string id = "12345";
@@ -295,7 +296,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReindexOperation_WhenOperationResultUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
             const string id = "12345";
@@ -311,7 +312,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUnknownOperation_WhenOperationResultUrlIsResolved_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
             const string id = "12345";
@@ -320,7 +321,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.Throws<OperationNotImplementedException>(() => _urlResolver.ResolveOperationResultUrl(opName, id));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenABundleBeingProcessed_WhenUrlIsResolvedWithQuery_ThenTheCorrectValueIsReturned()
         {
             string inputQueryString = "?param1=value1&param2=value2";
@@ -342,7 +343,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnIncludesContinuationToken_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
             string inputQueryString = "?param1=value1&param2=value2";

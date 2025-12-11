@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
     [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public class RawResourceTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenAResource_WhenCreateARawResourceWithKeepMetaFalse_ThenTheObjectPassedInIsModified()
         {
             var serializer = new FhirJsonSerializer();

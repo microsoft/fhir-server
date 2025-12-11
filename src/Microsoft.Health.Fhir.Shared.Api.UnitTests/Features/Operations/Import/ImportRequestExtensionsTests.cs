@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
     [Trait(Traits.Category, Categories.Import)]
     public class ImportRequestExtensionsTests
     {
-        [Fact]
+        [RetryFact]
         public void GivenImportRequestInParamtersFormat_WhenConvert_ThenImportRequestShouldBeReturned()
         {
             ImportRequest input = new ImportRequest();
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
             Assert.Equal(input.Input[0].Etag, output.Input[0].Etag);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenEmptyImportRequestInParamtersFormat_WhenConvert_ThenDefaultValueShouldBeFilled()
         {
             ImportRequest input = new ImportRequest();
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
             Assert.Equal(ImportRequestExtensions.DefaultStorageDetailType, output.StorageDetail.Type);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenImportRequestWithErrorContainerName_WhenConvert_ThenErrorContainerNameShouldBePreserved()
         {
             // Arrange
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
             Assert.Equal(input.ErrorContainerName, output.ErrorContainerName);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenImportRequestWithoutErrorContainerName_WhenConvert_ThenErrorContainerNameShouldBeNull()
         {
             // Arrange

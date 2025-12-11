@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
     {
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L19
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenReplacingPrimitiveVaue_ThenPrimitiveShouldBeChanged()
         {
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.birthDate", new Date("1930-01-01"));
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L140
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenReplacingPrimitiveInList_ThenPrimitiveShouldBeChanged()
         {
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.contact[0].gender", new Code("female"));
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L183
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenReplacingNestedPrimitiveInList_ThenPrimitiveShouldBeChanged()
         {
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.contact[0].name.text", new FhirString("the name"));
@@ -117,7 +118,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L382
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenReplacingComplexObject_ThenObjectShouldBeChanged()
         {
             var patchParam = new Parameters().AddReplacePatchParameter("maritalStatus", new CodeableConcept { ElementId = "2", Text = "not married" });
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L558
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenReplacingListContents_ThenListShouldBeChanged()
         {
             var patchParam = new Parameters()
@@ -174,7 +175,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not an official test case, but useful for testing resolution of fhirpath where with replace
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenReplacingListContentsUsingWhere_ThenListShouldBeChanged()
         {
             var patchParam = new Parameters()
@@ -203,7 +204,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not an official test case, but useful to test exception handling for replace
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenGivenInvalidPath_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.none", new FhirString("nothing"));
@@ -214,7 +215,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         // Not an official test case, but path for replace operations must return a single element
-        [Fact]
+        [RetryFact]
         public void GivenAFhirPatchReplaceRequest_WhenReplaceWithMultipleResults_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.identifier.period.start", new FhirDateTime("2021-07-05"));

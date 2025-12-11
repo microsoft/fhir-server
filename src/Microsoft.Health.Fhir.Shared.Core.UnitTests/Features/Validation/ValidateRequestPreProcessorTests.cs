@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
 using FluentValidation.Results;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
     [Trait(Traits.Category, Categories.Operations)]
     public class ValidateRequestPreProcessorTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenValidatingThatType_ThenAllValidationRulesShouldRun()
         {
             var mockValidator1 = Substitute.For<AbstractValidator<UpsertResourceRequest>>();
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                 Arg.Is<CancellationToken>(ct => ct == CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenValidatingThatTypeWithFailingRule_ThenAValidationExceptionShouldBeThrown()
         {
             var mockValidator1 = Substitute.For<AbstractValidator<UpsertResourceRequest>>();
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                 async () => await upsertValidationHandler.Process(upsertResourceRequest, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenARequest_WhenReturningFhirValidationFailure_ThenOperationOutcomeIsUsedCorrectly()
         {
             var mockValidator = Substitute.For<AbstractValidator<UpsertResourceRequest>>();

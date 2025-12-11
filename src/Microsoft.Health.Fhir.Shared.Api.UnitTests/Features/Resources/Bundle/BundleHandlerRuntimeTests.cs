@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     {
         private readonly BundleConfiguration _bundleConfiguration = new BundleConfiguration();
 
-        [Theory]
+        [RetryTheory]
         [InlineData(BundleType.Transaction, BundleProcessingLogic.Parallel)]
         [InlineData(BundleType.Batch, BundleProcessingLogic.Sequential)]
         public void GetDefaultBundleProcessingLogic_BatchAndTransaction_ReturnsExpectedProcessingLogic(
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedDefaultProcessingLogic, result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GetBundleProcessingLogic_NullBundleType_ReturnsSequential()
         {
             // Arrange
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(BundleProcessingLogic.Sequential, result);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData(null)]
         [InlineData("parallel")]
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(result);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("para llel")]
         [InlineData("sequential.")]
         [InlineData("   x   ")]
@@ -92,14 +93,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.False(result);
         }
 
-        [Fact]
+        [RetryFact]
         public void GetBundleProcessingLogic_NullHttpContext_Throws()
         {
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => BundleHandlerRuntime.GetBundleProcessingLogic(_bundleConfiguration, null, BundleType.Batch));
         }
 
-        [Fact]
+        [RetryFact]
         public void IsTransactionCancelledByClient_WhenTrue()
         {
             const int timeWhenCustomerCancelledTheOperation = 4;
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.True(result);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(false, 10, 5)]
         [InlineData(true, 5, 5)]
         public void IsTransactionCancelledByClient_WhenFalse(bool isCancelled, int transactionElapsedTime, int maxTransactionExecutionTime)

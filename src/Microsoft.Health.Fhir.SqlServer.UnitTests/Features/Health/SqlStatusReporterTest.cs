@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             });
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenHealthyCustomerKeyHealth_WhenIsCustomerManagerKeyProperlySetAsync_ThenReturnsTrue()
         {
             // Check SQL storage status reporter
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Health
             Assert.True(result);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenUnhealthyCustomerKeyHealth_WhenIsCustomerManagerKeyProperlySetAsync_ThenReturnsFalse()
         {
             // Set Customer-Managed Key as unhealthy

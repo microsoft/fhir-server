@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _queueClient = fixture.QueueClient;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNewJobs_WhenEnqueueJobs_ThenCreatedJobsShouldBeReturned()
         {
             byte queueType = (byte)TestQueueType.GivenNewJobs_WhenEnqueueJobs_ThenCreatedJobsShouldBeReturned;
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Contains(jobInfo.Definition, definitions);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNewJobsWithSameQueueType_WhenEnqueueWithForceOneActiveJobGroup_ThenSecondJobShouldNotBeEnqueued()
         {
             var queueType = (byte)TestQueueType.GivenNewJobsWithSameQueueType_WhenEnqueueWithForceOneActiveJobGroup_ThenSecondJobShouldNotBeEnqueued;
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Assert.ThrowsAsync<JobConflictException>(async () => await _queueClient.EnqueueAsync(queueType, ["job2"], null, true, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobsWithSameDefinition_WhenEnqueue_ThenOnlyOneJobShouldBeEnqueued()
         {
             byte queueType = (byte)TestQueueType.GivenJobsWithSameDefinition_WhenEnqueue_ThenOnlyOneJobShouldBeEnqueued;
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(jobId, jobInfos.First().Id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobs_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect()
         {
             byte queueType = (byte)TestQueueType.GivenJobs_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect;
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(groupId, jobInfos.Last().GroupId);
         }
 
-        [Fact]
+        [RetryFact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenJobsInGroupThatWasCancelled_WhenEnqueued_ThenNewJobsAreNotEnqueued()
         {
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await _queueClient.EnqueueAsync(queueType, definitions, jobInfos.First().GroupId, false, CancellationToken.None));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobsEnqueue_WhenDequeue_ThenAllJobsShouldBeReturned()
         {
             byte queueType = (byte)TestQueueType.GivenJobsEnqueue_WhenDequeue_ThenAllJobsShouldBeReturned;
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Contains("job2", definitions);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturnedAgain()
         {
             byte queueType = (byte)TestQueueType.GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturnedAgain;
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.True(jobInfo1.Version < jobInfo2.Version);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenGroupJobs_WhenCompleteJob_ThenJobsShouldBeCompleted()
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCompleteJob_ThenJobsShouldBeCompleted;
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(jobInfo2.Result, jobInfo.Result);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled()
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled;
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(jobInfo2.Result, jobInfo.Result);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange()
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange;
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(JobStatus.Cancelled, jobInfo3.Status);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled()
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled;
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.False(jobInfo2.CancelRequested);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled()
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled;
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status is (JobStatus?)JobStatus.Cancelled or (JobStatus?)JobStatus.Failed));
         }
 
-        [Fact(Skip ="Doesn't run within time limits. Bug: 103102")]
+        [RetryFact(Skip ="Doesn't run within time limits. Bug: 103102")]
         public async Task GivenAJob_WhenExecutedWithHeartbeats_ThenHeartbeatsAreRecorded()
         {
             await this.RetryAsync(

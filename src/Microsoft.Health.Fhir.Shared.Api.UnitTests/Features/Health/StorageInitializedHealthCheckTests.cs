@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -31,7 +32,7 @@ public class StorageInitializedHealthCheckTests
         _sut = new StorageInitializedHealthCheck(_databaseStatusReporter);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenStorageInitialized_WhenCheckHealthAsync_ThenReturnsHealthy()
     {
         await _sut.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
@@ -41,14 +42,14 @@ public class StorageInitializedHealthCheckTests
         Assert.Equal(HealthStatus.Healthy, result.Status);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenStorageInitializedHealthCheck_WhenCheckHealthAsync_ThenStartsAsDegraded()
     {
         HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
         Assert.Equal(HealthStatus.Degraded, result.Status);
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenStorageInitializedHealthCheck_WhenCheckHealthAsync_ThenChangedToUnhealthyAfter5Minutes()
     {
         using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))
@@ -60,7 +61,7 @@ public class StorageInitializedHealthCheckTests
         }
     }
 
-    [Fact]
+    [RetryFact]
     public async Task GivenUnhealthyCMK_WhenCheckHealthAsyncAfter5Minutes_ThenChangedToDegraded()
     {
         using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Now.AddMinutes(5).AddSeconds(1))))

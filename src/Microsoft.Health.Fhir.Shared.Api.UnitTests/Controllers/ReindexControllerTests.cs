@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetValidReindexJobPostBody(null, null),
             };
 
-        [Fact]
+        [RetryFact]
         public async Task GivenACreateReindexRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var reindexController = GetController(new ReindexJobConfiguration() { Enabled = false });
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => reindexController.CreateReindexJob(null));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGetReindexRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var reindexController = GetController(new ReindexJobConfiguration() { Enabled = false });
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => reindexController.GetReindexJob("id"));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAGetReindexRequest_WhenJobExists_ThenParammetersResourceReturned()
         {
             _mediator.Send(Arg.Any<GetReindexRequest>()).Returns(Task.FromResult(GetReindexJobResponse()));
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(OperationStatus.Queued.ToString(), parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Status).First().Value.ToString());
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(InvalidBody), MemberType = typeof(ReindexControllerTests))]
         public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenJobIsCreatedSuccessfully(Parameters body)
         {
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(fhirResult.Result);
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(ValidBody), MemberType = typeof(ReindexControllerTests))]
         public async Task GivenACreateReindexRequest_WithValidBody_ThenCreateReindexJobCalledWithCorrectParams(Parameters body)
         {

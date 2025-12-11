@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     [Trait(Traits.Category, Categories.Web)]
     public class FhirRequestContextMiddlewareTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectUriShouldBeSet()
         {
             IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(new Uri("https://localhost:30/stu3/Observation?code=123"), fhirRequestContext.Uri);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectBaseUriShouldBeSet()
         {
             IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(new Uri("https://localhost:30/stu3/"), fhirRequestContext.BaseUri);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenRequestIdHeaderShouldBeSet()
         {
             const string expectedRequestId = "123";
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(new StringValues(expectedRequestId), value);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("127.0.0.1")]
         [InlineData("::1")]
         [InlineData("localhost")]
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Null(instanceConfiguration.BaseUri);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAnExternalHostRequest_WhenExecutingFhirRequestContextMiddleware_ThenBaseUriShouldBeInitialized()
         {
             HttpContext httpContext = CreateHttpContext();
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.NotNull(instanceConfiguration.BaseUri);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenLoopbackRequestFollowedByExternalRequest_WhenExecutingFhirRequestContextMiddleware_ThenBaseUriShouldBeInitializedByExternalRequest()
         {
             // First request from loopback (health check)

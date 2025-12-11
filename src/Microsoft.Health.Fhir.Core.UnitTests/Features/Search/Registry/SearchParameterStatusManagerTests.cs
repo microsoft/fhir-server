@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns((true, false));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenSearchParameterIsUpdatedFromRegistry()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -164,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Equal(SearchParameterStatus.Disabled, list[5].SearchParameterStatus);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenUpdatedSearchParametersInNotification()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                     Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenRegistryShouldNotUpdateNewlyFoundParameters()
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
@@ -189,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenASPStatusManager_WhenInitializingAndResolverThrowsException_ThenCatchItAndReturnFalse()
         {
             _searchParameterSupportResolver

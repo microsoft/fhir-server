@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Support;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -49,7 +50,7 @@ public class ResourceProfileValidatorTests
             true);
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenAResource_WhenValidatingNoIssues_ThenTheValidationResultSucceeds()
     {
         _profileValidator.TryValidate(Arg.Any<ITypedElement>(), Arg.Any<string>())
@@ -59,7 +60,7 @@ public class ResourceProfileValidatorTests
         Assert.True(result.IsValid);
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenAResource_WhenValidatingWithAWarning_ThenTheValidationResultSucceeds()
     {
         _profileValidator.TryValidate(Arg.Any<ITypedElement>(), Arg.Any<string>())
@@ -69,7 +70,7 @@ public class ResourceProfileValidatorTests
         Assert.True(result.IsValid);
     }
 
-    [Theory]
+    [RetryTheory]
     [MemberData(nameof(ErrorIssues))]
     public void GivenAResource_WhenValidatingWithAnError_ThenTheValidationResultFails(OperationOutcomeIssue issue)
     {
@@ -80,7 +81,7 @@ public class ResourceProfileValidatorTests
         Assert.False(result.IsValid);
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenAResource_WhenValidatingWithAWarningAndStrictHandling_ThenTheValidationResultFails()
     {
         _fhirRequestContext.RequestHeaders.Returns(_strictHeader);
@@ -92,7 +93,7 @@ public class ResourceProfileValidatorTests
         Assert.False(result.IsValid);
     }
 
-    [Theory]
+    [RetryTheory]
     [MemberData(nameof(ErrorIssues))]
     public void GivenAResource_WhenValidatingWithAnErrorAndStrictHandling_ThenTheValidationResultFails(OperationOutcomeIssue issue)
     {
@@ -105,7 +106,7 @@ public class ResourceProfileValidatorTests
         Assert.False(result.IsValid);
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenAResource_WhenValidatingInvalidResource_ThenTheValidationResultHasNoDuplicateErrors()
     {
         ResourceElement resource = Samples.GetJsonSample("ObservationWithNoCode");
@@ -139,7 +140,7 @@ public class ResourceProfileValidatorTests
         Assert.Equal(propertyName, failures[0].PropertyName);
     }
 
-    [Fact]
+    [RetryFact]
     public void GivenAResource_WhenValidatingInvalidResource_ThenTheValidationResultHasProfileAndContentErrors()
     {
         ResourceElement resource = Samples.GetJsonSample("ObservationWithNoCode");

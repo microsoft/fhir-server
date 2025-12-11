@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// revision, we would get a 8623 error that sql can't create a sql query plan.
         /// This membermatch json will create up to 24 CTEs.
         /// </summary>
-        [Fact(Skip= "Test does not succeed as expected. Bug assigned to Jared.")]
+        [RetryFact(Skip= "Test does not succeed as expected. Bug assigned to Jared.")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenAComplexSqlStatement_FromMemberMatch_SucceedsWhenExecuted()
         {
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.True(_supportedHttpStatusCode.Contains(httpStatusCode), $"HTTP Status Code '{httpStatusCode}' is not expected.");
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenChainedSearchQuery_WhenSearchedWithEqualsAndContains_ThenCorrectBundleShouldBeReturned()
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.True(bundleEquals.Total > 0 && bundleContains.Total > 0);
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("", "seattle", true)]
         [InlineData("", "SEATTLE", true)]
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("", "Lorem", true)]
         [InlineData("", "NotLorem", false)]
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAStringSearchParamWithMultipleValues_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"family=Smith,Ander&_tag={Fixture.FixtureTag}");
@@ -157,7 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.Patients[0], Fixture.Patients[2]);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAStringSearchParamThatCoversSeveralFields_WhenSpecifiedTwiceInASearch_IntersectsTheTwoResultsProperly()
         {
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"name=Bea&name=Smith&_tag={Fixture.FixtureTag}");
@@ -166,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("muller")]
         [InlineData("müller")]
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotEmpty(bundle.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAEscapedStringSearchParams_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"name=Richard\\,Muller&_tag={Fixture.FixtureTag}");

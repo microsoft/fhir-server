@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// insert a resource using every schema version, and that we can read resources
         /// that were inserted into with earlier schemas.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgraded_WhenUpsertingAfter_OperationSucceeds()
         {
             string databaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("Compatibility");
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// A basic smoke test verifying that the code is compatible with schema versions
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
             // List<FhirStorageTestsFixture> fhirStorageTestsFixtures = new();

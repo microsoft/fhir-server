@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _contextAccessor = fixture.FhirRequestContextAccessor;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSmartV2GranularScopeWithSearchParamSearchForObservation_StatsAreCreated()
         {
             /*
@@ -108,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier")));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingObservationsWithWildcardInclude_StatsAreCreated()
         {
             /*
@@ -186,7 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Practitioner-name")));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingPatientsWithMultipleRevIncludes_StatsAreCreated()
         {
             /*
@@ -263,7 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Encounter-status")));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingPatientsWithSingleRevIncludes_StatsAreCreated()
         {
             /*

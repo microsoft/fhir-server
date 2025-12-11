@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
         private SearchIndexEntryJObjectGenerator _generator = new SearchIndexEntryJObjectGenerator();
 
-        [Fact]
+        [RetryFact]
         public void GivenACompositeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system1 = "s1";
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenACompositeSearchValueWithMultipleValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system1 = "s1";
@@ -157,7 +158,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenADateTimeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             var value = new DateTimeSearchValue(PartialDateTime.Parse("2000"), PartialDateTime.Parse("2001"));
@@ -174,7 +175,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANumberSearchValueWithEqualLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const decimal number = 1.25m;
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 new[] { CreateTuple("n", number), CreateTuple("ln", number), CreateTuple("hn", number) });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANumberSearchValueWithUnequalLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const decimal low = 1.25m;
@@ -201,7 +202,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 new[] { CreateTuple("ln", low), CreateTuple("hn", high) });
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAQuantitySearchValueWithEqualLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system = "system";
@@ -228,7 +229,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAQuantitySearchValueWithUnequalLowAndHighValues_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system = "system";
@@ -256,7 +257,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceSearchValueWithRelativeReference_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string resourceId = "xyz";
@@ -275,7 +276,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAReferenceSearchValueWithAbsoluteReference_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             var baseUri = new Uri("https://localhost/stu3/");
@@ -296,7 +297,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string s = "StringWithMixedCase";
@@ -315,7 +316,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenSearchValueWithNullSystem_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string code = "code";
@@ -335,7 +336,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenSearchValueWithNullCode_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system = "system";
@@ -355,7 +356,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenSearchValueWithNullText_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system = "system";
@@ -375,7 +376,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenATokenSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string system = "system";
@@ -397,7 +398,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 expectedValues);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAnUriSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
             const string uri = "http://uri";

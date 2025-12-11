@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("", "seattle", true)]
         [InlineData("", "SEATTLE", true)]
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("", "Lorem", true)]
         [InlineData("", "NotLorem", false)]
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAStringSearchParamWithMultipleValues_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await _client.SearchAsync(ResourceType.Patient, $"family=Smith,Ander&_tag={_fixture.FixtureTag}");
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(bundle, _fixture.Patients[0], _fixture.Patients[2]);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAStringSearchParamThatCoversSeveralFields_WhenSpecifiedTwiceInASearch_IntersectsTheTwoResultsProperly()
         {
             Bundle bundle = await _client.SearchAsync(ResourceType.Patient, $"name=Bea&name=Smith&_tag={_fixture.FixtureTag}");
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Theory]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("muller")]
         [InlineData("müller")]
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotEmpty(bundle.Entry);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAEscapedStringSearchParams_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await _client.SearchAsync(ResourceType.Patient, $"name=Richard\\,Muller&_tag={_fixture.FixtureTag}");

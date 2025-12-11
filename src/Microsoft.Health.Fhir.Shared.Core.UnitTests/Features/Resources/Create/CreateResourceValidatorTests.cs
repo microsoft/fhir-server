@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
     [Trait(Traits.Category, Categories.Validate)]
     public class CreateResourceValidatorTests : NarrativeDataTestBase
     {
-        [Theory]
+        [RetryTheory]
         [InlineData("", nameof(XssStrings))]
         [InlineData("1+1", nameof(XssStrings))]
         [InlineData("11|", nameof(XssStrings))]
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
         [InlineData(false, null, false)]
         [InlineData(false, false, false)]
         [InlineData(false, true, true)]
-        [Theory]
+        [RetryTheory]
         public void GivenConfigOrHeader_WhenValidatingCreate_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

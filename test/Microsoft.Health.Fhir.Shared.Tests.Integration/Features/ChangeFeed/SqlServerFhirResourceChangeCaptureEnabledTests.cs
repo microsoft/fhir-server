@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         /// A basic smoke test verifying that the code can
         /// insert and read resource changes after inserting a resource.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenInsertingAResource_ThenResourceChangesShouldBeReturned()
         {
             // add a new resource
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         /// A basic smoke test verifying that the code can
         /// insert and read resource changes after updating a resource.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenUpdatingAResource_ThenResourceChangesShouldBeReturned()
         {
             // add a new resource
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Equal(ResourceChangeTypeUpdated, resourceChangeData.ResourceChangeTypeId);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenImportingNegativeVersions_ThenResourceChangesShouldBeReturned()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.DoesNotContain(resourceChanges, x => x.ResourceVersion.ToString() == "-1" && x.ResourceId == id);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_InvisibleHistoryIsRemovedByWatchdog()
         {
             EnableInvisibleHistory();
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_InvisibleHistoryIsRetainedAndIsRemovedByWatchdog()
         {
             EnableInvisibleHistory();
@@ -244,7 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             await wdTask;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_CanRecreateResource()
         {
             EnableDatabaseLogging();
@@ -264,7 +265,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             DisableInvisibleHistory();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterSoftDeleting_CanRecreateResource()
         {
             EnableDatabaseLogging();
@@ -283,7 +284,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             DisableInvisibleHistory();
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_HistoryIsNotReturnedAndChangesAreReturned()
         {
             EnableDatabaseLogging();
@@ -363,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         /// A basic smoke test verifying that the code can
         /// insert and read resource changes after deleting a resource.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenDeletingAResource_ThenResourceChangesShouldBeReturned()
         {
             // add a new resource
@@ -390,7 +391,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         /// A basic smoke test verifying that the resource type name
         /// should be equal to a resource type.
         /// </summary>
-        [Fact]
+        [RetryFact]
         public async Task GivenADatabase_WhenGettingResourceTypes_WhenInsertingAResource_ThenResourceTypeNameShouldBeEqual()
         {
             // add a new resource

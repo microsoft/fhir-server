@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -161,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             };
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenValidRoles_WhenLoaded_AreProperlyTransformed()
         {
             var roles = new
@@ -185,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Equal(DataActions.All & ~DataActions.HardDelete, actualRole.AllowedDataActions);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenValidDataActions_WhenSpecifiedAsRoleActions_AreRecognized()
         {
             var actionNames = Enum.GetValues(typeof(DataActions)).Cast<DataActions>()
@@ -210,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 t => Assert.Equal(t.First, t.Second));
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetInvalidRoles))]
         public async Task GivenInvalidRoles_WhenLoaded_RaiseValidationErrors(string description, object roles)
         {

@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private const string ParamNameS = "s";
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenSplittingByTokenSeparator_ThenExceptionShouldBeThrown()
         {
             string s = null;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<ArgumentNullException>(ParamNameS, () => s.SplitByTokenSeparator());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(@"", "")]
         [InlineData(@"    ", "    ")]
         [InlineData(@"|", "", "")]
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expected, s.SplitByTokenSeparator());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenSplittingByCompositeSeparator_ThenExceptionShouldBeThrown()
         {
             string s = null;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<ArgumentNullException>(ParamNameS, () => s.SplitByCompositeSeparator());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(@"$", "", "")]
         [InlineData(@"$b1", "", "b1")]
         [InlineData(@"a2$", "a2", "")]
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expected, s.SplitByCompositeSeparator());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null)]
         [InlineData(@"", "")]
         [InlineData(@"    ", "    ")]
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expected, s.EscapeSearchParameterValue());
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(null, null)]
         [InlineData(@"", "")]
         [InlineData(@"    ", "    ")]

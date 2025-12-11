@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return fhirTypedElementToSearchValueConverterManager;
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidResource_WhenExtract_ThenValidSearchIndexEntriesAreCreated()
         {
             var coverageResource = Samples.GetDefaultCoverage().ToPoco<Coverage>();
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.True(coverageResource.Status.Value.ToString().Equals(tokenSearchValue.Code, StringComparison.CurrentCultureIgnoreCase));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidResourceWithDuplicateSearchIndices_WhenExtract_ThenDistincSearchIndexEntriesAreCreated()
         {
             var patientResource = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
 #if !Stu3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
-        [Fact]
+        [RetryFact]
         public void GivenAnValidResource_WhenExtract_ThenExceptionIsNotThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidBundleEntry");

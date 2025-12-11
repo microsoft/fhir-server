@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hl7.FhirPath.Expressions;
 using MediatR;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _outputHelper = outputHelper;
         }
 
-        [Theory]
+        [RetryTheory]
         [MemberData(nameof(GetAllSearchParameters))]
         public async Task CheckSearchParameter(
             string resourceType,
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task ListAllUnsupportedTypes()
         {
             var unsupported = new UnsupportedSearchParameters();

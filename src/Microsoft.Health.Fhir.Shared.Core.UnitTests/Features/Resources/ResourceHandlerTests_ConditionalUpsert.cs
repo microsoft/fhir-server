@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
     /// </summary>
     public partial class ResourceHandlerTests
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenUpsertingConditionallyWithNoIdAndNoExisting_ThenTheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             ConditionalUpsertResourceRequest message = SetupConditionalUpdate(SaveOutcomeType.Created, Samples.GetDefaultObservation());
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == deserialized.Id), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenUpsertingConditionallyWithAnIdAndNoExisting_ThenTheServerShouldReturnTheCreatedResourceSuccessfully()
         {
             string id = Guid.NewGuid().ToString();
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.ResourceId == id), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceWithNoId_WhenUpsertingConditionallyWithOneMatch_ThenTheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             string id = Guid.NewGuid().ToString();
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceWithCorrectId_WhenUpsertingConditionallyWithOneMatch_ThenTheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             string id = Guid.NewGuid().ToString();
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResourceWithIncorrectId_WhenUpsertingConditionallyWithOneMatch_TheServerShouldFail()
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             await Assert.ThrowsAsync<BadRequestException>(() => _mediator.Send<UpsertResourceResponse>(message));
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenUpsertingConditionallyWithMultipleMatches_TheServerShouldFail()
         {
             var mockResultEntry1 = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));

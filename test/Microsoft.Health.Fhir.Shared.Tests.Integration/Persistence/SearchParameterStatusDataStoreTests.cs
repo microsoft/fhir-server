@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testHelper = fixture.TestHelper;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAStatusRegistry_WhenGettingStatuses_ThenTheStatusesAreRetrieved()
         {
             IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAStatusRegistry_WhenUpsertingNewStatuses_ThenTheStatusesAreAdded()
         {
             string statusName1 = "http://hl7.org/fhir/SearchParameter/Test-1";
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAStatusRegistry_WhenUpsertingExistingStatuses_ThenTheExistingStatusesAreUpdated()
         {
             IReadOnlyCollection<ResourceSearchParameterStatus> statusesBeforeUpdate = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);

@@ -1,9 +1,10 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -17,13 +18,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
     {
         private const string ParamNameS = "s";
 
-        [Fact]
+        [RetryFact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(ParamNameS, () => NumberSearchValue.Parse(null));
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("")]
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
@@ -31,19 +32,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<ArgumentException>(ParamNameS, () => NumberSearchValue.Parse(s));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringThatIsNotDecimalNumber_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<FormatException>(() => NumberSearchValue.Parse("abc"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringThatOverflows_WhenParsing_ThenExceptionShouldBeThrown()
         {
             Assert.Throws<OverflowException>(() => NumberSearchValue.Parse("79228162514264337593543950336"));
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeCreated()
         {
             NumberSearchValue value = NumberSearchValue.Parse("245234.34");
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(value.Low, value.High);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenAStringWithTrailingZero_WhenParsed_ThenTrailingZeroShouldBePreserved()
         {
             string expected = "0.010";
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expected, value.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
             var value = new NumberSearchValue(123);
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValueWithEqualLowAndHighValues_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
             NumberSearchValue value = new NumberSearchValue(23.56m);
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal("23.56", value.ToString());
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASearchValueWithUnequalLowAndHighValues_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
         {
             NumberSearchValue value = new NumberSearchValue(23.56m, 27);

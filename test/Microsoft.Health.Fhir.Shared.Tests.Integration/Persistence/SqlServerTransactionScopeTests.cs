@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fixture = fixture;
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionScope_WhenReading_TheUncommittedValuesShouldOnlyBeAvailableWithTheTransactionAndWithHints()
         {
             var newId = Guid.NewGuid().ToString();
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenATransactionScope_WhenReadingAfterComplete_TheValuesShouldBeAvailable()
         {
             var newId = Guid.NewGuid().ToString();

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.HttpClient;
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/json")]
         [InlineData("application/fhir+json")]
         [HttpIntegrationFixtureArgumentSets(formats: Format.Json)]
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CheckContentType(acceptHeaderValue);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
         [HttpIntegrationFixtureArgumentSets(formats: Format.Xml)]
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CheckContentType(acceptHeaderValue);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenNoAcceptHeaderIsProvided_WhenVersionsEndpointIsCalled_ThenServerShouldReturnOK()
         {
             using HttpRequestMessage request = GenerateOperationVersionsRequest(string.Empty);
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData("application/json1")]
         [InlineData("applicaiton/xml")]
         public async Task GivenInvalidAcceptHeaderIsProvided_WhenVersionsEndpointIsCalled_ThenServerShouldReturnNotAcceptable(string acceptHeaderValue)
