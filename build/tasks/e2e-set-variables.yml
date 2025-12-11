@@ -1,0 +1,77 @@
+parameters:
+- name: appServiceName
+  type: string
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Set Variables'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    azurePowerShellVersion: LatestVersion
+    ScriptType: InlineScript
+    Inline: |
+        $keyVault = "$(KeyVaultBaseName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+        }
+
+        $appServiceName = "${{ parameters.appServiceName }}"
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(UniqueResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
+        $acrLoginServer = $acrSettings[0].Value
+        $acrAccountName = ($acrLoginServer -split '\.')[0]
+
+        ## This needs to be moved to MI, WI #125246  
+        # $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        # Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+
+        $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
+        $exportStoreUri = $exportStoreSettings[0].Value
+        Write-Host "$exportStoreUri"
+        $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
+        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(UniqueResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+        
+        Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
+
+        $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
+        $integrationStoreUri = $integrationStoreSettings[0].Value
+        Write-Host "$integrationStoreUri"
+        $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+        }
+        # ----------------------------------------
+
+        dotnet dev-certs https
+
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
+        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"

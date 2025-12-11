@@ -107,6 +107,19 @@ stages:
       tag: $(ImageTag)
       buildPlatform: $(testDockerImagePlatforms)
 
+- stage: cleanupOldResources
+  displayName: 'Cleanup Old PR Resources'
+  dependsOn: 
+  - setupEnvironment
+  jobs:
+  - job: deleteOldResourceGroups
+    displayName: 'Delete Old Resource Groups'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./tasks/delete-resource-groups.yml
+
 - stage: provisionEnvironment
   displayName: Provision Environment
   dependsOn: []
@@ -124,17 +137,20 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          # Handle re-run scenario: remove existing RG for this build if it exists
           try
           {
-            Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
+            Get-AzResourceGroup -Name $(UniqueResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
           }
           catch
           {}
-          New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+          # Create new resource group with unique name
+          New-AzResourceGroup -Name "$(UniqueResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+          Write-Host "Created resource group: $(UniqueResourceGroupName)"
     - template: ./jobs/add-resource-group-role-assignments.yml
       parameters:
         azureSubscription: $(ConnectedServiceName)
-        resourceGroupName: $(ResourceGroupName)
+        resourceGroupName: $(UniqueResourceGroupName)
 
 - stage: setupEnvironment
   displayName: Setup Test Environment
@@ -143,10 +159,18 @@ stages:
   - provisionEnvironment
   jobs:
   - template: ./jobs/cleanup-aad.yml
+  - job: deleteKeyVaults
+    displayName: 'Delete and Purge Key Vaults'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./tasks/delete-keyvaults.yml
   - job: setup
     displayName: 'Setup AAD'
     dependsOn:
     - cleanupAad
+    - deleteKeyVaults
     pool:
       vmImage: '$(WindowsVmImage)'
     steps:
@@ -159,8 +183,8 @@ stages:
   jobs:
   - template: ./jobs/provision-nsp.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
-      nspName: 'nsp-$(ResourceGroupName)'
+      resourceGroup: $(UniqueResourceGroupName)
+      nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
 
 - stage: associateKeyVaultNsp
@@ -171,9 +195,9 @@ stages:
   jobs:
   - template: ./jobs/associate-keyvault-nsp.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
-      keyVaultName: '$(DeploymentEnvironmentName)-ts'
-      nspName: 'nsp-$(ResourceGroupName)'
+      resourceGroup: $(UniqueResourceGroupName)
+      keyVaultName: '$(KeyVaultBaseName)-ts'
+      nspName: 'nsp-$(UniqueResourceGroupName)'
       nspProfile: 'default'
 
 - stage: deploySqlServer
@@ -184,19 +208,19 @@ stages:
   jobs:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
       adminType: 'userAssignedManagedIdentity'
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
       deploymentName: "AppServer"
-      nspName: 'nsp-$(ResourceGroupName)'
+      nspName: 'nsp-$(UniqueResourceGroupName)'
   - template: ./jobs/provision-sqlServer.yml
     parameters:
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)inttest
       adminType: 'federatedServiceConnection'
       deploymentName: "IntegrationTests"
-      nspName: 'nsp-$(ResourceGroupName)'
+      nspName: 'nsp-$(UniqueResourceGroupName)'
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
@@ -209,10 +233,11 @@ stages:
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -229,10 +254,11 @@ stages:
       version: Stu3
       sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
+      keyVaultName: $(KeyVaultNameSql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -251,10 +277,11 @@ stages:
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -271,10 +298,11 @@ stages:
       version: R4
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
+      keyVaultName: $(KeyVaultNameR4Sql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -293,10 +321,11 @@ stages:
     parameters: 
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
+      keyVaultName: $(KeyVaultNameR4B)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -313,10 +342,11 @@ stages:
       version: R4B
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
+      keyVaultName: $(KeyVaultNameR4BSql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -335,10 +365,11 @@ stages:
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5)
       appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -355,10 +386,11 @@ stages:
       version: R5
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
+      keyVaultName: $(KeyVaultNameR5Sql)
       appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(ResourceGroupName)
+      resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -377,7 +409,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
       appServiceName: $(DeploymentEnvironmentName)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
@@ -392,7 +424,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
@@ -407,7 +439,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      keyVaultName: $(KeyVaultNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
@@ -422,7 +454,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
@@ -443,15 +475,3 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/aggregate-coverage.yml
-
-- stage: cleanup
-  displayName: 'Cleanup Azure Environment'
-  dependsOn:
-  - testStu3
-  - testR4
-  - testR4B
-  - testR5
-  condition: succeeded()
-  jobs:
-  - template: ./jobs/cleanup.yml
-
