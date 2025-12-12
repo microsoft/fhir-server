@@ -137,6 +137,9 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          # Import retry helper for transient error handling
+          . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
           # Handle re-run scenario: remove existing RG for this build if it exists
           try
           {
@@ -144,8 +147,10 @@ stages:
           }
           catch
           {}
-          # Create new resource group with unique name
-          New-AzResourceGroup -Name "$(UniqueResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+          # Create new resource group with unique name and retry logic
+          Invoke-WithRetry -OperationName "Create Resource Group" -ScriptBlock {
+            New-AzResourceGroup -Name "$(UniqueResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force -ErrorAction Stop
+          }
           Write-Host "Created resource group: $(UniqueResourceGroupName)"
     - template: ./jobs/add-resource-group-role-assignments.yml
       parameters:
