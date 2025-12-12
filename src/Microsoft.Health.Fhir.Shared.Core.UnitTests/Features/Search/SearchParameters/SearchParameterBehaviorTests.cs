@@ -165,8 +165,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenADeleteResourceRequest_WhenDeletingASpecDefinedSearchParameterResource_ThenDeleteSearchParameterShouldNotBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "code", Url = "http://hl7.org/fhir/SearchParameter/code" };
-            var resource = searchParameter.ToTypedElement().ToResourceElement();
-
             var key = new ResourceKey("SearchParameter", "code");
             var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
 
