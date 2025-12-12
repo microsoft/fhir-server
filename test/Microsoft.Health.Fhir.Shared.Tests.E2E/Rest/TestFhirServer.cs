@@ -202,15 +202,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             bool localSecurityEnabled = false;
 
-            using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseAddress, "metadata"));
             var httpClient = new HttpClient(CreateMessageHandler())
             {
                 BaseAddress = BaseAddress,
+                Timeout = TimeSpan.FromSeconds(30),
             };
-            HttpResponseMessage response = await httpClient.SendAsync(requestMessage, cancellationToken);
 
-            string content = await response.Content.ReadAsStringAsync();
-            response.EnsureSuccessStatusCode();
+            // Retry policy for transient failures (500 errors, timeouts, etc.) during server startup
+            // Total timeout is 5 minutes to ensure we fail fast if the server is not coming up
+            var overallTimeout = TimeSpan.FromMinutes(5);
+            var overallStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            const int baseDelaySeconds = 5;
+            const int maxDelaySeconds = 30;
+            HttpResponseMessage response = null;
+            string content = null;
+            int attempt = 0;
+
+            while (overallStopwatch.Elapsed < overallTimeout)
+            {
+                attempt++;
+                try
+                {
+                    using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseAddress, "metadata"));
+                    response = await httpClient.SendAsync(requestMessage, cancellationToken);
+                    content = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch successful on attempt {attempt} after {overallStopwatch.Elapsed.TotalSeconds:F1}s.");
+                        break;
+                    }
+
+                    // Retry on 5xx errors (server not ready) or 401/503 (transient auth/availability issues)
+                    if ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.ServiceUnavailable)
+                    {
+                        if (overallStopwatch.Elapsed < overallTimeout)
+                        {
+                            int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds); // Cap growth at attempt 4
+                            Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch returned {response.StatusCode} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
+                            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                            response.Dispose();
+                            continue;
+                        }
+                    }
+
+                    // Non-retryable error or timeout exhausted
+                    response.EnsureSuccessStatusCode();
+                }
+                catch (Exception ex) when (ex is TaskCanceledException || ex is HttpRequestException || ex is IOException)
+                {
+                    if (overallStopwatch.Elapsed < overallTimeout)
+                    {
+                        int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds);
+                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch failed with {ex.GetType().Name} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
+                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                        continue;
+                    }
+
+                    throw new HttpRequestException($"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. Last error: {ex.Message}", ex);
+                }
+            }
+
+            // If we exited the loop due to timeout without success
+            if (response == null || !response.IsSuccessStatusCode)
+            {
+                string errorMessage = response != null
+                    ? $"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. Last status: {response.StatusCode}"
+                    : $"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. No response received.";
+                throw new HttpRequestException(errorMessage);
+            }
 
             CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
             Metadata = metadata.ToResourceElement();
