@@ -1202,6 +1202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(10, "-birthdate")]
         [InlineData(5, "-birthdate")]
         [InlineData(4, "-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenTheSecondPhaseContinuationTokenIsReturned(int includesCount, string sort)
         {
             var tag = Guid.NewGuid().ToString();
