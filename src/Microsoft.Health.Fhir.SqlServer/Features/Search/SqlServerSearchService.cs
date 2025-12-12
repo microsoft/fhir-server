@@ -167,6 +167,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // Continue to second phase of includes
                     sqlSearchOptions.IncludesContinuationToken = includesContinuationToken.SecondPhaseContinuationToken.ToJson();
                     sqlSearchOptions.IncludeCount = sqlSearchOptions.IncludeCount - includesSearchResult.Results.Count();
+                    sqlSearchOptions.SortQuerySecondPhase = true;
 
                     var secondPhaseIncludesSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
 
@@ -302,8 +303,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     firstToken.MatchResourceTypeId,
                                     firstToken.MatchResourceSurrogateIdMin,
                                     firstToken.MatchResourceSurrogateIdMax,
-                                    null,
-                                    null,
+                                    firstToken.IncludeResourceTypeId,
+                                    firstToken.IncludeResourceSurrogateId,
                                     false,
                                     secondToken,
                                 }).ToJson();
@@ -1766,7 +1767,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 else
                                 {
                                     moreResultsResourceTypeId = resourceTypeId;
-                                    moreResultsSurrogateIdCutOff = resourceSurrogateId + 1;
+                                    moreResultsSurrogateIdCutOff = resourceSurrogateId - 1;
                                     moreResults = true;
                                 }
                             }
