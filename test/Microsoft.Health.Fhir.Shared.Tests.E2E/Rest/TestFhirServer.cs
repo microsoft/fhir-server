@@ -92,7 +92,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
             else if (SecurityEnabled)
             {
-                innerHandler = GetAuthenticationHandler(clientApplication, user);
+                // GetAuthenticationHandler returns null for InvalidClient (no auth token scenario)
+                // Fall back to basic handler for testing unauthorized scenarios
+                innerHandler = GetAuthenticationHandler(clientApplication, user) ?? CreateMessageHandler();
             }
             else
             {
