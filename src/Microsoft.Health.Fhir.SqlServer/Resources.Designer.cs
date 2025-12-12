@@ -63,6 +63,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         /// <summary>
         ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
         /// </summary>
+        internal static string ConstraintDetailsOfConstraintViolationInImport {
+            get {
+                return ResourceManager.GetString("ConstraintDetailsOfConstraintViolationInImport", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
+        /// </summary>
         internal static string CyclicIncludeIterateNotSupported {
             get {
                 return ResourceManager.GetString("CyclicIncludeIterateNotSupported", resourceCulture);

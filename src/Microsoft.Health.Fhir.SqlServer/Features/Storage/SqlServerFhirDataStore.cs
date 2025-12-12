@@ -11,6 +11,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -552,23 +553,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated && !_.KeepVersion).ToList(), false, useReplicasForReads);
                     }
                 }
-                catch (SqlException ex) when (ex.Number == SqlStoreErrorCodes.ConstraintViolation && !ex.IsRetriable())
+                catch (SqlException ex) when (ex.Number == SqlStoreErrorCodes.ConstraintViolation && ex.Message.Contains("CodeOverflow", StringComparison.OrdinalIgnoreCase) && !ex.IsRetriable())
                 {
-                    // Put a generic message that this resource was in the batch where one or more resource failed due to constraint violation
-                    foreach (var r in resources)
-                    {
-                        if (!conflicts.Contains(r) && !loaded.Contains(r))
-                        {
-                            r.ImportError = Resources.FailedToImportDueToConstraintViolationInBatch;
-                            conflicts.Add(r);
-                        }
-                    }
+                    var offset = resources[0].Offset;
+                    var minIndex = resources.Min(r => r.Index);
+                    var maxIndex = resources.Max(r => r.Index);
+
+                    var constraintName = TryExtractConstraintName(ex);
+                    var detail = await GetConstraintDetailsAsync(constraintName ?? string.Empty, cancellationToken);
+
+                    var batchMessage = string.Format(Resources.FailedToImportDueToConstraintViolationInBatch, offset, minIndex, maxIndex, detail);
+                    resources[0].ImportError = batchMessage;
+                    conflicts.Add(resources[0]);
 
                     // Loaded list should exclude conflicts discovered here (remove if mistakenly added).
                     loaded = loaded.Where(l => !conflicts.Contains(l)).ToList();
 
-                    // Log the error type
-                    _logger.LogError(ex, "Constraint violation occurred during import.");
+                    _logger.LogError(ex, batchMessage);
                 }
 
                 return (loaded, conflicts);
@@ -1034,6 +1035,129 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var value = json.Substring(startIndex, endIndex - startIndex);
 
             return value;
+        }
+
+        private async Task<string> GetConstraintDetailsAsync(string constraintName, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(constraintName))
+            {
+                return $"Import failed due to code overflow constraint violation.";
+            }
+
+            const string sql = @"
+             ;WITH details AS (
+                 SELECT kc.name AS ConstraintName, 
+                        t.name AS TableName,
+                        STRING_AGG(col.name, ',') AS Columns
+                 FROM sys.key_constraints kc
+                 JOIN sys.tables t ON kc.parent_object_id = t.object_id
+                 JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
+                 JOIN sys.columns col ON col.object_id = ic.object_id AND col.column_id = ic.column_id
+                 WHERE kc.name = @name
+                 GROUP BY kc.name, t.name
+             
+                 UNION ALL
+             
+                 SELECT fk.name AS ConstraintName, 
+                        t.name AS TableName,
+                        STRING_AGG(c.name, ',') AS Columns
+                 FROM sys.foreign_keys fk
+                 JOIN sys.tables t ON fk.parent_object_id = t.object_id
+                 JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
+                 JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id
+                 WHERE fk.name = @name
+                 GROUP BY fk.name, t.name
+             
+                 UNION ALL
+             
+                 SELECT ck.name AS ConstraintName, 
+                        t.name AS TableName,
+                        ck.definition AS Columns
+                 FROM sys.check_constraints ck
+                 JOIN sys.tables t ON ck.parent_object_id = t.object_id
+                 WHERE ck.name = @name
+             )
+             SELECT TOP 1 TableName, Columns
+             FROM details;";
+
+            using var cmd = new SqlCommand(sql) { CommandType = CommandType.Text };
+            cmd.Parameters.AddWithValue("@name", constraintName);
+
+            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
+            cmd.Connection = conn.SqlConnection;
+
+            using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return $"Import failed due to code overflow constraint violation.";
+            }
+
+            var tableName = reader.GetString(0);
+            var columnsOrDefinition = reader.GetString(1);
+
+            return string.Format(
+                Resources.ConstraintDetailsOfConstraintViolationInImport,
+                constraintName,
+                tableName,
+                columnsOrDefinition);
+        }
+
+        private static string TryExtractConstraintName(SqlException ex)
+        {
+            var msg = ex.Message ?? string.Empty;
+
+            // Look for double-quoted constraint name: "ConstraintName"
+#pragma warning disable CA1310, CA1307
+            int dblStart = msg.IndexOf('"');
+            if (dblStart >= 0)
+            {
+                int dblEnd = msg.IndexOf('"', dblStart + 1);
+#pragma warning restore CA1310, CA1307
+                if (dblEnd > dblStart)
+                {
+                    var candidate = msg.Substring(dblStart + 1, dblEnd - dblStart - 1);
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            // Quoted constraint name: 'ConstraintName'
+#pragma warning disable CA1310, CA1307
+            int quoteStart = msg.IndexOf('\'');
+            if (quoteStart >= 0)
+            {
+                int quoteEnd = msg.IndexOf('\'', quoteStart + 1);
+#pragma warning restore CA1310, CA1307
+                if (quoteEnd > quoteStart)
+                {
+                    var candidate = msg.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            // Bracketed constraint name: [ConstraintName]
+#pragma warning disable CA1310, CA1307
+            int bracketStart = msg.IndexOf('[');
+            if (bracketStart >= 0)
+            {
+                int bracketEnd = msg.IndexOf(']', bracketStart + 1);
+#pragma warning restore CA1310, CA1307
+                if (bracketEnd > bracketStart)
+                {
+                    var candidate = msg.Substring(bracketStart + 1, bracketEnd - bracketStart - 1);
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            return string.Empty;
         }
 
         public async Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
