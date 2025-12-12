@@ -82,7 +82,17 @@ jobs:
         New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
 
         $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
-        New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIp -EndIPAddress $agentIP
+
+        # Check if the firewall rule already exists
+        $firewallRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -ErrorAction SilentlyContinue
+
+        if (-not $firewallRule) {
+          Write-Host "Creating firewall rule 'AzureDevopsAgent'"
+          New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIP -EndIPAddress $agentIP
+        }
+        else {
+          Write-Host "Firewall rule 'AzureDevopsAgent' already exists. Skipping creation."
+        }
 
         # Associate SQL Server with Network Security Perimeter if NSP name is provided
         if (-not [string]::IsNullOrEmpty($nspName)) {
@@ -104,13 +114,34 @@ jobs:
               'nspProfile' = 'default'
           }
             
-          # Deploy using external template
-          $nspDeploymentResult = New-AzResourceGroupDeployment `
-            -ResourceGroupName $resourceGroup `
-            -Name "$sqlServerName-nsp-association" `
-            -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-            -TemplateParameterObject $templateParameters `
-            -Verbose
+          # Deploy using external template with retry logic for transient conflicts
+          $maxRetries = 3
+          $retryDelaySeconds = 15
+          $attempt = 0
+          $success = $false
+          
+          do {
+            try {
+              $attempt++
+              Write-Host "Attempt $attempt of $maxRetries to create NSP association..."
+              
+              $nspDeploymentResult = New-AzResourceGroupDeployment `
+                -ResourceGroupName $resourceGroup `
+                -Name "$sqlServerName-nsp-association" `
+                -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+                -TemplateParameterObject $templateParameters `
+                -Verbose
+              
+              $success = $true
+            } catch {
+              if ($_.Exception.Message -like "*Conflict*" -and $attempt -lt $maxRetries) {
+                Write-Host "Conflict detected. Retrying in $retryDelaySeconds seconds..."
+                Start-Sleep -Seconds $retryDelaySeconds
+              } else {
+                throw
+              }
+            }
+          } while (-not $success -and $attempt -lt $maxRetries)
             
           Write-Host "Successfully associated SQL Server with NSP using external ARM template"
           Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"

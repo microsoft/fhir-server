@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, item.Type));
                 }
 
-                if (item.Url == null || !string.IsNullOrEmpty(item.Url.Query))
+                if (item.Url == null || !item.Url.IsAbsoluteUri || !string.IsNullOrEmpty(item.Url.Query))
                 {
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }

@@ -11,6 +11,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.JsonPatch.Internal;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -111,25 +112,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                // Wait for the configured SearchParameterCacheRefreshIntervalSeconds before processing
-                var delaySeconds = Math.Max(1, _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds);
-                var delayMultiplier = Math.Max(1, _operationsConfiguration.Reindex.ReindexDelayMultiplier);
-                _logger.LogInformation("Reindex job with Id: {Id} waiting for {DelaySeconds} second(s) before processing as configured by SearchParameterCacheRefreshIntervalSeconds and ReindexDelayMultiplier.", _jobInfo.Id, delaySeconds * delayMultiplier);
+                await Task.Delay(1000, cancellationToken);
 
-                await Task.Delay(TimeSpan.FromSeconds(delaySeconds) * delayMultiplier, cancellationToken);
+                if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
+                {
+                    throw new OperationCanceledException("Reindex operation cancelled by customer.");
+                }
+
+                // Attempt to get and apply the latest search parameter updates
+                await RefreshSearchParameterCache(cancellationToken);
 
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
 
-                await CreateReindexProcessingJobsAsync(cancellationToken);
-
                 var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
+                var queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
 
-                // Get only ProcessingJobs.
-                var queryProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                // Only create jobs if we don't have any at this point.
+                if (!queryReindexProcessingJobs.Any())
+                {
+                    await CreateReindexProcessingJobsAsync(cancellationToken);
+                    jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
+                    queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                }
 
-                if (!queryProcessingJobs.Any())
+                if (!queryReindexProcessingJobs.Any())
                 {
                     // Nothing to process so we are done.
                     AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, Core.Resources.ReindexingNothingToProcess);
@@ -137,12 +145,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     return JsonConvert.SerializeObject(_currentResult);
                 }
 
-                _currentResult.CreatedJobs = queryProcessingJobs.Count;
+                _currentResult.CreatedJobs = queryReindexProcessingJobs.Count;
 
-                if (queryProcessingJobs.Any())
-                {
-                    await CheckForCompletionAsync(queryProcessingJobs, cancellationToken);
-                }
+                await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
+
+                await RefreshSearchParameterCache(cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -162,6 +169,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_currentResult);
         }
 
+        private async Task RefreshSearchParameterCache(CancellationToken cancellationToken)
+        {
+            try
+            {
+                _logger.LogJobInformation(_jobInfo, "Performing full SearchParameter database refresh and hash recalculation for reindex job.");
+
+                // Use the enhanced method with forceFullRefresh flag
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true);
+
+                // Update the reindex job record with the latest hash map
+                _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+
+                _logger.LogJobInformation(
+                    _jobInfo,
+                    "Completed full SearchParameter refresh. Hash map updated with {ResourceTypeCount} resource types.",
+                    _reindexJobRecord.ResourceTypeSearchParameterHashMap.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogJobError(ex, _jobInfo, "Failed to refresh SearchParameter cache.");
+                throw;
+            }
+        }
+
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
         {
             // Build queries based on new search params
@@ -169,16 +200,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
             _initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
-            // Create a dictionary for efficient O(1) lookups by URI
-            var searchParamStatusByUri = _initialSearchParamStatusCollection.ToDictionary(
-                s => s.Uri.ToString(),
-                s => s.Status,
-                StringComparer.OrdinalIgnoreCase);
-
-            var validUris = searchParamStatusByUri
-                .Where(s => validStatus.Contains(s.Value))
-                .Select(s => s.Key)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // Get all URIs that have at least one entry with a valid status
+            // This handles case-variant duplicates naturally
+            var validUris = _initialSearchParamStatusCollection
+                .Where(s => validStatus.Contains(s.Status))
+                .Select(s => s.Uri.ToString())
+                .ToHashSet();
 
             // Filter to only those search parameters with valid status
             var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters
@@ -252,6 +279,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 .Select(kvp => kvp.Key)
                 .ToList();
 
+            // Confirm counts for range by not ignoring hash this time incase it's 0
+            // Because we ignore hash to get full range set for initial count, we need to double-check counts here
+            foreach (var resourceCount in _reindexJobRecord.ResourceCounts)
+            {
+                var resourceType = resourceCount.Key;
+                var resourceCountValue = resourceCount.Value;
+                var startResourceSurrogateId = resourceCountValue.StartResourceSurrogateId;
+                var endResourceSurrogateId = resourceCountValue.EndResourceSurrogateId;
+                var count = resourceCountValue.Count;
+
+                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                {
+                    LastModified = Clock.UtcNow,
+                    Status = OperationStatus.Queued,
+                    StartResourceSurrogateId = startResourceSurrogateId,
+                    EndResourceSurrogateId = endResourceSurrogateId,
+                };
+
+                SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, _cancellationToken);
+
+                // Check if the result has no records and add to zero-count list
+                if (countOnlyResults?.TotalCount == 0)
+                {
+                    if (!resourceTypesWithZeroCount.Contains(resourceType))
+                    {
+                        resourceTypesWithZeroCount.Add(resourceType);
+
+                        // subtract this count from JobRecordCount
+                        _reindexJobRecord.Count -= resourceCountValue.Count;
+
+                        // Update the ResourceCounts entry to reflect zero count
+                        resourceCountValue.Count = 0;
+                    }
+                }
+            }
+
             if (resourceTypesWithZeroCount.Any())
             {
                 _logger.LogJobInformation(
@@ -284,6 +347,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     // Update the SearchParameterStatus to Enabled so they can be used once data is loaded
                     await UpdateSearchParameterStatus(null, zeroCountParams.Select(p => p.Url.ToString()).ToList(), cancellationToken);
+
+                    // Attempt to get and apply the latest search parameter updates
+                    await RefreshSearchParameterCache(cancellationToken);
 
                     _logger.LogJobInformation(
                         _jobInfo,
@@ -340,6 +406,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
         {
+            if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
+            {
+                throw new OperationCanceledException("Reindex operation cancelled by customer.");
+            }
+
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var definitions = new List<string>();
 
@@ -545,7 +616,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = string.Empty;
-            _reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out searchParameterHash);
+            searchParameterHash = GetHashMapByResourceType(queryStatus.ResourceType);
 
             // Ensure searchParameterHash is never null - for Cosmos DB scenarios, this will be empty string
             searchParameterHash ??= string.Empty;
@@ -672,7 +743,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private bool CheckJobRecordForAnyWork()
         {
-            return _reindexJobRecord.Count > 0 || _reindexJobRecord.ResourceCounts.Any(e => e.Value.Count <= 0 && e.Value.StartResourceSurrogateId > 0);
+            return _reindexJobRecord.Count > 0 || _reindexJobRecord.ResourceCounts.Any(e => e.Value.Count > 0 && e.Value.StartResourceSurrogateId > 0);
         }
 
         private void LogReindexJobRecordErrorMessage()
@@ -792,7 +863,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // Send heartbeat less frequently when stable
                         if (unchangedCount <= MAX_UNCHANGED_CYCLES)
                         {
-                            await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
+                            try
+                            {
+                                await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
+                            }
+                            catch (JobConflictException ex)
+                            {
+                                // Log but don't fail - heartbeat conflicts are acceptable
+                                _logger.LogJobWarning(ex, _jobInfo, "Heartbeat conflict - another worker updated the job");
+                            }
                         }
                     }
                     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)

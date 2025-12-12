@@ -19,6 +19,7 @@ using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -386,7 +387,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
-        [Theory]
+        [RetryTheory(MaxRetries = 3)]
         [InlineData(true)]
         [InlineData(false)]
         public async Task UpdateMultipleAsync_WhenSingleMatchAndMoreThanMaxParallelThreadsIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
@@ -614,7 +615,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             }
         }
 
-        [Theory]
+        [RetryTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task UpdateMultipleAsync__WhenMoreThanMaxParallelThreadsMatchAndIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)

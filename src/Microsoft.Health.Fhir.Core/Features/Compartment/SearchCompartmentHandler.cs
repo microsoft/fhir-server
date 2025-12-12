@@ -10,6 +10,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -50,16 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // For SMART v2 compliance, search operations require the Search permission.
-            // SMART v2 scopes like "patient/Patient.r" allow read-only access without search capability,
-            // while "patient/Patient.s" or "patient/Patient.rs" include search permissions.
-            // Users with only read permission can access resources directly by ID but cannot search.
-            // We continue to allow DataActions.Read for legacy support
-            var grantedAccess = await _authorizationService.CheckAccess(DataActions.Search | DataActions.Read, cancellationToken);
-            if ((grantedAccess & (DataActions.Search | DataActions.Read)) == 0)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckSearchAccess(cancellationToken);
 
             SearchResult searchResult = await _searchService.SearchCompartmentAsync(request.CompartmentType, request.CompartmentId, request.ResourceType, request.Queries, cancellationToken);
             searchResult = _dataResourceFilter.Filter(searchResult: searchResult);
