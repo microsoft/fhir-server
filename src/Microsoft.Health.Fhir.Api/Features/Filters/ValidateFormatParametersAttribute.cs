@@ -38,40 +38,48 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             HttpContext httpContext = context.HttpContext;
 
-            _parametersValidator.CheckPrettyParameter(httpContext);
-            _parametersValidator.CheckSummaryParameter(httpContext);
-            _parametersValidator.CheckElementsParameter(httpContext);
-            await _parametersValidator.CheckRequestedContentTypeAsync(httpContext);
-
-            // If the request is a put or post and has a content-type, check that it's supported
-            if (httpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.OrdinalIgnoreCase) ||
-                httpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.OrdinalIgnoreCase))
+            if (!ShouldIgnoreValidation(httpContext))
             {
-                if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
+                _parametersValidator.CheckPrettyParameter(httpContext);
+                _parametersValidator.CheckSummaryParameter(httpContext);
+                _parametersValidator.CheckElementsParameter(httpContext);
+                await _parametersValidator.CheckRequestedContentTypeAsync(httpContext);
+
+                // If the request is a put or post and has a content-type, check that it's supported
+                if (httpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.OrdinalIgnoreCase) ||
+                    httpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
+                    if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
+                        {
+                            throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        }
+                    }
+                    else
+                    {
+                        // If no content type is supplied, then the server should respond with an unsupported media type exception.
+                        throw new UnsupportedMediaTypeException(Api.Resources.ContentTypeHeaderRequired);
                     }
                 }
-                else
+                else if (httpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.OrdinalIgnoreCase))
                 {
-                    // If no content type is supplied, then the server should respond with an unsupported media type exception.
-                    throw new UnsupportedMediaTypeException(Api.Resources.ContentTypeHeaderRequired);
-                }
-            }
-            else if (httpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.OrdinalIgnoreCase))
-            {
-                if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
-                {
-                    if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
+                    if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
+                        {
+                            throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        }
                     }
                 }
             }
 
             await base.OnActionExecutionAsync(context, next);
+        }
+
+        private static bool ShouldIgnoreValidation(HttpContext httpContext)
+        {
+            return httpContext.Request.Path.StartsWithSegments("/CustomError", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
