@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         internal const string PatientEverythingById = nameof(PatientEverythingById);
 
-        internal const string ReindexOperationDefintion = nameof(ReindexOperationDefintion);
+        internal const string ReindexOperationDefinition = nameof(ReindexOperationDefinition);
 
         internal const string ResourceReindexOperationDefinition = nameof(ResourceReindexOperationDefinition);
 
