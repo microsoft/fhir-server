@@ -19,6 +19,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(tokens, nameof(tokens));
 
+            if (tokens.Length == 7 && tokens[6] is IncludesContinuationToken)
+            {
+                tokens[6] = ((IncludesContinuationToken)tokens[6]).ToString();
+            }
+
             _tokens = tokens;
             Initialize();
         }
@@ -144,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 && bool.TryParse(_tokens[5]?.ToString(), out sortQuerySecondPhase))
                             {
                                 SortQuerySecondPhase = sortQuerySecondPhase;
-                                SecondPhaseContinuationToken = FromString(_tokens[6]?.ToString());
+                                SecondPhaseContinuationToken = FromString((string)_tokens[6]);
                             }
                             else
                             {

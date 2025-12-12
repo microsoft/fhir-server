@@ -277,8 +277,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                         else
                         {
-                            // We need to run an include that gets at least one resource so that we can get a continuation token. This does viloate the includesCount parameter, there is a followup workitem to fix that:
-                            sqlSearchOptions.IncludeCount = 1;
+                            sqlSearchOptions.IncludeContinuationTokenSearch = true;
+                            sqlSearchOptions.IncludeCount = 0;
                         }
 
                         var secondSearchResult = await RunSearch(sqlSearchOptions, cancellationToken);
@@ -1698,6 +1698,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
 
                             var moreResults = false;
+                            var moreResultsSurrogateIdCutOff = 0L;
+                            var moreResultsResourceTypeId = 0;
                             var resources = new List<SearchResultEntry>(sqlSearchOptions.IncludeCount);
 
                             while (await reader.ReadAsync(cancellationToken))
@@ -1763,6 +1765,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 }
                                 else
                                 {
+                                    moreResultsResourceTypeId = resourceTypeId;
+                                    moreResultsSurrogateIdCutOff = resourceSurrogateId + 1;
                                     moreResults = true;
                                 }
                             }
@@ -1780,8 +1784,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                         includesContinuationToken.MatchResourceTypeId,
                                         includesContinuationToken.MatchResourceSurrogateIdMin,
                                         includesContinuationToken.MatchResourceSurrogateIdMax,
-                                        _model.GetResourceTypeId(resources[^1].Resource.ResourceTypeName),
-                                        resources[^1].Resource.ResourceSurrogateId,
+                                        moreResultsResourceTypeId,
+                                        moreResultsSurrogateIdCutOff,
                                         includesContinuationToken.SortQuerySecondPhase,
                                     });
                             }

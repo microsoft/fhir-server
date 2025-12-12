@@ -1197,16 +1197,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-        [InlineData(11)]
-        [InlineData(10)]
-        [InlineData(5)]
-        [InlineData(4)]
-        public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenTheSecondPhaseContinuationTokenIsReturned(int includesCount)
+        [InlineData(1, "birthdate")]
+        [InlineData(2, "birthdate")]
+        [InlineData(3, "birthdate")]
+        [InlineData(11, "-birthdate")]
+        [InlineData(10, "-birthdate")]
+        [InlineData(5, "-birthdate")]
+        [InlineData(4, "-birthdate")]
+        public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenTheSecondPhaseContinuationTokenIsReturned(int includesCount, string sort)
         {
             var tag = Guid.NewGuid().ToString();
             var resources = await CreatePatientsWithLinkedObservations(tag);
 
-            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=-birthdate&_revinclude=Observation:subject&_count=12&_includesCount={includesCount}");
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_count=12&_includesCount={includesCount}");
             var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
 
             var includedCount = 0;
@@ -1218,7 +1221,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 relatedLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
             }
 
-            Assert.Equal(12, includedCount);
+            Assert.Equal(12 - includesCount, includedCount);
         }
 
         private async Task<Patient[]> CreatePatients(string tag)
