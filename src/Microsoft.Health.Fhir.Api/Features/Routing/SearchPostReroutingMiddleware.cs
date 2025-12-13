@@ -41,7 +41,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             {
                 if (request != null
                     && request.Method == "POST"
-                    && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase))
+                    && request.Path.HasValue
+                    && request.Path.Value.EndsWith(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
                 {
                     if (request.ContentType is null || request.HasFormContentType)
                     {
@@ -49,14 +50,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
                         if (request.HasFormContentType)
                         {
-                            var mergedPairs = GetUniqueFormAndQueryStringKeyValues(HttpUtility.ParseQueryString(request.QueryString.ToString()), request.Form);
+                            _logger.LogInformation("Merging form content into query string.");
+                            var queryString = request.QueryString.ToString();
+                            var queryCollection = HttpUtility.ParseQueryString(queryString);
+                            var mergedPairs = GetUniqueFormAndQueryStringKeyValues(queryCollection, request.Form);
                             request.Query = mergedPairs;
                         }
 
+                        // Safely trim the trailing search route from the path.
+                        var pathValue = request.Path.Value ?? string.Empty;
+                        if (pathValue.Length >= KnownRoutes.Search.Length)
+                        {
+                            _logger.LogInformation("Trimming search route from request path.");
+                            var newPath = pathValue.Substring(0, pathValue.Length - KnownRoutes.Search.Length);
+                            request.Path = new PathString(newPath);
+                        }
+                        else
+                        {
+                            _logger.LogError("Unexpected path length when attempting to trim search route: {PathLength}", pathValue.Length);
+                            throw new ArgumentException("Cannot trim search route from request path due to unexpected length.");
+                        }
+
                         request.ContentType = null;
-                        request.Form = null;
-                        request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
+                        request.Form = new FormCollection(new Dictionary<string, StringValues>());
                         request.Method = "GET";
+                        _logger.LogInformation("Rerouting complete.");
                     }
                     else
                     {
@@ -90,8 +108,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
             catch (Exception ex)
             {
+                // Throwing an exception continues into the pipeline and results in a 415 when the route fails to match.
+                // However, we want to return a 500 here since this is an unexpected failure during the rerouting process.
                 _logger.LogError(ex, "Error occurred while rerouting POST search to GET.");
-                throw;
+                context.Response.Clear();
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+                var operationOutcome = new OperationOutcome
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Issue = new List<OperationOutcome.IssueComponent>()
+                {
+                    new OperationOutcome.IssueComponent()
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = OperationOutcome.IssueType.Unknown,
+                        Diagnostics = string.Empty,
+                    },
+                },
+                    Meta = new Meta()
+                    {
+                        LastUpdated = Clock.UtcNow,
+                    },
+                };
+
+                await context.Response.WriteAsJsonAsync(operationOutcome);
+                return;
             }
 
             await _next.Invoke(context);
