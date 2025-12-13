@@ -27,7 +27,7 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Validate)]

@@ -17,7 +17,7 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Extensions
+namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]

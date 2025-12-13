@@ -15,7 +15,7 @@ using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Resources.Upsert
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Validate)]

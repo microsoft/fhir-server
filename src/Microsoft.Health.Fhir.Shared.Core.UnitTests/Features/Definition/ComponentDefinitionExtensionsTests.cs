@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Definition
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]

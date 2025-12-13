@@ -27,7 +27,7 @@ using SearchEntryMode = Microsoft.Health.Fhir.ValueSets.SearchEntryMode;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Operations.MemberMatch
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.MemberMatch
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.MemberMatch)]
