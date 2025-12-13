@@ -43,7 +43,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
         private readonly SessionTokenContainer _sessionTokenContainer = new SessionTokenContainer();
 
-        private readonly Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
+        private readonly Dictionary<string, HttpMessageHandler> _authenticationHandlers = new Dictionary<string, HttpMessageHandler>();
+        private readonly Dictionary<string, RetryableCredentialProvider> _retryableCredentialProviders = new Dictionary<string, RetryableCredentialProvider>();
 
         protected TestFhirServer(Uri baseAddress)
         {
@@ -62,12 +63,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public ResourceElement Metadata { get; set; }
 
-        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, HttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
         }
 
-        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, HttpMessageHandler authenticationHandler = null)
         {
             if (!reusable)
             {
@@ -82,14 +83,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .Value;
         }
 
-        private TestFhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, AuthenticationHttpMessageHandler authenticationHandler = null)
+        private TestFhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, HttpMessageHandler authenticationHandler = null)
         {
-            if (SecurityEnabled && authenticationHandler == null)
+            HttpMessageHandler innerHandler;
+            if (authenticationHandler != null)
             {
-                authenticationHandler = GetAuthenticationHandler(clientApplication, user);
+                innerHandler = authenticationHandler;
             }
-
-            HttpMessageHandler innerHandler = authenticationHandler ?? CreateMessageHandler();
+            else if (SecurityEnabled)
+            {
+                // GetAuthenticationHandler returns null for InvalidClient (no auth token scenario)
+                // Fall back to basic handler for testing unauthorized scenarios
+                innerHandler = GetAuthenticationHandler(clientApplication, user) ?? CreateMessageHandler();
+            }
+            else
+            {
+                innerHandler = CreateMessageHandler();
+            }
 
             var sessionMessageHandler = new SessionMessageHandler(innerHandler, _sessionTokenContainer);
 
@@ -98,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return new TestFhirClient(httpClient, this, format, clientApplication, user);
         }
 
-        private AuthenticationHttpMessageHandler GetAuthenticationHandler(TestApplication clientApplication, TestUser user)
+        private HttpMessageHandler GetAuthenticationHandler(TestApplication clientApplication, TestUser user)
         {
             if (clientApplication.Equals(TestApplications.InvalidClient))
             {
@@ -120,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string scope = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Scope;
             string resource = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Resource;
 
-            ICredentialProvider credentialProvider;
+            ICredentialProvider innerCredentialProvider;
             if (user == null)
             {
                 var credentialConfiguration = new OAuth2ClientCredentialOptions(
@@ -134,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 optionsMonitor.CurrentValue.Returns(credentialConfiguration);
                 optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
 
-                credentialProvider = new OAuth2ClientCredentialProvider(optionsMonitor, authHttpClient);
+                innerCredentialProvider = new OAuth2ClientCredentialProvider(optionsMonitor, authHttpClient);
             }
             else
             {
@@ -151,16 +161,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 optionsMonitor.CurrentValue.Returns(credentialConfiguration);
                 optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
 
-                credentialProvider = new OAuth2UserPasswordCredentialProvider(optionsMonitor, authHttpClient);
+                innerCredentialProvider = new OAuth2UserPasswordCredentialProvider(optionsMonitor, authHttpClient);
             }
 
-            var authenticationHandler = new AuthenticationHttpMessageHandler(credentialProvider)
+            // Wrap the credential provider with retry capability to handle transient 401 errors
+            var retryableCredentialProvider = new RetryableCredentialProvider(innerCredentialProvider);
+            _retryableCredentialProviders.Add(authDictionaryKey, retryableCredentialProvider);
+
+            var authenticationHandler = new AuthenticationHttpMessageHandler(retryableCredentialProvider)
             {
                 InnerHandler = CreateMessageHandler(),
             };
-            _authenticationHandlers.Add(authDictionaryKey, authenticationHandler);
 
-            return authenticationHandler;
+            // Wrap with retry handler to automatically retry on 401 with token invalidation
+            var retryHandler = new RetryAuthenticationHttpMessageHandler(
+                retryableCredentialProvider,
+                authenticationHandler,
+                maxRetries: 3,
+                baseDelay: TimeSpan.FromSeconds(2));
+
+            _authenticationHandlers.Add(authDictionaryKey, retryHandler);
+
+            return retryHandler;
 
             string GenerateDictionaryKey()
             {
@@ -180,15 +202,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             bool localSecurityEnabled = false;
 
-            using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseAddress, "metadata"));
             var httpClient = new HttpClient(CreateMessageHandler())
             {
                 BaseAddress = BaseAddress,
+                Timeout = TimeSpan.FromSeconds(30),
             };
-            HttpResponseMessage response = await httpClient.SendAsync(requestMessage, cancellationToken);
 
-            string content = await response.Content.ReadAsStringAsync();
-            response.EnsureSuccessStatusCode();
+            // Retry policy for transient failures (500 errors, timeouts, etc.) during server startup
+            // Total timeout is 5 minutes to ensure we fail fast if the server is not coming up
+            var overallTimeout = TimeSpan.FromMinutes(5);
+            var overallStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            const int baseDelaySeconds = 5;
+            const int maxDelaySeconds = 30;
+            HttpResponseMessage response = null;
+            string content = null;
+            int attempt = 0;
+
+            while (overallStopwatch.Elapsed < overallTimeout)
+            {
+                attempt++;
+                try
+                {
+                    using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseAddress, "metadata"));
+                    response = await httpClient.SendAsync(requestMessage, cancellationToken);
+                    content = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch successful on attempt {attempt} after {overallStopwatch.Elapsed.TotalSeconds:F1}s.");
+                        break;
+                    }
+
+                    // Retry on 5xx errors (server not ready) or 401/503 (transient auth/availability issues)
+                    if ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.ServiceUnavailable)
+                    {
+                        if (overallStopwatch.Elapsed < overallTimeout)
+                        {
+                            int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds); // Cap growth at attempt 4
+                            Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch returned {response.StatusCode} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
+                            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                            response.Dispose();
+                            continue;
+                        }
+                    }
+
+                    // Non-retryable error or timeout exhausted
+                    response.EnsureSuccessStatusCode();
+                }
+                catch (Exception ex) when (ex is TaskCanceledException || ex is HttpRequestException || ex is IOException)
+                {
+                    if (overallStopwatch.Elapsed < overallTimeout)
+                    {
+                        int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds);
+                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch failed with {ex.GetType().Name} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
+                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                        continue;
+                    }
+
+                    throw new HttpRequestException($"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. Last error: {ex.Message}", ex);
+                }
+            }
+
+            // If we exited the loop due to timeout without success
+            if (response == null || !response.IsSuccessStatusCode)
+            {
+                string errorMessage = response != null
+                    ? $"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. Last status: {response.StatusCode}"
+                    : $"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. No response received.";
+                throw new HttpRequestException(errorMessage);
+            }
 
             CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
             Metadata = metadata.ToResourceElement();
