@@ -13,19 +13,25 @@
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirClaimsExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkUpdateControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\DocRefControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\IncludesControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\MemberMatchControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationDefinitionControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpRequestExtensionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
@@ -50,6 +56,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\WeakETagBinderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirXmlInputFormatterTests.cs" />
@@ -73,11 +80,13 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionBundleValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProfileResourcesBehaviourUnitTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProvenanceHeaderBehaviorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\CompartmentTypesRouteConstraintTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\ResourceTypesRouteConstraintTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\RequestHandlerCheckAccessTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\SMART\SmartClinicalScopesMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Throttling\ThrottlingMiddlewareTests.cs" />
   </ItemGroup>

@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -79,13 +80,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             }
         }
 
-        /// <summary>
-        /// Conditional update requires search permissions (to find existing resources) and update permissions (for modifications).
-        /// Legacy: Read + Write, SMART v2: Search + Update
-        /// </summary>
-        protected override (DataActions legacyPermissions, DataActions granularPermissions) GetRequiredPermissions(ConditionalUpsertResourceRequest request)
+        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
         {
-            return (DataActions.Read | DataActions.Write, DataActions.Search | DataActions.Update);
+            return AuthorizationService.CheckConditionalUpdateAccess(cancellationToken);
         }
     }
 }

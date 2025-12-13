@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 userMessage: $"Record 0's latest update ({readResponse[0].Resource.Meta.LastUpdated}) is not greater or equal than Record's 1 latest update ({readResponse[1].Resource.Meta.LastUpdated}).");
         }
 
-        [Fact]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {

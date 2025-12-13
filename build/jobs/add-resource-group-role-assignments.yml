@@ -12,24 +12,39 @@ steps:
     azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
+      # Import retry helper for transient error handling
+      . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
       $account = Get-AzContext
-      $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
+
+      # Get service principal with retry for AAD replication delays
+      $principalId = Invoke-WithRetry -OperationName "Get Service Principal" -ScriptBlock {
+        (Get-AzADServicePrincipal -ApplicationId $account.Account.Id -ErrorAction Stop).Id
+      }
       
       $resourceGroupResourceId = (Get-AzResourceGroup -Name ${{ parameters.resourceGroupName }}).ResourceId
       
       # Read and write PR storage accounts
-      New-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId
+      Invoke-WithRetry -OperationName "Storage Blob Data Contributor Role Assignment" -ScriptBlock {
+        New-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName "Storage Blob Data Contributor" -Scope $resourceGroupResourceId -ErrorAction Stop
+      }
 
       # Control Plane Actions on PR Cosmos accounts
       $cosmosContributorRoleDefinitionId = "230815da-be43-4aae-9cb4-875f7bd000aa"
-      New-AzRoleAssignment `
-          -ObjectId $principalId `
-          -RoleDefinitionId $cosmosContributorRoleDefinitionId `
-          -Scope $resourceGroupResourceId
+      Invoke-WithRetry -OperationName "Cosmos DB Contributor Role Assignment" -ScriptBlock {
+        New-AzRoleAssignment `
+            -ObjectId $principalId `
+            -RoleDefinitionId $cosmosContributorRoleDefinitionId `
+            -Scope $resourceGroupResourceId `
+            -ErrorAction Stop
+      }
 
       # Push on PR ACRs
       $acrPushRoleDefinitionId = "8311e382-0749-4cb8-b61a-304f252e45ec"
-      New-AzRoleAssignment `
-          -ObjectId $principalId `
-          -RoleDefinitionId $acrPushRoleDefinitionId `
-          -Scope $resourceGroupResourceId
+      Invoke-WithRetry -OperationName "ACR Push Role Assignment" -ScriptBlock {
+        New-AzRoleAssignment `
+            -ObjectId $principalId `
+            -RoleDefinitionId $acrPushRoleDefinitionId `
+            -Scope $resourceGroupResourceId `
+            -ErrorAction Stop
+      }

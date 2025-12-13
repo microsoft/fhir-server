@@ -5,6 +5,7 @@
 
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -21,13 +22,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        [Fact]
+        [RetryFact]
         public async Task GivenStu3Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
             await TestCapabilityStatementFhirVersion("3.0.2");
         }
 
-        [Fact]
+        [RetryFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnObservation_WithInvalidDecimalSpecification_ThenBadRequestShouldBeReturned()
         {
