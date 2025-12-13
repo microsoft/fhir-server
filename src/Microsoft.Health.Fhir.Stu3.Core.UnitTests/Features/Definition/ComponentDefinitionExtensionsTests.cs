@@ -22,7 +22,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             // Arrange
             var component = new SearchParameter.ComponentComponent
             {
-                Definition = "http://hl7.org/fhir/SearchParameter/Patient-name",
+                Definition = new ResourceReference
+                {
+                    Url = new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"),
+                },
             };
 
             // Act
@@ -55,7 +58,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             // Arrange
             var component = new SearchParameter.ComponentComponent
             {
-                Definition = string.Empty,
+                Definition = new ResourceReference
+                {
+                    Url = new Uri(string.Empty, UriKind.Relative),
+                },
             };
 
             // Act
@@ -68,14 +74,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [Fact]
         public void GivenAComponentWithInvalidUri_WhenCallingGetComponentDefinitionUri_ThenUriFormatExceptionIsThrown()
         {
-            // Arrange
-            var component = new SearchParameter.ComponentComponent
+            // Arrange & Act & Assert
+            Assert.Throws<UriFormatException>(() =>
             {
-                Definition = "not a valid uri",
-            };
-
-            // Act & Assert
-            Assert.Throws<UriFormatException>(() => component.GetComponentDefinitionUri());
+                var component = new SearchParameter.ComponentComponent
+                {
+                    Definition = new ResourceReference
+                    {
+                        Url = new Uri("not a valid uri"),
+                    },
+                };
+            });
         }
 
         [Theory]
@@ -87,7 +96,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             // Arrange
             var component = new SearchParameter.ComponentComponent
             {
-                Definition = definitionUrl,
+                Definition = new ResourceReference
+                {
+                    Url = new Uri(definitionUrl),
+                },
             };
 
             // Act
@@ -117,11 +129,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             };
 
             // Act
-            string result = reference.GetComponentDefinition();
+            ResourceReference result = reference.GetComponentDefinition();
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(urlString, result);
+            Assert.NotNull(result.Url);
+            Assert.Equal(urlString, result.Url.OriginalString);
         }
 
         [Fact]
@@ -134,10 +147,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             };
 
             // Act
-            string result = reference.GetComponentDefinition();
+            ResourceReference result = reference.GetComponentDefinition();
 
             // Assert
-            Assert.Null(result);
+            Assert.NotNull(result);
+            Assert.Null(result.Url);
         }
 
         [Fact]
@@ -151,11 +165,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             };
 
             // Act
-            string result = reference.GetComponentDefinition();
+            ResourceReference result = reference.GetComponentDefinition();
 
             // Assert
             Assert.NotNull(result);
-            Assert.Empty(result);
+            Assert.NotNull(result.Url);
+            Assert.Empty(result.Url.OriginalString);
         }
     }
 }
