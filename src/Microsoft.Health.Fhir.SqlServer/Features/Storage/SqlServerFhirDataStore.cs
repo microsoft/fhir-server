@@ -10,6 +10,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -469,7 +471,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 foreach (var resource in conflicts)
                 {
-                    errors.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+                    var message = !string.IsNullOrEmpty(resource.ImportError)
+                        ? resource.ImportError
+                        : string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index);
+
+                    errors.Add(_importErrorSerializer.Serialize(resource.Index, message, resource.Offset));
                 }
 
                 return errors;
@@ -479,68 +485,91 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 var loaded = new List<ImportResource>();
                 var conflicts = new List<ImportResource>();
-                if (importMode == ImportMode.InitialLoad)
+
+                // Adding try-catch to chekc if Contraint violation erro is happening here
+                try
                 {
-                    var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
-                    var current = new HashSet<ResourceKey>((await GetAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey(true)));
-                    loaded.AddRange(inputsDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
-                    await Merge(loaded, false, useReplicasForReads);
-                }
-                else if (importMode == ImportMode.IncrementalLoad)
-                {
-                    if (_ignoreInputVersion.IsEnabled(_sqlRetryService))
+                    if (importMode == ImportMode.InitialLoad)
                     {
-                        foreach (var resource in resources)
-                        {
-                            resource.KeepVersion = false;
-                            ReplaceVersionId(resource.ResourceWrapper, InitialVersion);
-                        }
+                        var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
+                        var current = new HashSet<ResourceKey>((await GetAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey(true)));
+                        loaded.AddRange(inputsDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
+                        await Merge(loaded, false, useReplicasForReads);
                     }
-
-                    // Dedup by last updated - take first version for single last updated, prefer large version.
-                    // for records without explicit last updated dedup on resource id only.
-                    // Note: Surrogate id on ResourceWrapper remains 0 at this point.
-                    var inputsDedupped = resources
-                        .GroupBy(_ => new ResourceDateKey(
-                                             _model.GetResourceTypeId(_.ResourceWrapper.ResourceTypeName),
-                                             _.ResourceWrapper.ResourceId,
-                                             _.KeepLastUpdated ? _.ResourceWrapper.LastModified.ToSurrogateId() : 0,
-                                             null))
-                        .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
-                        .ToList();
-
-                    // Dedup on lastUpdated against database
-                    var matchedOnLastUpdated =
-                        (await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken))
-                            .Where(_ => _.Key.VersionId == "0")
-                            .ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
-                    var fullyDedupped = new List<ImportResource>();
-                    foreach (var input in inputsDedupped)
+                    else if (importMode == ImportMode.IncrementalLoad)
                     {
-                        if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
+                        if (_ignoreInputVersion.IsEnabled(_sqlRetryService))
                         {
-                            if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
-                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                            foreach (var resource in resources)
                             {
-                                loaded.Add(input);
+                                resource.KeepVersion = false;
+                                ReplaceVersionId(resource.ResourceWrapper, InitialVersion);
+                            }
+                        }
+
+                        // Dedup by last updated - take first version for single last updated, prefer large version.
+                        // for records without explicit last updated dedup on resource id only.
+                        // Note: Surrogate id on ResourceWrapper remains 0 at this point.
+                        var inputsDedupped = resources
+                            .GroupBy(_ => new ResourceDateKey(
+                                                 _model.GetResourceTypeId(_.ResourceWrapper.ResourceTypeName),
+                                                 _.ResourceWrapper.ResourceId,
+                                                 _.KeepLastUpdated ? _.ResourceWrapper.LastModified.ToSurrogateId() : 0,
+                                                 null))
+                            .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
+                            .ToList();
+
+                        // Dedup on lastUpdated against database
+                        var matchedOnLastUpdated =
+                            (await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken))
+                                .Where(_ => _.Key.VersionId == "0")
+                                .ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
+                        var fullyDedupped = new List<ImportResource>();
+                        foreach (var input in inputsDedupped)
+                        {
+                            if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
+                            {
+                                if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
+                                    && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                                {
+                                    loaded.Add(input);
+                                }
+                                else
+                                {
+                                    conflicts.Add(input);
+                                }
                             }
                             else
                             {
-                                conflicts.Add(input);
+                                fullyDedupped.Add(input);
                             }
                         }
-                        else
-                        {
-                            fullyDedupped.Add(input);
-                        }
+
+                        // make sure that data with explicit and default last updated are merged separately
+                        await MergeVersioned(fullyDedupped.Where(_ => _.KeepVersion).ToList(), useReplicasForReads); // if keep version is true, keep last updated is true too.
+
+                        await MergeUnversioned(fullyDedupped.Where(_ => _.KeepLastUpdated && !_.KeepVersion).ToList(), true, useReplicasForReads);
+
+                        await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated && !_.KeepVersion).ToList(), false, useReplicasForReads);
                     }
+                }
+                catch (SqlException ex) when (ex.Number == SqlStoreErrorCodes.ConstraintViolation && ex.Message.Contains("CodeOverflow", StringComparison.OrdinalIgnoreCase) && !ex.IsRetriable())
+                {
+                    var offset = resources[0].Offset;
+                    var minIndex = resources.Min(r => r.Index);
+                    var maxIndex = resources.Max(r => r.Index);
 
-                    // make sure that data with explicit and default last updated are merged separately
-                    await MergeVersioned(fullyDedupped.Where(_ => _.KeepVersion).ToList(), useReplicasForReads); // if keep version is true, keep last updated is true too.
+                    var constraintName = TryExtractConstraintName(ex);
+                    var detail = await GetConstraintDetailsAsync(constraintName ?? string.Empty, cancellationToken);
 
-                    await MergeUnversioned(fullyDedupped.Where(_ => _.KeepLastUpdated && !_.KeepVersion).ToList(), true, useReplicasForReads);
+                    var batchMessage = string.Format(Resources.FailedToImportDueToConstraintViolationInBatch, offset, minIndex, maxIndex, detail);
+                    resources[0].ImportError = batchMessage;
+                    conflicts.Add(resources[0]);
 
-                    await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated && !_.KeepVersion).ToList(), false, useReplicasForReads);
+                    // Loaded list should exclude conflicts discovered here (remove if mistakenly added).
+                    loaded = loaded.Where(l => !conflicts.Contains(l)).ToList();
+
+                    _logger.LogError(ex, batchMessage);
                 }
 
                 return (loaded, conflicts);
@@ -713,12 +742,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await Merge(inputNoConflict.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), keepLastUpdated, useReplicasForReads);
                     loaded.AddRange(inputNoConflict);
                 }
-            }
 
-            async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
-            {
-                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-                await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, cancellationToken);
+                async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
+                {
+                    var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
+                    await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, cancellationToken);
+                }
             }
         }
 
@@ -1006,6 +1035,129 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var value = json.Substring(startIndex, endIndex - startIndex);
 
             return value;
+        }
+
+        private async Task<string> GetConstraintDetailsAsync(string constraintName, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(constraintName))
+            {
+                return $"Import failed due to code overflow constraint violation.";
+            }
+
+            const string sql = @"
+             ;WITH details AS (
+                 SELECT kc.name AS ConstraintName, 
+                        t.name AS TableName,
+                        STRING_AGG(col.name, ',') AS Columns
+                 FROM sys.key_constraints kc
+                 JOIN sys.tables t ON kc.parent_object_id = t.object_id
+                 JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
+                 JOIN sys.columns col ON col.object_id = ic.object_id AND col.column_id = ic.column_id
+                 WHERE kc.name = @name
+                 GROUP BY kc.name, t.name
+             
+                 UNION ALL
+             
+                 SELECT fk.name AS ConstraintName, 
+                        t.name AS TableName,
+                        STRING_AGG(c.name, ',') AS Columns
+                 FROM sys.foreign_keys fk
+                 JOIN sys.tables t ON fk.parent_object_id = t.object_id
+                 JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
+                 JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id
+                 WHERE fk.name = @name
+                 GROUP BY fk.name, t.name
+             
+                 UNION ALL
+             
+                 SELECT ck.name AS ConstraintName, 
+                        t.name AS TableName,
+                        ck.definition AS Columns
+                 FROM sys.check_constraints ck
+                 JOIN sys.tables t ON ck.parent_object_id = t.object_id
+                 WHERE ck.name = @name
+             )
+             SELECT TOP 1 TableName, Columns
+             FROM details;";
+
+            using var cmd = new SqlCommand(sql) { CommandType = CommandType.Text };
+            cmd.Parameters.AddWithValue("@name", constraintName);
+
+            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
+            cmd.Connection = conn.SqlConnection;
+
+            using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return $"Import failed due to code overflow constraint violation.";
+            }
+
+            var tableName = reader.GetString(0);
+            var columnsOrDefinition = reader.GetString(1);
+
+            return string.Format(
+                Resources.ConstraintDetailsOfConstraintViolationInImport,
+                constraintName,
+                tableName,
+                columnsOrDefinition);
+        }
+
+        private static string TryExtractConstraintName(SqlException ex)
+        {
+            var msg = ex.Message ?? string.Empty;
+
+            // Look for double-quoted constraint name: "ConstraintName"
+#pragma warning disable CA1310, CA1307
+            int dblStart = msg.IndexOf('"');
+            if (dblStart >= 0)
+            {
+                int dblEnd = msg.IndexOf('"', dblStart + 1);
+#pragma warning restore CA1310, CA1307
+                if (dblEnd > dblStart)
+                {
+                    var candidate = msg.Substring(dblStart + 1, dblEnd - dblStart - 1);
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            // Quoted constraint name: 'ConstraintName'
+#pragma warning disable CA1310, CA1307
+            int quoteStart = msg.IndexOf('\'');
+            if (quoteStart >= 0)
+            {
+                int quoteEnd = msg.IndexOf('\'', quoteStart + 1);
+#pragma warning restore CA1310, CA1307
+                if (quoteEnd > quoteStart)
+                {
+                    var candidate = msg.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            // Bracketed constraint name: [ConstraintName]
+#pragma warning disable CA1310, CA1307
+            int bracketStart = msg.IndexOf('[');
+            if (bracketStart >= 0)
+            {
+                int bracketEnd = msg.IndexOf(']', bracketStart + 1);
+#pragma warning restore CA1310, CA1307
+                if (bracketEnd > bracketStart)
+                {
+                    var candidate = msg.Substring(bracketStart + 1, bracketEnd - bracketStart - 1);
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            return string.Empty;
         }
 
         public async Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
