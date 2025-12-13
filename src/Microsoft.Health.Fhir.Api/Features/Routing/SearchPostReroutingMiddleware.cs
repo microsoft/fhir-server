@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         }
 
                         request.ContentType = null;
+                        request.Form = new FormCollection(new Dictionary<string, StringValues>());
                         request.Method = "GET";
                         _logger.LogInformation("Rerouting complete.");
                     }
