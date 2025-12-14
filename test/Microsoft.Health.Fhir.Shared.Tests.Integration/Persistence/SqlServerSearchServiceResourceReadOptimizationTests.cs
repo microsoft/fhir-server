@@ -56,10 +56,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var saveResult = await _fixture.Mediator.UpsertResourceAsync(patient.ToResourceElement());
 
-            // Act - Search by _type and _id
+            // Act - Search by _id only (resource type is already specified in SearchAsync)
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", saveResult.RawResourceElement.Id),
             };
 
@@ -93,11 +92,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult2 = await _fixture.Mediator.UpsertResourceAsync(patient2.ToResourceElement());
             var saveResult3 = await _fixture.Mediator.UpsertResourceAsync(patient3.ToResourceElement());
 
-            // Act - Search by _type and multiple _id values
+            // Act - Search by multiple _id values
             var idList = $"{saveResult1.RawResourceElement.Id},{saveResult2.RawResourceElement.Id},{saveResult3.RawResourceElement.Id}";
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", idList),
             };
 
@@ -135,7 +133,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var idList = $"{saveResult1.RawResourceElement.Id},{nonExistentId},{saveResult2.RawResourceElement.Id}";
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", idList),
             };
 
@@ -170,7 +167,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Act - Search for specific version using history
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", saveResult.RawResourceElement.Id),
             };
 
@@ -216,7 +212,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var idList = $"{saveResult1.RawResourceElement.Id},{saveResult2.RawResourceElement.Id},{saveResult3.RawResourceElement.Id}";
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", idList),
             };
 
@@ -248,7 +243,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Act - Search with additional parameter (should not use optimization)
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", saveResult.RawResourceElement.Id),
                 new Tuple<string, string>("gender", "female"), // Additional parameter
             };
@@ -282,7 +276,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var idList = string.Join(",", createdIds);
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", idList),
             };
 
@@ -314,7 +307,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Act - Search with count only
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", saveResult.RawResourceElement.Id),
                 new Tuple<string, string>("_summary", "count"),
             };
@@ -345,7 +337,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var idList = $"{saveResult1.RawResourceElement.Id},{saveResult2.RawResourceElement.Id}";
             var query = new List<Tuple<string, string>>
             {
-                new Tuple<string, string>("_type", "Patient"),
                 new Tuple<string, string>("_id", idList),
                 new Tuple<string, string>("_sort", "family"),
             };
