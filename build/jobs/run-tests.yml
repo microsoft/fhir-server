@@ -17,10 +17,14 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-    
-  - task: UseDotNet@2
-    inputs:
-      useGlobalJson: true
+    sparse: true
+    path: source
+
+  - template: integration-setup.yml
+
+  - template: integration-tests-extract.yml
+    parameters:
+      version: ${{ parameters.version }}
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
@@ -47,18 +51,11 @@ jobs:
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
   - task: DotNetCoreCLI@2
-    displayName: 'Build integration test projects'
-    inputs:
-      command: build
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-  - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
       command: test
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
+      workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true
     env:
@@ -101,10 +98,14 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-    
-  - task: UseDotNet@2
-    inputs:
-      useGlobalJson: true
+    sparse: true
+    path: source
+
+  - template: integration-setup.yml
+
+  - template: integration-tests-extract.yml
+    parameters:
+      version: ${{ parameters.version }}
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
@@ -124,18 +125,11 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
-    displayName: 'Build integration test projects'
-    inputs:
-      command: build
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-  - task: DotNetCoreCLI@2
     displayName: 'Run SQL Integration Tests with coverage'
     inputs:
       command: test
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~CosmosDb --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
+      workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       publishTestResults: true
     env:
