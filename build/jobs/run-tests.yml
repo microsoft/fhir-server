@@ -17,7 +17,6 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-    sparse: true
     path: source
 
   - template: integration-setup.yml
@@ -98,7 +97,6 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-    sparse: true
     path: source
 
   - template: integration-setup.yml
