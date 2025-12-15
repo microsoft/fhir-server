@@ -13,8 +13,8 @@ To support AHDS pricing strategy shift from used storage to ingested volume
 ### Implementation Details
 
 #### Schema Changes, Resource Persistence Logic, Data Backfill
-Add DecompressedSize column to Resource table:
--	Column: DecompressedSize INT NULL
+Add DecompressedLength column to Resource table:
+-	Column: DecompressedLength INT NULL
 -	Stores the uncompressed size of each resource in bytes
 -	Nullable to support gradual rollout and historical data backfill
   
@@ -25,11 +25,11 @@ Parameter table entries:
   
 Modify all resource write operations to:
 -	Calculate decompressed size before compression
--	Pass DecompressedSize value to data layer.
+-	Pass DecompressedLength value to data layer.
 -	Populate the new column for all new/updated resources
   
 Historical Data Backfill
--	Create a one-time migration script to calculate and populate DecompressedSize for all historical records.
+-	Create a one-time migration script to calculate and populate DecompressedLength for all historical records.
 -	Execute updates in batches to minimize performance impact.
 
 #### Background Calculation Job

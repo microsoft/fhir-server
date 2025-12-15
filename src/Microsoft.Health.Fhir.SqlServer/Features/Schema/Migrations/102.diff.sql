@@ -1,15 +1,16 @@
 /***************************************************************
 * Migration: 102
-* Description: Add new column DecompressedSize to Resource table to store the size of decompressed resource data.
+* Description: Add new column DecompressedLength to Resource table to store the size of decompressed resource data.
 
 To avoid impacting existing functionality, the new column is added as nullable.
 To make this change both backward and forward compatible,
 A new type ResourceList_Temp will be created to include this new column.
 MergeResources SP will be changed to use both new and old types in iteration1.
+CaptureResourceIdsForChanges SP will be changed to use both new and old types in iteration1.
 ***************************/
 
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'DecompressedSize')
-ALTER TABLE Resource ADD DecompressedSize INT NULL;
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'DecompressedLength')
+ALTER TABLE Resource ADD DecompressedLength INT NULL;
 GO
 
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceList_Temp')
@@ -27,7 +28,7 @@ CREATE TYPE dbo.ResourceList_Temp AS TABLE
    ,IsRawResourceMetaSet bit                 NOT NULL
    ,RequestMethod        varchar(10)         NULL
    ,SearchParamHash      varchar(64)         NULL
-   ,DecompressedSize     INT                 NULL
+   ,DecompressedLength     INT                 NULL
 
     PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
    ,UNIQUE (ResourceTypeId, ResourceId, Version)
@@ -68,7 +69,7 @@ DECLARE @st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
-       ,@HasDecompressedSize bit = 0
+       ,@HasDecompressedLength bit = 0
 
 -- Create working table and populate from appropriate source
 DECLARE @WorkingResources TABLE
@@ -85,21 +86,21 @@ DECLARE @WorkingResources TABLE
    ,IsRawResourceMetaSet bit                 NOT NULL
    ,RequestMethod        varchar(10)         NULL
    ,SearchParamHash      varchar(64)         NULL
-   ,DecompressedSize     INT                 NULL
+   ,DecompressedLength     INT                 NULL
 )
 
 IF EXISTS (SELECT 1 FROM @Resources_Temp)
 BEGIN
-    SET @HasDecompressedSize = 1
+    SET @HasDecompressedLength = 1
     INSERT INTO @WorkingResources
-        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedSize)
-    SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedSize
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength)
+    SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength
     FROM @Resources_Temp
 END
 ELSE
 BEGIN
     INSERT INTO @WorkingResources
-        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedSize)
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength)
     SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, NULL
     FROM @Resources
 END
@@ -189,7 +190,7 @@ BEGIN TRY
              ,RawResource = 0xF -- "invisible" value
              ,SearchParamHash = NULL
              ,HistoryTransactionId = @TransactionId
-             ,DeCompressedSize = 0
+             ,DecompressedLength = 0
           WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
       ELSE
         DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
@@ -230,11 +231,11 @@ BEGIN TRY
       --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
     END
 
-    IF @HasDecompressedSize = 1
+    IF @HasDecompressedLength = 1
     BEGIN
         INSERT INTO dbo.Resource 
-               ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, DecompressedSize )
-        SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, DecompressedSize
+               ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, DecompressedLength )
+        SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, DecompressedLength
             FROM @WorkingResources
     END
     ELSE

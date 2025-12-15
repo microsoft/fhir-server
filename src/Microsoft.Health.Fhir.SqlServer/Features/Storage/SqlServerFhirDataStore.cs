@@ -733,7 +733,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            if (_schemaInformation.Current >= SchemaVersionConstants.DecompressedSize)
+            if (_schemaInformation.Current >= SchemaVersionConstants.DecompressedLength)
             {
                 new ResourceList_TempTableValuedParameterDefinition("@Resources_Temp").AddParameter(cmd.Parameters, new ResourceListTempRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             }

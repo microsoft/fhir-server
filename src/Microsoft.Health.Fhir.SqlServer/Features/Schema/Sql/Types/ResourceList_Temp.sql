@@ -14,7 +14,7 @@ CREATE TYPE dbo.ResourceList_Temp AS TABLE
    ,IsRawResourceMetaSet bit                 NOT NULL
    ,RequestMethod        varchar(10)         NULL
    ,SearchParamHash      varchar(64)         NULL
-   ,DecompressedSize     INT                 NULL
+   ,DecompressedLength     INT                 NULL
 
     PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
    ,UNIQUE (ResourceTypeId, ResourceId, Version)

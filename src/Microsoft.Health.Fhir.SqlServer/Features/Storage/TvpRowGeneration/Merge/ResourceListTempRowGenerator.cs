@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
-                int decompressedSize = System.Text.Encoding.UTF8.GetByteCount(wrapper.RawResource.Data);
+                int decompressedLength = System.Text.Encoding.UTF8.GetByteCount(wrapper.RawResource.Data);
                 yield return new ResourceList_TempRow(
                     _model.GetResourceTypeId(wrapper.ResourceTypeName),
                     merge.ResourceWrapper.ResourceSurrogateId,
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     wrapper.RawResource.IsMetaSet,
                     wrapper.Request?.Method,
                     wrapper.SearchParameterHash,
-                    decompressedSize);
+                    decompressedLength);
             }
         }
     }
