@@ -7,6 +7,7 @@ To make this change both backward and forward compatible,
 A new type ResourceList_Temp will be created to include this new column.
 MergeResources SP will be changed to use both new and old types in iteration1.
 CaptureResourceIdsForChanges SP will be changed to use both new and old types in iteration1.
+DecompressedLength for existing resources will get backfilled in next iteration.
 ***************************/
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'DecompressedLength')
