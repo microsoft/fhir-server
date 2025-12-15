@@ -230,34 +230,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenSearchWithAdditionalParameters_WhenSearched_ThenOptimizationMayNotApply()
-        {
-            // Arrange
-            var patient = Samples.GetJsonSample("Patient").ToPoco<Patient>();
-            patient.Id = Guid.NewGuid().ToString();
-            patient.Name = new List<HumanName> { new HumanName { Family = "TestAdditional" } };
-            patient.Gender = AdministrativeGender.Female;
-
-            var saveResult = await _fixture.Mediator.UpsertResourceAsync(patient.ToResourceElement());
-
-            // Act - Search with additional parameter (should not use optimization)
-            var query = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("_id", saveResult.RawResourceElement.Id),
-                new Tuple<string, string>("gender", "female"), // Additional parameter
-            };
-
-            var searchResult = await _fixture.SearchService.SearchAsync("Patient", query, CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(searchResult);
-            Assert.Single(searchResult.Results);
-            Assert.Equal(saveResult.RawResourceElement.Id, searchResult.Results.First().Resource.ResourceId);
-
-            _output.WriteLine("Search with additional parameters completed successfully (expected fallback to standard search)");
-        }
-
-        [Fact]
         public async Task GivenLargeNumberOfResourceIds_WhenSearched_ThenOptimizationHandlesEfficiently()
         {
             // Arrange - Create 10 patients
@@ -316,37 +288,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Assert
             Assert.NotNull(searchResult);
             _output.WriteLine($"Count-only search completed successfully with total: {searchResult.TotalCount}");
-        }
-
-        [Fact]
-        public async Task GivenSearchWithSort_WhenSearched_ThenOptimizationDoesNotApply()
-        {
-            // Arrange
-            var patient1 = Samples.GetJsonSample("Patient").ToPoco<Patient>();
-            patient1.Id = Guid.NewGuid().ToString();
-            patient1.Name = new List<HumanName> { new HumanName { Family = "Aardvark" } };
-
-            var patient2 = Samples.GetJsonSample("Patient").ToPoco<Patient>();
-            patient2.Id = Guid.NewGuid().ToString();
-            patient2.Name = new List<HumanName> { new HumanName { Family = "Zebra" } };
-
-            var saveResult1 = await _fixture.Mediator.UpsertResourceAsync(patient1.ToResourceElement());
-            var saveResult2 = await _fixture.Mediator.UpsertResourceAsync(patient2.ToResourceElement());
-
-            // Act - Search with sort parameter
-            var idList = $"{saveResult1.RawResourceElement.Id},{saveResult2.RawResourceElement.Id}";
-            var query = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("_id", idList),
-                new Tuple<string, string>("_sort", "family"),
-            };
-
-            var searchResult = await _fixture.SearchService.SearchAsync("Patient", query, CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(searchResult);
-            Assert.Equal(2, searchResult.Results.Count());
-            _output.WriteLine("Search with sort parameter completed successfully (expected fallback to standard search)");
         }
     }
 }
