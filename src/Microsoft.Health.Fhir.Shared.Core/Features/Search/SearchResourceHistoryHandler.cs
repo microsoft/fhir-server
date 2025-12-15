@@ -10,6 +10,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -39,12 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            // Check for either legacy Read permission or new SMART v2 Search permission
-            var grantedAccess = await _authorizationService.CheckAccess(DataActions.Read | DataActions.Search, cancellationToken);
-            if ((grantedAccess & (DataActions.Read | DataActions.Search)) == DataActions.None)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckSearchAccess(cancellationToken);
 
             SearchResult searchResult = await _searchService.SearchHistoryAsync(
                 request.ResourceType,

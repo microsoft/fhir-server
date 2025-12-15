@@ -20,6 +20,9 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
+        # Import retry helper for transient error handling
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
         $resourceGroup = "${{ parameters.resourceGroup }}"
         $nspName = "${{ parameters.nspName }}"
         $nspProfile = "${{ parameters.nspProfile }}"
@@ -39,4 +42,7 @@ jobs:
             location = $location
         }
 
-        New-AzResourceGroupDeployment -ResourceGroupName $resourceGroup -Name "$nspName-nsp-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-template.json -TemplateParameterObject $templateParameters -Verbose
+        # Deploy NSP with retry for transient errors
+        Invoke-WithRetry -OperationName "NSP Deployment" -ScriptBlock {
+          New-AzResourceGroupDeployment -ResourceGroupName $resourceGroup -Name "$nspName-nsp-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-template.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
+        }

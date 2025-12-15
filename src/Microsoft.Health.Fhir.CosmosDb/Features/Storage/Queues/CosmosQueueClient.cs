@@ -63,6 +63,29 @@ public class CosmosQueueClient : IQueueClient
     {
         EnsureArg.IsNotNull(definitions, nameof(definitions));
 
+        // Check if the orchestrator job (where JobId == GroupId) has been cancelled
+        if (groupId.HasValue)
+        {
+            QueryDefinition orchestratorJobSpec = new QueryDefinition(@"SELECT VALUE c FROM root c
+             JOIN d in c.definitions
+             WHERE c.queueType = @queueType 
+              AND c.groupId = @groupId
+              AND d.jobId = @groupId
+              AND d.cancelRequested = true")
+                .WithParameter("@queueType", queueType)
+                .WithParameter("@groupId", groupId.Value.ToString());
+
+            IReadOnlyList<JobGroupWrapper> cancelledOrchestratorJobs = await ExecuteQueryAsync(orchestratorJobSpec, 1, queueType, cancellationToken);
+
+            if (cancelledOrchestratorJobs.Any())
+            {
+                _logger.LogWarning(
+                    "Attempting to enqueue jobs for group {GroupId} but orchestrator job has been cancelled.",
+                    groupId.Value);
+                throw new OperationCanceledException($"Job group {groupId.Value} has been cancelled.");
+            }
+        }
+
         var id = GetLongId();
         var jobInfos = new List<JobInfo>();
 

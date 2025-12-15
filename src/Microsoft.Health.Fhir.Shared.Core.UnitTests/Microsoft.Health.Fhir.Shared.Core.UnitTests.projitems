@@ -148,4 +148,7 @@
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlNonCompliantSamples.xml" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlCompliantSamples.xml" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\" />
+  </ItemGroup>
 </Project>
