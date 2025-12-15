@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Fact]
-        public void GivenAComponentWithEmptyDefinition_WhenCallingGetComponentDefinitionUri_ThenNullIsReturned()
+        public void GivenAComponentWithEmptyDefinition_WhenCallingGetComponentDefinitionUri_ThenEmptyUriIsReturned()
         {
             // Arrange
             var component = new SearchParameter.ComponentComponent
@@ -68,7 +68,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Uri result = component.GetComponentDefinitionUri();
 
             // Assert
-            Assert.Null(result);
+            Assert.NotNull(result);
+            Assert.Equal(string.Empty, result.OriginalString);
         }
 
         [Fact]
