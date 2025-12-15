@@ -563,11 +563,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var detail = await GetConstraintDetailsAsync(constraintName ?? string.Empty, cancellationToken);
 
                     var batchMessage = string.Format(Resources.FailedToImportDueToConstraintViolationInBatch, offset, minIndex, maxIndex, detail);
-                    resources[0].ImportError = batchMessage;
-                    conflicts.Add(resources[0]);
-
-                    // Loaded list should exclude conflicts discovered here (remove if mistakenly added).
-                    loaded = loaded.Where(l => !conflicts.Contains(l)).ToList();
 
                     _logger.LogError(ex, batchMessage);
                 }
@@ -1095,10 +1090,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var tableName = reader.GetString(0);
             var columnsOrDefinition = reader.GetString(1);
 
+            columnsOrDefinition = columnsOrDefinition
+                                 .Replace("[", string.Empty, StringComparison.Ordinal)
+                                 .Replace("]", string.Empty, StringComparison.Ordinal);
+
             return string.Format(
                 Resources.ConstraintDetailsOfConstraintViolationInImport,
-                constraintName,
-                tableName,
                 columnsOrDefinition);
         }
 

@@ -177,7 +177,7 @@
     <value>Error on batch with offset {0} rows from {1} to {2}. {3}</value>
   </data>
   <data name="ConstraintDetailsOfConstraintViolationInImport" xml:space="preserve">
-    <value>Insert failed due to the constraint '{0}' on '{1}'. Details: {2}.</value>
+    <value>Insert failed due to the constraint violation for token search parameter. Details: {0}.</value>
   </data>
   <data name="ExceptionWhileResourceValidation" xml:space="preserve">
     <value>"Something went wrong while validating resource at index {0}".</value>

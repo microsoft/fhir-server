@@ -61,14 +61,14 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
+        ///   Looks up a localized string similar to Insert failed due to the constraint violation for token search parameter. Details: {0}..
         /// </summary>
         internal static string ConstraintDetailsOfConstraintViolationInImport {
             get {
                 return ResourceManager.GetString("ConstraintDetailsOfConstraintViolationInImport", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
         /// </summary>
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The batch containing this resource failed to import due to a searchparam codeoverflow constraint violation..
+        ///   Looks up a localized string similar to Error on batch with offset {0} rows from {1} to {2}. {3}.
         /// </summary>
         internal static string FailedToImportDueToConstraintViolationInBatch {
             get {
