@@ -229,3 +229,51 @@ If-Match: W/"2"
     ]
   }
 }
+
+###
+# Post a us-core-patient profile
+# This will be returned in capability statement.
+# @name patient
+POST https://{{hostname}}/StructureDefinition
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "StructureDefinition",
+  "id": "us-core-patient",
+  "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
+  "version": "3.1.1",
+  "name": "USCorePatientProfile",
+  "title": "US Core Patient Profile",
+  "status": "active",
+  "experimental": false,
+  "date": "2025-12-15",
+  "publisher": "HL7 US Realm Steering Committee",
+  "type": "Patient",
+  "kind": "resource",
+  "abstract": false,
+}
+
+###
+# Post a us-core-patient profile
+# This will be returned in capability statement.
+# @name patient
+POST https://{{hostname}}/StructureDefinition
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "StructureDefinition",
+  "id": "us-core-patient",
+  "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
+  "version": "6.1.0",
+  "name": "USCorePatientProfile",
+  "title": "US Core Patient Profile",
+  "status": "active",
+  "experimental": false,
+  "date": "2025-12-15",
+  "publisher": "HL7 US Realm Steering Committee",
+  "type": "Patient",
+  "kind": "resource",
+  "abstract": false,
+}

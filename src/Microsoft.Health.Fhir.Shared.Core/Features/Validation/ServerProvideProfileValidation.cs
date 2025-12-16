@@ -15,6 +15,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Summary;
 using MediatR;
@@ -37,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation, IDisposable
     {
         private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
+        private static string _structureDefinitionVersionKey = "Conformance.version";
 
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
@@ -158,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                                     foreach (var artifact in artifacts)
                                     {
-                                        result[artifact.ResourceUri] = artifact;
+                                        result[GetCanonicalUrl(artifact)] = artifact;
                                     }
                                 }
                             }
@@ -227,7 +229,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                         return string.Equals((string)type, resourceType, StringComparison.OrdinalIgnoreCase);
                     })
-                .Select(x => x.ResourceUri).ToList();
+                .Select(x => GetCanonicalUrl(x)).ToList();
+        }
+
+        private static string GetCanonicalUrl(ArtifactSummary artifact)
+        {
+            var url = artifact.ResourceUri;
+            if (artifact.TryGetValue(_structureDefinitionVersionKey, out object version) && version != null && !string.IsNullOrEmpty(version.ToString()))
+            {
+                return $"{url}|{version}";
+            }
+
+            return url;
         }
 
         private static string GetHashForSupportedProfiles(IReadOnlyCollection<ArtifactSummary> summaries)
@@ -240,7 +253,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             var sb = new StringBuilder();
             summaries.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                .Where(x => x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
-               .Select(x => x.ResourceUri).ToList().ForEach(url => sb.Append(url));
+               .Select(x => GetCanonicalUrl(x)).ToList().ForEach(url => sb.Append(url));
 
             return sb.ToString().ComputeHash();
         }

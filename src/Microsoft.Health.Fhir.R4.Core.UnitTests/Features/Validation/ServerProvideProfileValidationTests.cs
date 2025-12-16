@@ -251,6 +251,24 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
         }
 
         [Fact]
+        public async Task GivenMultipleVersionsOfSameProfile_WhenGettingSupportedProfiles_ThenAllVersionsAreReturned()
+        {
+            // Arrange
+            var patientProfileV1 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "1.0.0");
+            var patientProfileV2 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "2.0.0");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfileV1, patientProfileV2);
+
+            // Act
+            var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(profiles);
+            Assert.Equal(2, profiles.Count());
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|1.0.0", profiles);
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|2.0.0", profiles);
+        }
+
+        [Fact]
         public async Task GivenDisableCacheRefresh_WhenGettingSupportedProfiles_ThenCacheIsNotRefreshed()
         {
             // Arrange
@@ -276,9 +294,9 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
             _serverProvideProfileValidation?.Dispose();
         }
 
-        private static StructureDefinition CreateStructureDefinition(string url, string type)
+        private static StructureDefinition CreateStructureDefinition(string url, string type, string version = null)
         {
-            return new StructureDefinition
+            var structureDefinition = new StructureDefinition
             {
                 Id = Guid.NewGuid().ToString("N").Substring(0, 16), // Generate valid FHIR ID
                 Url = url,
@@ -290,6 +308,13 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
                 BaseDefinition = $"http://hl7.org/fhir/StructureDefinition/{type}",
                 Derivation = StructureDefinition.TypeDerivationRule.Constraint,
             };
+
+            if (!string.IsNullOrEmpty(version))
+            {
+                structureDefinition.Version = version;
+            }
+
+            return structureDefinition;
         }
 
         private void SetupSearchServiceWithNoResults()
