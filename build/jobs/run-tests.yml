@@ -17,10 +17,13 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-    
-  - task: UseDotNet@2
-    inputs:
-      useGlobalJson: true
+    path: source
+
+  - template: integration-setup.yml
+
+  - template: integration-tests-extract.yml
+    parameters:
+      version: ${{ parameters.version }}
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
@@ -40,25 +43,18 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
         $appServiceName = '${{ parameters.appServiceName }}'
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(UniqueResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
         $dataStoreResourceId = $appSettings | where {$_.Name -eq "FhirServer__ResourceManager__DataStoreResourceId"}
         $dataStoreResourceId = $dataStoreResourceId[0].Value
         Write-Host "$dataStoreResourceId"
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
   - task: DotNetCoreCLI@2
-    displayName: 'Build integration test projects'
-    inputs:
-      command: build
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-  - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
       command: test
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
+      workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true
     env:
@@ -101,10 +97,13 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-    
-  - task: UseDotNet@2
-    inputs:
-      useGlobalJson: true
+    path: source
+
+  - template: integration-setup.yml
+
+  - template: integration-tests-extract.yml
+    parameters:
+      version: ${{ parameters.version }}
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
@@ -124,18 +123,11 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
-    displayName: 'Build integration test projects'
-    inputs:
-      command: build
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-  - task: DotNetCoreCLI@2
     displayName: 'Run SQL Integration Tests with coverage'
     inputs:
       command: test
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~CosmosDb --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
+      workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       publishTestResults: true
     env:
@@ -180,6 +172,22 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: ${{ parameters.appServiceName }}
       appServiceType: 'CosmosDb'
+      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
+
+- job: 'cosmosE2eTests_Reindex'
+  dependsOn: []
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  - template: e2e-tests.yml
+    parameters:
+      version: ${{ parameters.version }}
+      appServiceName: ${{ parameters.appServiceName }}
+      appServiceType: 'CosmosDb'
+      categoryFilter: 'Category=IndexAndReindex'
+      testRunTitleSuffix: ' Reindex'
 
 - job: 'sqlE2eTests'
   dependsOn: []
@@ -193,3 +201,34 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: '${{ parameters.appServiceName }}-sql'
       appServiceType: 'SqlServer'
+      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
+
+- job: 'sqlE2eTests_Reindex'
+  dependsOn: []
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  - template: e2e-tests.yml
+    parameters:
+      version: ${{ parameters.version }}
+      appServiceName: '${{ parameters.appServiceName }}-sql'
+      appServiceType: 'SqlServer'
+      categoryFilter: 'Category=IndexAndReindex'
+      testRunTitleSuffix: ' Reindex'
+
+- job: 'sqlE2eTests_BulkUpdate'
+  dependsOn: []
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  - template: e2e-tests.yml
+    parameters:
+      version: ${{ parameters.version }}
+      appServiceName: '${{ parameters.appServiceName }}-sql'
+      appServiceType: 'SqlServer'
+      categoryFilter: 'Category=BulkUpdate'
+      testRunTitleSuffix: ' BulkUpdate'

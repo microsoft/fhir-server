@@ -1,0 +1,97 @@
+# Task template to delete Key Vaults from old resource groups and purge them
+# This prevents soft-delete conflicts when deploying new vaults with the same name
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'Delete and Purge Key Vaults'
+  inputs:
+    azureSubscription: $(ConnectedServiceName)
+    azurePowerShellVersion: latestVersion
+    ScriptType: inlineScript
+    Inline: |
+      $keyVaultBaseName = "$(KeyVaultBaseName)"
+      $currentRgName = "$(UniqueResourceGroupName)"
+      $region = "$(ResourceGroupRegion)"
+      $pattern = "$keyVaultBaseName*"
+      
+      Write-Host "Looking for Key Vaults matching pattern: $pattern in region: $region"
+      Write-Host "Current resource group (excluded): $currentRgName"
+      
+      # Get all key vaults matching the pattern that are NOT in the current RG
+      $vaults = Get-AzKeyVault | Where-Object { 
+        $_.VaultName -like $pattern -and 
+        $_.Location -eq $region -and
+        $_.ResourceGroupName -ne $currentRgName
+      }
+      
+      if ($null -eq $vaults -or $vaults.Count -eq 0) {
+        Write-Host "No Key Vaults found to delete"
+      } else {
+        Write-Host "Found $($vaults.Count) Key Vault(s) to delete"
+        
+        # Filter out vaults with resource locks
+        $vaultsToDelete = $vaults | Where-Object {
+          $locks = Get-AzResourceLock -ResourceGroupName $_.ResourceGroupName -ResourceName $_.VaultName -ResourceType "Microsoft.KeyVault/vaults" -ErrorAction SilentlyContinue
+          if ($locks) {
+            Write-Warning "Vault '$($_.VaultName)' has resource locks - skipping"
+            return $false
+          }
+          return $true
+        }
+        
+        if ($vaultsToDelete.Count -eq 0) {
+          Write-Host "No vaults eligible for deletion after lock check"
+        } else {
+          Write-Host "Deleting $($vaultsToDelete.Count) vault(s) in parallel..."
+          
+          # Step 1: Delete vaults (moves them to soft-deleted state)
+          $deleteResults = $vaultsToDelete | ForEach-Object -Parallel {
+            $vaultName = $_.VaultName
+            $sourceRg = $_.ResourceGroupName
+            try {
+              Remove-AzKeyVault -VaultName $vaultName -ResourceGroupName $sourceRg -Force -ErrorAction Stop
+              [PSCustomObject]@{ Vault = $vaultName; Location = $_.Location; Status = "Deleted" }
+            }
+            catch {
+              [PSCustomObject]@{ Vault = $vaultName; Location = $_.Location; Status = "DeleteFailed: $($_.Exception.Message)" }
+            }
+          } -ThrottleLimit 10
+          
+          $deleteResults | ForEach-Object {
+            if ($_.Status -eq "Deleted") {
+              Write-Host "Deleted vault: $($_.Vault)"
+            } else {
+              Write-Warning "$($_.Vault): $($_.Status)"
+            }
+          }
+          
+          # Step 2: Purge the deleted vaults
+          $deletedVaults = $deleteResults | Where-Object { $_.Status -eq "Deleted" }
+          if ($deletedVaults.Count -gt 0) {
+            Write-Host "Purging $($deletedVaults.Count) soft-deleted vault(s)..."
+            
+            $purgeResults = $deletedVaults | ForEach-Object -Parallel {
+              $vaultName = $_.Vault
+              $location = $_.Location
+              try {
+                Remove-AzKeyVault -VaultName $vaultName -Location $location -InRemovedState -Force -ErrorAction Stop
+                [PSCustomObject]@{ Vault = $vaultName; Status = "Purged" }
+              }
+              catch {
+                [PSCustomObject]@{ Vault = $vaultName; Status = "PurgeFailed: $($_.Exception.Message)" }
+              }
+            } -ThrottleLimit 10
+            
+            $purgeResults | ForEach-Object {
+              if ($_.Status -eq "Purged") {
+                Write-Host "Purged vault: $($_.Vault)"
+              } else {
+                Write-Warning "$($_.Vault): $($_.Status)"
+              }
+            }
+            
+            $purgedCount = ($purgeResults | Where-Object { $_.Status -eq "Purged" }).Count
+            Write-Host "Completed: $purgedCount of $($deletedVaults.Count) vaults purged"
+          }
+        }
+      }
