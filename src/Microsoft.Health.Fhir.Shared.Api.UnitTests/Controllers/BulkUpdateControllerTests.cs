@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -43,18 +43,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public BulkUpdateControllerTests()
         {
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<CreateBulkUpdateResponse>(
+            _mediator.SendAsync<CreateBulkUpdateResponse>(
                 Arg.Any<CreateBulkUpdateRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new CreateBulkUpdateResponse(0));
-            _mediator.Send<GetBulkUpdateResponse>(
+            _mediator.SendAsync<GetBulkUpdateResponse>(
                 Arg.Any<GetBulkUpdateRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetBulkUpdateResponse(
                     new List<Parameters.ParameterComponent>(),
                     new List<OperationOutcomeIssue>(),
                     HttpStatusCode.Accepted));
-            _mediator.Send<CancelBulkUpdateResponse>(
+            _mediator.SendAsync<CancelBulkUpdateResponse>(
                 Arg.Any<CancelBulkUpdateRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new CancelBulkUpdateResponse(HttpStatusCode.OK));
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase));
             }
 
-            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).Send<CreateBulkUpdateResponse>(
+            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).SendAsync<CreateBulkUpdateResponse>(
                 Arg.Any<CreateBulkUpdateRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase));
             }
 
-            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).Send<CreateBulkUpdateResponse>(
+            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).SendAsync<CreateBulkUpdateResponse>(
                 Arg.Any<CreateBulkUpdateRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase));
             }
 
-            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).Send<GetBulkUpdateResponse>(
+            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).SendAsync<GetBulkUpdateResponse>(
                 Arg.Any<GetBulkUpdateRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase));
             }
 
-            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).Send<CancelBulkUpdateResponse>(
+            await _mediator.Received(enabled && string.Equals(dataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase) ? 1 : 0).SendAsync<CancelBulkUpdateResponse>(
                 Arg.Any<CancelBulkUpdateRequest>(),
                 Arg.Any<CancellationToken>());
         }
