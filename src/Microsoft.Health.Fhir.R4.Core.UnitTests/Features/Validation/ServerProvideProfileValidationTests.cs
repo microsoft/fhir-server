@@ -263,8 +263,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
 
             // Assert
             Assert.NotNull(profiles);
-            Assert.Equal(2, profiles.Count());
-            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|1.0.0", profiles);
+            Assert.Single(profiles);
             Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|2.0.0", profiles);
         }
 
