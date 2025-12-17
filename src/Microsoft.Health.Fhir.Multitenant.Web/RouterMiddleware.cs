@@ -15,7 +15,7 @@ public class RouterMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ITenantManager _tenantManager;
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<RouterMiddleware> _logger;
 
     /// <summary>
@@ -33,7 +33,7 @@ public class RouterMiddleware
     {
         _next = next;
         _tenantManager = tenantManager;
-        _httpClient = httpClientFactory.CreateClient("RouterClient");
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -76,6 +76,9 @@ public class RouterMiddleware
             tenantId,
             targetUrl);
 
+        // Create a new HttpClient for each request using the factory
+        using var httpClient = _httpClientFactory.CreateClient("RouterClient");
+
         using var proxyRequest = new HttpRequestMessage
         {
             Method = new HttpMethod(context.Request.Method),
@@ -93,10 +96,22 @@ public class RouterMiddleware
             proxyRequest.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
         }
 
-        // Copy body if present
-        if (context.Request.ContentLength > 0 || context.Request.Headers.ContainsKey("Transfer-Encoding"))
+        // Copy body if present - handle both Content-Length and Transfer-Encoding: chunked
+        bool hasBody = context.Request.ContentLength > 0 ||
+            context.Request.Headers.TryGetValue("Transfer-Encoding", out var transferEncoding) &&
+            transferEncoding.Contains("chunked");
+
+        if (hasBody)
         {
-            proxyRequest.Content = new StreamContent(context.Request.Body);
+            // Enable request body buffering for rewinding
+            context.Request.EnableBuffering();
+
+            // Read the entire body into a memory stream to avoid issues with non-rewindable streams
+            var memoryStream = new MemoryStream();
+            await context.Request.Body.CopyToAsync(memoryStream, context.RequestAborted);
+            memoryStream.Position = 0;
+
+            proxyRequest.Content = new StreamContent(memoryStream);
 
             if (!string.IsNullOrEmpty(context.Request.ContentType))
             {
@@ -111,7 +126,7 @@ public class RouterMiddleware
 
         try
         {
-            using var response = await _httpClient.SendAsync(
+            using var response = await httpClient.SendAsync(
                 proxyRequest,
                 HttpCompletionOption.ResponseHeadersRead,
                 context.RequestAborted);
@@ -129,7 +144,7 @@ public class RouterMiddleware
                 context.Response.Headers[header.Key] = header.Value.ToArray();
             }
 
-            await response.Content.CopyToAsync(context.Response.Body);
+            await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
         }
         catch (HttpRequestException ex)
         {

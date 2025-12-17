@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Linq;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
@@ -29,13 +28,20 @@ var settings = builder.Configuration
 // Configure the router port
 builder.WebHost.UseUrls($"http://localhost:{settings.RouterPort}");
 
+// Determine if running in development mode
+bool isDevelopment = builder.Environment.IsDevelopment() ||
+    string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+
 // Register services for the router
-builder.Services.AddHttpClient("RouterClient")
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+var httpClientBuilder = builder.Services.AddHttpClient("RouterClient");
+if (isDevelopment)
+{
+    // Only bypass certificate validation in development
+    httpClientBuilder.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
     {
-        // Allow self-signed certificates for local tenant instances
         ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
     });
+}
 
 // Register the tenant manager
 builder.Services.AddSingleton<ITenantManager>(new TenantManager(settings));
@@ -51,7 +57,7 @@ builder.Services.AddSingleton<TenantHostService>(sp =>
         configuration,
         logger,
         loggerFactory,
-        ConfigureTenantBuilder,
+        (tenantBuilder, tenantConfig) => ConfigureTenantBuilder(tenantBuilder, tenantConfig, isDevelopment),
         ConfigureTenantApp);
 });
 
@@ -68,7 +74,7 @@ Console.WriteLine($"Configured tenants: {string.Join(", ", settings.Tenants.Sele
 await app.RunAsync();
 
 // Configure the WebApplicationBuilder for each tenant FHIR server instance
-static void ConfigureTenantBuilder(WebApplicationBuilder tenantBuilder, TenantConfiguration tenantConfig)
+static void ConfigureTenantBuilder(WebApplicationBuilder tenantBuilder, TenantConfiguration tenantConfig, bool isDevelopment)
 {
     // Load base FHIR server configuration
     tenantBuilder.Configuration.AddJsonFile("appsettings.json", optional: true);
@@ -81,7 +87,7 @@ static void ConfigureTenantBuilder(WebApplicationBuilder tenantBuilder, TenantCo
         configuration,
         fhirServerConfiguration =>
         {
-            fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary;
+            fhirServerConfiguration.Security.AddAuthenticationLibrary = (svc, sec) => AddAuthenticationLibrary(svc, sec, isDevelopment);
         },
         mvcBuilderAction: mvcBuilder =>
         {
@@ -138,7 +144,7 @@ static void ConfigureTenantApp(WebApplication tenantApp, TenantConfiguration ten
 }
 
 // Add JWT Bearer authentication
-static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
+static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration, bool isDevelopment)
 {
     services.AddAuthentication(options =>
     {
@@ -152,7 +158,7 @@ static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfig
         options.Audience = securityConfiguration.Authentication.Audience;
         options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
         options.MapInboundClaims = false;
-        options.RequireHttpsMetadata = false; // For local development
+        options.RequireHttpsMetadata = !isDevelopment; // Only disable HTTPS metadata in development
         options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
     });
 }
