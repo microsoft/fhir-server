@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(smartIdentityProviderConfiguration));
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(response.AuthorizationEndpoint.ToString(), baseEndpoint + "/authorize");
             Assert.Equal(response.TokenEndpoint.ToString(), baseEndpoint + "/token");
