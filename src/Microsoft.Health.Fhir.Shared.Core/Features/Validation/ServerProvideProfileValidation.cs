@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                                     foreach (var artifact in artifacts)
                                     {
-                                        result[GetCanonicalUrl(artifact)] = artifact;
+                                        result[artifact.ResourceUri] = artifact;
                                     }
                                 }
                             }
