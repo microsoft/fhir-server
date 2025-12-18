@@ -19,8 +19,8 @@ Add DecompressedLength column to Resource table:
 -	Nullable to support gradual rollout and historical data backfill
   
 Parameter table entries:
--	FHIR_TotalDataSize: Stores ( total ingested data size + total index size) in GB
--	FHIR_TotalIndexSize: Stores total index size in GB
+-	FHIR_TotalDataSizeInGB: Stores ( total ingested data size + total index size) in GB
+-	FHIR_TotalIndexSizeInGB: Stores total index size in GB
 -	Both entries include timestamp of last calculation
   
 Modify all resource write operations to:

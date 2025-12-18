@@ -3228,7 +3228,8 @@ BEGIN TRY
         SET    IsDeleted            = 1,
                RawResource          = 0xF,
                SearchParamHash      = NULL,
-               HistoryTransactionId = @TransactionId
+               HistoryTransactionId = @TransactionId,
+               DecompressedLength   = 0
         OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceId = @ResourceId
