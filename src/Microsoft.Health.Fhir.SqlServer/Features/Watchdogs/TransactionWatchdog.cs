@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             _logger.Log(affectedRows > 0 ? LogLevel.Information : LogLevel.Debug, AdvancedVisibilityTemplate, affectedRows);
 
-            if (affectedRows > 0)
+            if (affectedRows >= 0)
             {
                 return;
             }
