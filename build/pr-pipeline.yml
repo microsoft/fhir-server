@@ -430,7 +430,7 @@ stages:
       appServiceName: $(DeploymentEnvironmentName)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR4CosmosCosmos
+- stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
@@ -457,7 +457,7 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR4)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR4BCosmosCosmos
+- stage: testR4BCosmos
   displayName: 'Run R4B Cosmos Tests'
   dependsOn:
   - BuildArtifacts
@@ -484,7 +484,7 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR4B)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR5CosmosCosmos
+- stage: testR5Cosmos
   displayName: 'Run R5 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
