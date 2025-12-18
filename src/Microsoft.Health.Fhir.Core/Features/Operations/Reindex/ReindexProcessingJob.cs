@@ -74,8 +74,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
-            await ValidateSearchParametersHashAsync(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
-
             await ProcessQueryAsync(cancellationToken);
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
@@ -174,6 +172,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 else
                 {
+                    await ValidateSearchParametersHashAsync(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery.ToString()));
                 }
 
