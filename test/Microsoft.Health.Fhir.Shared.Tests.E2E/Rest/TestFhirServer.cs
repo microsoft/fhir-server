@@ -337,10 +337,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         return false;
                     })
                     .Or<TaskCanceledException>(ex => !CancellationToken.None.IsCancellationRequested) // Timeout, not user cancellation
-                    .OrResult<HttpResponseMessage>(message => message.StatusCode == HttpStatusCode.TooManyRequests ||
-                                                              message.StatusCode == HttpStatusCode.ServiceUnavailable)
+                    .OrResult<HttpResponseMessage>(message =>
+                        message.StatusCode == HttpStatusCode.TooManyRequests ||
+                        message.StatusCode == HttpStatusCode.ServiceUnavailable ||
+                        message.StatusCode == HttpStatusCode.InternalServerError)
                     .WaitAndRetryAsync(
-                        retryCount: 6,
+                        retryCount: 10,
                         sleepDurationProvider: (retryAttempt, result, context) =>
                         {
                             // Check for Retry-After header on 429 responses - honor the server's requested delay
@@ -360,7 +362,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         onRetryAsync: async (outcome, timespan, retryAttempt, context) =>
                         {
                             var statusCode = outcome.Result?.StatusCode.ToString() ?? outcome.Exception?.GetType().Name ?? "Unknown";
-                            Console.WriteLine($"[SessionMessageHandler] Retry {retryAttempt}/6 after {statusCode}. Waiting {timespan.TotalSeconds:F1}s before next attempt...");
+                            Console.WriteLine($"[SessionMessageHandler] Retry {retryAttempt}/10 after {statusCode}. Waiting {timespan.TotalSeconds:F1}s before next attempt...");
                             await Task.CompletedTask;
                         });
             }

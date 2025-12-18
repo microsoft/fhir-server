@@ -45,21 +45,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            HttpResponseMessage response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
-
+            HttpResponseMessage response = null;
+            Exception lastException = null;
             int attempt = 0;
-            while (response.StatusCode == HttpStatusCode.Unauthorized && attempt < _maxRetries)
+
+            // First attempt
+            try
+            {
+                response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (IsTransientTokenException(ex))
+            {
+                lastException = ex;
+                Console.WriteLine($"[RetryAuthenticationHttpMessageHandler] Token acquisition failed for {request.Method} {request.RequestUri}: {ex.Message}");
+            }
+
+            // Retry loop for 401 responses OR token acquisition failures
+            while (attempt < _maxRetries && (response?.StatusCode == HttpStatusCode.Unauthorized || (response == null && lastException != null)))
             {
                 attempt++;
 
                 // Calculate exponential backoff delay: 2^attempt seconds (2s, 4s, 8s)
                 TimeSpan delay = TimeSpan.FromTicks(_baseDelay.Ticks * (long)Math.Pow(2, attempt - 1));
 
-                Console.WriteLine($"[RetryAuthenticationHttpMessageHandler] Received 401 Unauthorized for {request.Method} {request.RequestUri}. " +
+                string reason = response?.StatusCode == HttpStatusCode.Unauthorized
+                    ? "401 Unauthorized"
+                    : $"Token acquisition exception: {lastException?.GetType().Name}";
+
+                Console.WriteLine($"[RetryAuthenticationHttpMessageHandler] {reason} for {request.Method} {request.RequestUri}. " +
                     $"Attempt {attempt}/{_maxRetries}. Invalidating token and retrying after {delay.TotalSeconds}s...");
 
                 // Dispose the previous response before retrying
-                response.Dispose();
+                response?.Dispose();
+                response = null;
+                lastException = null;
 
                 // Invalidate the cached token to force re-acquisition
                 _credentialProvider.InvalidateToken();
@@ -71,16 +90,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 using var clonedRequest = await CloneRequestAsync(request).ConfigureAwait(false);
 
                 // Retry the request - the AuthenticationHttpMessageHandler will get a fresh token
-                response = await base.SendAsync(clonedRequest, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    response = await base.SendAsync(clonedRequest, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (IsTransientTokenException(ex))
+                {
+                    lastException = ex;
+                    Console.WriteLine($"[RetryAuthenticationHttpMessageHandler] Token acquisition failed on retry {attempt}: {ex.Message}");
+                }
             }
 
-            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            // If we still have an exception after all retries, throw it
+            if (response == null && lastException != null)
+            {
+                Console.WriteLine($"[RetryAuthenticationHttpMessageHandler] FATAL: Token acquisition failed after {_maxRetries} retries for {request.Method} {request.RequestUri}. " +
+                    $"Last exception: {lastException.Message}");
+                throw lastException;
+            }
+
+            if (response?.StatusCode == HttpStatusCode.Unauthorized)
             {
                 Console.WriteLine($"[RetryAuthenticationHttpMessageHandler] FATAL: Still receiving 401 after {_maxRetries} retries for {request.Method} {request.RequestUri}. " +
                     "Authentication is not working. The test run will fail.");
             }
 
             return response;
+        }
+
+        /// <summary>
+        /// Determines if an exception is a transient token acquisition failure that should be retried.
+        /// </summary>
+        private static bool IsTransientTokenException(Exception ex)
+        {
+            // InvalidOperationException from RetryableCredentialProvider when token is null
+            if (ex is InvalidOperationException && ex.Message.Contains("token", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // ArgumentNullException from JWT parsing when token is null (shouldn't happen after our fix, but just in case)
+            if (ex is ArgumentNullException ane && ane.ParamName == "jwtEncodedString")
+            {
+                return true;
+            }
+
+            // Check inner exceptions
+            if (ex.InnerException != null)
+            {
+                return IsTransientTokenException(ex.InnerException);
+            }
+
+            return false;
         }
 
         private static async Task<HttpRequestMessage> CloneRequestAsync(HttpRequestMessage request)

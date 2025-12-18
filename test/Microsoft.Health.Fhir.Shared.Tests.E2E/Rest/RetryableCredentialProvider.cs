@@ -44,6 +44,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Acquire a new token from the inner provider
             string token = await _innerProvider.GetBearerTokenAsync(cancellationToken).ConfigureAwait(false);
 
+            // Handle null/empty token - this can happen transiently during AAD propagation delays
+            if (string.IsNullOrEmpty(token))
+            {
+                Console.WriteLine("[RetryableCredentialProvider] Inner provider returned null/empty token. This may be a transient AAD issue.");
+                throw new InvalidOperationException("Token acquisition returned null or empty token. This may be a transient authentication issue.");
+            }
+
             // Cache the token and parse its expiration
             lock (_lock)
             {
@@ -54,9 +61,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     var jwtToken = handler.ReadJwtToken(token);
                     _tokenExpiration = jwtToken.ValidTo;
                 }
-                catch
+                catch (Exception ex)
                 {
                     // If we can't parse the token, assume a short expiration
+                    Console.WriteLine($"[RetryableCredentialProvider] Could not parse JWT token expiration: {ex.Message}. Using default 30 minute expiration.");
                     _tokenExpiration = DateTime.UtcNow.AddMinutes(30);
                 }
             }
