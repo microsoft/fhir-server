@@ -20,42 +20,80 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Creates and caches <see cref="TestFhirServer"/> instances. This class is intended to be used as an assembly fixture,
     /// so that the <see cref="TestFhirServer"/> instances can be reused across test classes in an assembly.
     /// </summary>
+    /// <remarks>
+    /// This factory supports test retries (e.g., via dotnet test --retry-failed-tests).
+    /// When a fixture initialization fails, the failure is tracked and the cache entry is cleared,
+    /// allowing subsequent retry attempts to create a fresh instance.
+    /// </remarks>
     public class TestFhirServerFactory : IAsyncLifetime, IAsyncDisposable
     {
         private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>> _cache = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>>();
 
+        /// <summary>
+        /// Tracks fixture initialization failures to support test retry scenarios.
+        /// When --retry-failed-tests is used, failed fixtures need to be re-created.
+        /// </summary>
+        private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Exception> _failedInitializations = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Exception>();
+
         public async Task<TestFhirServer> GetTestFhirServerAsync(DataStore dataStore, Type startupType)
         {
-            return await _cache.GetOrAdd(
-                    (dataStore, startupType),
-                    tuple =>
-                        new Lazy<Task<TestFhirServer>>(async () =>
-                        {
-                            TestFhirServer testFhirServer;
-                            string environmentUrl = GetEnvironmentUrl(tuple.dataStore);
+            var key = (dataStore, startupType);
 
-                            if (string.IsNullOrEmpty(environmentUrl))
+            // Check if this is a retry after a previous initialization failure
+            // If so, clear the cached failure so we can attempt a fresh initialization
+            if (_failedInitializations.TryRemove(key, out var previousFailure))
+            {
+                Console.WriteLine($"[TestFhirServerFactory] Previous initialization for {dataStore}/{startupType?.Name} failed with: {previousFailure.Message}");
+                Console.WriteLine($"[TestFhirServerFactory] Clearing cache to allow retry with fresh initialization...");
+
+                // Remove the failed Lazy from the cache so GetOrAdd creates a new one
+                _cache.TryRemove(key, out _);
+            }
+
+            try
+            {
+                return await _cache.GetOrAdd(
+                        key,
+                        tuple =>
+                            new Lazy<Task<TestFhirServer>>(async () =>
                             {
-                                testFhirServer = new InProcTestFhirServer(tuple.dataStore, tuple.startupType);
-                            }
-                            else
-                            {
-                                if (environmentUrl.Last() != '/')
+                                TestFhirServer testFhirServer;
+                                string environmentUrl = GetEnvironmentUrl(tuple.dataStore);
+
+                                if (string.IsNullOrEmpty(environmentUrl))
                                 {
-                                    environmentUrl = $"{environmentUrl}/";
+                                    testFhirServer = new InProcTestFhirServer(tuple.dataStore, tuple.startupType);
+                                }
+                                else
+                                {
+                                    if (environmentUrl.Last() != '/')
+                                    {
+                                        environmentUrl = $"{environmentUrl}/";
+                                    }
+
+                                    testFhirServer = new RemoteTestFhirServer(environmentUrl);
                                 }
 
-                                testFhirServer = new RemoteTestFhirServer(environmentUrl);
-                            }
+                                await testFhirServer.ConfigureSecurityOptions();
 
-                            await testFhirServer.ConfigureSecurityOptions();
+                                // Perform auth warmup to fail fast if authentication is not working
+                                await WarmupAuthenticationAsync(testFhirServer, tuple.dataStore);
 
-                            // Perform auth warmup to fail fast if authentication is not working
-                            await WarmupAuthenticationAsync(testFhirServer, tuple.dataStore);
+                                return testFhirServer;
+                            }))
+                    .Value;
+            }
+            catch (Exception ex)
+            {
+                // Track the failure so subsequent retry attempts can clear the cache
+                Console.WriteLine($"[TestFhirServerFactory] Initialization failed for {dataStore}/{startupType?.Name}: {ex.Message}");
+                _failedInitializations.TryAdd(key, ex);
 
-                            return testFhirServer;
-                        }))
-                .Value;
+                // Remove the failed Lazy from cache to ensure fresh attempt on retry
+                _cache.TryRemove(key, out _);
+
+                throw;
+            }
         }
 
         /// <summary>
