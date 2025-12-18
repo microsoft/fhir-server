@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 else
                 {
+                    await ValidateSearchParametersHashAsync(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery.ToString()));
                 }
 
