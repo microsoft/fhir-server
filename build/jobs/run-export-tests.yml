@@ -67,7 +67,7 @@ jobs:
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --retry-failed-tests 1 --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
     env:
@@ -161,7 +161,7 @@ jobs:
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --retry-failed-tests 1 --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Export ${{ parameters.version }} SQL'
     env:

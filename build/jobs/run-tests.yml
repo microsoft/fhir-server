@@ -54,7 +54,7 @@ jobs:
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --retry-failed-tests 1 --filter DisplayName!~SqlServer --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
       workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true
@@ -128,7 +128,7 @@ jobs:
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --retry-failed-tests 1 --filter DisplayName!~CosmosDb --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
       workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       publishTestResults: true
