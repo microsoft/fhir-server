@@ -55,6 +55,9 @@ jobs:
       Inline: |
         Add-Type -AssemblyName System.Web
 
+        # Import retry helper for transient error handling
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
         $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
 
         $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
@@ -138,14 +141,22 @@ jobs:
             Write-Host "Add DevOps MI permission to Cosmos database"
 
             $account = Get-AzContext
-            $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
 
-            New-AzCosmosDBSqlRoleAssignment `
-              -AccountName $webAppName `
-              -ResourceGroupName $resourceGroupName `
-              -Scope "/" `
-              -PrincipalId $principalId `
-              -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
+            # Retry Get-AzADServicePrincipal for AAD replication delays
+            $principalId = Invoke-WithRetry -OperationName "Get Service Principal" -ScriptBlock {
+                (Get-AzADServicePrincipal -ApplicationId $account.Account.Id -ErrorAction Stop).Id
+            }
+
+            # Retry CosmosDB role assignment for resource propagation delays
+            Invoke-WithRetry -OperationName "CosmosDB Role Assignment" -ScriptBlock {
+                New-AzCosmosDBSqlRoleAssignment `
+                  -AccountName $webAppName `
+                  -ResourceGroupName $resourceGroupName `
+                  -Scope "/" `
+                  -PrincipalId $principalId `
+                  -RoleDefinitionId "00000000-0000-0000-0000-000000000002" `
+                  -ErrorAction Stop
+            }
 
             # Associate CosmosDB with Network Security Perimeter using external template
             Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
@@ -157,7 +168,7 @@ jobs:
             Write-Host "CosmosDB Account: $webAppName"
             Write-Host "Association Name: $associationName"
                 
-            $templateParameters = @{
+            $nspTemplateParameters = @{
                 'nspName' = $nspName
                 'resourceName' = $webAppName
                 'resourceType' = 'Microsoft.DocumentDB/databaseAccounts'
@@ -166,13 +177,16 @@ jobs:
                 'nspProfile' = 'default'
             }
                 
-            # Deploy using external template
-            $nspDeploymentResult = New-AzResourceGroupDeployment `
-              -ResourceGroupName $resourceGroupName `
-              -Name "$webAppName-cosmosdb-nsp-association" `
-              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-              -TemplateParameterObject $templateParameters `
-              -Verbose
+            # Retry NSP association deployment for resource propagation delays
+            $nspDeploymentResult = Invoke-WithRetry -OperationName "NSP Association Deployment" -ScriptBlock {
+                New-AzResourceGroupDeployment `
+                  -ResourceGroupName $resourceGroupName `
+                  -Name "$webAppName-cosmosdb-nsp-association" `
+                  -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+                  -TemplateParameterObject $nspTemplateParameters `
+                  -Verbose `
+                  -ErrorAction Stop
+            }
                 
             Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
             Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
