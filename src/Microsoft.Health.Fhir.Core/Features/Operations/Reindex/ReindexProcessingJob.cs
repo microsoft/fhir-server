@@ -74,71 +74,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
-            await ValidateSearchParametersHashAsync(_jobInfo, _reindexProcessingJobDefinition, cancellationToken);
 
             await ProcessQueryAsync(cancellationToken);
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
-        }
-
-        private async Task ValidateSearchParametersHashAsync(JobInfo jobInfo, ReindexProcessingJobDefinition jobDefinition, CancellationToken cancellationToken)
-        {
-            string currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
-
-            // If the hash is different, we need to fail job as this means something has changed unexpectedly.
-            // This ensures that the processing job always uses the latest search parameters and we do not complete job incorrectly.
-
-            if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
-            {
-                _logger.LogJobWarning(
-                    jobInfo,
-                    "Search parameters for resource type {ResourceType} have changed since the Reindex Job was created. Job definition hash: '{JobHash}', In-memory hash: '{CurrentHash}'. Attempting to refresh search parameters.",
-                    jobDefinition.ResourceType,
-                    jobDefinition.ResourceTypeSearchParameterHashMap,
-                    currentResourceTypeHash);
-
-                // Attempt to get and apply the latest search parameter updates
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true);
-
-                // Re-check the hash after updating
-                currentResourceTypeHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(jobDefinition.ResourceType);
-
-                // If the hash still doesn't match after the update, fail the job
-                if (string.IsNullOrEmpty(currentResourceTypeHash) || !string.Equals(currentResourceTypeHash, jobDefinition.ResourceTypeSearchParameterHashMap, StringComparison.Ordinal))
-                {
-                    _logger.LogJobError(
-                        jobInfo,
-                        "Search parameters for resource type {ResourceType} still do not match after refresh. Job definition hash: '{JobHash}', In-memory hash: '{CurrentHash}'.",
-                        jobDefinition.ResourceType,
-                        jobDefinition.ResourceTypeSearchParameterHashMap,
-                        currentResourceTypeHash);
-
-                    string message = "Search Parameter hash does not match. Resubmit reindex job to try again.";
-
-                    // Create error object to provide structured error information
-                    var errorObject = new
-                    {
-                        message = message,
-                        resourceType = jobDefinition.ResourceType,
-                        jobDefinitionHash = jobDefinition.ResourceTypeSearchParameterHashMap,
-                        currentHash = currentResourceTypeHash,
-                        jobId = jobInfo.Id,
-                        groupId = jobInfo.GroupId,
-                    };
-
-                    _reindexProcessingJobResult.FailedResourceCount = jobDefinition.ResourceCount.Count;
-
-                    throw new ReindexProcessingJobSoftException(message, errorObject, isCustomerCaused: true);
-                }
-                else
-                {
-                    _logger.LogJobInformation(
-                        jobInfo,
-                        "Search parameters for resource type {ResourceType} successfully refreshed. Hash now matches: '{CurrentHash}'.",
-                        jobDefinition.ResourceType,
-                        currentResourceTypeHash);
-                }
-            }
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
