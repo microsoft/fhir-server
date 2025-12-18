@@ -499,7 +499,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     conn.Open();
                     using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'ReplicaTrafficRatio'", conn);
                     var value = cmd.ExecuteScalar();
-                    return value == null ? 0 : (double)value;
+                    return value == null ? 1 : (double)value;
                 }
                 catch (SqlException ex)
                 {
