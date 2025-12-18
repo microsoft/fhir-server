@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
 
-                if (IsSortValueNeeded(context))
+                if (IsSortValueNeeded(context) && !context.IsIncludesOperation)
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
                 }
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         })
                             .AppendLine();
                     }
-                    else if (IsSortValueNeeded(searchOptions))
+                    else if (IsSortValueNeeded(searchOptions) && !context.IsIncludesOperation)
                     {
                         StringBuilder
                             .Append(TableExpressionName(_tableExpressionCounter))
@@ -1228,7 +1228,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
 
             bool sortValueNeeded = IsSortValueNeeded(context);
-            if (sortValueNeeded)
+
+            // The includes operation does not contain matched resources, so no sort value is needed.
+            if (sortValueNeeded && !context.IsIncludesOperation)
             {
                 StringBuilder.AppendLine(", SortValue");
             }

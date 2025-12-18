@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeName = RouteNames.AnonymizedExportOperationDefinition;
                     break;
                 case OperationsConstants.Reindex:
-                    routeName = RouteNames.ReindexOperationDefintion;
+                    routeName = RouteNames.ReindexOperationDefinition;
                     break;
                 case OperationsConstants.ResourceReindex:
                     routeName = RouteNames.ResourceReindexOperationDefinition;

@@ -1132,7 +1132,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             var searchParam = new SearchParameter
             {
-                Url = $"http://hl7.org/fhir/SearchParameter/{baseType}-{searchParamName}",
+                Url = $"http://hl7.org/fhir/SearchParameter/{baseType}-{searchParamName}-Integration-ReindexJobTest",
                 Type = searchParamType,
                 Expression = expression,
                 Name = searchParamName,
@@ -1338,13 +1338,33 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                             if (!string.IsNullOrEmpty(url))
                             {
-                                // Delete from definition manager
+                                // Delete from definition manager (safe - no exception if not found)
                                 _searchParameterDefinitionManager.DeleteSearchParameter(url);
                                 _searchParameterDefinitionManager2?.DeleteSearchParameter(url);
 
-                                // Delete status
-                                await _testHelper.DeleteSearchParameterStatusAsync(url, cancellationToken);
-                                await _searchParameterStatusManager2?.DeleteSearchParameterStatusAsync(url, cancellationToken);
+                                // Delete status - wrap in try-catch to handle already-deleted scenarios
+                                try
+                                {
+                                    await _testHelper.DeleteSearchParameterStatusAsync(url, cancellationToken);
+                                }
+                                catch (SearchParameterNotSupportedException)
+                                {
+                                    // Already deleted by test cleanup - this is fine
+                                    _output.WriteLine($"SearchParameter status already deleted: {url}");
+                                }
+
+                                try
+                                {
+                                    if (_searchParameterStatusManager2 != null)
+                                    {
+                                        await _searchParameterStatusManager2.DeleteSearchParameterStatusAsync(url, cancellationToken);
+                                    }
+                                }
+                                catch (SearchParameterNotSupportedException)
+                                {
+                                    // Already deleted by test cleanup - this is fine
+                                    _output.WriteLine($"SearchParameter status already deleted from manager2: {url}");
+                                }
 
                                 _output.WriteLine($"Deleted SearchParameter definition and status: {url}");
                             }

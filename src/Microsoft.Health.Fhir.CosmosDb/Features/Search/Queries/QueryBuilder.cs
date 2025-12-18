@@ -163,6 +163,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 }
 
                 AppendFilterCondition(
+                    "AND",
+                    true,
+                    (KnownResourceWrapperProperties.IsHistory, false));
+
+                AppendFilterCondition(
                    "AND",
                    true,
                    (KnownResourceWrapperProperties.IsDeleted, false));
