@@ -376,9 +376,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 request.Headers.TryAddWithoutValidation("x-ms-consistency-level", "Session");
 
+                // Buffer the content so we can clone the request for retries
+                // HttpRequestMessage cannot be reused after sending, so we need to clone it for each retry
+                byte[] contentBytes = null;
+                string contentType = null;
                 if (request.Content != null)
                 {
                     await request.Content.LoadIntoBufferAsync();
+                    contentBytes = await request.Content.ReadAsByteArrayAsync();
+                    contentType = request.Content.Headers.ContentType?.ToString();
                 }
 
                 var diagnostics = new StringBuilder();
@@ -392,9 +398,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         attemptNumber++;
                         var attemptStopwatch = Stopwatch.StartNew();
 
+                        // Clone the request for each attempt (HttpRequestMessage cannot be reused after sending)
+                        using var clonedRequest = CloneHttpRequestMessage(request, contentBytes, contentType);
+
+                        // Re-add session token to cloned request (may have been updated from previous response)
+                        string currentSessionToken = _sessionTokenContainer.SessionToken;
+                        if (!string.IsNullOrEmpty(currentSessionToken))
+                        {
+                            clonedRequest.Headers.Remove("x-ms-session-token");
+                            clonedRequest.Headers.TryAddWithoutValidation("x-ms-session-token", currentSessionToken);
+                        }
+
                         try
                         {
-                            var result = await base.SendAsync(request, cancellationToken);
+                            var result = await base.SendAsync(clonedRequest, cancellationToken);
                             attemptStopwatch.Stop();
                             diagnostics.AppendLine($"  Attempt {attemptNumber}: {(int)result.StatusCode} {result.StatusCode} in {attemptStopwatch.ElapsedMilliseconds}ms");
                             return result;
@@ -439,6 +456,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         $"Final exception: {ex.GetType().Name}: {ex.Message}",
                         ex);
                 }
+            }
+
+            /// <summary>
+            /// Clones an HttpRequestMessage for retry purposes.
+            /// HttpRequestMessage cannot be reused after sending, so we need to create a new one for each retry attempt.
+            /// </summary>
+            private static HttpRequestMessage CloneHttpRequestMessage(HttpRequestMessage request, byte[] contentBytes, string contentType)
+            {
+                var clone = new HttpRequestMessage(request.Method, request.RequestUri);
+
+                // Copy headers
+                foreach (var header in request.Headers)
+                {
+                    clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                // Copy content if present
+                if (contentBytes != null)
+                {
+                    clone.Content = new ByteArrayContent(contentBytes);
+                    if (!string.IsNullOrEmpty(contentType))
+                    {
+                        clone.Content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(contentType);
+                    }
+                }
+
+                // Copy properties/options
+                foreach (var prop in request.Options)
+                {
+                    clone.Options.TryAdd(prop.Key, prop.Value);
+                }
+
+                return clone;
             }
         }
 
