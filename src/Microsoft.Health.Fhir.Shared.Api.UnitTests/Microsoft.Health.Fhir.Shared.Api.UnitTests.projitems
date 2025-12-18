@@ -65,6 +65,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FormatterConfigurationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\HttpContextExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\JsonArrayPoolTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\NonFhirResourceXmlOutputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\HttpContextExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\ImportResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\ExportResultExtensionsTests.cs" />
