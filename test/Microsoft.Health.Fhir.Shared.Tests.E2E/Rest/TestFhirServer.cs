@@ -325,6 +325,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 EnsureArg.IsNotNull(sessionTokenContainer, nameof(sessionTokenContainer));
                 _sessionTokenContainer = sessionTokenContainer;
 
+                // Retry policy for transient errors including 429 (TooManyRequests) and 503 (ServiceUnavailable)
+                // Uses longer delays and more retries to handle throttling scenarios in E2E tests
                 _polly = Policy.Handle<HttpRequestException>(x =>
                     {
                         if (x.InnerException is IOException || x.InnerException is SocketException)
@@ -334,9 +336,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                         return false;
                     })
+                    .Or<TaskCanceledException>(ex => !CancellationToken.None.IsCancellationRequested) // Timeout, not user cancellation
                     .OrResult<HttpResponseMessage>(message => message.StatusCode == HttpStatusCode.TooManyRequests ||
                                                               message.StatusCode == HttpStatusCode.ServiceUnavailable)
-                    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+                    .WaitAndRetryAsync(
+                        retryCount: 6,
+                        sleepDurationProvider: (retryAttempt, result, context) =>
+                        {
+                            // Check for Retry-After header on 429 responses - honor the server's requested delay
+                            if (result.Result?.Headers.TryGetValues("Retry-After", out var retryAfterValues) == true)
+                            {
+                                var retryAfterValue = retryAfterValues.FirstOrDefault();
+                                if (int.TryParse(retryAfterValue, out int retryAfterSeconds))
+                                {
+                                    return TimeSpan.FromSeconds(retryAfterSeconds);
+                                }
+                            }
+
+                            // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s (capped)
+                            var delay = TimeSpan.FromSeconds(Math.Min(Math.Pow(2, retryAttempt), 60));
+                            return delay;
+                        },
+                        onRetryAsync: async (outcome, timespan, retryAttempt, context) =>
+                        {
+                            var statusCode = outcome.Result?.StatusCode.ToString() ?? outcome.Exception?.GetType().Name ?? "Unknown";
+                            Console.WriteLine($"[SessionMessageHandler] Retry {retryAttempt}/6 after {statusCode}. Waiting {timespan.TotalSeconds:F1}s before next attempt...");
+                            await Task.CompletedTask;
+                        });
             }
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
