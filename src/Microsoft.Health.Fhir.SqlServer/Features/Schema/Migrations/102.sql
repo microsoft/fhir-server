@@ -5001,11 +5001,62 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
-@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParams dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @Resources_Temp dbo.ResourceList_Temp READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParams dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
+DECLARE @WorkingResources TABLE (
+    ResourceTypeId       SMALLINT        NOT NULL,
+    ResourceSurrogateId  BIGINT          NOT NULL,
+    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Version              INT             NOT NULL,
+    HasVersionToCompare  BIT             NOT NULL,
+    IsDeleted            BIT             NOT NULL,
+    IsHistory            BIT             NOT NULL,
+    KeepHistory          BIT             NOT NULL,
+    RawResource          VARBINARY (MAX) NOT NULL,
+    IsRawResourceMetaSet BIT             NOT NULL,
+    RequestMethod        VARCHAR (10)    NULL,
+    SearchParamHash      VARCHAR (64)    NULL,
+    DecompressedLength   INT             NULL);
+IF EXISTS (SELECT 1
+           FROM   @Resources_Temp)
+    BEGIN
+        INSERT INTO @WorkingResources (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength)
+        SELECT ResourceTypeId,
+               ResourceId,
+               Version,
+               IsHistory,
+               ResourceSurrogateId,
+               IsDeleted,
+               RequestMethod,
+               RawResource,
+               IsRawResourceMetaSet,
+               SearchParamHash,
+               HasVersionToCompare,
+               KeepHistory,
+               DecompressedLength
+        FROM   @Resources_Temp;
+    END
+ELSE
+    BEGIN
+        INSERT INTO @WorkingResources (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength)
+        SELECT ResourceTypeId,
+               ResourceId,
+               Version,
+               IsHistory,
+               ResourceSurrogateId,
+               IsDeleted,
+               RequestMethod,
+               RawResource,
+               IsRawResourceMetaSet,
+               SearchParamHash,
+               HasVersionToCompare,
+               KeepHistory,
+               NULL
+        FROM   @Resources;
+    END
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
-                                                                                                                       FROM   @Resources), 'Input=Empty'), @Rows AS INT, @ReferenceSearchParamsCurrent AS dbo.ReferenceSearchParamList, @ReferenceSearchParamsDelete AS dbo.ReferenceSearchParamList, @ReferenceSearchParamsInsert AS dbo.ReferenceSearchParamList, @TokenSearchParamsCurrent AS dbo.TokenSearchParamList, @TokenSearchParamsDelete AS dbo.TokenSearchParamList, @TokenSearchParamsInsert AS dbo.TokenSearchParamList, @TokenTextsCurrent AS dbo.TokenTextList, @TokenTextsDelete AS dbo.TokenTextList, @TokenTextsInsert AS dbo.TokenTextList, @StringSearchParamsCurrent AS dbo.StringSearchParamList, @StringSearchParamsDelete AS dbo.StringSearchParamList, @StringSearchParamsInsert AS dbo.StringSearchParamList, @UriSearchParamsCurrent AS dbo.UriSearchParamList, @UriSearchParamsDelete AS dbo.UriSearchParamList, @UriSearchParamsInsert AS dbo.UriSearchParamList, @NumberSearchParamsCurrent AS dbo.NumberSearchParamList, @NumberSearchParamsDelete AS dbo.NumberSearchParamList, @NumberSearchParamsInsert AS dbo.NumberSearchParamList, @QuantitySearchParamsCurrent AS dbo.QuantitySearchParamList, @QuantitySearchParamsDelete AS dbo.QuantitySearchParamList, @QuantitySearchParamsInsert AS dbo.QuantitySearchParamList, @DateTimeSearchParamsCurrent AS dbo.DateTimeSearchParamList, @DateTimeSearchParamsDelete AS dbo.DateTimeSearchParamList, @DateTimeSearchParamsInsert AS dbo.DateTimeSearchParamList, @ReferenceTokenCompositeSearchParamsCurrent AS dbo.ReferenceTokenCompositeSearchParamList, @ReferenceTokenCompositeSearchParamsDelete AS dbo.ReferenceTokenCompositeSearchParamList, @ReferenceTokenCompositeSearchParamsInsert AS dbo.ReferenceTokenCompositeSearchParamList, @TokenTokenCompositeSearchParamsCurrent AS dbo.TokenTokenCompositeSearchParamList, @TokenTokenCompositeSearchParamsDelete AS dbo.TokenTokenCompositeSearchParamList, @TokenTokenCompositeSearchParamsInsert AS dbo.TokenTokenCompositeSearchParamList, @TokenDateTimeCompositeSearchParamsCurrent AS dbo.TokenDateTimeCompositeSearchParamList, @TokenDateTimeCompositeSearchParamsDelete AS dbo.TokenDateTimeCompositeSearchParamList, @TokenDateTimeCompositeSearchParamsInsert AS dbo.TokenDateTimeCompositeSearchParamList, @TokenQuantityCompositeSearchParamsCurrent AS dbo.TokenQuantityCompositeSearchParamList, @TokenQuantityCompositeSearchParamsDelete AS dbo.TokenQuantityCompositeSearchParamList, @TokenQuantityCompositeSearchParamsInsert AS dbo.TokenQuantityCompositeSearchParamList, @TokenStringCompositeSearchParamsCurrent AS dbo.TokenStringCompositeSearchParamList, @TokenStringCompositeSearchParamsDelete AS dbo.TokenStringCompositeSearchParamList, @TokenStringCompositeSearchParamsInsert AS dbo.TokenStringCompositeSearchParamList, @TokenNumberNumberCompositeSearchParamsCurrent AS dbo.TokenNumberNumberCompositeSearchParamList, @TokenNumberNumberCompositeSearchParamsDelete AS dbo.TokenNumberNumberCompositeSearchParamList, @TokenNumberNumberCompositeSearchParamsInsert AS dbo.TokenNumberNumberCompositeSearchParamList, @ResourceWriteClaimsCurrent AS dbo.ResourceWriteClaimList, @ResourceWriteClaimsDelete AS dbo.ResourceWriteClaimList, @ResourceWriteClaimsInsert AS dbo.ResourceWriteClaimList;
+                                                                                                                       FROM   @WorkingResources), 'Input=Empty'), @Rows AS INT, @ReferenceSearchParamsCurrent AS dbo.ReferenceSearchParamList, @ReferenceSearchParamsDelete AS dbo.ReferenceSearchParamList, @ReferenceSearchParamsInsert AS dbo.ReferenceSearchParamList, @TokenSearchParamsCurrent AS dbo.TokenSearchParamList, @TokenSearchParamsDelete AS dbo.TokenSearchParamList, @TokenSearchParamsInsert AS dbo.TokenSearchParamList, @TokenTextsCurrent AS dbo.TokenTextList, @TokenTextsDelete AS dbo.TokenTextList, @TokenTextsInsert AS dbo.TokenTextList, @StringSearchParamsCurrent AS dbo.StringSearchParamList, @StringSearchParamsDelete AS dbo.StringSearchParamList, @StringSearchParamsInsert AS dbo.StringSearchParamList, @UriSearchParamsCurrent AS dbo.UriSearchParamList, @UriSearchParamsDelete AS dbo.UriSearchParamList, @UriSearchParamsInsert AS dbo.UriSearchParamList, @NumberSearchParamsCurrent AS dbo.NumberSearchParamList, @NumberSearchParamsDelete AS dbo.NumberSearchParamList, @NumberSearchParamsInsert AS dbo.NumberSearchParamList, @QuantitySearchParamsCurrent AS dbo.QuantitySearchParamList, @QuantitySearchParamsDelete AS dbo.QuantitySearchParamList, @QuantitySearchParamsInsert AS dbo.QuantitySearchParamList, @DateTimeSearchParamsCurrent AS dbo.DateTimeSearchParamList, @DateTimeSearchParamsDelete AS dbo.DateTimeSearchParamList, @DateTimeSearchParamsInsert AS dbo.DateTimeSearchParamList, @ReferenceTokenCompositeSearchParamsCurrent AS dbo.ReferenceTokenCompositeSearchParamList, @ReferenceTokenCompositeSearchParamsDelete AS dbo.ReferenceTokenCompositeSearchParamList, @ReferenceTokenCompositeSearchParamsInsert AS dbo.ReferenceTokenCompositeSearchParamList, @TokenTokenCompositeSearchParamsCurrent AS dbo.TokenTokenCompositeSearchParamList, @TokenTokenCompositeSearchParamsDelete AS dbo.TokenTokenCompositeSearchParamList, @TokenTokenCompositeSearchParamsInsert AS dbo.TokenTokenCompositeSearchParamList, @TokenDateTimeCompositeSearchParamsCurrent AS dbo.TokenDateTimeCompositeSearchParamList, @TokenDateTimeCompositeSearchParamsDelete AS dbo.TokenDateTimeCompositeSearchParamList, @TokenDateTimeCompositeSearchParamsInsert AS dbo.TokenDateTimeCompositeSearchParamList, @TokenQuantityCompositeSearchParamsCurrent AS dbo.TokenQuantityCompositeSearchParamList, @TokenQuantityCompositeSearchParamsDelete AS dbo.TokenQuantityCompositeSearchParamList, @TokenQuantityCompositeSearchParamsInsert AS dbo.TokenQuantityCompositeSearchParamList, @TokenStringCompositeSearchParamsCurrent AS dbo.TokenStringCompositeSearchParamList, @TokenStringCompositeSearchParamsDelete AS dbo.TokenStringCompositeSearchParamList, @TokenStringCompositeSearchParamsInsert AS dbo.TokenStringCompositeSearchParamList, @TokenNumberNumberCompositeSearchParamsCurrent AS dbo.TokenNumberNumberCompositeSearchParamList, @TokenNumberNumberCompositeSearchParamsDelete AS dbo.TokenNumberNumberCompositeSearchParamList, @TokenNumberNumberCompositeSearchParamsInsert AS dbo.TokenNumberNumberCompositeSearchParamList, @ResourceWriteClaimsCurrent AS dbo.ResourceWriteClaimList, @ResourceWriteClaimsDelete AS dbo.ResourceWriteClaimList, @ResourceWriteClaimsInsert AS dbo.ResourceWriteClaimList;
 BEGIN TRY
     DECLARE @Ids TABLE (
         ResourceTypeId      SMALLINT NOT NULL,
@@ -5014,7 +5065,7 @@ BEGIN TRY
     UPDATE B
     SET    SearchParamHash = A.SearchParamHash
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
-    FROM   @Resources AS A
+    FROM   @WorkingResources AS A
            INNER JOIN
            dbo.Resource AS B
            ON B.ResourceTypeId = A.ResourceTypeId
@@ -6383,7 +6434,7 @@ BEGIN TRY
     FROM   @TokenNumberNumberCompositeSearchParamsInsert;
     COMMIT TRANSACTION;
     SET @FailedResources = (SELECT count(*)
-                            FROM   @Resources) - @Rows;
+                            FROM   @WorkingResources) - @Rows;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
