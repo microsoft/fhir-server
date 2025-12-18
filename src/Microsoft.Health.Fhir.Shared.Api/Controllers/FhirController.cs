@@ -489,9 +489,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Patches the specified resource.
         /// </summary>
+        /// <param name="patchDocument">The JSON patch document.</param>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
-        /// <param name="patchDocument">The JSON patch document.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
         [HttpPatch]
         [ValidateIdSegmentAttribute]
@@ -499,7 +499,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Patch)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/json-patch+json")]
-        public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> PatchJson([FromBody] JsonPatchDocument patchDocument, string typeParameter, string idParameter, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             var payload = new JsonPatchPayload(patchDocument);
 
@@ -541,9 +541,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Patches the specified resource.
         /// </summary>
+        /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
-        /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
         [HttpPatch]
         [ValidateIdSegmentAttribute]
@@ -551,7 +551,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Patch)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/fhir+json")]
-        public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> PatchFhir([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Disallow)] Parameters paramsResource, string typeParameter, string idParameter, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             var payload = new FhirPathPatchPayload(paramsResource);
 
