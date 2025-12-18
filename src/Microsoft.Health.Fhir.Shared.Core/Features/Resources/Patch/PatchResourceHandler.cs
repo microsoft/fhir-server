@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             ResourceElement patchedResource = request.Payload.Patch(currentDoc);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag), cancellationToken);
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.BundleResourceContext, request.WeakETag, request.MetaHistory), cancellationToken);
         }
     }
 }
