@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly SessionTokenContainer _sessionTokenContainer = new SessionTokenContainer();
 
         private readonly Dictionary<string, HttpMessageHandler> _authenticationHandlers = new Dictionary<string, HttpMessageHandler>();
-        private readonly Dictionary<string, RetryableCredentialProvider> _retryableCredentialProviders = new Dictionary<string, RetryableCredentialProvider>();
 
         protected TestFhirServer(Uri baseAddress)
         {
@@ -166,7 +165,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Wrap the credential provider with retry capability to handle transient 401 errors
             var retryableCredentialProvider = new RetryableCredentialProvider(innerCredentialProvider);
-            _retryableCredentialProviders.Add(authDictionaryKey, retryableCredentialProvider);
 
             var authenticationHandler = new AuthenticationHttpMessageHandler(retryableCredentialProvider)
             {
@@ -233,17 +231,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         break;
                     }
 
-                    // Retry on 5xx errors (server not ready) or 401/503 (transient auth/availability issues)
-                    if ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.ServiceUnavailable)
+                    // Retry on 5xx errors (server not ready) or 401/503 (transient auth/availability issues) if within timeout
+                    if (((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.ServiceUnavailable) &&
+                        overallStopwatch.Elapsed < overallTimeout)
                     {
-                        if (overallStopwatch.Elapsed < overallTimeout)
-                        {
-                            int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds); // Cap growth at attempt 4
-                            Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch returned {response.StatusCode} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
-                            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
-                            response.Dispose();
-                            continue;
-                        }
+                        int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds); // Cap growth at attempt 4
+                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch returned {response.StatusCode} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
+                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                        response.Dispose();
+                        continue;
                     }
 
                     // Non-retryable error or timeout exhausted
@@ -340,7 +336,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     .OrResult<HttpResponseMessage>(message => message.StatusCode == HttpStatusCode.TooManyRequests ||
                                                               message.StatusCode == HttpStatusCode.ServiceUnavailable)
                     .WaitAndRetryAsync(
-                        retryCount: 6,
+                        retryCount: 10,
                         sleepDurationProvider: (retryAttempt, result, context) =>
                         {
                             // Check for Retry-After header on 429 responses - honor the server's requested delay
@@ -360,7 +356,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         onRetryAsync: async (outcome, timespan, retryAttempt, context) =>
                         {
                             var statusCode = outcome.Result?.StatusCode.ToString() ?? outcome.Exception?.GetType().Name ?? "Unknown";
-                            Console.WriteLine($"[SessionMessageHandler] Retry {retryAttempt}/6 after {statusCode}. Waiting {timespan.TotalSeconds:F1}s before next attempt...");
+                            Console.WriteLine($"[SessionMessageHandler] Retry {retryAttempt}/10 after {statusCode}. Waiting {timespan.TotalSeconds:F1}s before next attempt...");
                             await Task.CompletedTask;
                         });
             }

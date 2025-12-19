@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -91,12 +92,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             // Copy headers (except Authorization which will be re-added by AuthenticationHttpMessageHandler)
-            foreach (var header in request.Headers)
+            foreach (var header in request.Headers.Where(h => !string.Equals(h.Key, "Authorization", StringComparison.OrdinalIgnoreCase)))
             {
-                if (!string.Equals(header.Key, "Authorization", StringComparison.OrdinalIgnoreCase))
-                {
-                    clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                }
+                clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
 
             // Copy content if present
