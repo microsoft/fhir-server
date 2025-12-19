@@ -122,6 +122,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))
                     {
+                        // Block PUT/DELETE operations on system-defined search parameters
+                        if (searchParameterInfo.IsSystemDefined)
+                        {
+                            if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                _logger.LogWarning("Attempt to update a system-defined search parameter. url: {Url}", searchParam.Url);
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                        nameof(searchParam.Url),
+                                        string.Format(Resources.SearchParameterDefinitionSystemDefined, searchParam.Url)));
+                            }
+                            else if (method.Equals(HttpDeleteName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                _logger.LogWarning("Attempt to delete a system-defined search parameter. url: {Url}", searchParam.Url);
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                        nameof(searchParam.Url),
+                                        string.Format(Resources.SearchParameterDefinitionSystemDefined, searchParam.Url)));
+                            }
+                        }
+
                         // And if this is a request to create a new search parameter
                         if (method.Equals(HttpPostName, StringComparison.OrdinalIgnoreCase))
                         {

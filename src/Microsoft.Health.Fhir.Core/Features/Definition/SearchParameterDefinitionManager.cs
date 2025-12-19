@@ -85,7 +85,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup,
                 _modelInfoProvider,
                 _searchParameterComparer,
-                _logger);
+                _logger,
+                isSystemDefined: true);
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
