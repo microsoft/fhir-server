@@ -61,6 +61,47 @@ jobs:
         # Import retry helper for transient error handling
         . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
 
+        # Helper function to resolve triggering user email from git commit author
+        # Supports GitHub noreply emails by looking up username mapping in Key Vault
+        function Get-TriggeringUserEmail {
+            try {
+                # Get git commit author email
+                $gitEmail = git log -1 --format='%ae' 2>$null
+                if ([string]::IsNullOrEmpty($gitEmail)) {
+                    Write-Host "Could not retrieve git commit author email."
+                    return $null
+                }
+                Write-Host "Git commit author email: $gitEmail"
+                
+                # Check if this is a GitHub noreply email pattern: 12345+username@users.noreply.github.com
+                if ($gitEmail -match '^(\d+\+)?(.+)@users\.noreply\.github\.com$') {
+                    $githubUsername = $Matches[2]
+                    Write-Host "Detected GitHub noreply email. Extracted username: $githubUsername"
+                    
+                    # Look up the Azure AD email from Key Vault secret
+                    $secretName = "github-$githubUsername"
+                    Write-Host "Looking up Key Vault secret: $secretName"
+                    try {
+                        $secret = Get-AzKeyVaultSecret -VaultName 'resolute-oss-tenant-info' -Name $secretName -AsPlainText -ErrorAction Stop
+                        if (-not [string]::IsNullOrEmpty($secret)) {
+                            Write-Host "Found Azure AD email mapping in Key Vault: $secret"
+                            return $secret
+                        }
+                    } catch {
+                        Write-Warning "Key Vault secret '$secretName' not found. To enable automatic user provisioning, create a secret named '$secretName' with your Azure AD email as the value."
+                        return $null
+                    }
+                }
+                
+                # Not a noreply email - return as-is (might be a direct email)
+                Write-Host "Using git email directly: $gitEmail"
+                return $gitEmail
+            } catch {
+                Write-Warning "Error resolving triggering user email: $($_.Exception.Message)"
+                return $null
+            }
+        }
+
         $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
 
         $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
@@ -163,21 +204,7 @@ jobs:
 
             # Add triggering user access to CosmosDB if enabled
             if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
-                $triggeringUserEmail = "$(Build.RequestedForEmail)"
-                
-                # For PR/automated triggers, email may be empty - get from git commit author
-                if ([string]::IsNullOrEmpty($triggeringUserEmail)) {
-                    Write-Host "Build.RequestedForEmail not available, getting email from git commit author..."
-                    try {
-                        $gitAuthorEmail = git log -1 --format='%ae' 2>$null
-                        if (-not [string]::IsNullOrEmpty($gitAuthorEmail)) {
-                            $triggeringUserEmail = $gitAuthorEmail
-                            Write-Host "Found git commit author email: $triggeringUserEmail"
-                        }
-                    } catch {
-                        Write-Warning "Could not get git commit author email: $($_.Exception.Message)"
-                    }
-                }
+                $triggeringUserEmail = Get-TriggeringUserEmail
                 
                 if (-not [string]::IsNullOrEmpty($triggeringUserEmail)) {
                     Write-Host "Adding triggering user '$triggeringUserEmail' to CosmosDB..."
@@ -209,7 +236,7 @@ jobs:
                         }
                     }
                 } else {
-                    Write-Host "No triggering user email available. Skipping CosmosDB user provisioning."
+                    Write-Host "No triggering user email resolved. Skipping CosmosDB user provisioning."
                 }
             }
 
@@ -250,21 +277,7 @@ jobs:
         if("${{ parameters.sql }}" -eq "true"){
             # Add triggering user access to SQL database if enabled
             if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
-                $triggeringUserEmail = "$(Build.RequestedForEmail)"
-                
-                # For PR/automated triggers, email may be empty - get from git commit author
-                if ([string]::IsNullOrEmpty($triggeringUserEmail)) {
-                    Write-Host "Build.RequestedForEmail not available, getting email from git commit author..."
-                    try {
-                        $gitAuthorEmail = git log -1 --format='%ae' 2>$null
-                        if (-not [string]::IsNullOrEmpty($gitAuthorEmail)) {
-                            $triggeringUserEmail = $gitAuthorEmail
-                            Write-Host "Found git commit author email: $triggeringUserEmail"
-                        }
-                    } catch {
-                        Write-Warning "Could not get git commit author email: $($_.Exception.Message)"
-                    }
-                }
+                $triggeringUserEmail = Get-TriggeringUserEmail
                 
                 if (-not [string]::IsNullOrEmpty($triggeringUserEmail)) {
                     Write-Host "Adding triggering user '$triggeringUserEmail' to SQL database..."
@@ -306,7 +319,7 @@ jobs:
                         Write-Warning "Could not add triggering user to SQL database: $($_.Exception.Message). Continuing pipeline."
                     }
                 } else {
-                    Write-Host "No triggering user email available. Skipping SQL user provisioning."
+                    Write-Host "No triggering user email resolved. Skipping SQL user provisioning."
                 }
             }
         }
