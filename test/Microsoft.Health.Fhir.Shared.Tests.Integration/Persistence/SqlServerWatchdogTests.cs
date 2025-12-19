@@ -15,7 +15,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
-using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -55,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
-        [RetryFact(MaxRetries = 5, DelayBetweenRetriesMs = 10000)]
+        [Fact]
         public async Task DefragBlocking()
         {
             // I don't know why blocking is not 100% reproduced. Hence this workaround.
