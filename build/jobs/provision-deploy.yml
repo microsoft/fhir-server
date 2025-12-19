@@ -164,6 +164,21 @@ jobs:
             # Add triggering user access to CosmosDB if enabled
             if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
                 $triggeringUserEmail = "$(Build.RequestedForEmail)"
+                
+                # For PR/automated triggers, email may be empty - get from git commit author
+                if ([string]::IsNullOrEmpty($triggeringUserEmail)) {
+                    Write-Host "Build.RequestedForEmail not available, getting email from git commit author..."
+                    try {
+                        $gitAuthorEmail = git log -1 --format='%ae' 2>$null
+                        if (-not [string]::IsNullOrEmpty($gitAuthorEmail)) {
+                            $triggeringUserEmail = $gitAuthorEmail
+                            Write-Host "Found git commit author email: $triggeringUserEmail"
+                        }
+                    } catch {
+                        Write-Warning "Could not get git commit author email: $($_.Exception.Message)"
+                    }
+                }
+                
                 if (-not [string]::IsNullOrEmpty($triggeringUserEmail)) {
                     Write-Host "Adding triggering user '$triggeringUserEmail' to CosmosDB..."
                     try {
@@ -194,7 +209,7 @@ jobs:
                         }
                     }
                 } else {
-                    Write-Host "No triggering user email available (automated trigger). Skipping CosmosDB user provisioning."
+                    Write-Host "No triggering user email available. Skipping CosmosDB user provisioning."
                 }
             }
 
@@ -236,6 +251,21 @@ jobs:
             # Add triggering user access to SQL database if enabled
             if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
                 $triggeringUserEmail = "$(Build.RequestedForEmail)"
+                
+                # For PR/automated triggers, email may be empty - get from git commit author
+                if ([string]::IsNullOrEmpty($triggeringUserEmail)) {
+                    Write-Host "Build.RequestedForEmail not available, getting email from git commit author..."
+                    try {
+                        $gitAuthorEmail = git log -1 --format='%ae' 2>$null
+                        if (-not [string]::IsNullOrEmpty($gitAuthorEmail)) {
+                            $triggeringUserEmail = $gitAuthorEmail
+                            Write-Host "Found git commit author email: $triggeringUserEmail"
+                        }
+                    } catch {
+                        Write-Warning "Could not get git commit author email: $($_.Exception.Message)"
+                    }
+                }
+                
                 if (-not [string]::IsNullOrEmpty($triggeringUserEmail)) {
                     Write-Host "Adding triggering user '$triggeringUserEmail' to SQL database..."
                     try {
@@ -276,7 +306,7 @@ jobs:
                         Write-Warning "Could not add triggering user to SQL database: $($_.Exception.Message). Continuing pipeline."
                     }
                 } else {
-                    Write-Host "No triggering user email available (automated trigger). Skipping SQL user provisioning."
+                    Write-Host "No triggering user email available. Skipping SQL user provisioning."
                 }
             }
         }
