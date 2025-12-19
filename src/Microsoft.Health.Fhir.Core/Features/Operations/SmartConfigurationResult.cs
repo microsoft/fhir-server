@@ -26,7 +26,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             Capabilities = capabilities;
         }
 
-        public SmartConfigurationResult(Uri authorizationEndpoint, Uri tokenEndpoint, ICollection<string> capabilities, ICollection<string> scopesSupported)
+        public SmartConfigurationResult(
+            Uri authorizationEndpoint,
+            Uri tokenEndpoint,
+            ICollection<string> capabilities,
+            ICollection<string> scopesSupported,
+            ICollection<string> codeChallengeMethodsSupported = null,
+            ICollection<string> grantTypesSupported = null,
+            ICollection<string> tokenEndpointAuthMethodsSupported = null,
+            ICollection<string> responseTypesSupported = null,
+            string introspectionEndpoint = null,
+            string managementEndpoint = null,
+            string revocationEndpoint = null)
         {
             EnsureArg.IsNotNull(authorizationEndpoint, nameof(authorizationEndpoint));
             EnsureArg.IsNotNull(tokenEndpoint, nameof(tokenEndpoint));
@@ -36,6 +47,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             TokenEndpoint = tokenEndpoint;
             Capabilities = capabilities;
             ScopesSupported = scopesSupported;
+            CodeChallengeMethodsSupported = codeChallengeMethodsSupported;
+            GrantTypesSupported = grantTypesSupported;
+            TokenEndpointAuthMethodsSupported = tokenEndpointAuthMethodsSupported;
+            ResponseTypesSupported = responseTypesSupported;
+            IntrospectionEndpoint = introspectionEndpoint;
+            ManagementEndpoint = managementEndpoint;
+            RevocationEndpoint = revocationEndpoint;
         }
 
         [JsonConstructor]
@@ -43,10 +61,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         {
         }
 
-        [JsonProperty("authorizationEndpoint")]
+        [JsonProperty("authorization_endpoint")]
         public Uri AuthorizationEndpoint { get; private set; }
 
-        [JsonProperty("tokenEndpoint")]
+        [JsonProperty("token_endpoint")]
         public Uri TokenEndpoint { get; private set; }
 
         [JsonProperty("capabilities")]
@@ -54,5 +72,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         [JsonProperty("scopes_supported")]
         public ICollection<string> ScopesSupported { get; private set; }
+
+        [JsonProperty("code_challenge_methods_supported")]
+        public ICollection<string> CodeChallengeMethodsSupported { get; }
+
+        [JsonProperty("grant_types_supported")]
+        public ICollection<string> GrantTypesSupported { get; }
+
+        [JsonProperty("token_endpoint_auth_methods_supported")]
+        public ICollection<string> TokenEndpointAuthMethodsSupported { get; }
+
+        [JsonProperty("response_types_supported")]
+        public ICollection<string> ResponseTypesSupported { get; }
+
+        [JsonProperty("introspection_endpoint")]
+        public string IntrospectionEndpoint { get; }
+
+        [JsonProperty("management_endpoint")]
+        public string ManagementEndpoint { get; }
+
+        [JsonProperty("revocation_endpoint")]
+        public string RevocationEndpoint { get; }
     }
 }

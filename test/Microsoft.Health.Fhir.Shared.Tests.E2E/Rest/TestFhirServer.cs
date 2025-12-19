@@ -6,11 +6,13 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -271,14 +273,64 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     await request.Content.LoadIntoBufferAsync();
                 }
 
-                HttpResponseMessage response = await _polly.ExecuteAsync(async () => await base.SendAsync(request, cancellationToken));
+                var diagnostics = new StringBuilder();
+                var overallStopwatch = Stopwatch.StartNew();
+                int attemptNumber = 0;
 
-                if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
+                try
                 {
-                    _sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
-                }
+                    HttpResponseMessage response = await _polly.ExecuteAsync(async () =>
+                    {
+                        attemptNumber++;
+                        var attemptStopwatch = Stopwatch.StartNew();
 
-                return response;
+                        try
+                        {
+                            var result = await base.SendAsync(request, cancellationToken);
+                            attemptStopwatch.Stop();
+                            diagnostics.AppendLine($"  Attempt {attemptNumber}: {(int)result.StatusCode} {result.StatusCode} in {attemptStopwatch.ElapsedMilliseconds}ms");
+                            return result;
+                        }
+                        catch (Exception ex)
+                        {
+                            attemptStopwatch.Stop();
+                            diagnostics.AppendLine($"  Attempt {attemptNumber}: Exception ({ex.GetType().Name}: {ex.Message}) in {attemptStopwatch.ElapsedMilliseconds}ms");
+                            throw;
+                        }
+                    });
+
+                    if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
+                    {
+                        _sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
+                    }
+
+                    return response;
+                }
+                catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // This is a timeout, not a user-initiated cancellation
+                    overallStopwatch.Stop();
+                    throw new HttpRequestException(
+                        $"Request timed out after {overallStopwatch.ElapsedMilliseconds}ms.\n" +
+                        $"Request: {request.Method} {request.RequestUri}\n" +
+                        $"Attempts ({attemptNumber} total):\n{diagnostics}",
+                        ex);
+                }
+                catch (TaskCanceledException)
+                {
+                    // User-initiated cancellation, just rethrow
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    overallStopwatch.Stop();
+                    throw new HttpRequestException(
+                        $"Request failed after {overallStopwatch.ElapsedMilliseconds}ms.\n" +
+                        $"Request: {request.Method} {request.RequestUri}\n" +
+                        $"Attempts ({attemptNumber} total):\n{diagnostics}" +
+                        $"Final exception: {ex.GetType().Name}: {ex.Message}",
+                        ex);
+                }
             }
         }
 

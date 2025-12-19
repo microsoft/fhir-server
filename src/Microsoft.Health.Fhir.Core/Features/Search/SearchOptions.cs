@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             get => _includeCount;
             internal set
             {
-                if (value <= 0)
+                if (value <= 0 && !IncludeContinuationTokenSearch)
                 {
                     throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
                 }
@@ -122,6 +122,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _includeCount = value;
             }
         }
+
+        /// <summary>
+        /// Indicates if the search is being performed just to retrieve the continuation token for includes.
+        /// </summary>
+        public bool IncludeContinuationTokenSearch { get; set; } = false;
 
         /// <summary>
         /// Which version types (latest, soft-deleted, history) to include in search.

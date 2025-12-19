@@ -66,7 +66,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         "online_access",
                     };
 
-                    return new GetSmartConfigurationResponse(authorizationEndpoint, tokenEndpoint, capabilities, scopesSupported);
+                    ICollection<string> codeChallengeMethodsSupported = new List<string>
+                    {
+                        "S256",
+                    };
+
+                    ICollection<string> grantTypesSupported = new List<string>
+                    {
+                        "authorization_code",
+                        "client_credentials",
+                    };
+
+                    ICollection<string> tokenEndpointAuthMethodsSupported = new List<string>
+                    {
+                        "client_secret_basic",
+                        "client_secret_jwt",
+                        "none",
+                    };
+
+                    ICollection<string> responseTypesSupported = new List<string>
+                    {
+                        "code",
+                    };
+
+                    return new GetSmartConfigurationResponse(
+                        authorizationEndpoint,
+                        tokenEndpoint,
+                        capabilities,
+                        scopesSupported,
+                        codeChallengeMethodsSupported,
+                        grantTypesSupported,
+                        tokenEndpointAuthMethodsSupported,
+                        responseTypesSupported,
+                        _securityConfiguration.IntrospectionEndpoint,
+                        _securityConfiguration.ManagementEndpoint,
+                        _securityConfiguration.RevocationEndpoint);
                 }
                 catch (Exception e) when (e is ArgumentNullException || e is UriFormatException)
                 {

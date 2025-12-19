@@ -65,9 +65,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
-        [Route(KnownRoutes.ReindexOperationDefinition, Name = RouteNames.ReindexOperationDefintion)]
+        [Route(KnownRoutes.ReindexOperationDefinition, Name = RouteNames.ReindexOperationDefinition)]
         [AllowAnonymous]
-        public async Task<IActionResult> ReindexOperationDefintion()
+        public async Task<IActionResult> ReindexOperationDefinition()
         {
             return await GetOperationDefinitionAsync(OperationsConstants.Reindex);
         }

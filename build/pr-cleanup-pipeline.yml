@@ -1,0 +1,76 @@
+# DESCRIPTION: 	
+# Cleans up Azure resources after a successful PR Build & Deploy pipeline run.
+# This pipeline is triggered automatically when the PR pipeline completes successfully.
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+  - pipeline: prPipeline
+    source: 'PR Build & Deploy'
+    trigger:
+      branches:
+        include:
+          - '*'
+      stages:
+        - testStu3
+        - testR4
+        - testR4B
+        - testR5
+
+variables:
+- template: pr-variables.yml
+- template: build-variables.yml
+
+stages:
+- stage: Setup
+  displayName: 'Setup Cleanup Variables'
+  jobs:
+  - job: ExtractVariables
+    displayName: 'Extract PR and Build Info'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - powershell: |
+        $sourceBranch = "$(resources.pipeline.prPipeline.sourceBranch)"
+        $runName = "$(resources.pipeline.prPipeline.runName)"
+        
+        Write-Host "Source branch from triggering pipeline: $sourceBranch"
+        Write-Host "Run name from triggering pipeline: $runName"
+        
+        # Parse PR number from source branch (expected format: refs/pull/<number>/merge)
+        if ($sourceBranch -match 'refs/pull/(\d+)/merge') {
+          $prName = $Matches[1]
+          Write-Host "Extracted PR number: $prName"
+        } else {
+          Write-Error "Failed to parse PR number from source branch: $sourceBranch. Expected format: refs/pull/<number>/merge"
+          exit 1
+        }
+        
+        # Set variables for downstream stages
+        Write-Host "##vso[task.setvariable variable=prName;isOutput=true]$prName"
+        Write-Host "##vso[task.setvariable variable=ImageTag;isOutput=true]$runName"
+        Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentName;isOutput=true]f$runName"
+        Write-Host "##vso[task.setvariable variable=ResourceGroupName;isOutput=true]$(resourceGroupRoot)-$prName"
+        
+        Write-Host "Variables set:"
+        Write-Host "  prName: $prName"
+        Write-Host "  ImageTag: $runName"
+        Write-Host "  DeploymentEnvironmentName: f$runName"
+        Write-Host "  ResourceGroupName: $(resourceGroupRoot)-$prName"
+      name: SetVariables
+      displayName: 'Parse PR number and set variables'
+
+- stage: Cleanup
+  displayName: 'Cleanup Azure Environment'
+  dependsOn:
+  - Setup
+  variables:
+    prName: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.prName']]
+    ImageTag: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.ImageTag']]
+    DeploymentEnvironmentName: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.DeploymentEnvironmentName']]
+    ResourceGroupName: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.ResourceGroupName']]
+  jobs:
+  - template: ./jobs/cleanup.yml

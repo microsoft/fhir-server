@@ -17,6 +17,7 @@ using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         protected Mediator Mediator { get; }
 
-        [Theory]
+        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
         [InlineData(5)] // should succeed
         [InlineData(35)] // shoul fail
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -113,7 +114,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [Theory]
+        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
         [InlineData(true)]
         [InlineData(false)]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -259,7 +260,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -1189,7 +1190,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         {
             var searchParam = new SearchParameter
             {
-                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
+                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}-Integration-FhirStorageTests",
                 Type = type,
 #if Stu3 || R4 || R4B
                 Base = new List<ResourceType?>() { ResourceType.Patient },

@@ -33,6 +33,9 @@ jobs:
       Inline: |
         Add-Type -AssemblyName System.Web
 
+        # Import retry helper for transient error handling
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
         $adminUserAssignedManagedIdentityName = "${{ parameters.adminUserAssignedManagedIdentityName }}"
         $adminType = "${{ parameters.adminType }}"
         $resourceGroup = "${{ parameters.resourceGroup }}"
@@ -49,8 +52,10 @@ jobs:
           $resourceGroupDetails = Get-AzResourceGroup -Name $resourceGroup
           $location = $resourceGroupDetails.Location
 
-          # Create user-assigned managed identity
-          $identity = New-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName -Location $location
+          # Create user-assigned managed identity with retry for transient errors
+          $identity = Invoke-WithRetry -OperationName "Create Managed Identity" -ScriptBlock {
+            New-AzUserAssignedIdentity -ResourceGroupName $resourceGroup -Name $adminUserAssignedManagedIdentityName -Location $location -ErrorAction Stop
+          }
 
           $principalId = $identity.PrincipalId
           $tenantId = $identity.TenantId
@@ -79,7 +84,11 @@ jobs:
         Write-Host "Provisioning Sql server"
         Write-Host "Resource Group: ${{ parameters.resourceGroup }}"
         Write-Host "SqlServerName: ${{ parameters.sqlServerName }}"
-        New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
+
+        # Deploy SQL Server with retry for transient errors
+        Invoke-WithRetry -OperationName "SQL Server Deployment" -ScriptBlock {
+          New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -Name "${{ parameters.sqlServerName }}-deploy" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
+        }
 
         $agentIP = (New-Object net.webclient).downloadstring("https://api.ipify.org")
 
@@ -88,7 +97,10 @@ jobs:
 
         if (-not $firewallRule) {
           Write-Host "Creating firewall rule 'AzureDevopsAgent'"
-          New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIP -EndIPAddress $agentIP
+          # Create firewall rule with retry for SQL Server propagation delays
+          Invoke-WithRetry -OperationName "SQL Firewall Rule" -ScriptBlock {
+            New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroup -ServerName $sqlServerName -FirewallRuleName "AzureDevopsAgent" -StartIPAddress $agentIP -EndIPAddress $agentIP -ErrorAction Stop
+          }
         }
         else {
           Write-Host "Firewall rule 'AzureDevopsAgent' already exists. Skipping creation."
@@ -105,7 +117,7 @@ jobs:
           Write-Host "SQL Server: $sqlServerName"
           Write-Host "Association Name: $associationName"
             
-          $templateParameters = @{
+          $nspTemplateParameters = @{
               'nspName' = $nspName
               'resourceName' = $sqlServerName
               'resourceType' = 'Microsoft.Sql/servers'
@@ -114,13 +126,16 @@ jobs:
               'nspProfile' = 'default'
           }
             
-          # Deploy using external template
-          $nspDeploymentResult = New-AzResourceGroupDeployment `
-            -ResourceGroupName $resourceGroup `
-            -Name "$sqlServerName-nsp-association" `
-            -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-            -TemplateParameterObject $templateParameters `
-            -Verbose
+          # Deploy NSP association with retry for transient errors
+          $nspDeploymentResult = Invoke-WithRetry -OperationName "NSP Association Deployment" -ScriptBlock {
+            New-AzResourceGroupDeployment `
+              -ResourceGroupName $resourceGroup `
+              -Name "$sqlServerName-nsp-association" `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+              -TemplateParameterObject $nspTemplateParameters `
+              -Verbose `
+              -ErrorAction Stop
+          }
             
           Write-Host "Successfully associated SQL Server with NSP using external ARM template"
           Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
