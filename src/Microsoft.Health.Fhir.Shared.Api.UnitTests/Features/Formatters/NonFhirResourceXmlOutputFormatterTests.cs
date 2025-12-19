@@ -5,7 +5,6 @@
 
 using System;
 using System.Reflection;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Tests.Common;
