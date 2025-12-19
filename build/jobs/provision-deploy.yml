@@ -33,6 +33,9 @@ parameters:
 - name: keyVaultName
   type: string
   default: ''
+- name: addTriggeringUserAccess
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionEnvironment
@@ -158,6 +161,43 @@ jobs:
                   -ErrorAction Stop
             }
 
+            # Add triggering user access to CosmosDB if enabled
+            if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
+                $triggeringUserEmail = "$(Build.RequestedForEmail)"
+                if (-not [string]::IsNullOrEmpty($triggeringUserEmail)) {
+                    Write-Host "Adding triggering user '$triggeringUserEmail' to CosmosDB..."
+                    try {
+                        $userPrincipal = Get-AzADUser -UserPrincipalName $triggeringUserEmail -ErrorAction SilentlyContinue
+                        if (-not $userPrincipal) {
+                            # Try by mail attribute for guest users
+                            $userPrincipal = Get-AzADUser -Filter "mail eq '$triggeringUserEmail'" -ErrorAction SilentlyContinue
+                        }
+                        if ($userPrincipal) {
+                            Invoke-WithRetry -OperationName "Add Triggering User CosmosDB Role" -ScriptBlock {
+                                New-AzCosmosDBSqlRoleAssignment `
+                                  -AccountName $webAppName `
+                                  -ResourceGroupName $resourceGroupName `
+                                  -Scope "/" `
+                                  -PrincipalId $userPrincipal.Id `
+                                  -RoleDefinitionId "00000000-0000-0000-0000-000000000002" `
+                                  -ErrorAction Stop
+                            }
+                            Write-Host "Successfully added triggering user to CosmosDB with Data Contributor role"
+                        } else {
+                            Write-Warning "Could not find user '$triggeringUserEmail' in Azure AD. Skipping CosmosDB user provisioning."
+                        }
+                    } catch {
+                        if ($_.Exception.Message -like "*RoleAssignmentAlreadyExists*" -or $_.Exception.Message -like "*already exists*") {
+                            Write-Host "Triggering user already has CosmosDB access. Skipping."
+                        } else {
+                            Write-Warning "Could not add triggering user to CosmosDB: $($_.Exception.Message). Continuing pipeline."
+                        }
+                    }
+                } else {
+                    Write-Host "No triggering user email available (automated trigger). Skipping CosmosDB user provisioning."
+                }
+            }
+
             # Associate CosmosDB with Network Security Perimeter using external template
             Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
             
@@ -190,6 +230,55 @@ jobs:
                 
             Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
             Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+        }
+
+        if("${{ parameters.sql }}" -eq "true"){
+            # Add triggering user access to SQL database if enabled
+            if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
+                $triggeringUserEmail = "$(Build.RequestedForEmail)"
+                if (-not [string]::IsNullOrEmpty($triggeringUserEmail)) {
+                    Write-Host "Adding triggering user '$triggeringUserEmail' to SQL database..."
+                    try {
+                        $sqlServerName = "${{parameters.sqlServerName}}".ToLower()
+                        $databaseName = "FHIR_${{ parameters.version }}"
+                        
+                        # Get access token for SQL using the current Azure context
+                        $accessToken = (Get-AzAccessToken -ResourceUrl "https://database.windows.net/").Token
+                        
+                        # Create SQL user for the triggering user with db_owner role
+                        # Using string concatenation to avoid YAML heredoc parsing issues
+                        $sqlQuery = "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = N'$triggeringUserEmail') "
+                        $sqlQuery += "BEGIN "
+                        $sqlQuery += "CREATE USER [$triggeringUserEmail] FROM EXTERNAL PROVIDER; "
+                        $sqlQuery += "ALTER ROLE db_owner ADD MEMBER [$triggeringUserEmail]; "
+                        $sqlQuery += "PRINT 'Created user and added to db_owner role'; "
+                        $sqlQuery += "END "
+                        $sqlQuery += "ELSE BEGIN "
+                        $sqlQuery += "IF NOT EXISTS (SELECT 1 FROM sys.database_role_members drm "
+                        $sqlQuery += "JOIN sys.database_principals dp ON drm.member_principal_id = dp.principal_id "
+                        $sqlQuery += "JOIN sys.database_principals r ON drm.role_principal_id = r.principal_id "
+                        $sqlQuery += "WHERE dp.name = N'$triggeringUserEmail' AND r.name = 'db_owner') "
+                        $sqlQuery += "BEGIN ALTER ROLE db_owner ADD MEMBER [$triggeringUserEmail]; PRINT 'Added existing user to db_owner role'; END "
+                        $sqlQuery += "ELSE BEGIN PRINT 'User already exists with db_owner role'; END "
+                        $sqlQuery += "END"
+                        
+                        Invoke-WithRetry -OperationName "Add Triggering User to SQL" -ScriptBlock {
+                            Invoke-Sqlcmd `
+                              -ServerInstance "$sqlServerName.database.windows.net" `
+                              -Database $databaseName `
+                              -AccessToken $accessToken `
+                              -Query $sqlQuery `
+                              -ErrorAction Stop
+                        }
+                        
+                        Write-Host "Successfully added triggering user to SQL database with db_owner role"
+                    } catch {
+                        Write-Warning "Could not add triggering user to SQL database: $($_.Exception.Message). Continuing pipeline."
+                    }
+                } else {
+                    Write-Host "No triggering user email available (automated trigger). Skipping SQL user provisioning."
+                }
+            }
         }
   - template: ./provision-healthcheck.yml
     parameters:
