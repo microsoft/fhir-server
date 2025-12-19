@@ -287,6 +287,13 @@ jobs:
                     $triggeringUserUpn = $userInfo.Upn
                     Write-Host "Adding triggering user '$triggeringUserUpn' to SQL database..."
                     try {
+                        # Install SqlServer module if not available
+                        if (-not (Get-Module -ListAvailable -Name SqlServer)) {
+                            Write-Host "Installing SqlServer module..."
+                            Install-Module -Name SqlServer -Force -Scope CurrentUser -AllowClobber
+                        }
+                        Import-Module SqlServer
+                        
                         $sqlServerName = "${{parameters.sqlServerName}}".ToLower()
                         $databaseName = "FHIR_${{ parameters.version }}"
                         
