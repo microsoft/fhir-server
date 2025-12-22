@@ -7,6 +7,7 @@ steps:
 
 - task: AzurePowerShell@5
   displayName: Setup AAD Test Environment
+  retryCountOnTaskFailure: 1
   inputs:
     azureSubscription: $(ConnectedServiceName)
     azurePowerShellVersion: latestVersion
@@ -14,10 +15,12 @@ steps:
     Inline: |
       # Install only required Microsoft Graph modules for better performance
       # Use AllowClobber to handle any version conflicts
-      Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Applications -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Users -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force -Scope CurrentUser -AllowClobber
+      # Pin to version 2.33.0 due to bug in 2.34.0 affecting PowerShell 5.1
+      # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
+      Install-Module -Name Microsoft.Graph.Authentication -RequiredVersion 2.33.0 -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Applications -RequiredVersion 2.33.0 -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Users -RequiredVersion 2.33.0 -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -RequiredVersion 2.33.0 -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
 
       $module = Get-Module -Name Microsoft.Graph.Authentication
