@@ -486,7 +486,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var loaded = new List<ImportResource>();
                 var conflicts = new List<ImportResource>();
 
-                // Adding try-catch to chekc if Contraint violation erro is happening here
+                // Adding try-catch to check if Constraint violation error is happening here
                 try
                 {
                     if (importMode == ImportMode.InitialLoad)
@@ -1039,41 +1039,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return $"Import failed due to code overflow constraint violation.";
             }
 
-            const string sql = @"
-             ;WITH details AS (
-                 SELECT kc.name AS ConstraintName, 
-                        t.name AS TableName,
-                        STRING_AGG(col.name, ',') AS Columns
-                 FROM sys.key_constraints kc
-                 JOIN sys.tables t ON kc.parent_object_id = t.object_id
-                 JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
-                 JOIN sys.columns col ON col.object_id = ic.object_id AND col.column_id = ic.column_id
-                 WHERE kc.name = @name
-                 GROUP BY kc.name, t.name
-             
-                 UNION ALL
-             
-                 SELECT fk.name AS ConstraintName, 
-                        t.name AS TableName,
-                        STRING_AGG(c.name, ',') AS Columns
-                 FROM sys.foreign_keys fk
-                 JOIN sys.tables t ON fk.parent_object_id = t.object_id
-                 JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
-                 JOIN sys.columns c ON c.object_id = fkc.parent_object_id AND c.column_id = fkc.parent_column_id
-                 WHERE fk.name = @name
-                 GROUP BY fk.name, t.name
-             
-                 UNION ALL
-             
-                 SELECT ck.name AS ConstraintName, 
-                        t.name AS TableName,
-                        ck.definition AS Columns
-                 FROM sys.check_constraints ck
-                 JOIN sys.tables t ON ck.parent_object_id = t.object_id
-                 WHERE ck.name = @name
-             )
-             SELECT TOP 1 TableName, Columns
-             FROM details;";
+            const string sql = @"SELECT TOP 1
+                                        t.name AS TableName,
+                                        ck.definition AS Columns
+                                 FROM sys.check_constraints ck
+                                 JOIN sys.tables t ON ck.parent_object_id = t.object_id
+                                 WHERE ck.name = @name;
+                                 ";
 
             using var cmd = new SqlCommand(sql) { CommandType = CommandType.Text };
             cmd.Parameters.AddWithValue("@name", constraintName);
