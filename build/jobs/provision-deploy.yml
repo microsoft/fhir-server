@@ -301,11 +301,19 @@ jobs:
                     $sqlServerName = "${{parameters.sqlServerName}}".ToLower()
                     $databaseName = "FHIR_${{ parameters.version }}"
                     
-                    # Get service connection info (App ID and Tenant ID for ARM template)
+                    # Get service connection info
+                    # IMPORTANT: SQL Server matches the token's 'oid' claim against the admin SID
+                    # The token contains the Service Principal's Object ID, NOT the App ID
+                    # So we must use the SP's Object ID as the admin SID
                     $serviceConnectionAppId = (Get-AzContext).Account.Id
                     $serviceConnectionTenantId = (Get-AzContext).Tenant.Id
-                    $serviceConnectionDisplayName = "$(ConnectedServiceName) - $serviceConnectionAppId"
-                    Write-Host "Service connection AppId: $serviceConnectionAppId, TenantId: $serviceConnectionTenantId"
+                    
+                    # Get the Service Principal's Object ID (required for SQL admin SID)
+                    $serviceConnectionObjectId = Invoke-WithRetry -OperationName "Get Service Connection Object ID" -ScriptBlock {
+                        (Get-AzADServicePrincipal -ApplicationId $serviceConnectionAppId -ErrorAction Stop).Id
+                    }
+                    $serviceConnectionDisplayName = "$(ConnectedServiceName)"
+                    Write-Host "Service connection AppId: $serviceConnectionAppId, ObjectId: $serviceConnectionObjectId, TenantId: $serviceConnectionTenantId"
                     
                     # Get UAMI info for restoring admin later
                     $uami = Get-AzUserAssignedIdentity -Name $adminUamiName -ResourceGroupName $resourceGroupName
@@ -315,12 +323,12 @@ jobs:
                     
                     try {
                         # Temporarily set service connection as SQL admin using ARM template
-                        # This approach works for cross-tenant service principals
+                        # Using Object ID (not App ID) as SID - this matches what the token's 'oid' claim contains
                         Write-Host "Setting service connection as SQL admin via ARM template..."
                         $serviceConnectionAdminParams = @{
                             sqlServerName = $sqlServerName
                             sqlAdministratorLogin = $serviceConnectionDisplayName
-                            sqlAdministratorSid = $serviceConnectionAppId
+                            sqlAdministratorSid = $serviceConnectionObjectId
                             sqlAdministratorTenantId = $serviceConnectionTenantId
                             sqlServerPrincipalType = "Application"
                         }
