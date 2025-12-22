@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -43,11 +43,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<ValidateOperationResponse>(
+            _mediator.SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new ValidateOperationResponse(new OperationOutcomeIssue[0]));
-            _mediator.Send<GetResourceResponse>(
+            _mediator.SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetResourceResponse(new RawResourceElement(
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ValidateOperationResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -142,10 +142,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ValidateOperationResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(valid ? 1 : 0).Send<GetResourceResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -198,10 +198,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.False(valid);
             }
 
-            await _mediator.Received(valid ? 1 : 0).Send<ValidateOperationResponse>(
+            await _mediator.Received(valid ? 1 : 0).SendAsync<ValidateOperationResponse>(
                 Arg.Any<ValidateOperationRequest>(),
                 Arg.Any<CancellationToken>());
-            await _mediator.Received(valid && getResource ? 1 : 0).Send<GetResourceResponse>(
+            await _mediator.Received(valid && getResource ? 1 : 0).SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }

@@ -5,7 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Fhir.Core.Features.Health;
 
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Health
             return Task.FromResult(new HealthCheckResult(HealthStatus.Unhealthy, "Improper server behavior has been detected." + _message));
         }
 
-        public Task Handle(ImproperBehaviorNotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(ImproperBehaviorNotification notification, CancellationToken cancellationToken)
         {
             _isHealthy = false;
             _message += " " + notification.Message;
