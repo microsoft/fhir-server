@@ -206,6 +206,56 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.Received().UpdateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenAHardDeleteResourceRequest_WhenDeletingASearchParameterResource_ThenDeleteSearchParameterShouldBeCalledWithHardDeleteTrue()
+        {
+            var searchParameter = new SearchParameter() { Id = "Id" };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "Id");
+            var request = new DeleteResourceRequest(key, DeleteOperation.HardDelete);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);
+
+            var response = new DeleteResourceResponse(key);
+
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+
+            // Verify DeleteSearchParameterAsync is called with isHardDelete: true
+            await _searchParameterOperations.Received().DeleteSearchParameterAsync(
+                Arg.Any<RawResource>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                isHardDelete: true);
+        }
+
+        [Fact]
+        public async Task GivenASoftDeleteResourceRequest_WhenDeletingASearchParameterResource_ThenDeleteSearchParameterShouldBeCalledWithHardDeleteFalse()
+        {
+            var searchParameter = new SearchParameter() { Id = "Id" };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "Id");
+            var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
+            var wrapper = CreateResourceWrapper(resource, false);
+
+            _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);
+
+            var response = new DeleteResourceResponse(key);
+
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+
+            // Verify DeleteSearchParameterAsync is called with isHardDelete: false (default)
+            await _searchParameterOperations.Received().DeleteSearchParameterAsync(
+                Arg.Any<RawResource>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                isHardDelete: false);
+        }
+
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)
         {
             return new ResourceWrapper(

@@ -121,7 +121,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     break;
                 case DeleteOperation.HardDelete:
                 case DeleteOperation.PurgeHistory:
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
+                    if (string.Equals(key.ResourceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Retrieve the existing resource before soft deleting
+                        ResourceWrapper existingResource = await fhirDataStore.Value.GetAsync(key, cancellationToken);
+
+                        if (existingResource != null)
+                        {
+                            await SoftDeleteSearchParameterResourceAsync(existingResource, cancellationToken);
+                        }
+                        else
+                        {
+                            // Resource doesn't exist, log or handle accordingly
+                            _logger.LogWarning("SearchParameter resource {ResourceType}/{ResourceId} not found for soft delete", key.ResourceType, key.Id);
+                        }
+                    }
+                    else
+                    {
+                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
+                    }
+
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request));
@@ -465,14 +484,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
                 {
                     await DeleteSearchParameterAsync(item.Resource, cancellationToken);
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+
+                    // For SearchParameters, perform soft delete instead of hard delete
+                    // The reindex operation will finalize the hard delete by calling the SQL stored procedure
+                    if (string.Equals(item.Resource.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await SoftDeleteSearchParameterResourceAsync(item.Resource, innerCt);
+                    }
+                    else
+                    {
+                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+                    }
+
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
                 await Parallel.ForEachAsync(matchedResources, cancellationToken, async (item, innerCt) =>
                 {
                     await DeleteSearchParameterAsync(item.Resource, cancellationToken);
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+
+                    // For SearchParameters, perform soft delete instead of hard delete
+                    // The reindex operation will finalize the hard delete by calling the SQL stored procedure
+                    if (string.Equals(item.Resource.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await SoftDeleteSearchParameterResourceAsync(item.Resource, innerCt);
+                    }
+                    else
+                    {
+                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+                    }
+
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
             }
@@ -630,7 +671,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 foreach (var resource in resources.Where(x => string.Equals(x?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)))
                 {
-                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
+                    await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: true);
                 }
             }
         }
@@ -639,8 +680,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             if (string.Equals(resource?.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
             {
-                await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, true);
+                await _searchParameterOperations.DeleteSearchParameterAsync(resource.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: true);
             }
+        }
+
+        /// <summary>
+        /// Performs a soft delete for a SearchParameter resource instead of a hard delete.
+        /// This ensures the resource data remains available until the reindex operation finalizes the hard delete.
+        /// </summary>
+        private async Task SoftDeleteSearchParameterResourceAsync(ResourceWrapper resource, CancellationToken cancellationToken)
+        {
+            using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+
+            // Create a soft-deleted wrapper for the SearchParameter
+            ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(resource.ResourceTypeName, resource.ResourceId);
+
+            bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(resource.ResourceTypeName, cancellationToken);
+
+            // Perform soft delete by upserting the deleted wrapper
+            await _retryPolicy.ExecuteAsync(async () =>
+                await fhirDataStore.Value.UpsertAsync(
+                    new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: null),
+                    cancellationToken));
         }
     }
 }

@@ -875,5 +875,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return null;
             }
         }
+
+        public Task HardDeleteSearchParameterAsync(string searchParameterUrl, CancellationToken cancellationToken)
+        {
+            // Cosmos DB does not support SearchParameter hard delete via stored procedure
+            // SearchParameter data is managed through the standard resource deletion mechanisms
+            _logger.LogWarning("HardDeleteSearchParameterAsync is not supported for Cosmos DB. SearchParameter: {Url}", searchParameterUrl);
+            return Task.CompletedTask;
+        }
     }
 }

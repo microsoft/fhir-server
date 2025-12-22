@@ -196,8 +196,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
         {
             // Build queries based on new search params
-            // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
-            List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
+            // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable, pendingHardDelete.
+            List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>()
+            {
+                SearchParameterStatus.Supported,
+                SearchParameterStatus.PendingDelete,
+                SearchParameterStatus.PendingDisable,
+                SearchParameterStatus.PendingHardDelete,
+            };
             _initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
             // Get all URIs that have at least one entry with a valid status
@@ -682,6 +688,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     case SearchParameterStatus.PendingDelete:
                         _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Deleted.", searchParameterUrl);
                         await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Deleted, cancellationToken);
+                        _processedSearchParameters.Add(searchParameterUrl);
+                        break;
+                    case SearchParameterStatus.PendingHardDelete:
+                        _logger.LogJobInformation(_jobInfo, "Reindex job hard deleting the fully indexed search parameter, parameter: '{ParamUri}'.", searchParameterUrl);
+                        await _searchParameterDefinitionManager.UpdateSearchParameterStatusAsync(searchParameterUrl, SearchParameterStatus.HardDeleted, cancellationToken);
                         _processedSearchParameters.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.Supported:

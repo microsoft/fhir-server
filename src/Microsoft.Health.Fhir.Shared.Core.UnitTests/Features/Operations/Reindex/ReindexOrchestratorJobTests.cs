@@ -761,6 +761,58 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenPendingHardDeleteParam_WhenExecuted_ThenSearchParameterDefinitionManagerHardDeleteIsCalled()
+        {
+            // Arrange
+            var searchParam = CreateSearchParameterInfo();
+            var searchParamStatus = new ResourceSearchParameterStatus
+            {
+                LastUpdated = DateTime.UtcNow,
+                Uri = new Uri(searchParam.Url.OriginalString),
+                Status = SearchParameterStatus.PendingHardDelete,
+            };
+
+            _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
+                .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
+
+            _searchDefinitionManager.AllSearchParameters
+                .Returns(new List<SearchParameterInfo> { searchParam });
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+                .Returns("hash");
+
+            var emptySearchResult = new SearchResult(0, new List<Tuple<string, string>>());
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(emptySearchResult);
+
+            var jobInfo = await CreateReindexJobRecord();
+            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+
+            // Act
+            var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+
+            // Assert - For PendingHardDelete, UpdateSearchParameterStatusAsync is called on the definition manager (not status manager)
+            // with HardDeleted status, which triggers the stored procedure to hard delete the search parameter
+            Assert.NotNull(jobResult);
+            await _searchDefinitionManager.Received().UpdateSearchParameterStatusAsync(
+                searchParam.Url.ToString(),
+                SearchParameterStatus.HardDeleted,
+                Arg.Any<CancellationToken>());
+
+            // Verify that the status manager is NOT called for hard delete (unlike soft delete)
+            await _searchParameterStatusManager.DidNotReceive().UpdateSearchParameterStatusAsync(
+                Arg.Is<List<string>>(l => l.Contains(searchParam.Url.ToString())),
+                SearchParameterStatus.HardDeleted,
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task UpdateSearchParameterStatus_WithNullReadySearchParameters_ReturnsEarly()
         {
             // Arrange

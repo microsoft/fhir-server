@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -141,6 +142,63 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.Equal(sortedExpected[i].Status, sortedActual[i].Status);
                 Assert.Equal(sortedExpected[i].IsPartiallySupported, sortedActual[i].IsPartiallySupported);
             }
+        }
+
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        [Fact]
+        public async Task GivenASearchParameterUrl_WhenHardDeleteSearchParameterIsCalled_ThenSearchParameterIsDeleted()
+        {
+            // This test verifies the HardDeleteSearchParameterAsync method on SqlServerFhirDataStore
+            // The stored procedure should remove the SearchParameter from the SearchParam table
+
+            string searchParameterUrl = $"http://hl7.org/fhir/SearchParameter/Test-HardDelete-{Guid.NewGuid()}";
+
+            // First, create a status entry for our test search parameter
+            var status = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri(searchParameterUrl),
+                Status = SearchParameterStatus.PendingHardDelete,
+                IsPartiallySupported = false,
+            };
+
+            try
+            {
+                // Upsert the status entry to ensure it exists in the SearchParam table
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new List<ResourceSearchParameterStatus> { status }, CancellationToken.None);
+
+                // Verify the status was added
+                IReadOnlyCollection<ResourceSearchParameterStatus> statusesBeforeDelete = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                Assert.Contains(statusesBeforeDelete, s => s.Uri.OriginalString == searchParameterUrl);
+
+                // Call HardDeleteSearchParameterAsync on the data store
+                IFhirDataStore dataStore = _fixture.DataStore;
+                await dataStore.HardDeleteSearchParameterAsync(searchParameterUrl, CancellationToken.None);
+
+                // Verify the status entry was deleted
+                IReadOnlyCollection<ResourceSearchParameterStatus> statusesAfterDelete = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+                Assert.DoesNotContain(statusesAfterDelete, s => s.Uri.OriginalString == searchParameterUrl);
+            }
+            finally
+            {
+                // Cleanup - ensure the test search parameter is deleted
+                await _testHelper.DeleteSearchParameterStatusAsync(searchParameterUrl);
+            }
+        }
+
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        [Fact]
+        public async Task GivenANonExistentSearchParameterUrl_WhenHardDeleteSearchParameterIsCalled_ThenNoErrorIsThrown()
+        {
+            // This test verifies that calling HardDeleteSearchParameterAsync with a non-existent URL
+            // completes without throwing an exception (graceful handling)
+
+            string nonExistentUrl = $"http://hl7.org/fhir/SearchParameter/NonExistent-{Guid.NewGuid()}";
+
+            // Call HardDeleteSearchParameterAsync - should not throw
+            IFhirDataStore dataStore = _fixture.DataStore;
+            await dataStore.HardDeleteSearchParameterAsync(nonExistentUrl, CancellationToken.None);
+
+            // If we get here without exception, the test passes
         }
     }
 }

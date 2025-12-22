@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -127,5 +129,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="url">The url identifying the custom search parameter to update.</param>
         /// <param name="desiredStatus">The desired status for the custom search parameter to update.</param>
         void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus);
+
+        /// <summary>
+        /// Allows async update of a custom search parameter status. For HardDeleted status, this will call the stored procedure to hard delete the search parameter.
+        /// </summary>
+        /// <param name="url">The url identifying the custom search parameter to update.</param>
+        /// <param name="desiredStatus">The desired status for the custom search parameter to update.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        Task UpdateSearchParameterStatusAsync(string url, SearchParameterStatus desiredStatus, CancellationToken cancellationToken = default);
     }
 }

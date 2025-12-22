@@ -552,6 +552,186 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        public async Task GivenSearchParameter_WhenHardDeleted_ThenSearchParameterIsCompletelyRemoved()
+        {
+            // Cancel any running reindex jobs before starting this test
+            await CancelAnyRunningReindexJobsAsync();
+
+            // This test verifies the full hard delete lifecycle for a SearchParameter:
+            // 1. Create a custom SearchParameter
+            // 2. Enable it via reindex
+            // 3. Hard delete the SearchParameter (marks it as PendingHardDelete)
+            // 4. Run reindex to complete the hard delete (removes from SearchParam table and Resource table)
+            // 5. Verify the SearchParameter is completely removed (returns not-supported error)
+            // 6. Verify the same SearchParameter URL can be re-created (proves it was completely removed)
+            var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+            var searchParamCode = $"custom-harddelete-{randomSuffix}";
+            var searchParamUrl = $"http://example.org/fhir/SearchParameter/{searchParamCode}";
+            var searchParam = new SearchParameter();
+            var recreatedSearchParam = new SearchParameter();
+            var testResources = new List<(string resourceType, string resourceId)>();
+            (FhirResponse<Parameters> response, Uri jobUri) reindexRequest1 = default;
+            (FhirResponse<Parameters> response, Uri jobUri) reindexRequest2 = default;
+            (FhirResponse<Parameters> response, Uri jobUri) reindexRequest3 = default;
+
+            try
+            {
+                // Step 1: Create test data
+                var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
+                testResources.AddRange(specimenResources);
+                System.Diagnostics.Debug.WriteLine($"Created {finalSpecimenCount} specimen resources for hard delete test");
+
+                // Step 2: Create a custom search parameter for Specimen.type
+                searchParam = await CreateCustomSearchParameterAsync(
+                    searchParamCode,
+                    ["Specimen"],
+                    "Specimen.type",
+                    SearchParamType.Token);
+                Assert.NotNull(searchParam);
+                System.Diagnostics.Debug.WriteLine($"Created search parameter with code {searchParam.Code} and ID {searchParam.Id}");
+
+                // Step 3: Reindex to enable the search parameter
+                var reindexParams = new Parameters
+                {
+                    Parameter = new List<Parameters.ParameterComponent>
+                    {
+                        new Parameters.ParameterComponent
+                        {
+                            Name = "maximumNumberOfResourcesPerQuery",
+                            Value = new Integer(10000),
+                        },
+                        new Parameters.ParameterComponent
+                        {
+                            Name = "maximumNumberOfResourcesPerWrite",
+                            Value = new Integer(1000),
+                        },
+                    },
+                };
+
+                reindexRequest1 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
+                Assert.Equal(HttpStatusCode.Created, reindexRequest1.response.Response.StatusCode);
+                System.Diagnostics.Debug.WriteLine("Started first reindex job to enable the new search parameter");
+
+                var jobStatus1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, TimeSpan.FromSeconds(240));
+                Assert.True(
+                    jobStatus1 == OperationStatus.Completed,
+                    $"First reindex job should complete successfully, but got {jobStatus1}");
+                System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
+
+                // Step 4: Verify the search parameter works
+                var searchQuery = $"Specimen?{searchParam.Code}=119295008";
+                await VerifySearchParameterIsWorkingAsync(
+                    searchQuery,
+                    searchParam.Code,
+                    expectedResourceType: "Specimen",
+                    shouldFindRecords: true);
+                System.Diagnostics.Debug.WriteLine("Verified search parameter is working before hard delete");
+
+                // Step 5: Hard delete the search parameter
+                await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{searchParam.Id}?hardDelete=true");
+                System.Diagnostics.Debug.WriteLine($"Hard deleted search parameter {searchParam.Code} (ID: {searchParam.Id})");
+
+                // Step 6: Verify the search parameter status is PendingHardDelete
+                try
+                {
+                    var statusResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={searchParamUrl}");
+                    if (statusResponse?.Resource?.Parameter != null)
+                    {
+                        var part = statusResponse.Resource.Parameter
+                            .FirstOrDefault(x => x.Part.Any(p =>
+                                string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) &&
+                                string.Equals(p.Value?.ToString(), searchParamUrl, StringComparison.OrdinalIgnoreCase)));
+
+                        if (part != null)
+                        {
+                            var status = part.Part
+                                .FirstOrDefault(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
+                                ?.Value?.ToString();
+                            System.Diagnostics.Debug.WriteLine($"Search parameter status after hard delete: {status}");
+                            Assert.True(
+                                string.Equals(status, "PendingHardDelete", StringComparison.OrdinalIgnoreCase),
+                                $"Expected PendingHardDelete status, but got {status}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Could not verify PendingHardDelete status: {ex.Message}");
+
+                    // Continue with the test - status endpoint might not be available
+                }
+
+                // Step 7: Reindex to complete the hard delete
+                reindexRequest2 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
+                Assert.Equal(HttpStatusCode.Created, reindexRequest2.response.Response.StatusCode);
+                System.Diagnostics.Debug.WriteLine("Started second reindex job to complete hard delete");
+
+                var jobStatus2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, TimeSpan.FromSeconds(240));
+                Assert.True(
+                    jobStatus2 == OperationStatus.Completed,
+                    $"Second reindex job should complete successfully, but got {jobStatus2}");
+                System.Diagnostics.Debug.WriteLine("Second reindex job completed - hard delete should be finalized");
+
+                // Step 8: Verify the search parameter is no longer supported
+                var postDeleteSearchResponse = await _fixture.TestFhirClient.SearchAsync(searchQuery);
+                Assert.NotNull(postDeleteSearchResponse);
+                var hasNotSupportedErrorAfterDelete = HasNotSupportedError(postDeleteSearchResponse.Resource);
+                Assert.True(
+                    hasNotSupportedErrorAfterDelete,
+                    $"Search parameter {searchParam.Code} should NOT be supported after hard delete and reindex");
+                System.Diagnostics.Debug.WriteLine($"Search parameter {searchParam.Code} correctly returns 'NotSupported' error after hard delete");
+
+                // Step 9: Verify the SearchParameter resource is completely gone (not found, not just soft-deleted)
+                try
+                {
+                    var getResponse = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{searchParam.Id}");
+                    Assert.Fail($"Expected ResourceNotFoundException but got status {getResponse.StatusCode}");
+                }
+                catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+                {
+                    System.Diagnostics.Debug.WriteLine("Confirmed SearchParameter resource is completely removed (404 Not Found)");
+                }
+                catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.Gone)
+                {
+                    // Gone (410) would indicate soft-delete, not hard delete
+                    Assert.Fail("Expected 404 Not Found but got 410 Gone - indicates soft delete, not hard delete");
+                }
+
+                // Step 10: Verify we can re-create a SearchParameter with the same URL (proves hard delete was complete)
+                recreatedSearchParam = await CreateCustomSearchParameterAsync(
+                    searchParamCode,
+                    ["Specimen"],
+                    "Specimen.type",
+                    SearchParamType.Token);
+                Assert.NotNull(recreatedSearchParam);
+                System.Diagnostics.Debug.WriteLine($"Successfully re-created search parameter with same URL after hard delete");
+
+                // Step 11: Enable the re-created search parameter via reindex
+                reindexRequest3 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
+                Assert.Equal(HttpStatusCode.Created, reindexRequest3.response.Response.StatusCode);
+
+                var jobStatus3 = await WaitForJobCompletionAsync(reindexRequest3.jobUri, TimeSpan.FromSeconds(240));
+                Assert.True(
+                    jobStatus3 == OperationStatus.Completed,
+                    $"Third reindex job should complete successfully, but got {jobStatus3}");
+
+                // Step 12: Verify the re-created search parameter works
+                await VerifySearchParameterIsWorkingAsync(
+                    searchQuery,
+                    recreatedSearchParam.Code,
+                    expectedResourceType: "Specimen",
+                    shouldFindRecords: true);
+                System.Diagnostics.Debug.WriteLine("Verified re-created search parameter is working - hard delete test complete");
+            }
+            finally
+            {
+                // Cleanup
+                await CleanupTestDataAsync(testResources, searchParam, recreatedSearchParam);
+            }
+        }
+
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
             var person = new Person

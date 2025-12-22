@@ -348,5 +348,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             return cosmosException;
         }
+
+        [Fact]
+        public async Task GivenASearchParameterUrl_WhenHardDeleteSearchParameterAsyncIsCalled_ThenItCompletesWithoutThrowing()
+        {
+            // Arrange
+            string searchParameterUrl = "http://hl7.org/fhir/SearchParameter/Test-HardDelete";
+
+            // Act - HardDeleteSearchParameterAsync is not supported for CosmosDB, but it should complete without throwing
+            await _dataStore.HardDeleteSearchParameterAsync(searchParameterUrl, CancellationToken.None);
+
+            // Assert - If we get here without exception, the test passes
+            // The method logs a warning but doesn't throw, allowing graceful degradation
+        }
+
+        [Fact]
+        public async Task GivenANullSearchParameterUrl_WhenHardDeleteSearchParameterAsyncIsCalled_ThenItCompletesWithoutThrowing()
+        {
+            // Arrange - Even with null/empty URL, the CosmosDB implementation should not throw
+            // as it's a no-op operation that logs a warning
+
+            // Act & Assert - This should complete without throwing
+            await _dataStore.HardDeleteSearchParameterAsync(string.Empty, CancellationToken.None);
+        }
     }
 }

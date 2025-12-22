@@ -31,6 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <returns>Async Task</returns>
         Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Hard deletes a SearchParameter by calling the SQL stored procedure to remove:
+        /// - The SearchParameter resource data
+        /// - All search index entries for this SearchParameter
+        /// - The SearchParam registry entry
+        /// </summary>
+        /// <param name="searchParameterUrl">The URL of the SearchParameter to hard delete</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        /// <returns>Async Task</returns>
+        Task HardDeleteSearchParameterAsync(string searchParameterUrl, CancellationToken cancellationToken);
+
         Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
 
         Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken);
