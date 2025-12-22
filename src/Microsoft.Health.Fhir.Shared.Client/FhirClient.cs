@@ -276,16 +276,16 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<T>(response);
         }
 
-        public async Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return await FhirPatchAsync<T>($"{resource.TypeName}/{resource.Id}", patchRequest, ifMatchVersion, cancellationToken);
+            return await FhirPatchAsync<T>($"{resource.TypeName}/{resource.Id}?_meta-history={metaHistory}", patchRequest, ifMatchVersion, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
                  where T : Resource
         {
-            return await FhirPatchAsync<T>($"{resourceType}?{searchCriteria}", patchRequest, ifMatchVersion, cancellationToken);
+            return await FhirPatchAsync<T>($"{resourceType}?{searchCriteria}&_meta-history={metaHistory}", patchRequest, ifMatchVersion, cancellationToken);
         }
 
         private async Task<FhirResponse<T>> FhirPatchAsync<T>(string uri, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)

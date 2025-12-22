@@ -476,9 +476,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
         }
 
-        [SkippableFact(Skip = "This test is skipped for STU3.")]
+        [SkippableTheory(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatSupportsIt_WhenPatchingOnlyMetaTag_ThenServerShouldCreateNewVersionAndPreserveHistory()
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenAServerThatSupportsIt_WhenPatchingOnlyMetaTag_ThenServerHonorsMetaHistoryParameter(bool metaHistory)
         {
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
@@ -529,26 +531,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 patientId);
 
             Assert.NotNull(historyResponse.Resource);
-            Assert.True(
+            if (metaHistory)
+            {
+                Assert.True(
                 historyResponse.Resource.Entry.Count >= 2,
                 $"Expected at least 2 history entries, but found {historyResponse.Resource.Entry.Count}");
+            }
+            else
+            {
+                Assert.True(
+                historyResponse.Resource.Entry.Count == 1,
+                $"Expected at 1 history entry, but found {historyResponse.Resource.Entry.Count}");
+            }
 
-            // Verify version 1 exists in history
+            // Verify version 1's state in history
             var version1Entry = historyResponse.Resource.Entry.FirstOrDefault(e =>
-                e.Resource is Patient p && p.Meta.VersionId == "1");
-            Assert.NotNull(version1Entry);
+            e.Resource is Patient p && p.Meta.VersionId == "1");
+
+            if (metaHistory)
+            {
+                Assert.NotNull(version1Entry);
+
+                // Verify version 1 doesn't have the tag
+                var version1Patient = version1Entry.Resource as Patient;
+                var version1Tag = version1Patient?.Meta.Tag?.FirstOrDefault(t =>
+                    t.System == "ORGANIZATION_ID" &&
+                    t.Code == "fhirLegalEntityId");
+                Assert.Null(version1Tag);
+            }
+            else
+            {
+                Assert.Null(version1Entry);
+            }
 
             // Verify version 2 exists in history
             var version2Entry = historyResponse.Resource.Entry.FirstOrDefault(e =>
-                e.Resource is Patient p && p.Meta.VersionId == "2");
+            e.Resource is Patient p && p.Meta.VersionId == "2");
             Assert.NotNull(version2Entry);
-
-            // Verify version 1 doesn't have the tag
-            var version1Patient = version1Entry.Resource as Patient;
-            var version1Tag = version1Patient?.Meta.Tag?.FirstOrDefault(t =>
-                t.System == "ORGANIZATION_ID" &&
-                t.Code == "fhirLegalEntityId");
-            Assert.Null(version1Tag);
 
             // Verify version 2 has the tag
             var version2Patient = version2Entry.Resource as Patient;
