@@ -334,11 +334,9 @@ jobs:
                               -ErrorAction Stop
                         }
                         
-                        # Wait for admin change to propagate
-                        Start-Sleep -Seconds 15
-                        
-                        # Get fresh access token for SQL
-                        $accessToken = (Get-AzAccessToken -ResourceUrl "https://database.windows.net/").Token
+                        # Wait for admin change to propagate (30 seconds for AAD replication)
+                        Write-Host "Waiting 30 seconds for SQL admin change to propagate..."
+                        Start-Sleep -Seconds 30
                         
                         # Create SQL user for the triggering user with db_owner role
                         $sqlQuery = "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = N'$triggeringUserUpn') "
@@ -356,11 +354,17 @@ jobs:
                         $sqlQuery += "ELSE BEGIN PRINT 'User already exists with db_owner role'; END "
                         $sqlQuery += "END"
                         
+                        # Get fresh access token inside retry block and execute SQL
                         Invoke-WithRetry -OperationName "Add Triggering User to SQL" -ScriptBlock {
+                            # Get fresh token with explicit tenant to avoid cache issues
+                            $freshToken = (Get-AzAccessToken -ResourceUrl "https://database.windows.net/" -TenantId $serviceConnectionTenantId).Token
+                            Write-Host "Connecting to: $sqlServerName.database.windows.net, Database: $databaseName"
+                            Write-Host "Token acquired, length: $($freshToken.Length)"
+                            
                             Invoke-Sqlcmd `
                               -ServerInstance "$sqlServerName.database.windows.net" `
                               -Database $databaseName `
-                              -AccessToken $accessToken `
+                              -AccessToken $freshToken `
                               -Query $sqlQuery `
                               -ErrorAction Stop
                         }
