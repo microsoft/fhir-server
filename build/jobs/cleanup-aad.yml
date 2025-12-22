@@ -12,16 +12,19 @@ jobs:
 
   - task: AzurePowerShell@5
     displayName: 'Delete AAD apps'
+    retryCountOnTaskFailure: 1
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: |
         # Install only required Microsoft Graph modules for better performance
-        Install-Module -Name Microsoft.Graph.Authentication -Force
-        Install-Module -Name Microsoft.Graph.Applications -Force
-        Install-Module -Name Microsoft.Graph.Users -Force
-        Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force
+        # Pin to version 2.33.0 due to bug in 2.34.0 affecting PowerShell 5.1
+        # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
+        Install-Module -Name Microsoft.Graph.Authentication -RequiredVersion 2.33.0 -Force
+        Install-Module -Name Microsoft.Graph.Applications -RequiredVersion 2.33.0 -Force
+        Install-Module -Name Microsoft.Graph.Users -RequiredVersion 2.33.0 -Force
+        Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -RequiredVersion 2.33.0 -Force
         
         $username = "$(tenant-admin-user-name)"
         $clientId = "$(tenant-admin-service-principal-name)"
