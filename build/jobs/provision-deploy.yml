@@ -301,31 +301,41 @@ jobs:
                     $sqlServerName = "${{parameters.sqlServerName}}".ToLower()
                     $databaseName = "FHIR_${{ parameters.version }}"
                     
-                    # Get service connection info
+                    # Get service connection info (App ID and Tenant ID for ARM template)
                     $serviceConnectionAppId = (Get-AzContext).Account.Id
-                    $serviceConnectionObjectId = (Get-AzADServicePrincipal -ApplicationId $serviceConnectionAppId).Id
+                    $serviceConnectionTenantId = (Get-AzContext).Tenant.Id
                     $serviceConnectionDisplayName = "$(ConnectedServiceName) - $serviceConnectionAppId"
-                    Write-Host "Service connection ObjectId: $serviceConnectionObjectId"
+                    Write-Host "Service connection AppId: $serviceConnectionAppId, TenantId: $serviceConnectionTenantId"
                     
                     # Get UAMI info for restoring admin later
                     $uami = Get-AzUserAssignedIdentity -Name $adminUamiName -ResourceGroupName $resourceGroupName
-                    $uamiObjectId = $uami.PrincipalId
-                    Write-Host "UAMI '$adminUamiName' ObjectId: $uamiObjectId"
+                    $uamiPrincipalId = $uami.PrincipalId
+                    $uamiTenantId = $uami.TenantId
+                    Write-Host "UAMI '$adminUamiName' PrincipalId: $uamiPrincipalId, TenantId: $uamiTenantId"
                     
                     try {
-                        # Temporarily set service connection as SQL admin
-                        Write-Host "Setting service connection as SQL admin..."
+                        # Temporarily set service connection as SQL admin using ARM template
+                        # This approach works for cross-tenant service principals
+                        Write-Host "Setting service connection as SQL admin via ARM template..."
+                        $serviceConnectionAdminParams = @{
+                            sqlServerName = $sqlServerName
+                            sqlAdministratorLogin = $serviceConnectionDisplayName
+                            sqlAdministratorSid = $serviceConnectionAppId
+                            sqlAdministratorTenantId = $serviceConnectionTenantId
+                            sqlServerPrincipalType = "Application"
+                        }
+                        
                         Invoke-WithRetry -OperationName "Set Service Connection as SQL Admin" -ScriptBlock {
-                            Set-AzSqlServerActiveDirectoryAdministrator `
+                            New-AzResourceGroupDeployment `
                               -ResourceGroupName $resourceGroupName `
-                              -ServerName $sqlServerName `
-                              -DisplayName $serviceConnectionDisplayName `
-                              -ObjectId $serviceConnectionObjectId `
+                              -Name "$sqlServerName-admin-swap-to-sc" `
+                              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json `
+                              -TemplateParameterObject $serviceConnectionAdminParams `
                               -ErrorAction Stop
                         }
                         
                         # Wait for admin change to propagate
-                        Start-Sleep -Seconds 10
+                        Start-Sleep -Seconds 15
                         
                         # Get fresh access token for SQL
                         $accessToken = (Get-AzAccessToken -ResourceUrl "https://database.windows.net/").Token
@@ -359,15 +369,23 @@ jobs:
                     } catch {
                         Write-Warning "Could not add triggering user to SQL database: $($_.Exception.Message). Continuing pipeline."
                     } finally {
-                        # Always restore UAMI as SQL admin
-                        Write-Host "Restoring UAMI '$adminUamiName' as SQL admin..."
+                        # Always restore UAMI as SQL admin using ARM template
+                        Write-Host "Restoring UAMI '$adminUamiName' as SQL admin via ARM template..."
                         try {
+                            $uamiAdminParams = @{
+                                sqlServerName = $sqlServerName
+                                sqlAdministratorLogin = $uamiPrincipalId
+                                sqlAdministratorSid = $uamiPrincipalId
+                                sqlAdministratorTenantId = $uamiTenantId
+                                sqlServerPrincipalType = "User"
+                            }
+                            
                             Invoke-WithRetry -OperationName "Restore UAMI as SQL Admin" -ScriptBlock {
-                                Set-AzSqlServerActiveDirectoryAdministrator `
+                                New-AzResourceGroupDeployment `
                                   -ResourceGroupName $resourceGroupName `
-                                  -ServerName $sqlServerName `
-                                  -DisplayName $adminUamiName `
-                                  -ObjectId $uamiObjectId `
+                                  -Name "$sqlServerName-admin-swap-to-uami" `
+                                  -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json `
+                                  -TemplateParameterObject $uamiAdminParams `
                                   -ErrorAction Stop
                             }
                             Write-Host "Successfully restored UAMI as SQL admin"
