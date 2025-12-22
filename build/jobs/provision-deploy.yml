@@ -36,6 +36,9 @@ parameters:
 - name: addTriggeringUserAccess
   type: boolean
   default: false
+- name: adminUserAssignedManagedIdentityName
+  type: string
+  default: ''
 
 jobs:
 - job: provisionEnvironment
@@ -282,26 +285,52 @@ jobs:
             # Add triggering user access to SQL database if enabled
             if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
                 $userInfo = Get-TriggeringUserInfo
+                $adminUamiName = "${{ parameters.adminUserAssignedManagedIdentityName }}"
                 
-                if ($userInfo -and -not [string]::IsNullOrEmpty($userInfo.Upn)) {
+                if ($userInfo -and -not [string]::IsNullOrEmpty($userInfo.Upn) -and -not [string]::IsNullOrEmpty($adminUamiName)) {
                     $triggeringUserUpn = $userInfo.Upn
                     Write-Host "Adding triggering user '$triggeringUserUpn' to SQL database..."
+                    
+                    # Install SqlServer module if not available
+                    if (-not (Get-Module -ListAvailable -Name SqlServer)) {
+                        Write-Host "Installing SqlServer module..."
+                        Install-Module -Name SqlServer -Force -Scope CurrentUser -AllowClobber
+                    }
+                    Import-Module SqlServer
+                    
+                    $sqlServerName = "${{parameters.sqlServerName}}".ToLower()
+                    $databaseName = "FHIR_${{ parameters.version }}"
+                    
+                    # Get service connection info
+                    $serviceConnectionAppId = (Get-AzContext).Account.Id
+                    $serviceConnectionObjectId = (Get-AzADServicePrincipal -ApplicationId $serviceConnectionAppId).Id
+                    $serviceConnectionDisplayName = "$(ConnectedServiceName) - $serviceConnectionAppId"
+                    Write-Host "Service connection ObjectId: $serviceConnectionObjectId"
+                    
+                    # Get UAMI info for restoring admin later
+                    $uami = Get-AzUserAssignedIdentity -Name $adminUamiName -ResourceGroupName $resourceGroupName
+                    $uamiObjectId = $uami.PrincipalId
+                    Write-Host "UAMI '$adminUamiName' ObjectId: $uamiObjectId"
+                    
                     try {
-                        # Install SqlServer module if not available
-                        if (-not (Get-Module -ListAvailable -Name SqlServer)) {
-                            Write-Host "Installing SqlServer module..."
-                            Install-Module -Name SqlServer -Force -Scope CurrentUser -AllowClobber
+                        # Temporarily set service connection as SQL admin
+                        Write-Host "Setting service connection as SQL admin..."
+                        Invoke-WithRetry -OperationName "Set Service Connection as SQL Admin" -ScriptBlock {
+                            Set-AzSqlServerActiveDirectoryAdministrator `
+                              -ResourceGroupName $resourceGroupName `
+                              -ServerName $sqlServerName `
+                              -DisplayName $serviceConnectionDisplayName `
+                              -ObjectId $serviceConnectionObjectId `
+                              -ErrorAction Stop
                         }
-                        Import-Module SqlServer
                         
-                        $sqlServerName = "${{parameters.sqlServerName}}".ToLower()
-                        $databaseName = "FHIR_${{ parameters.version }}"
+                        # Wait for admin change to propagate
+                        Start-Sleep -Seconds 10
                         
-                        # Get access token for SQL using the current Azure context
+                        # Get fresh access token for SQL
                         $accessToken = (Get-AzAccessToken -ResourceUrl "https://database.windows.net/").Token
                         
                         # Create SQL user for the triggering user with db_owner role
-                        # Using string concatenation to avoid YAML heredoc parsing issues
                         $sqlQuery = "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = N'$triggeringUserUpn') "
                         $sqlQuery += "BEGIN "
                         $sqlQuery += "CREATE USER [$triggeringUserUpn] FROM EXTERNAL PROVIDER; "
@@ -329,7 +358,25 @@ jobs:
                         Write-Host "Successfully added triggering user to SQL database with db_owner role"
                     } catch {
                         Write-Warning "Could not add triggering user to SQL database: $($_.Exception.Message). Continuing pipeline."
+                    } finally {
+                        # Always restore UAMI as SQL admin
+                        Write-Host "Restoring UAMI '$adminUamiName' as SQL admin..."
+                        try {
+                            Invoke-WithRetry -OperationName "Restore UAMI as SQL Admin" -ScriptBlock {
+                                Set-AzSqlServerActiveDirectoryAdministrator `
+                                  -ResourceGroupName $resourceGroupName `
+                                  -ServerName $sqlServerName `
+                                  -DisplayName $adminUamiName `
+                                  -ObjectId $uamiObjectId `
+                                  -ErrorAction Stop
+                            }
+                            Write-Host "Successfully restored UAMI as SQL admin"
+                        } catch {
+                            Write-Error "CRITICAL: Failed to restore UAMI as SQL admin: $($_.Exception.Message)"
+                        }
                     }
+                } elseif ([string]::IsNullOrEmpty($adminUamiName)) {
+                    Write-Host "adminUserAssignedManagedIdentityName not provided. Skipping SQL user provisioning."
                 } else {
                     Write-Host "No triggering user info resolved. Skipping SQL user provisioning."
                 }

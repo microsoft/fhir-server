@@ -272,6 +272,7 @@ stages:
       sqlComputeTier: 'Standard'
       reindexEnabled: true
       addTriggeringUserAccess: true
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
@@ -318,6 +319,7 @@ stages:
       sqlComputeTier: 'Standard'
       reindexEnabled: true
       addTriggeringUserAccess: true
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
 
 - stage: deployR4B
   displayName: 'Deploy R4B CosmosDB Site'
@@ -364,6 +366,7 @@ stages:
       sqlComputeTier: 'Standard'
       reindexEnabled: true
       addTriggeringUserAccess: true
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
 
 - stage: deployR5
   displayName: 'Deploy R5 CosmosDB Site'
@@ -410,6 +413,7 @@ stages:
       sqlComputeTier: 'Standard'
       reindexEnabled: true
       addTriggeringUserAccess: true
+      adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
