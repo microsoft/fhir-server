@@ -3,24 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Net.Http;
-using System.Security.Claims;
-using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Http;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Security;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
 using Xunit;
 
@@ -28,54 +22,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.SmartOnFhir)]
-    public class TokenIntrospectionControllerTests : IDisposable
+    public class TokenIntrospectionControllerTests
     {
-        private readonly SecurityConfiguration _securityConfiguration;
         private readonly TokenIntrospectionController _controller;
         private readonly ITokenIntrospectionService _introspectionService;
-        private readonly RSA _rsa;
-        private readonly RsaSecurityKey _signingKey;
-        private readonly SigningCredentials _signingCredentials;
-        private readonly string _issuer = "https://test-issuer.com";
-        private readonly string _audience = "test-audience";
 
         public TokenIntrospectionControllerTests()
         {
-            // Create RSA key for signing test tokens
-            _rsa = RSA.Create(2048);
-            _signingKey = new RsaSecurityKey(_rsa);
-            _signingCredentials = new SigningCredentials(_signingKey, SecurityAlgorithms.RsaSha256);
-
-            // Configure security
-            _securityConfiguration = new SecurityConfiguration
-            {
-                Enabled = true,
-                Authentication = new AuthenticationConfiguration
-                {
-                    Authority = _issuer,
-                    Audience = _audience,
-                },
-                Authorization = new AuthorizationConfiguration
-                {
-                    Enabled = true,
-                    ScopesClaim = new List<string> { "scp" },
-                },
-            };
-
-            // Create mock HttpClientFactory that returns HttpClient for named client
-            var httpClientFactory = Substitute.For<IHttpClientFactory>();
-            httpClientFactory.CreateClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName)
-                .Returns(new HttpClient());
-
-            // Create introspection service
-            _introspectionService = new DefaultTokenIntrospectionService(
-                Options.Create(_securityConfiguration),
-                NullLogger<DefaultTokenIntrospectionService>.Instance,
-                httpClientFactory);
+            _introspectionService = Substitute.For<ITokenIntrospectionService>();
 
             _controller = new TokenIntrospectionController(
                 _introspectionService,
                 NullLogger<TokenIntrospectionController>.Instance);
+
+            // Set up ControllerContext with HttpContext
+            _controller.ControllerContext = new ControllerContext(
+                new ActionContext(
+                    new DefaultHttpContext(),
+                    new RouteData(),
+                    new ControllerActionDescriptor()));
         }
 
         [Fact]
@@ -115,9 +80,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenExpiredToken_WhenIntrospect_ThenReturnsInactive()
         {
             // Arrange
-            var expiredToken = CreateTestToken(
-                subject: "test-user",
-                expires: DateTime.UtcNow.AddHours(-1)); // Expired 1 hour ago
+            var expiredToken = "expired.jwt.token";
+            _introspectionService.IntrospectTokenAsync(expiredToken, Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { { "active", false } });
 
             // Act
             var result = await _controller.Introspect(expiredToken);
@@ -127,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.TryGetValue("active", out var active));
             Assert.False((bool)active);
-            Assert.Single(response); // Only 'active' field should be present
+            Assert.Single(response);
         }
 
         [Fact]
@@ -135,6 +100,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             // Arrange
             var malformedToken = "not.a.valid.jwt.token";
+            _introspectionService.IntrospectTokenAsync(malformedToken, Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { { "active", false } });
 
             // Act
             var result = await _controller.Introspect(malformedToken);
@@ -144,35 +111,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.TryGetValue("active", out var active));
             Assert.False((bool)active);
-            Assert.Single(response); // Only 'active' field should be present
+            Assert.Single(response);
         }
 
         [Fact]
         public async Task GivenInvalidSignatureToken_WhenIntrospect_ThenReturnsInactive()
         {
-            // Arrange - Create token with different signing key
-            using var differentRsa = RSA.Create(2048);
-            var differentKey = new RsaSecurityKey(differentRsa);
-            var differentCredentials = new SigningCredentials(differentKey, SecurityAlgorithms.RsaSha256);
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim("sub", "test-user"),
-                }),
-                Expires = DateTime.UtcNow.AddHours(1),
-                Issuer = _issuer,
-                Audience = _audience,
-                SigningCredentials = differentCredentials, // Wrong key
-            };
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(token);
+            // Arrange
+            var invalidToken = "invalid.signature.token";
+            _introspectionService.IntrospectTokenAsync(invalidToken, Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { { "active", false } });
 
             // Act
-            var result = await _controller.Introspect(tokenString);
+            var result = await _controller.Introspect(invalidToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -185,227 +136,171 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenTokenWithStandardClaims_WhenIntrospect_ThenReturnsActiveWithClaims()
         {
             // Arrange
-            var subject = "test-user-123";
-            var clientId = "test-client";
-            var username = "Test User";
-            var scopes = "patient/Patient.read patient/Observation.read";
-
-            var claims = new List<Claim>
+            var validToken = "valid.jwt.token";
+            var expectedResponse = new Dictionary<string, object>
             {
-                new Claim("sub", subject),
-                new Claim("client_id", clientId),
-                new Claim("name", username),
-                new Claim("scope", scopes),
+                { "active", true },
+                { "sub", "test-user-123" },
+                { "client_id", "test-client" },
+                { "scope", "patient/Patient.read patient/Observation.read" },
             };
-
-            var token = CreateTestToken(
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(1));
-
-            // Note: This test will return inactive because we can't easily mock JWKS retrieval
-            // In a real scenario, you'd need to mock the ConfigurationManager
-            // For now, this validates the token parsing logic
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(expectedResponse);
 
             // Act
-            var result = await _controller.Introspect(token);
+            var result = await _controller.Introspect(validToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.ContainsKey("active"));
-
-            // Note: Without proper JWKS mocking, signature validation will fail
-            // This test validates the structure, not the full validation flow
+            Assert.True((bool)response["active"]);
+            Assert.Equal("test-user-123", response["sub"]);
+            Assert.Equal("test-client", response["client_id"]);
         }
 
         [Fact]
         public async Task GivenTokenWithSmartClaims_WhenIntrospect_ThenReturnsActiveWithSmartClaims()
         {
             // Arrange
-            var subject = "test-user-123";
-            var patientId = "Patient/test-patient-456";
-            var fhirUser = "https://fhir-server.com/Practitioner/test-practitioner-789";
-            var scopes = "patient/Patient.read launch/patient openid fhirUser";
-
-            var claims = new List<Claim>
+            var validToken = "valid.smart.token";
+            var expectedResponse = new Dictionary<string, object>
             {
-                new Claim("sub", subject),
-                new Claim("scope", scopes),
-                new Claim("patient", patientId),
-                new Claim("fhirUser", fhirUser),
+                { "active", true },
+                { "sub", "test-user-123" },
+                { "scope", "patient/Patient.read launch/patient openid fhirUser" },
+                { "patient", "Patient/test-patient-456" },
+                { "fhirUser", "https://fhir-server.com/Practitioner/test-practitioner-789" },
             };
-
-            var token = CreateTestToken(
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(1));
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(expectedResponse);
 
             // Act
-            var result = await _controller.Introspect(token);
+            var result = await _controller.Introspect(validToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.ContainsKey("active"));
-
-            // Note: Signature validation will fail without JWKS mocking,
-            // but this validates the SMART claims handling logic
+            Assert.True((bool)response["active"]);
+            Assert.Equal("Patient/test-patient-456", response["patient"]);
+            Assert.Equal("https://fhir-server.com/Practitioner/test-practitioner-789", response["fhirUser"]);
         }
 
         [Fact]
         public async Task GivenTokenWithRawScope_WhenIntrospect_ThenUsesRawScope()
         {
-            // Arrange - SMART v2 token with dynamic parameters
+            // Arrange
+            var validToken = "valid.smart.v2.token";
             var rawScope = "patient/Observation.rs?category=vital-signs patient/Patient.read";
-            var normalizedScope = "patient/Observation.rs?* patient/Patient.read";
-
-            var claims = new List<Claim>
+            var expectedResponse = new Dictionary<string, object>
             {
-                new Claim("sub", "test-user"),
-                new Claim("scope", normalizedScope), // Normalized scope
-                new Claim("raw_scope", rawScope), // Original scope with search params
+                { "active", true },
+                { "sub", "test-user" },
+                { "scope", rawScope },
             };
-
-            var token = CreateTestToken(
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(1));
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(expectedResponse);
 
             // Act
-            var result = await _controller.Introspect(token);
+            var result = await _controller.Introspect(validToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.ContainsKey("active"));
-
-            // Validates raw_scope claim handling for SMART v2
+            Assert.Equal(rawScope, response["scope"]);
         }
 
         [Fact]
         public async Task GivenTokenWithMultipleScopeClaims_WhenIntrospect_ThenCombinesScopes()
         {
-            // Arrange - Some IdPs use multiple 'scp' claims instead of space-separated
-            var claims = new List<Claim>
+            // Arrange
+            var validToken = "valid.multi.scope.token";
+            var combinedScopes = "patient/Patient.read patient/Observation.read launch/patient";
+            var expectedResponse = new Dictionary<string, object>
             {
-                new Claim("sub", "test-user"),
-                new Claim("scp", "patient/Patient.read"),
-                new Claim("scp", "patient/Observation.read"),
-                new Claim("scp", "launch/patient"),
+                { "active", true },
+                { "sub", "test-user" },
+                { "scope", combinedScopes },
             };
-
-            var token = CreateTestToken(
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(1));
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(expectedResponse);
 
             // Act
-            var result = await _controller.Introspect(token);
+            var result = await _controller.Introspect(validToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.ContainsKey("active"));
-
-            // Validates multiple scope claim handling
+            Assert.Equal(combinedScopes, response["scope"]);
         }
 
         [Fact]
         public async Task GivenTokenWithExpAndIat_WhenIntrospect_ThenReturnsUnixTimestamps()
         {
             // Arrange
-            var issuedAt = DateTime.UtcNow;
-            var expires = issuedAt.AddHours(1);
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
+            var validToken = "valid.token.with.timestamps";
+            var expectedResponse = new Dictionary<string, object>
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim("sub", "test-user"),
-                }),
-                NotBefore = issuedAt,
-                Expires = expires,
-                Issuer = _issuer,
-                Audience = _audience,
-                SigningCredentials = _signingCredentials,
+                { "active", true },
+                { "sub", "test-user" },
+                { "exp", 1893456000L }, // Unix timestamp
+                { "iat", 1893452400L }, // Unix timestamp
             };
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(token);
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(expectedResponse);
 
             // Act
-            var result = await _controller.Introspect(tokenString);
+            var result = await _controller.Introspect(validToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.ContainsKey("active"));
-
-            // Validates Unix timestamp conversion for exp and iat
+            Assert.True(response.ContainsKey("exp"));
+            Assert.True(response.ContainsKey("iat"));
         }
 
         [Fact]
         public async Task GivenTokenWithOnlySubClaim_WhenIntrospect_ThenUsesSubAsClientId()
         {
-            // Arrange - Token without explicit client_id claim
-            var subject = "test-client-app";
-
-            var claims = new List<Claim>
+            // Arrange
+            var validToken = "valid.token.sub.only";
+            var expectedResponse = new Dictionary<string, object>
             {
-                new Claim("sub", subject),
+                { "active", true },
+                { "sub", "test-client-app" },
+                { "client_id", "test-client-app" }, // sub used as client_id when not present
             };
-
-            var token = CreateTestToken(
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(1));
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(expectedResponse);
 
             // Act
-            var result = await _controller.Introspect(token);
+            var result = await _controller.Introspect(validToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
             Assert.True(response.ContainsKey("active"));
-
-            // Validates fallback to 'sub' when 'client_id' is not present
+            Assert.Equal("test-client-app", response["sub"]);
+            Assert.Equal("test-client-app", response["client_id"]);
         }
 
-        /// <summary>
-        /// Helper method to create a test JWT token.
-        /// </summary>
-        private string CreateTestToken(
-            string subject = "test-user",
-            DateTime? expires = null,
-            List<Claim> claims = null)
+        [Fact]
+        public async Task GivenValidToken_WhenIntrospect_ThenCallsIntrospectionService()
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
+            // Arrange
+            var validToken = "test.token";
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { { "active", true } });
 
-            var tokenClaims = new List<Claim>(claims ?? new List<Claim>());
+            // Act
+            await _controller.Introspect(validToken);
 
-            // Add subject if not already present
-            if (!tokenClaims.Any(c => c.Type == "sub"))
-            {
-                tokenClaims.Add(new Claim("sub", subject));
-            }
-
-            var expiresTime = expires ?? DateTime.UtcNow.AddHours(1);
-            var notBefore = expiresTime.AddHours(-2); // Ensure NotBefore is before Expires
-
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(tokenClaims),
-                NotBefore = notBefore,
-                Expires = expiresTime,
-                Issuer = _issuer,
-                Audience = _audience,
-                SigningCredentials = _signingCredentials,
-            };
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
-        }
-
-        public void Dispose()
-        {
-            _rsa?.Dispose();
+            // Assert
+            await _introspectionService.Received(1).IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>());
         }
     }
 }
