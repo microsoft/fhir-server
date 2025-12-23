@@ -376,7 +376,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                     errorMessage += error.Diagnostics + " ";
                 }
 
-                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error && !inFlightJobsExist)
+                if (error.Severity == OperationOutcomeConstants.IssueSeverity.Error && !inFlightJobsExist && !cancelledJobsExist)
                 {
                     status = JobStatus.Failed;
                 }
@@ -391,6 +391,12 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         if (status == JobStatus.Failed && record.FailureDetails == null)
         {
             record.FailureDetails = new JobFailureDetails(Core.Resources.ReindexFailedWithUnknownError, HttpStatusCode.InternalServerError);
+        }
+
+        // To prevent sending consumer status that is wrong if there are still running processing jobs that were enqueued during race condition.
+        if (inFlightJobsExist && status != JobStatus.Running)
+        {
+            status = JobStatus.Running;
         }
 
         switch (status)

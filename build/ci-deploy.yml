@@ -71,7 +71,14 @@ stages:
   dependsOn:
   - provisionEnvironment
   jobs:
+  - job: deleteKeyVaults
+    displayName: 'Delete and Purge Key Vaults'
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    steps:
+    - template: ./tasks/purge-soft-deleted-keyvaults.yml
   - job: setup
+    dependsOn: deleteKeyVaults
     pool:
       vmImage: '$(WindowsVmImage)'
     steps:
