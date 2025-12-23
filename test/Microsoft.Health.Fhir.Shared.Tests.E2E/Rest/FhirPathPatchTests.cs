@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
-        [SkippableFact(Skip = "This test is skipped for STU3.")]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingAParallelBundleWithDuplicatedPatch_ThenServerShouldReturnAnError()
         {
@@ -109,10 +109,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableTheory(Skip = "This test is skipped for STU3.")]
+        [SkippableTheory]
         [Trait(Traits.Priority, Priority.One)]
-        [InlineData(FhirBundleProcessingLogic.Parallel)]
-        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)] // Parallel logic will execute in a random order, and thus is not suitable for this test
         public async Task GivenAPatchDocument_WhenSubmittingABundleWithFhirPatch_ThenServerShouldPatchCorrectly(FhirBundleProcessingLogic processingLogic)
         {
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
@@ -476,7 +475,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
         }
 
-        [SkippableTheory(Skip = "This test is skipped for STU3.")]
+        [SkippableTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(true)]
         [InlineData(false)]
@@ -510,7 +509,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Patient> patchResponse = await _client.FhirPatchAsync(
                 createResponse.Resource,
                 patchRequest,
-                ifMatchVersion: initialVersionId);
+                ifMatchVersion: initialVersionId,
+                metaHistory: metaHistory);
 
             // Verify patch was successful
             Assert.Equal(HttpStatusCode.OK, patchResponse.Response.StatusCode);
@@ -610,7 +610,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
-        [SkippableFact(Skip = "This test is skipped for STU3.")]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenPatchingMetaTagMultipleTimes_ThenAllVersionsShouldBeInHistory()
         {
