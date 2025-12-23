@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var allSearchParameters = _searchParameterDefinitionManager.AllSearchParameters;
                 var systemDefinedParam = allSearchParameters.FirstOrDefault(sp =>
                     sp.IsSystemDefined &&
-                    sp.Url.ToString().EndsWith($"/{deleteRequest.ResourceKey.Id}", StringComparison.OrdinalIgnoreCase));
+                    sp.Url?.Segments.LastOrDefault()?.TrimEnd('/') == deleteRequest.ResourceKey.Id);
 
                 if (systemDefinedParam != null)
                 {
