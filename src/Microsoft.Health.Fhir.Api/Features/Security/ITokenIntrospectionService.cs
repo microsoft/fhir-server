@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Api.Features.Security
 {
@@ -16,10 +18,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// Introspects a token and returns the introspection response.
         /// </summary>
         /// <param name="token">The token to introspect.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>
         /// Dictionary containing introspection response with 'active' key and optional claims.
         /// Returns {"active": false} for invalid tokens.
         /// </returns>
-        Dictionary<string, object> IntrospectToken(string token);
+        Task<Dictionary<string, object>> IntrospectTokenAsync(string token, CancellationToken cancellationToken = default);
     }
 }

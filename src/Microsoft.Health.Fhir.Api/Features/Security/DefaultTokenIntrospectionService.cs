@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -70,12 +71,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         protected JwtSecurityTokenHandler TokenHandler => _tokenHandler;
 
         /// <inheritdoc />
-        public Dictionary<string, object> IntrospectToken(string token)
+        public async Task<Dictionary<string, object>> IntrospectTokenAsync(string token, CancellationToken cancellationToken = default)
         {
             try
             {
                 // Attempt to validate the token
-                var validationResult = ValidateToken(token);
+                var validationResult = await ValidateTokenAsync(token, cancellationToken);
 
                 if (validationResult.IsValid)
                 {
@@ -102,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Validates a JWT token using configured validation parameters.
         /// </summary>
-        protected virtual TokenValidationResult ValidateToken(string token)
+        protected virtual async Task<TokenValidationResult> ValidateTokenAsync(string token, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 }
 
                 // Build validation parameters
-                var validationParameters = GetTokenValidationParameters();
+                var validationParameters = await GetTokenValidationParametersAsync(cancellationToken);
 
                 // Validate token signature and claims
                 var principal = TokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
@@ -153,13 +154,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// <summary>
         /// Builds TokenValidationParameters from SecurityConfiguration.
         /// </summary>
-        protected virtual TokenValidationParameters GetTokenValidationParameters()
+        protected virtual async Task<TokenValidationParameters> GetTokenValidationParametersAsync(CancellationToken cancellationToken = default)
         {
             var authority = SecurityConfiguration.Authentication.Authority;
             var audience = SecurityConfiguration.Authentication.Audience;
 
             // Normalize authority to ensure consistent JWKS endpoint
             var normalizedAuthority = authority.TrimEnd('/');
+
+            // Pre-fetch the OpenID Connect configuration
+            var config = await _configurationManager.GetConfigurationAsync(cancellationToken);
 
             return new TokenValidationParameters
             {
@@ -171,12 +175,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 ValidAudience = audience,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
-                {
-                    // Retrieve signing keys from OpenID Connect configuration
-                    var config = _configurationManager.GetConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
-                    return config.SigningKeys;
-                },
+                IssuerSigningKeys = config.SigningKeys,
                 ClockSkew = TimeSpan.FromMinutes(5), // Allow 5 minutes clock skew
             };
         }

@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -78,10 +79,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenMissingTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
+        public async Task GivenMissingTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
         {
             // Act
-            var result = _controller.Introspect(token: null);
+            var result = await _controller.Introspect(token: null);
 
             // Assert
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
@@ -89,10 +90,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenEmptyTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
+        public async Task GivenEmptyTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
         {
             // Act
-            var result = _controller.Introspect(token: string.Empty);
+            var result = await _controller.Introspect(token: string.Empty);
 
             // Assert
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
@@ -100,10 +101,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenWhitespaceTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
+        public async Task GivenWhitespaceTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
         {
             // Act
-            var result = _controller.Introspect(token: "   ");
+            var result = await _controller.Introspect(token: "   ");
 
             // Assert
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenExpiredToken_WhenIntrospect_ThenReturnsInactive()
+        public async Task GivenExpiredToken_WhenIntrospect_ThenReturnsInactive()
         {
             // Arrange
             var expiredToken = CreateTestToken(
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 expires: DateTime.UtcNow.AddHours(-1)); // Expired 1 hour ago
 
             // Act
-            var result = _controller.Introspect(expiredToken);
+            var result = await _controller.Introspect(expiredToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -130,13 +131,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenMalformedToken_WhenIntrospect_ThenReturnsInactive()
+        public async Task GivenMalformedToken_WhenIntrospect_ThenReturnsInactive()
         {
             // Arrange
             var malformedToken = "not.a.valid.jwt.token";
 
             // Act
-            var result = _controller.Introspect(malformedToken);
+            var result = await _controller.Introspect(malformedToken);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -147,7 +148,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenInvalidSignatureToken_WhenIntrospect_ThenReturnsInactive()
+        public async Task GivenInvalidSignatureToken_WhenIntrospect_ThenReturnsInactive()
         {
             // Arrange - Create token with different signing key
             using var differentRsa = RSA.Create(2048);
@@ -171,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var tokenString = tokenHandler.WriteToken(token);
 
             // Act
-            var result = _controller.Introspect(tokenString);
+            var result = await _controller.Introspect(tokenString);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenTokenWithStandardClaims_WhenIntrospect_ThenReturnsActiveWithClaims()
+        public async Task GivenTokenWithStandardClaims_WhenIntrospect_ThenReturnsActiveWithClaims()
         {
             // Arrange
             var subject = "test-user-123";
@@ -206,7 +207,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // For now, this validates the token parsing logic
 
             // Act
-            var result = _controller.Introspect(token);
+            var result = await _controller.Introspect(token);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -218,7 +219,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenTokenWithSmartClaims_WhenIntrospect_ThenReturnsActiveWithSmartClaims()
+        public async Task GivenTokenWithSmartClaims_WhenIntrospect_ThenReturnsActiveWithSmartClaims()
         {
             // Arrange
             var subject = "test-user-123";
@@ -239,7 +240,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 expires: DateTime.UtcNow.AddHours(1));
 
             // Act
-            var result = _controller.Introspect(token);
+            var result = await _controller.Introspect(token);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -251,7 +252,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenTokenWithRawScope_WhenIntrospect_ThenUsesRawScope()
+        public async Task GivenTokenWithRawScope_WhenIntrospect_ThenUsesRawScope()
         {
             // Arrange - SMART v2 token with dynamic parameters
             var rawScope = "patient/Observation.rs?category=vital-signs patient/Patient.read";
@@ -269,7 +270,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 expires: DateTime.UtcNow.AddHours(1));
 
             // Act
-            var result = _controller.Introspect(token);
+            var result = await _controller.Introspect(token);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -280,7 +281,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenTokenWithMultipleScopeClaims_WhenIntrospect_ThenCombinesScopes()
+        public async Task GivenTokenWithMultipleScopeClaims_WhenIntrospect_ThenCombinesScopes()
         {
             // Arrange - Some IdPs use multiple 'scp' claims instead of space-separated
             var claims = new List<Claim>
@@ -296,7 +297,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 expires: DateTime.UtcNow.AddHours(1));
 
             // Act
-            var result = _controller.Introspect(token);
+            var result = await _controller.Introspect(token);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -307,7 +308,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenTokenWithExpAndIat_WhenIntrospect_ThenReturnsUnixTimestamps()
+        public async Task GivenTokenWithExpAndIat_WhenIntrospect_ThenReturnsUnixTimestamps()
         {
             // Arrange
             var issuedAt = DateTime.UtcNow;
@@ -331,7 +332,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var tokenString = tokenHandler.WriteToken(token);
 
             // Act
-            var result = _controller.Introspect(tokenString);
+            var result = await _controller.Introspect(tokenString);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -342,7 +343,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenTokenWithOnlySubClaim_WhenIntrospect_ThenUsesSubAsClientId()
+        public async Task GivenTokenWithOnlySubClaim_WhenIntrospect_ThenUsesSubAsClientId()
         {
             // Arrange - Token without explicit client_id claim
             var subject = "test-client-app";
@@ -357,7 +358,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 expires: DateTime.UtcNow.AddHours(1));
 
             // Act
-            var result = _controller.Introspect(token);
+            var result = await _controller.Introspect(token);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);

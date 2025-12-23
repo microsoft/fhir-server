@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,12 +39,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Token introspection endpoint per RFC 7662.
         /// </summary>
         /// <param name="token">The token to introspect.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Token introspection response with active status and claims.</returns>
         [HttpPost]
         [Route("/connect/introspect")]
         [Consumes("application/x-www-form-urlencoded")]
         [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
-        public IActionResult Introspect([FromForm] string token)
+        public async Task<IActionResult> Introspect([FromForm] string token, CancellationToken cancellationToken = default)
         {
             // Validate token parameter is present
             if (string.IsNullOrWhiteSpace(token))
@@ -52,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             // Delegate to introspection service
-            var response = _introspectionService.IntrospectToken(token);
+            var response = await _introspectionService.IntrospectTokenAsync(token, cancellationToken);
             return Ok(response);
         }
     }
