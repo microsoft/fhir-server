@@ -475,14 +475,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
         }
 
-        [SkippableTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenAServerThatSupportsIt_WhenPatchingOnlyMetaTag_ThenServerHonorsMetaHistoryParameter(bool metaHistory)
         {
-            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
-
             // Create initial patient resource
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);

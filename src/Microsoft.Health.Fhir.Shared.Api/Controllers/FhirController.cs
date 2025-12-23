@@ -492,13 +492,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="idParameter">The identifier.</param>
         /// <param name="patchDocument">The JSON patch document.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
+        /// <param name="metaHistory">Optional flag indicating if a historical version should be created if the changes are only to metadata.</param>
         [HttpPatch]
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/json-patch+json")]
-        public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             var payload = new JsonPatchPayload(patchDocument);
 
@@ -507,7 +508,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     new ResourceKey(typeParameter, idParameter),
                     payload,
                     GetBundleResourceContext(),
-                    ifMatchHeader),
+                    ifMatchHeader,
+                    metaHistory),
                 HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response.Outcome);
@@ -519,12 +521,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">Type of resource to patch.</param>
         /// <param name="patchDocument">The JSON patch document.</param>
          /// <param name="ifMatchHeader">Optional If-Match header.</param>
+         /// <param name="metaHistory">Optional flag indicating if a historical version should be created if the changes are only to metadata.</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalPatch)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [Consumes("application/json-patch+json")]
-        public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new JsonPatchPayload(patchDocument);
@@ -532,7 +535,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
+                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader, metaHistory),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }

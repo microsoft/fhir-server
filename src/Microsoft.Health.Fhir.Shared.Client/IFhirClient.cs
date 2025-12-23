@@ -40,10 +40,10 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> JsonPatchAsync<T>(T resource, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> JsonPatchAsync<T>(T resource, string content, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> ConditionalJsonPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> ConditionalJsonPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)
             where T : Resource;
 
         Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, bool metaHistory = true, CancellationToken cancellationToken = default)

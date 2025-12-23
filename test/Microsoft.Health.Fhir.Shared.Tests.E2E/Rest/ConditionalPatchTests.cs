@@ -4,11 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -254,6 +258,158 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionJson.Response.StatusCode);
             Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionFhir.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenFhirPatchingConditionallyWithMetaHistoryFlag_TheServerShouldRespectTheFlag(bool metaHistory)
+        {
+            // Create initial patient resource
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> createResponse = await _client.CreateAsync(poco);
+
+            Assert.Equal("1", createResponse.Resource.Meta.VersionId);
+            Assert.NotNull(createResponse.Resource.Id);
+
+            string patientId = createResponse.Resource.Id;
+            string initialVersionId = createResponse.Resource.Meta.VersionId;
+
+            // Create patch request to add a tag to meta.tag array
+            var patchRequest = new Parameters().AddPatchParameter(
+                "add",
+                "Patient.meta",
+                "tag",
+                new List<Parameters.ParameterComponent>()
+                {
+                    new Parameters.ParameterComponent { Name = "system", Value = new FhirUri("ORGANIZATION_ID") },
+                    new Parameters.ParameterComponent { Name = "code", Value = new Code("fhirLegalEntityId") },
+                    new Parameters.ParameterComponent { Name = "display", Value = new FhirString("fhirLegalEntityId") },
+                });
+
+            // Apply patch with If-Match header
+            using FhirResponse<Patient> patchResponse = await _client.ConditionalFhirPatchAsync<Patient>(
+                "Patient",
+                $"_id={patientId}",
+                patchRequest,
+                ifMatchVersion: initialVersionId,
+                metaHistory: metaHistory);
+
+            // Verify patch was successful
+            Assert.Equal(HttpStatusCode.OK, patchResponse.Response.StatusCode);
+            Assert.Equal("2", patchResponse.Resource.Meta.VersionId);
+            Assert.Equal(patientId, patchResponse.Resource.Id);
+
+            // Verify the tag was added
+            Assert.NotNull(patchResponse.Resource.Meta.Tag);
+            var addedTag = patchResponse.Resource.Meta.Tag.FirstOrDefault(t =>
+                t.System == "ORGANIZATION_ID" &&
+                t.Code == "fhirLegalEntityId");
+            Assert.NotNull(addedTag);
+            Assert.Equal("fhirLegalEntityId", addedTag.Display);
+
+            // Verify history is preserved - both versions should exist
+            FhirResponse<Bundle> historyResponse = await _client.ReadHistoryAsync(
+                ResourceType.Patient,
+                patientId);
+
+            Assert.NotNull(historyResponse.Resource);
+            if (metaHistory)
+            {
+                Assert.True(
+                historyResponse.Resource.Entry.Count >= 2,
+                $"Expected at least 2 history entries, but found {historyResponse.Resource.Entry.Count}");
+            }
+            else
+            {
+                Assert.True(
+                historyResponse.Resource.Entry.Count == 1,
+                $"Expected at 1 history entry, but found {historyResponse.Resource.Entry.Count}");
+            }
+
+            // Verify version 1's state in history
+            var version1Entry = historyResponse.Resource.Entry.FirstOrDefault(e =>
+            e.Resource is Patient p && p.Meta.VersionId == "1");
+
+            if (metaHistory)
+            {
+                Assert.NotNull(version1Entry);
+
+                // Verify version 1 doesn't have the tag
+                var version1Patient = version1Entry.Resource as Patient;
+                var version1Tag = version1Patient?.Meta.Tag?.FirstOrDefault(t =>
+                    t.System == "ORGANIZATION_ID" &&
+                    t.Code == "fhirLegalEntityId");
+                Assert.Null(version1Tag);
+            }
+            else
+            {
+                Assert.Null(version1Entry);
+            }
+
+            // Verify version 2 exists in history
+            var version2Entry = historyResponse.Resource.Entry.FirstOrDefault(e =>
+            e.Resource is Patient p && p.Meta.VersionId == "2");
+            Assert.NotNull(version2Entry);
+
+            // Verify version 2 has the tag
+            var version2Patient = version2Entry.Resource as Patient;
+            var version2Tag = version2Patient?.Meta.Tag?.FirstOrDefault(t =>
+                t.System == "ORGANIZATION_ID" &&
+                t.Code == "fhirLegalEntityId");
+            Assert.NotNull(version2Tag);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenJsonPatchingConditionallyWithMetaHistoryFlag_TheServerShouldRespectTheFlag(bool metaHistory)
+        {
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            string adJson = "{\"resourceType\":\"ActivityDefinition\",\"status\":\"active\"}";
+            var poco = parser.
+                Parse<Resource>(adJson).
+                ToTypedElement().
+                ToResourceElement().
+                ToPoco<ActivityDefinition>();
+            FhirResponse<ActivityDefinition> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/meta/tag\",\"value\":{\"system\":\"http://example.org/fhir/tags\",\"code\":\"example-tag\"}}]";
+            FhirResponse<ActivityDefinition> patchResponse = await _client.ConditionalJsonPatchAsync<ActivityDefinition>(
+                "ActivityDefinition",
+                $"_id={response.Resource.Id}",
+                patchDocument,
+                metaHistory: metaHistory);
+
+            ActivityDefinition ad = patchResponse.Resource;
+            Assert.Contains(
+                ad.Meta.Tag,
+                tag => tag.System == "http://example.org/fhir/tags" && tag.Code == "example-tag");
+
+            FhirResponse<ActivityDefinition> getResponse = await _client.ReadAsync<ActivityDefinition>(
+                ResourceType.ActivityDefinition,
+                ad.Id);
+            ActivityDefinition adFromGet = getResponse.Resource;
+            Assert.Contains(
+                adFromGet.Meta.Tag,
+                tag => tag.System == "http://example.org/fhir/tags" && tag.Code == "example-tag");
+
+            FhirResponse<Bundle> historyResponse = await _client.ReadHistoryAsync(
+                ResourceType.ActivityDefinition,
+                ad.Id);
+            if (metaHistory)
+            {
+                // There should be two entries in the history: one for the create, one for the patch
+                Assert.Equal(2, historyResponse.Resource.Entry.Count);
+            }
+            else
+            {
+                // There should be only one entry in the history: the create
+                Assert.Single(historyResponse.Resource.Entry);
+            }
         }
     }
 }
