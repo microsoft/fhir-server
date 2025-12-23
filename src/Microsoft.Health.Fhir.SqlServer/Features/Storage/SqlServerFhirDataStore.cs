@@ -810,6 +810,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await GetAsync(keys, false, true, cancellationToken); // do not return invisible records in public interface
         }
 
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, CancellationToken cancellationToken)
+        {
+            return await GetAsync(keys, includeInvisible, true, cancellationToken); // used for internal testing only
+        }
+
         private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, bool isReadOnly, CancellationToken cancellationToken)
         {
             return await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, isReadOnly, cancellationToken, includeInvisible);

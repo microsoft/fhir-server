@@ -169,7 +169,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var rawResource = ReadRawResource(reader, decompress, 6);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
-            var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
+            var decompressedLength = reader.Read(VLatest.Resource.DecompressedLength, 9);
+            var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 10) : null;
             return new ResourceWrapper(
                 resourceId,
                 version.ToString(CultureInfo.InvariantCulture),
@@ -185,6 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resourceSurrogateId: resourceSurrogateId)
             {
                 IsHistory = isHistory,
+                DecompressedLength = decompressedLength,
             };
         }
 

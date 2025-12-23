@@ -2770,7 +2770,8 @@ BEGIN TRY
                    IsHistory,
                    RawResource,
                    IsRawResourceMetaSet,
-                   SearchParamHash
+                   SearchParamHash,
+                   DecompressedLength
             FROM   (SELECT TOP (@DummyTop) *
                     FROM   @ResourceKeys) AS A
                    INNER JOIN
@@ -2789,7 +2790,8 @@ BEGIN TRY
                            IsHistory,
                            RawResource,
                            IsRawResourceMetaSet,
-                           SearchParamHash
+                           SearchParamHash,
+                           DecompressedLength
                     FROM   (SELECT TOP (@DummyTop) *
                             FROM   @ResourceKeys
                             WHERE  Version IS NOT NULL) AS A
@@ -2807,7 +2809,8 @@ BEGIN TRY
                            IsHistory,
                            RawResource,
                            IsRawResourceMetaSet,
-                           SearchParamHash
+                           SearchParamHash,
+                           DecompressedLength
                     FROM   (SELECT TOP (@DummyTop) *
                             FROM   @ResourceKeys
                             WHERE  Version IS NULL) AS A
@@ -2826,7 +2829,8 @@ BEGIN TRY
                IsHistory,
                RawResource,
                IsRawResourceMetaSet,
-               SearchParamHash
+               SearchParamHash,
+               DecompressedLength
         FROM   (SELECT TOP (@DummyTop) *
                 FROM   @ResourceKeys) AS A
                INNER JOIN
