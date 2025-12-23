@@ -3,13 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -19,6 +18,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// Controller implementing RFC 7662 token introspection endpoint.
     /// Supports introspection for both development (OpenIddict) and production (external IdP) tokens.
     /// </summary>
+    [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
+    [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
+    [ValidateModelState]
     public class TokenIntrospectionController : Controller
     {
         private readonly ITokenIntrospectionService _introspectionService;
@@ -39,13 +41,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Token introspection endpoint per RFC 7662.
         /// </summary>
         /// <param name="token">The token to introspect.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Token introspection response with active status and claims.</returns>
         [HttpPost]
         [Route("/connect/introspect")]
         [Consumes("application/x-www-form-urlencoded")]
         [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
-        public async Task<IActionResult> Introspect([FromForm] string token, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> Introspect([FromForm] string token)
         {
             // Validate token parameter is present
             if (string.IsNullOrWhiteSpace(token))
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             // Delegate to introspection service
-            var response = await _introspectionService.IntrospectTokenAsync(token, cancellationToken);
+            var response = await _introspectionService.IntrospectTokenAsync(token, HttpContext.RequestAborted);
             return Ok(response);
         }
     }
