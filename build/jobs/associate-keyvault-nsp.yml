@@ -23,6 +23,9 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
+        # Import retry helper for transient error handling
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
         $resourceGroupName = "${{ parameters.resourceGroup }}"
         $keyVaultName = "${{ parameters.keyVaultName }}"
         $nspName = "${{ parameters.nspName }}"
@@ -30,8 +33,14 @@ jobs:
         
         Write-Host "Associating KeyVault $keyVaultName with Network Security Perimeter: $nspName"
         
-        # Check if KeyVault exists
-        $keyVault = Get-AzKeyVault -VaultName $keyVaultName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
+        # Check if KeyVault exists with retry for propagation delays
+        $keyVault = Invoke-WithRetry -OperationName "Get KeyVault" -ScriptBlock {
+            $kv = Get-AzKeyVault -VaultName $keyVaultName -ResourceGroupName $resourceGroupName -ErrorAction Stop
+            if (-not $kv) {
+                throw "KeyVault $keyVaultName not found"
+            }
+            return $kv
+        }
         
         if ($keyVault) {
             Write-Host "KeyVault $keyVaultName found, proceeding with NSP association"
@@ -52,13 +61,16 @@ jobs:
                 'nspProfile' = $nspProfile
             }
                 
-            # Deploy using external template
-            $nspDeploymentResult = New-AzResourceGroupDeployment `
-              -ResourceGroupName $resourceGroupName `
-              -Name "$keyVaultName-keyvault-nsp-association" `
-              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-              -TemplateParameterObject $templateParameters `
-              -Verbose
+            # Deploy using external template with retry for transient errors
+            $nspDeploymentResult = Invoke-WithRetry -OperationName "KeyVault NSP Association Deployment" -ScriptBlock {
+              New-AzResourceGroupDeployment `
+                -ResourceGroupName $resourceGroupName `
+                -Name "$keyVaultName-keyvault-nsp-association" `
+                -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+                -TemplateParameterObject $templateParameters `
+                -Verbose `
+                -ErrorAction Stop
+            }
                 
             Write-Host "Successfully associated KeyVault with NSP using external ARM template"
             Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
