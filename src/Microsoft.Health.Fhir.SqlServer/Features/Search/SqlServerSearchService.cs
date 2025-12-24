@@ -499,6 +499,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             searchResult = simpleReadResult;
                             return;
                         }
+                        else if (await TryHandleMultipleResourceReadsAsync(expression, clonedSearchOptions, connection, sqlCommand, cancellationToken) is SearchResult multipleReadResult)
+                        {
+                            // Multiple resource IDs - handled using GetResources stored procedure
+                            _logger.LogInformation("Multiple resource read using GetResources stored procedure.");
+                            searchResult = multipleReadResult;
+                            return;
+                        }
                         else
                         {
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
@@ -926,6 +933,201 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return !string.IsNullOrEmpty(value);
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// Attempts to handle multiple resource read requests using the GetResources stored procedure.
+        /// This provides better performance than generated SQL for multiple resource lookups.
+        /// </summary>
+        /// <param name="expression">The SQL root expression to analyze</param>
+        /// <param name="searchOptions">Search options for the request</param>
+        /// <param name="connection">The SQL connection</param>
+        /// <param name="command">The SQL command to populate and execute</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>SearchResult if this was a multiple resource read, null otherwise</returns>
+        private async Task<SearchResult> TryHandleMultipleResourceReadsAsync(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlConnection connection, SqlCommand command, CancellationToken cancellationToken)
+        {
+            // Only optimize for non-count queries without sorting or includes operations
+            if (searchOptions.CountOnly ||
+                searchOptions.IncludeCount != 0 ||
+                searchOptions.Sort?.Count > 0 ||
+                searchOptions.IsIncludesOperation)
+            {
+                return null;
+            }
+
+            // Only optimize for Latest searches (no history)
+            if (searchOptions.ResourceVersionTypes != ResourceVersionType.Latest)
+            {
+                return null;
+            }
+
+            // Ensure we have exactly two resource table expressions (one for resource type, one for resource ID)
+            if (expression.ResourceTableExpressions.Count != 2 ||
+                expression.SearchParamTableExpressions.Count > 0)
+            {
+                return null;
+            }
+
+            // Extract resource type and IDs from the expressions
+            if (!TryExtractResourceTypeAndIds(expression, out string resourceType, out List<string> resourceIds))
+            {
+                return null;
+            }
+
+            // Must have multiple IDs for this optimization
+            if (resourceIds == null || resourceIds.Count == 0)
+            {
+                return null;
+            }
+
+            // Get resource type ID
+            if (!_model.TryGetResourceTypeId(resourceType, out short resourceTypeId))
+            {
+                return null;
+            }
+
+            try
+            {
+                // Create a DataTable for the table-valued parameter
+                var resourceKeysTable = new DataTable();
+                resourceKeysTable.Columns.Add("ResourceTypeId", typeof(short));
+                resourceKeysTable.Columns.Add("ResourceId", typeof(string));
+                resourceKeysTable.Columns.Add("Version", typeof(int));
+
+                // Populate the table with resource keys
+                foreach (var resourceId in resourceIds)
+                {
+                    resourceKeysTable.Rows.Add(resourceTypeId, resourceId, DBNull.Value);
+                }
+
+                // Populate command to use GetResources stored procedure
+                command.CommandType = CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetResources";
+                command.Connection = connection;
+
+                var parameter = command.Parameters.AddWithValue("@ResourceKeys", resourceKeysTable);
+                parameter.SqlDbType = SqlDbType.Structured;
+                parameter.TypeName = "dbo.ResourceKeyList";
+
+                LogSqlCommand(command);
+
+                // Execute and read results
+                var results = new List<SearchResultEntry>();
+
+                using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                {
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        // GetResources returns: ResourceTypeId, ResourceId, ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource, IsRawResourceMetaSet, SearchParamHash
+                        short resTypeId = reader.GetInt16(0); // ResourceTypeId
+                        string resId = reader.GetString(1); // ResourceId
+                        long resourceSurrogateId = reader.GetInt64(2); // ResourceSurrogateId
+                        int version = reader.GetInt32(3); // Version
+                        bool isDeleted = reader.GetBoolean(4); // IsDeleted
+                        bool isHistory = reader.GetBoolean(5); // IsHistory
+                        byte[] rawResourceBytes = reader.GetSqlBytes(6).Value; // RawResource
+                        bool isRawResourceMetaSet = reader.GetBoolean(7); // IsRawResourceMetaSet
+                        string searchParameterHash = await reader.IsDBNullAsync(8, cancellationToken) ? null : reader.GetString(8); // SearchParamHash
+
+                        // Skip deleted or history records
+                        if (isDeleted || isHistory)
+                        {
+                            continue;
+                        }
+
+                        Lazy<string> rawResource = new Lazy<string>(() =>
+                        {
+                            using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                            var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+
+                            if (string.IsNullOrEmpty(decompressedResource))
+                            {
+                                decompressedResource = MissingResourceFactory.CreateJson(resId, _model.GetResourceTypeName(resTypeId), "warning", "incomplete");
+                                _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                            }
+
+                            return decompressedResource;
+                        });
+
+                        var searchResultEntry = new SearchResultEntry(
+                            new ResourceWrapper(
+                                resId,
+                                version.ToString(CultureInfo.InvariantCulture),
+                                _model.GetResourceTypeName(resTypeId),
+                                searchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                new ResourceRequest("GET"),
+                                resourceSurrogateId.ToLastUpdated(),
+                                isDeleted,
+                                null,
+                                null,
+                                null,
+                                searchParameterHash,
+                                resourceSurrogateId),
+                            SearchEntryMode.Match);
+
+                        results.Add(searchResultEntry);
+                    }
+                }
+
+                return new SearchResult(results, null, null, searchOptions.UnsupportedSearchParams);
+            }
+            catch
+            {
+                // If anything goes wrong, fall back to SQL generation
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to extract resource type and multiple IDs from an expression with IN clause.
+        /// </summary>
+        /// <param name="expression">The SQL root expression to analyze</param>
+        /// <param name="resourceType">The extracted resource type</param>
+        /// <param name="resourceIds">The extracted list of resource IDs</param>
+        /// <returns>True if extraction was successful, false otherwise</returns>
+        private static bool TryExtractResourceTypeAndIds(SqlRootExpression expression, out string resourceType, out List<string> resourceIds)
+        {
+            resourceType = null;
+            resourceIds = null;
+
+            // Find resource type and ID expressions in ResourceTableExpressions
+            SearchParameterExpression resourceTypeExpression = null;
+            SearchParameterExpression resourceIdExpression = null;
+
+            foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
+            {
+                if (searchParamExpression.Parameter.Name == SearchParameterNames.ResourceType)
+                {
+                    resourceTypeExpression = searchParamExpression;
+                }
+                else if (searchParamExpression.Parameter.Name == SearchParameterNames.Id)
+                {
+                    resourceIdExpression = searchParamExpression;
+                }
+            }
+
+            if (resourceTypeExpression == null || resourceIdExpression == null)
+            {
+                return false;
+            }
+
+            // Extract resource type
+            if (!TryExtractSimpleStringValue(resourceTypeExpression.Expression, out resourceType))
+            {
+                return false;
+            }
+
+            // Check if the ID expression is an IN expression with multiple values
+            if (resourceIdExpression.Expression is InExpression<string> inExpression)
+            {
+                // Extract all IDs from the IN expression
+                resourceIds = new List<string>(inExpression.Values);
+                return resourceIds.Count > 0;
+            }
+
+            // Not a multi-ID expression
             return false;
         }
 
@@ -2108,7 +2310,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         break;
 
                     default:
-                        // Non-search-parameter leaf (e.g. compartment) – ignore for stats
+                        // Non-search-parameter leaf (e.g. compartment) ï¿½ ignore for stats
                         break;
                 }
             }
