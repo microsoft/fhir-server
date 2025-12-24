@@ -26,6 +26,7 @@ jobs:
   steps:
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
+    retryCountOnTaskFailure: 1
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion

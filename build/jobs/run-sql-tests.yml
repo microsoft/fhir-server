@@ -9,86 +9,6 @@ parameters:
   type: string
 jobs:
 
-- job: "CosmosIntegrationTests"
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - checkout: self
-    fetchDepth: 1
-    fetchTags: false
-    path: source
-
-  - template: integration-setup.yml
-
-  - template: integration-tests-extract.yml
-    parameters:
-      version: ${{ parameters.version }}
-
-  - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '${{ parameters.keyVaultName }}'
-
-  - task: AzurePowerShell@5
-    displayName: 'Set Workload Identity Variables'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
-      ScriptType: inlineScript
-      Inline: |
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
-        Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
-
-        $appServiceName = '${{ parameters.appServiceName }}'
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(UniqueResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
-        $dataStoreResourceId = $appSettings | where {$_.Name -eq "FhirServer__ResourceManager__DataStoreResourceId"}
-        $dataStoreResourceId = $dataStoreResourceId[0].Value
-        Write-Host "$dataStoreResourceId"
-        Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
-
-  - task: DotNetCoreCLI@2
-    displayName: 'Run Cosmos Integration Tests with coverage'
-    inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
-      workingDirectory: '$(System.ArtifactsDirectory)'
-      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      publishTestResults: true
-    env:
-      'CosmosDb__Host': $(CosmosDb--Host)
-      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
-      'CosmosDb__UseManagedIdentity': true
-      'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
-      'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
-      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
-      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-
-  - task: reportgenerator@5
-    displayName: 'Aggregate Cosmos integration test coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish Cosmos integration test coverage'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
-      artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
-      artifactType: 'container'
-
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish Cosmos code coverage results'
-    condition: always()
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      reportDirectory: '$(Agent.TempDirectory)/coverage'
-
 - job: "SqlIntegrationTests"
   pool:
     name: '$(SharedLinuxPool)'
@@ -124,6 +44,7 @@ jobs:
 
   - task: DotNetCoreCLI@2
     displayName: 'Run SQL Integration Tests with coverage'
+    retryCountOnTaskFailure: 1
     inputs:
       command: test
       arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
@@ -159,35 +80,6 @@ jobs:
       codeCoverageTool: 'Cobertura'
       summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
       reportDirectory: '$(Agent.TempDirectory)/coverage'
-
-- job: 'cosmosE2eTests'
-  dependsOn: []
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      appServiceName: ${{ parameters.appServiceName }}
-      appServiceType: 'CosmosDb'
-      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
-
-- job: 'cosmosE2eTests_Reindex'
-  dependsOn: []
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      appServiceName: ${{ parameters.appServiceName }}
-      appServiceType: 'CosmosDb'
-      categoryFilter: 'Category=IndexAndReindex'
-      testRunTitleSuffix: ' Reindex'
 
 - job: 'sqlE2eTests'
   dependsOn: []

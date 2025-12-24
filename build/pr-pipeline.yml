@@ -403,60 +403,108 @@ stages:
       sqlComputeTier: 'Standard'
       reindexEnabled: true
 
-- stage: testStu3
-  displayName: 'Run Stu3 Tests'
+- stage: testStu3Cosmos
+  displayName: 'Run Stu3 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
   - deployStu3
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(KeyVaultBaseName)
+      appServiceName: $(DeploymentEnvironmentName)
+
+- stage: testStu3Sql
+  displayName: 'Run Stu3 SQL Tests'
+  dependsOn:
+  - BuildArtifacts
+  - setupEnvironment
   - deployStu3Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
       appServiceName: $(DeploymentEnvironmentName)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR4
-  displayName: 'Run R4 Tests'
+- stage: testR4Cosmos
+  displayName: 'Run R4 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
   - deployR4
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(KeyVaultNameR4)
+      appServiceName: $(DeploymentEnvironmentNameR4)
+
+- stage: testR4Sql
+  displayName: 'Run R4 SQL Tests'
+  dependsOn:
+  - BuildArtifacts
+  - setupEnvironment
   - deployR4Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR4B
-  displayName: 'Run R4B Tests'
+- stage: testR4BCosmos
+  displayName: 'Run R4B Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
   - deployR4B
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: R4B
+      keyVaultName: $(KeyVaultNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
+
+- stage: testR4BSql
+  displayName: 'Run R4B SQL Tests'
+  dependsOn:
+  - BuildArtifacts
+  - setupEnvironment
   - deployR4BSql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4B
       keyVaultName: $(KeyVaultNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
-- stage: testR5
-  displayName: 'Run R5 Tests'
+- stage: testR5Cosmos
+  displayName: 'Run R5 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
   - deployR5
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: R5
+      keyVaultName: $(KeyVaultNameR5)
+      appServiceName: $(DeploymentEnvironmentNameR5)
+
+- stage: testR5Sql
+  displayName: 'Run R5 SQL Tests'
+  dependsOn:
+  - BuildArtifacts
+  - setupEnvironment
   - deployR5Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R5
       keyVaultName: $(KeyVaultNameR5)
@@ -467,10 +515,14 @@ stages:
   displayName: 'Aggregate All Coverage Reports'
   dependsOn:
   - BuildUnitTests
-  - testStu3
-  - testR4
-  - testR4B
-  - testR5
+  - testStu3Cosmos
+  - testStu3Sql
+  - testR4Cosmos
+  - testR4Sql
+  - testR4BCosmos
+  - testR4BSql
+  - testR5Cosmos
+  - testR5Sql
   condition: succeeded()
   jobs:
   - job: AggregateCoverage
