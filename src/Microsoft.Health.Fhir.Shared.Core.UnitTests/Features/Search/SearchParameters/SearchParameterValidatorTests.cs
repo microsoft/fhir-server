@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var missingUrl = new SearchParameter();
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var brokenUrl = new SearchParameter { Url = "BrokenUrl" };
-            var uniqueUrl = new SearchParameter { Url = "http://unique" };
+
 #if Stu3 || R4 || R4B
             var baseArray = new[] { ResourceType.Patient as ResourceType? };
 #else
@@ -210,7 +210,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { missingUrl, "POST" });
             data.Add(new object[] { duplicateUrl, "POST" });
             data.Add(new object[] { brokenUrl, "POST" });
-            data.Add(new object[] { uniqueUrl, "DELETE" });
             data.Add(new object[] { duplicateCode, "POST" });
             data.Add(new object[] { nullCode, "POST" });
             data.Add(new object[] { nullCode, "PUT" });
@@ -262,6 +261,63 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { searchParam, "POST", SearchParameterStatus.Supported });
             data.Add(new object[] { searchParam, "POST", SearchParameterStatus.PendingDelete });
             return data;
+        }
+
+        [Fact]
+        public async Task GivenSystemDefinedSearchParameter_WhenUpdating_ThenMethodNotAllowedExceptionThrown()
+        {
+            // Arrange
+            var systemDefinedUrl = "http://hl7.org/fhir/SearchParameter/Resource-id";
+            var searchParam = new SearchParameter { Url = systemDefinedUrl };
+
+            var systemDefinedSearchParameterInfo = new SearchParameterInfo("id", "id")
+            {
+                SearchParameterStatus = SearchParameterStatus.Supported,
+                IsSystemDefined = true,
+            };
+
+            _searchParameterDefinitionManager.TryGetSearchParameter(systemDefinedUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = systemDefinedSearchParameterInfo;
+                    return true;
+                });
+
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<MethodNotAllowedException>(() => validator.ValidateSearchParameterInput(searchParam, "PUT", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenCustomSearchParameter_WhenUpdating_ThenNoExceptionThrown()
+        {
+            // Arrange
+            var customUrl = "http://example.com/SearchParameter/custom";
+#if Stu3 || R4 || R4B
+            var baseArray = new[] { ResourceType.Patient as ResourceType? };
+#else
+            var baseArray = new[] { VersionIndependentResourceTypesAll.Patient as VersionIndependentResourceTypesAll? };
+#endif
+            var searchParam = new SearchParameter { Url = customUrl, Code = "custom", Base = baseArray };
+
+            var customSearchParameterInfo = new SearchParameterInfo("custom", "custom")
+            {
+                SearchParameterStatus = SearchParameterStatus.Supported,
+                IsSystemDefined = false,
+            };
+
+            _searchParameterDefinitionManager.TryGetSearchParameter(customUrl, out Arg.Any<SearchParameterInfo>()).Returns(
+                x =>
+                {
+                    x[1] = customSearchParameterInfo;
+                    return true;
+                });
+
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _searchParameterOperations, _searchParameterComparer, NullLogger<SearchParameterValidator>.Instance);
+
+            // Act - should not throw
+            await validator.ValidateSearchParameterInput(searchParam, "PUT", CancellationToken.None);
         }
     }
 }

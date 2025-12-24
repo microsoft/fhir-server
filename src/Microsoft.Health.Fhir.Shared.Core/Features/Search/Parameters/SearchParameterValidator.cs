@@ -122,6 +122,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))
                     {
+                        // Block PUT operations on system-defined search parameters
+                        // Note: DELETE without URL (from filter) will not reach this code, so system-defined
+                        // check only applies to PUT operations where we have the actual resource body
+                        if (searchParameterInfo.IsSystemDefined && method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger.LogWarning("Attempt to update a system-defined search parameter. url: {Url}", searchParam.Url);
+                            throw new MethodNotAllowedException(string.Format(Resources.SearchParameterDefinitionSystemDefined, searchParam.Url));
+                        }
+
                         // And if this is a request to create a new search parameter
                         if (method.Equals(HttpPostName, StringComparison.OrdinalIgnoreCase))
                         {
@@ -150,16 +159,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     {
                         // Otherwise, no search parameters with a matching uri exist
                         // PUT is allowed to create new resources (upsert behavior)
-                        // Ensure this isn't a DELETE request for a non-existing parameter
-                        if (method.Equals(HttpDeleteName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            _logger.LogInformation("Requested to delete a Search parameter but Search parameter definition does not exist. url: {Url}", searchParam.Url);
-                            validationFailures.Add(
-                                new ValidationFailure(
-                                    nameof(searchParam.Url),
-                                    string.Format(Resources.SearchParameterDefinitionNotFound, searchParam.Url)));
-                        }
-
                         CheckForConflictingCodeValue(searchParam, validationFailures);
                     }
                 }

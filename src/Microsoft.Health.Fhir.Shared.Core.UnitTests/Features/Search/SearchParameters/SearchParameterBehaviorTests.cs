@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -17,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -32,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
 
         public SearchParameterBehaviorTests()
         {
@@ -109,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
@@ -130,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
@@ -150,9 +153,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
             await behavior.Handle(request,  async (ct) => await Task.Run(() => response), CancellationToken.None);
 
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenADeleteResourceRequest_WhenDeletingASystemDefinedSearchParameterResource_ThenDeleteSearchParameterShouldNotBeCalled()
+        {
+            var searchParameter = new SearchParameter() { Id = "system-param", Url = "http://hl7.org/fhir/SearchParameter/system-param" };
+            var resource = searchParameter.ToTypedElement().ToResourceElement();
+
+            var key = new ResourceKey("SearchParameter", "system-param");
+            var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
+
+            // Set up a system-defined search parameter in the definition manager
+            var searchParameterInfo = new SearchParameterInfo("system-param", "system-param", Microsoft.Health.Fhir.ValueSets.SearchParamType.String, new System.Uri("http://hl7.org/fhir/SearchParameter/system-param"))
+            {
+                IsSystemDefined = true,
+            };
+
+            _searchParameterDefinitionManager.AllSearchParameters.Returns(new[] { searchParameterInfo });
+
+            var response = new DeleteResourceResponse(key);
+
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
+
+            // Should throw MethodNotAllowedException for system-defined parameter
+            await Assert.ThrowsAsync<MethodNotAllowedException>(async () =>
+                await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None));
+
+            // Verify DeleteSearchParameterAsync was never called
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
