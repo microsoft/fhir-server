@@ -2888,6 +2888,7 @@ BEGIN TRY
                RawResource,
                IsRawResourceMetaSet,
                SearchParamHash,
+               DecompressedLength,
                RequestMethod
         FROM   (SELECT TOP (@DummyTop) *
                 FROM   @Keys) AS A
