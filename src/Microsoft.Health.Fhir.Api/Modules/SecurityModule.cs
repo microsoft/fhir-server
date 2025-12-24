@@ -12,6 +12,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -34,6 +35,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddSingleton<IBundleHttpContextAccessor, BundleHttpContextAccessor>();
+
+            // Register named HttpClient for OIDC configuration retrieval
+            // This client is used by ConfigurationManager to fetch .well-known/openid-configuration
+            services.AddHttpClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName);
+
+            // Register token introspection service
+            services.AddSingleton<ITokenIntrospectionService, DefaultTokenIntrospectionService>();
 
             // Set the token handler to not do auto inbound mapping. (e.g. "roles" -> "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
             JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
