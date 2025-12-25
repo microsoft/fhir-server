@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
@@ -32,7 +33,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             var s = Substitute.For<IScoped<IEnumerable<IInstantiateCapability>>>();
             s.Value.Returns(_capabilities);
 
-            _provider = new InstantiatesCapabilityProvider(() => s);
+            _provider = new InstantiatesCapabilityProvider(
+                () => s,
+                Substitute.For<ILogger<InstantiatesCapabilityProvider>>());
         }
 
         [Theory]
@@ -42,40 +45,63 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
         [InlineData(0, 0, 0)]
         [InlineData(1, 2, 3, 4)]
         [InlineData(1, 0, 3, 0)]
-        public async Task GivenCapabilities_WhenBuilding_ThenInstantiatesFieldIsPopulated(
+        public async Task GivenCapabilities_WhenBuilding_ThenInstantiatesFieldIsPopulatedCorrectly(
             params int[] counts)
         {
+            await Run(
+                counts,
+                builder => _provider.BuildAsync(builder, CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(0)]
+        [InlineData(1, 0)]
+        [InlineData(0, 0, 0)]
+        [InlineData(1, 2, 3, 4)]
+        [InlineData(1, 0, 3, 0)]
+        public async Task GivenCapabilities_WhenUpdating_ThenInstantiatesFieldIsUpdatedCorrectly(
+            params int[] counts)
+        {
+            await Run(
+                counts,
+                builder => _provider.UpdateAsync(builder, CancellationToken.None));
+        }
+
+        private async Task Run(
+            int[] counts,
+            Func<ICapabilityStatementBuilder, Task> func)
+        {
             var urls = AddCapabilities(counts);
-            var instantiates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var statement = new ListedCapabilityStatement();
             var builder = Substitute.For<ICapabilityStatementBuilder>();
             builder.Apply(Arg.Any<Action<ListedCapabilityStatement>>()).Returns(
                 x =>
                 {
                     var action = (Action<ListedCapabilityStatement>)x[0];
-                    var statement = new ListedCapabilityStatement();
                     action(statement);
-                    if (statement.Instantiates != null)
-                    {
-                        foreach (var i in statement.Instantiates)
-                        {
-                            instantiates.Add(i);
-                        }
-                    }
-
                     return builder;
                 });
 
-            await _provider.BuildAsync(builder, CancellationToken.None);
+            await func(builder);
+            if (urls.Any())
+            {
+                Assert.NotNull(statement.Instantiates);
+                Assert.Equal(urls.Count, statement.Instantiates.Count);
+                Assert.All(
+                    urls,
+                    x =>
+                    {
+                        Assert.Contains(x, statement.Instantiates);
+                    });
+            }
+            else
+            {
+                Assert.Null(statement.Instantiates);
+            }
 
-            Assert.Equal(urls.Count, instantiates.Count);
-            Assert.All(
-                urls,
-                x =>
-                {
-                    Assert.Contains(x, instantiates);
-                });
-            _capabilities.ForEach(x => x.Received(1).TryGetUrls(out Arg.Any<IEnumerable<string>>()));
-            builder.Received(urls.Any() ? 1 : 0).Apply(Arg.Any<Action<ListedCapabilityStatement>>());
+            _capabilities.ForEach(x => x.Received(1).GetCanonicalUrlsAsync(Arg.Any<CancellationToken>()));
+            builder.Received(1).Apply(Arg.Any<Action<ListedCapabilityStatement>>());
         }
 
         private List<string> AddCapabilities(int[] counts)
@@ -86,22 +112,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             foreach (var count in counts)
             {
                 var app = $"app{i}";
-                var urls = Enumerable.Range(0, count).Select(x => $"http://hl7.org/fhir/{app}/CapabilityStatement/{x}");
+                var urls = Enumerable.Range(0, count).Select(x => $"http://hl7.org/fhir/{app}/CapabilityStatement/{x}").ToList();
                 var cap = Substitute.For<IInstantiateCapability>();
-                cap.TryGetUrls(out Arg.Any<IEnumerable<string>>()).Returns(
-                    x =>
-                    {
-                        var c = count;
-                        var copy = new List<string>(urls);
-                        if (c > 0)
-                        {
-                            x[0] = copy;
-                            return true;
-                        }
-
-                        x[0] = null;
-                        return false;
-                    });
+                cap.GetCanonicalUrlsAsync(Arg.Any<CancellationToken>()).Returns(urls);
 
                 _capabilities.Add(cap);
                 capabilityUrls.AddRange(urls);

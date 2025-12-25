@@ -20,7 +20,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\FirelyTerminologyServiceProxy.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IInstantiateCapability.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\InstantiatesCapabilityProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\SmartV2InstantiateCapability.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\TerminologyRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\USCore6InstantiateCapability.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />

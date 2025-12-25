@@ -20,8 +20,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\FirelyTerminologyServiceProxyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetSmartConfigurationHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\InstantiatesCapabilityProviderTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\SmartV2InstantiateCapabilityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\TerminologyRequestHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\USCore6InstantiateCapabilityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\MockLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationTokenTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationHandlerTests.cs" />
