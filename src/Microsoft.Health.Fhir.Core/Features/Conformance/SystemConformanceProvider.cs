@@ -354,7 +354,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             ResourceElement metadata;
             if ((metadata = _metadata) != null)
             {
-                return metadata;
+                await UpdateMetadataAsync(cancellationToken);
+                return _metadata;
             }
 
             _ = await GetCapabilityStatementOnStartup(cancellationToken);
@@ -387,6 +388,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
 
                 _logger.LogInformation(versioning.ToString());
+            }
+        }
+
+        private async Task UpdateMetadataAsync(CancellationToken cancellationToken)
+        {
+            if (_builder != null)
+            {
+                _logger.LogInformation("SystemConformanceProvider: Updating the Capability Statement.");
+                await _metadataSemaphore.WaitAsync(cancellationToken);
+
+                try
+                {
+                    using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+                    {
+                        var providers = providerFactory.Value?
+                            .Where(x => x is IVolatileProvideCapability)?
+                            .Select(x => (IVolatileProvideCapability)x)
+                            .ToList()
+                            ?? new List<IVolatileProvideCapability>();
+                        foreach (var provider in providers)
+                        {
+                            Stopwatch watch = Stopwatch.StartNew();
+
+                            try
+                            {
+                                _logger.LogInformation("SystemConformanceProvider: Updating Capability Statement. Provider '{ProviderName}'.", provider.ToString());
+                                await provider.UpdateAsync(_builder, cancellationToken);
+                            }
+                            catch (Exception e)
+                            {
+                                _logger.LogWarning(e, "Failed to update Capability Statement.");
+                            }
+                            finally
+                            {
+                                _logger.LogInformation("SystemConformanceProvider: Updating Capability Statement. Provider '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
+                            }
+                        }
+                    }
+
+                    _metadata = _builder.Build().ToResourceElement();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to update Capability Statement.");
+                }
+                finally
+                {
+                    _metadataSemaphore.Release();
+                }
             }
         }
     }
