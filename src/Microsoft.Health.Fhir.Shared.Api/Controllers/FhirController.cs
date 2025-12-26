@@ -666,7 +666,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.WellKnownSmartConfiguration, Name = RouteNames.WellKnownSmartConfiguration)]
         public async Task<IActionResult> WellKnownSmartConfiguration()
         {
-            SmartConfigurationResult response = await _mediator.GetSmartConfigurationAsync(HttpContext.RequestAborted);
+            SmartConfigurationResult response = await _mediator.GetSmartConfigurationAsync(_fhirRequestContextAccessor.RequestContext.BaseUri, HttpContext.RequestAborted);
 
             return OperationSmartConfigurationResult.Ok(response);
         }
