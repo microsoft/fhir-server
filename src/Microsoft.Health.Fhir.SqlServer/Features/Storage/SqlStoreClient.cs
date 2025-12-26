@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName, _schemaInformation.Current); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
@@ -155,10 +155,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             //// ignore invisible resources
-            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != _invisibleResource).ToList();
+            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName, _schemaInformation.Current); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != _invisibleResource).ToList();
         }
 
-        private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName)
+        private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, int? currentSchema)
         {
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
@@ -169,8 +169,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var rawResource = ReadRawResource(reader, decompress, 6);
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
-            var decompressedLength = reader.Read(VLatest.Resource.DecompressedLength, 9);
-            var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 10) : null;
+
+            int? decompressedLength = null;
+            string requestMethod = null;
+
+            if (currentSchema >= SchemaVersionConstants.DecompressedLengthIt1)
+            {
+                decompressedLength = reader.Read(VLatest.Resource.DecompressedLength, 9);
+                requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 10) : null;
+            }
+            else
+            {
+                requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
+            }
+
             return new ResourceWrapper(
                 resourceId,
                 version.ToString(CultureInfo.InvariantCulture),
