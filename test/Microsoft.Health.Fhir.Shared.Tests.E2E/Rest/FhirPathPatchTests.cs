@@ -479,6 +479,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(true)]
         [InlineData(false)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAServerThatSupportsIt_WhenPatchingOnlyMetaTag_ThenServerHonorsMetaHistoryParameter(bool metaHistory)
         {
             // Create initial patient resource

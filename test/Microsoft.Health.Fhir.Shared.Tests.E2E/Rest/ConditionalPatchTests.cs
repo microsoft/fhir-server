@@ -264,6 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(true)]
         [InlineData(false)]
         [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAResource_WhenFhirPatchingConditionallyWithMetaHistoryFlag_TheServerShouldRespectTheFlag(bool metaHistory)
         {
             // Create initial patient resource
@@ -365,6 +366,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(true)]
         [InlineData(false)]
         [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAResource_WhenJsonPatchingConditionallyWithMetaHistoryFlag_TheServerShouldRespectTheFlag(bool metaHistory)
         {
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();

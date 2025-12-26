@@ -396,7 +396,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task GivenAPatchDocuemntWithMetadataChanges_WhenUsingMetaHistory_ThenParameterIsHonored(bool metaHistory)
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAResource_WhenJsonPatchingConditionallyWithMetaHistoryFlag_TheServerShouldRespectTheFlag(bool metaHistory)
         {
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
             string adJson = "{\"resourceType\":\"ActivityDefinition\",\"status\":\"active\"}";
