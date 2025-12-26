@@ -54,47 +54,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     }
 
                     ICollection<string> capabilities = new List<string>
-                {
-                    "sso-openid-connect",
-                    "permission-offline",
-                    "permission-patient",
-                    "permission-user",
-                };
+                    {
+                        "sso-openid-connect",
+                        "permission-offline",
+                        "permission-patient",
+                        "permission-user",
+                    };
 
                     // Add SMART v2 scope support - these are the core scopes supported natively by the FHIR service
                     ICollection<string> scopesSupported = new List<string>
-                {
-                    // Standard OAuth/OIDC scopes
-                    "openid",
-                    "fhirUser",
-                    "launch",
-                    "launch/patient",
-                    "offline_access",
-                    "online_access",
-                };
+                    {
+                        // Standard OAuth/OIDC scopes
+                        "openid",
+                        "fhirUser",
+                        "launch",
+                        "launch/patient",
+                        "offline_access",
+                        "online_access",
+                    };
 
                     ICollection<string> codeChallengeMethodsSupported = new List<string>
-                {
-                    "S256",
-                };
+                    {
+                        "S256",
+                    };
 
                     ICollection<string> grantTypesSupported = new List<string>
-                {
-                    "authorization_code",
-                    "client_credentials",
-                };
+                    {
+                        "authorization_code",
+                        "client_credentials",
+                    };
 
                     ICollection<string> tokenEndpointAuthMethodsSupported = new List<string>
-                {
-                    "client_secret_basic",
-                    "client_secret_jwt",
-                    "none",
-                };
+                    {
+                        "client_secret_basic",
+                        "client_secret_jwt",
+                        "none",
+                    };
 
                     ICollection<string> responseTypesSupported = new List<string>
-                {
-                    "code",
-                };
+                    {
+                        "code",
+                    };
 
                     return new GetSmartConfigurationResponse(
                         authorizationEndpoint,
