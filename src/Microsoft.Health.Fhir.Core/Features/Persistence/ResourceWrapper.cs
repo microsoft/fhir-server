@@ -117,6 +117,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
         public string SearchParameterHash { get; set; }
 
+        [JsonProperty(KnownResourceWrapperProperties.DecompressedLength)]
+        public int? DecompressedLength { get; set; }
+
         public ResourceKey ToResourceKey(bool ignoreVersion = false)
         {
             return new ResourceKey(ResourceTypeName, ResourceId, ignoreVersion ? null : Version);

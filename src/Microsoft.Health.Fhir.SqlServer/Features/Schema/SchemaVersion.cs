@@ -111,5 +111,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V99 = 99,
         V100 = 100,
         V101 = 101,
+        V102 = 102,
     }
 }

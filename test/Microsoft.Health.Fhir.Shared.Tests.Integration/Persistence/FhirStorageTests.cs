@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Data.SqlClient;
@@ -25,11 +26,14 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -1122,6 +1126,58 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         {
             var wrapper = CreateObservationResourceWrapper("obsId1", true);
             await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None));
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAResource_WhenSaving_ThenDecompressedLengthIsUpdated()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            Assert.NotNull(saveResult);
+            Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
+            var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+
+            var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", deserializedResource.Id), CancellationToken.None);
+
+            Assert.NotNull(wrapper);
+            Assert.NotNull(wrapper.DecompressedLength);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task WhenDeletingAResourceWithSoftDelete_ThenDecompressedLengthShouldNotBeNull()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
+
+            var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", deletedResourceKey.ResourceKey.Id), CancellationToken.None);
+
+            Assert.NotNull(wrapper);
+            Assert.NotNull(wrapper.DecompressedLength);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task WhenUpdatingAResourceWithPatchRequest_ThenDecompressedLengthShouldNotBeNull()
+        {
+            ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
+            var saveResult = await Mediator.UpsertResourceAsync(patientResource1);
+            var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Patient", saveResult.RawResourceElement.Id), CancellationToken.None);
+
+            Assert.NotNull(wrapper);
+            Assert.NotNull(wrapper.DecompressedLength);
+
+            var newName = new HumanName { Given = new[] { "Chad", "Ochocinco" }, Family = "Johnson", Use = HumanName.NameUse.Usual };
+            var patchParam = new Parameters().AddAddPatchParameter("Patient", "name", newName);
+
+            var request = new PatchResourceRequest(new ResourceKey("Patient", saveResult.RawResourceElement.Id), new FhirPathPatchPayload(patchParam), bundleResourceContext: null);
+            var response = await Mediator.PatchResourceAsync(patchResourceRequest: request, CancellationToken.None);
+
+            wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Patient", saveResult.RawResourceElement.Id), CancellationToken.None);
+
+            Assert.NotNull(wrapper);
+            Assert.NotNull(wrapper.DecompressedLength);
         }
 
         private static void VerifyReindexedResource(ResourceWrapper original, ResourceWrapper replaceResult)

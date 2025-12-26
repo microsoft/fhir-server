@@ -265,6 +265,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         }
 
         [Fact]
+        public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_DecompressedLengthSetToZero()
+        {
+            EnableDatabaseLogging();
+            EnableInvisibleHistory();
+
+            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            Assert.Equal("1", create.VersionId);
+            var id = create.Id;
+
+            var store = (SqlServerFhirDataStore)_fixture.DataStore;
+            await store.HardDeleteAsync(new ResourceKey("Organization", id), false, false, CancellationToken.None);
+
+            var resource = await store.GetAsync(new[] { new ResourceKey("Organization", create.Id) }, true,  CancellationToken.None);
+            Assert.NotNull(resource);
+            Assert.Equal(0, resource[0].DecompressedLength);
+            DisableInvisibleHistory();
+        }
+
+        [Fact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterSoftDeleting_CanRecreateResource()
         {
             EnableDatabaseLogging();

@@ -24,6 +24,7 @@ BEGIN TRY
          ,RawResource = 0xF -- invisible value
          ,SearchParamHash = NULL
          ,HistoryTransactionId = @TransactionId
+         ,DecompressedLength = 0
       OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
       WHERE ResourceTypeId = @ResourceTypeId
         AND ResourceId = @ResourceId

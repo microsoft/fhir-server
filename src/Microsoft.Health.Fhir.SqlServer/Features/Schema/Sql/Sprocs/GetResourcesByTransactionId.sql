@@ -33,6 +33,7 @@ BEGIN TRY
           ,RawResource
           ,IsRawResourceMetaSet
           ,SearchParamHash
+          ,DecompressedLength
           ,RequestMethod
       FROM (SELECT TOP (@DummyTop) * FROM @Keys) A
            JOIN dbo.Resource B ON ResourceTypeId = TypeId AND ResourceSurrogateId = SurrogateId
