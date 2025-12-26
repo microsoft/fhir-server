@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             var patchedResource = request.Payload.Patch(match.Resource);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null), cancellationToken);
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, bundleResourceContext: null, metaHistory: request.MetaHistory), cancellationToken);
         }
 
         public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)

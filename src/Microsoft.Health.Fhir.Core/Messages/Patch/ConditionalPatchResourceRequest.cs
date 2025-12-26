@@ -22,18 +22,22 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             PatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             BundleResourceContext bundleResourceContext = null,
-            WeakETag weakETag = null)
+            WeakETag weakETag = null,
+            bool metaHistory = true)
             : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(payload, nameof(payload));
 
             Payload = payload;
             WeakETag = weakETag;
+            MetaHistory = metaHistory;
         }
 
         public PatchPayload Payload { get; }
 
         public WeakETag WeakETag { get; }
+
+        public bool MetaHistory { get; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }
