@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -40,54 +41,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (_securityConfiguration.Authorization.Enabled || _securityConfiguration.Authorization.EnableSmartWithoutAuth)
             {
-                string baseEndpoint = _securityConfiguration.Authentication.Authority;
-
                 try
                 {
+                    string baseEndpoint = _securityConfiguration.Authentication.Authority;
                     Uri authorizationEndpoint = new Uri(baseEndpoint + "/authorize");
                     Uri tokenEndpoint = new Uri(baseEndpoint + "/token");
-                    ICollection<string> capabilities = new List<string>
+
+                    if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {
-                        "sso-openid-connect",
-                        "permission-offline",
-                        "permission-patient",
-                        "permission-user",
-                    };
+                        authorizationEndpoint = new Uri(request.BaseUri, "AadSmartOnFhirProxy/authorize");
+                        tokenEndpoint = new Uri(request.BaseUri, "AadSmartOnFhirProxy/token");
+                    }
+
+                    ICollection<string> capabilities = new List<string>
+                {
+                    "sso-openid-connect",
+                    "permission-offline",
+                    "permission-patient",
+                    "permission-user",
+                };
 
                     // Add SMART v2 scope support - these are the core scopes supported natively by the FHIR service
                     ICollection<string> scopesSupported = new List<string>
-                    {
-                        // Standard OAuth/OIDC scopes
-                        "openid",
-                        "fhirUser",
-                        "launch",
-                        "launch/patient",
-                        "offline_access",
-                        "online_access",
-                    };
+                {
+                    // Standard OAuth/OIDC scopes
+                    "openid",
+                    "fhirUser",
+                    "launch",
+                    "launch/patient",
+                    "offline_access",
+                    "online_access",
+                };
 
                     ICollection<string> codeChallengeMethodsSupported = new List<string>
-                    {
-                        "S256",
-                    };
+                {
+                    "S256",
+                };
 
                     ICollection<string> grantTypesSupported = new List<string>
-                    {
-                        "authorization_code",
-                        "client_credentials",
-                    };
+                {
+                    "authorization_code",
+                    "client_credentials",
+                };
 
                     ICollection<string> tokenEndpointAuthMethodsSupported = new List<string>
-                    {
-                        "client_secret_basic",
-                        "client_secret_jwt",
-                        "none",
-                    };
+                {
+                    "client_secret_basic",
+                    "client_secret_jwt",
+                    "none",
+                };
 
                     ICollection<string> responseTypesSupported = new List<string>
-                    {
-                        "code",
-                    };
+                {
+                    "code",
+                };
 
                     return new GetSmartConfigurationResponse(
                         authorizationEndpoint,
