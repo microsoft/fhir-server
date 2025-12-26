@@ -40,7 +40,7 @@ CREATE or ALTER PROCEDURE dbo.MergeResources
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
 -- 3. Copy from one gen2 store to another with ResourceSurrogateId preserved.
-        @AffectedRows int = 0 OUT
+    @AffectedRows int = 0 OUT
    ,@RaiseExceptionOnConflict bit = 1
    ,@IsResourceChangeCaptureEnabled bit = 0
    ,@TransactionId bigint = NULL
@@ -232,19 +232,16 @@ BEGIN TRY
     END
 
     IF @HasDecompressedLength = 1
-    BEGIN
-        INSERT INTO dbo.Resource 
-               ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, DecompressedLength )
+      INSERT INTO dbo.Resource 
+             ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, DecompressedLength )
         SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, DecompressedLength
-            FROM @WorkingResources
-    END
+          FROM @WorkingResources
     ELSE
-    BEGIN
-        INSERT INTO dbo.Resource 
-               ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
+      INSERT INTO dbo.Resource 
+             ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
         SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
-            FROM @WorkingResources
-    END
+          FROM @WorkingResources
+
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.ResourceWriteClaim 
