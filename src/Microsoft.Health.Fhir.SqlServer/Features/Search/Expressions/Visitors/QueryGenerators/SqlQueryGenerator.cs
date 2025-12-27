@@ -417,8 +417,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     Parameters.AppendHashedParameterNames(StringBuilder);
                 }
 
-                StringBuilder.AppendLine(" */");
+                StringBuilder.Append(" */"); // split add line in separate operation to facilitate hash removal in different OS's.
             }
+
+            StringBuilder.AppendLine();
+        }
+
+        // This method negates effect of the AddHash(). This is done this way to use the same sql query generation workflow.
+        public static string RemoveHash(string query)
+        {
+            var hashStartIndex = query.IndexOf("/* HASH ", StringComparison.OrdinalIgnoreCase);
+            var hasEndIndex = query.Substring(hashStartIndex).IndexOf("*/", StringComparison.OrdinalIgnoreCase);
+            var hashLine = query.Substring(hashStartIndex, hasEndIndex - hashStartIndex);
+            return query.Replace(hashLine, string.Empty, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
