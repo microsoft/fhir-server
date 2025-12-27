@@ -11,7 +11,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         public string CalculateHash(string query)
         {
-            return query.ComputeHash();
+            var queryWithoutHash = Expressions.Visitors.QueryGenerators.SqlQueryGenerator.RemoveHash(query);
+            return queryWithoutHash.ComputeHash();
         }
     }
 }
