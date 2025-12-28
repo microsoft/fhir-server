@@ -587,7 +587,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            var tableAlias = "predecessorTable";
+            // Set tableAlias to null by default, only set to "predecessorTable" when predicate contains NotReferencedExpression
+            var tableAlias = searchParamTableExpression.Predicate != null && 
+                             searchParamTableExpression.Predicate.AcceptVisitor(ExpressionContainsNotReferencedVisitor.Instance, null)
+                ? "predecessorTable"
+                : null;
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
             if (searchParamTableExpression.ChainLevel == 0)
@@ -1875,6 +1879,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             public override bool VisitSearchParameter(SearchParameterExpression expression, string context) => string.Equals(expression.Parameter.Code, context, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// A visitor to determine if an expression contains a NotReferencedExpression.
+        /// </summary>
+        private class ExpressionContainsNotReferencedVisitor : DefaultExpressionVisitor<object, bool>
+        {
+            public static readonly ExpressionContainsNotReferencedVisitor Instance = new ExpressionContainsNotReferencedVisitor();
+
+            private ExpressionContainsNotReferencedVisitor()
+                : base((acc, curr) => acc || curr)
+            {
+            }
+
+            public override bool VisitNotReferenced(NotReferencedExpression expression, object context) => true;
         }
 
         internal class SortContext
