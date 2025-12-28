@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.ReferenceResourceId} = {VLatest.Resource.ResourceId}");
 
                     nestedDelimited.BeginDelimitedElement();
-                    context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.ResourceTypeId} = {VLatest.Resource.ResourceTypeId}");
+                    context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {VLatest.Resource.ResourceTypeId}");
 
                     if (expression.SourceResourceType != null)
                     {
