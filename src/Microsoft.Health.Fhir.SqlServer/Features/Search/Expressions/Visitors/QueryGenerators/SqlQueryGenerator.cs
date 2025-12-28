@@ -588,10 +588,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
             // Set tableAlias to null by default, only set to "predecessorTable" when predicate contains NotReferencedExpression
-            var tableAlias = searchParamTableExpression.Predicate != null && 
-                             searchParamTableExpression.Predicate.AcceptVisitor(ExpressionContainsNotReferencedVisitor.Instance, null)
-                ? "predecessorTable"
-                : null;
+            var tableAlias = ContainsNotReferencedExpression(searchParamTableExpression.Predicate) ? "predecessorTable" : null;
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
             if (searchParamTableExpression.ChainLevel == 0)
@@ -1882,6 +1879,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         }
 
         /// <summary>
+        /// Checks if an expression contains a NotReferencedExpression.
+        /// </summary>
+        /// <param name="expression">The expression to check.</param>
+        /// <returns>True if the expression contains a NotReferencedExpression, false otherwise.</returns>
+        private static bool ContainsNotReferencedExpression(Expression expression)
+        {
+            return expression != null && expression.AcceptVisitor(ExpressionContainsNotReferencedVisitor.Instance, null);
+        }
+
+        /// <summary>
         /// A visitor to determine if an expression contains a NotReferencedExpression.
         /// </summary>
         private class ExpressionContainsNotReferencedVisitor : DefaultExpressionVisitor<object, bool>
@@ -1889,6 +1896,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             public static readonly ExpressionContainsNotReferencedVisitor Instance = new ExpressionContainsNotReferencedVisitor();
 
             private ExpressionContainsNotReferencedVisitor()
+                // The lambda creates an OR aggregation where any true result from visiting child expressions will result in an overall true return value
                 : base((acc, curr) => acc || curr)
             {
             }
