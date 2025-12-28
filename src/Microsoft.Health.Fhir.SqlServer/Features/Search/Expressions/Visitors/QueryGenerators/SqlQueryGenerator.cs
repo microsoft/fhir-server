@@ -1896,7 +1896,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             public static readonly ExpressionContainsNotReferencedVisitor Instance = new ExpressionContainsNotReferencedVisitor();
 
             private ExpressionContainsNotReferencedVisitor()
-                // The lambda creates an OR aggregation where any true result from visiting child expressions will result in an overall true return value
+                // The aggregator function creates an OR operation where any true result from visiting child expressions will result in an overall true return value
                 : base((acc, curr) => acc || curr)
             {
             }
