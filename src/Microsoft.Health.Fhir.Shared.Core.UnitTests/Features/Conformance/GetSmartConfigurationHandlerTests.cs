@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal("https://fhir.example.com/AadSmartOnFhirProxy/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal("https://fhir.example.com/AadSmartOnFhirProxy/token", response.TokenEndpoint.ToString());
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal("https://logon.onmicrosoft.com/guid" + "/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal("https://logon.onmicrosoft.com/guid" + "/token", response.TokenEndpoint.ToString());
