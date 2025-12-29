@@ -232,22 +232,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                 if (_builder != null)
                 {
+                    var cancellationToken = _cancellationTokenSource.Token;
+
                     // Update search params;
                     _builder.SyncSearchParameters();
 
                     // Update supported profiles;
-                    await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
+                    await _builder.SyncProfilesAsync(cancellationToken);
+
+                    // Update other fields populated by providers.
+                    await UpdateBuilderAsync(cancellationToken);
                 }
 
-                await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
-                try
-                {
-                    _metadata = null;
-                }
-                finally
-                {
-                    _metadataSemaphore?.Release();
-                }
+                await UpdateMetadataAsync(null);
             }
         }
 
@@ -332,15 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            await (_metadataSemaphore?.WaitAsync(cancellationToken) ?? Task.CompletedTask);
-            try
-            {
-                _metadata = null;
-            }
-            finally
-            {
-                _metadataSemaphore?.Release();
-            }
+            await UpdateMetadataAsync(null);
         }
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
@@ -351,28 +340,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
 
             // There is a chance that the BackgroundLoop handler sets _metadata to null between when it is checked and returned, so the value is stored in a local variable.
-            ResourceElement metadata;
-            if ((metadata = _metadata) != null)
+            ResourceElement metadata = await UpdateBuilderAsync(cancellationToken);
+            if (metadata == null)
             {
-                await UpdateMetadataAsync(cancellationToken);
-                return _metadata;
+                metadata = await GetCapabilityStatementOnStartup(cancellationToken);
             }
-
-            _ = await GetCapabilityStatementOnStartup(cancellationToken);
 
             // The semaphore is only used for building the metadata because claiming it before the GetCapabilityStatementOnStartup was leading to deadlocks where the creation
             // of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built.
             // But the metadata builder was waiting on the rebuild handler.
-            await (_metadataSemaphore?.WaitAsync(cancellationToken) ?? Task.CompletedTask);
-            try
-            {
-                _metadata = _builder.Build().ToResourceElement();
-                return _metadata;
-            }
-            finally
-            {
-                _metadataSemaphore?.Release();
-            }
+            return await UpdateMetadataAsync(metadata);
         }
 
         private void LogVersioningPolicyConfiguration()
@@ -391,12 +368,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
         }
 
-        private async Task UpdateMetadataAsync(CancellationToken cancellationToken)
+        private async Task<ResourceElement> UpdateBuilderAsync(CancellationToken cancellationToken)
         {
+            var metadata = default(ResourceElement);
             if (_builder != null)
             {
-                _logger.LogInformation("SystemConformanceProvider: Updating the Capability Statement.");
-                await _metadataSemaphore.WaitAsync(cancellationToken);
+                _logger.LogInformation("SystemConformanceProvider: Updating the builder.");
 
                 try
                 {
@@ -413,7 +390,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                             try
                             {
-                                _logger.LogInformation("SystemConformanceProvider: Updating Capability Statement. Provider '{ProviderName}'.", provider.ToString());
+                                _logger.LogInformation("SystemConformanceProvider: Updating the builder with '{ProviderName}'.", provider.ToString());
                                 await provider.UpdateAsync(_builder, cancellationToken);
                             }
                             catch (Exception e)
@@ -422,21 +399,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             }
                             finally
                             {
-                                _logger.LogInformation("SystemConformanceProvider: Updating Capability Statement. Provider '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
+                                _logger.LogInformation("SystemConformanceProvider: Updating the builder with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
                             }
                         }
                     }
-
-                    _metadata = _builder.Build().ToResourceElement();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to update Capability Statement.");
+                    _logger.LogWarning(ex, "Failed to update the builder.");
                 }
-                finally
-                {
-                    _metadataSemaphore.Release();
-                }
+
+                metadata = _builder.Build().ToResourceElement();
+            }
+
+            return metadata;
+        }
+
+        private async Task<ResourceElement> UpdateMetadataAsync(ResourceElement metadata)
+        {
+            await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
+            try
+            {
+                _metadata = metadata;
+                return _metadata;
+            }
+            finally
+            {
+                _metadataSemaphore?.Release();
             }
         }
     }
