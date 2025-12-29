@@ -5,7 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages

@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(createResourceRequest, nameof(createResourceRequest));
 
-            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(createResourceRequest, cancellationToken);
+            UpsertResourceResponse result = await mediator.SendAsync<UpsertResourceResponse>(createResourceRequest, cancellationToken);
 
             return result.Outcome.RawResourceElement;
         }
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(upsertResourceRequest, nameof(upsertResourceRequest));
 
-            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(upsertResourceRequest, cancellationToken);
+            UpsertResourceResponse result = await mediator.SendAsync<UpsertResourceResponse>(upsertResourceRequest, cancellationToken);
 
             return result.Outcome;
         }
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(getResourceRequest, nameof(getResourceRequest));
 
-            GetResourceResponse result = await mediator.Send(getResourceRequest, cancellationToken);
+            GetResourceResponse result = await mediator.SendAsync(getResourceRequest, cancellationToken);
 
             return result.Resource;
         }
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(deleteResourceRequest, nameof(deleteResourceRequest));
 
-            var result = await mediator.Send(deleteResourceRequest, cancellationToken);
+            var result = await mediator.SendAsync(deleteResourceRequest, cancellationToken);
 
             return result;
         }
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(patchResourceRequest, nameof(patchResourceRequest));
 
-            UpsertResourceResponse result = await mediator.Send(patchResourceRequest, cancellationToken);
+            UpsertResourceResponse result = await mediator.SendAsync(patchResourceRequest, cancellationToken);
 
             return result;
         }
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(conditionalPatchResourceRequest, nameof(conditionalPatchResourceRequest));
 
-            UpsertResourceResponse result = await mediator.Send(conditionalPatchResourceRequest, cancellationToken);
+            UpsertResourceResponse result = await mediator.SendAsync(conditionalPatchResourceRequest, cancellationToken);
 
             return result;
         }
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceRequest(type, queries), cancellationToken);
+            var result = await mediator.SendAsync(new SearchResourceRequest(type, queries), cancellationToken);
 
             return result.Bundle;
         }
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceHistoryRequest(since, before, at, count, summary, continuationToken, sort), cancellationToken);
+            var result = await mediator.SendAsync(new SearchResourceHistoryRequest(since, before, at, count, summary, continuationToken, sort), cancellationToken);
 
             return result.Bundle;
         }
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceHistoryRequest(resourceType, since, before, at, count, summary, continuationToken, sort), cancellationToken);
+            var result = await mediator.SendAsync(new SearchResourceHistoryRequest(resourceType, since, before, at, count, summary, continuationToken, sort), cancellationToken);
 
             return result.Bundle;
         }
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceHistoryRequest(resourceType, resourceId, since, before, at, count, summary, continuationToken, sort), cancellationToken);
+            var result = await mediator.SendAsync(new SearchResourceHistoryRequest(resourceType, resourceId, since, before, at, count, summary, continuationToken, sort), cancellationToken);
 
             return result.Bundle;
         }
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchCompartmentRequest(compartmentType, compartmentId, resourceType, queries), cancellationToken);
+            var result = await mediator.SendAsync(new SearchCompartmentRequest(compartmentType, compartmentId, resourceType, queries), cancellationToken);
 
             return result.Bundle;
         }
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var result = await mediator.Send(new SearchResourceRequest(type, queries, true), cancellationToken);
+            var result = await mediator.SendAsync(new SearchResourceRequest(type, queries, true), cancellationToken);
 
             return result.Bundle;
         }
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var response = await mediator.Send(new GetCapabilitiesRequest(), cancellationToken);
+            var response = await mediator.SendAsync(new GetCapabilitiesRequest(), cancellationToken);
             return response.CapabilityStatement;
         }
 
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var response = await mediator.Send(new GetSmartConfigurationRequest(baseUri), cancellationToken);
+            var response = await mediator.SendAsync(new GetSmartConfigurationRequest(baseUri), cancellationToken);
 
             return new SmartConfigurationResult(
                 response.AuthorizationEndpoint,
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var response = await mediator.Send(new GetOperationVersionsRequest(), cancellationToken);
+            var response = await mediator.SendAsync(new GetOperationVersionsRequest(), cancellationToken);
 
             return new VersionsResult(response.SupportedVersions, response.DefaultVersion);
         }
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
-            BundleResponse result = await mediator.Send<BundleResponse>(new BundleRequest(bundle), cancellationToken);
+            BundleResponse result = await mediator.SendAsync<BundleResponse>(new BundleRequest(bundle), cancellationToken);
 
             return result.Bundle;
         }
