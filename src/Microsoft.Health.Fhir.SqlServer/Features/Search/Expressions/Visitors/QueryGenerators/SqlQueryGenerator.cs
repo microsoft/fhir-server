@@ -591,7 +591,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            var tableAlias = "predecessorTable";
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
             if (searchParamTableExpression.ChainLevel == 0)
@@ -604,7 +603,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("SELECT ")
                         .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                         .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                        .Append("FROM ").AppendLine($"{searchParamTableExpression.QueryGenerator.Table} {tableAlias}");
+                        .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
                 }
                 else
                 {
@@ -614,7 +613,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                         .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
                         .Append(cte).AppendLine(".SortValue")
-                        .Append("FROM ").AppendLine($"{searchParamTableExpression.QueryGenerator.Table} {tableAlias}")
+                        .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
                         .Append(_joinShift).Append("JOIN ").Append(cte)
                         .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(cte).Append(".T1")
                         .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).AppendLine(".Sid1");
@@ -633,7 +632,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine($"{specialCaseTableName} {tableAlias}")
+                    .Append("FROM ").AppendLine(specialCaseTableName)
                     .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
@@ -647,7 +646,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine($"{searchParamTableExpression.QueryGenerator.Table} {tableAlias}")
+                    .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
                     .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
@@ -656,12 +655,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             if (UseAppendWithJoin()
                 && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !context.SkipAppendIntersectionWithPredecessor)
             {
-                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, tableAlias);
+                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
             }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, tableAlias, specialCaseTableName);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
 
                 // For smart request when we have union of all scopes ANDed with their respective search parameters
                 // Like (ResourceType = x and searchParam1 = foo) Intersect (ResourceType = x and searchParam2 = doo) UNION (ResourceType = y and searchParam3 = goo) Intersect (ResourceType = y and searchParam4 = woo)
@@ -671,7 +670,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (!context.SkipAppendIntersectionWithPredecessor)
                     {
                         // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
-                        AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, tableAlias);
+                        AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
                 }
 
@@ -679,7 +678,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     delimited.BeginDelimitedElement();
                     CheckForIdentifierSearchParams(searchParamTableExpression.Predicate);
-                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext(tableAlias));
+                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                 }
             }
         }
