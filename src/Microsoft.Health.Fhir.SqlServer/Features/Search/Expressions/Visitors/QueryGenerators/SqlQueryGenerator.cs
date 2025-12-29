@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _stackDepth = 0;
 
         private const string _joinShift = "     ";
+        internal const string ParametersHashStart = "/* HASH ";
+        internal const string ParametersHashEnd = " */";
 
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCteIds;
@@ -186,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
-                            AddHash(); // hash is required in upper SQL
+                            AddParametersHash(); // hash is required in upper SQL
                             sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
 
@@ -221,11 +223,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!visitedInclude)
             {
-                AddHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
+                AddParametersHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
             }
             else if (visitedInclude && _smartV2UnionVisited)
             {
-                AddHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
+                AddParametersHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
             }
 
             string resourceTableAlias = "r";
@@ -389,7 +391,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AddHash(bool forSmartV2Include = false)
+        private void AddParametersHash(bool forSmartV2Include = false)
         {
             foreach (var searchParamId in Parameters.SearchParamIds)
             {
@@ -404,7 +406,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // that are related to TOP clauses or continuation tokens.
                 // We can exclude more in the future.
 
-                StringBuilder.Append("/* HASH ");
+                StringBuilder.Append(ParametersHashStart);
                 if (forSmartV2Include)
                 {
                     // Only add the hash for smart scope parameters
@@ -417,8 +419,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     Parameters.AppendHashedParameterNames(StringBuilder);
                 }
 
-                StringBuilder.AppendLine(" */");
+                StringBuilder.Append(ParametersHashEnd);
             }
+
+            StringBuilder.AppendLine(); // do not include EOL into parameters hash line to get same behavior on Windows and Linux
         }
 
         /// <summary>
