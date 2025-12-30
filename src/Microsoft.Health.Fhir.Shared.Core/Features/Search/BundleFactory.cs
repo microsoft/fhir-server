@@ -65,7 +65,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 #if Stu3
                 // STU3 doesn't have PATCH verb, so let's map it to PUT.
-                if (!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
+                if ((!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
+                    || httpVerb == Bundle.HTTPVerb.PATCH)
                 {
                     hasVerb = true;
                     httpVerb = Bundle.HTTPVerb.PUT;
