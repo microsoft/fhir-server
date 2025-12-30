@@ -1373,7 +1373,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 var observations = await AddObservationToPatient(patient, "2023-01-01", tag);
                 allResources.AddRange(observations);
-                var encounters = await AddEncounterToPatient(patient, "2023-01-01", tag);
+                var encounters = await AddEncounterToPatient(patient, tag);
                 allResources.AddRange(encounters);
             }
 
@@ -1443,16 +1443,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        private void SetEncounterInfo(Encounter encounter, string date, string tag, Patient patient = null)
+        private void SetEncounterInfo(Encounter encounter, string tag, Patient patient = null)
         {
-            encounter.Status = Encounter.EncounterStatus.Finished;
-            encounter.Class = new Coding("http://terminology.hl7.org/CodeSystem/v3-ActCode", "AMB");
-            encounter.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
-            encounter.Period = new Period
+#if R5
+            encounter.Class = new List<CodeableConcept>()
             {
-                StartElement = new FhirDateTime(date),
-                EndElement = new FhirDateTime(date),
+                new CodeableConcept
+                {
+                    Coding = new List<Coding>
+                        {
+                            new Coding
+                            {
+                                Code = "test",
+                                System = "test",
+                            },
+                        },
+                },
             };
+            encounter.Status = EncounterStatus.Completed;
+#else
+            encounter.Class = new Coding
+            {
+                Code = "test",
+                System = "test",
+            };
+            encounter.Status = Encounter.EncounterStatus.Arrived;
+#endif
+
+            encounter.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
             if (patient != null)
             {
                 encounter.Subject = new ResourceReference($"Patient/{patient.Id}");
@@ -1465,10 +1483,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 o => SetObservationInfo(o, observationDate, tag, patient));
         }
 
-        private async Task<Encounter[]> AddEncounterToPatient(Patient patient, string encounterDate, string tag)
+        private async Task<Encounter[]> AddEncounterToPatient(Patient patient, string tag)
         {
             return await Client.CreateResourcesAsync<Encounter>(
-                e => SetEncounterInfo(e, encounterDate, tag, patient));
+                e => SetEncounterInfo(e, tag, patient));
         }
 
         private static class SortTestsAssert
