@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -40,12 +41,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (_securityConfiguration.Authorization.Enabled || _securityConfiguration.Authorization.EnableSmartWithoutAuth)
             {
-                string baseEndpoint = _securityConfiguration.Authentication.Authority;
-
                 try
                 {
+                    string baseEndpoint = _securityConfiguration.Authentication.Authority;
                     Uri authorizationEndpoint = new Uri(baseEndpoint + "/authorize");
                     Uri tokenEndpoint = new Uri(baseEndpoint + "/token");
+
+                    if (_securityConfiguration.EnableAadSmartOnFhirProxy)
+                    {
+                        authorizationEndpoint = new Uri(request.BaseUri, "AadSmartOnFhirProxy/authorize");
+                        tokenEndpoint = new Uri(request.BaseUri, "AadSmartOnFhirProxy/token");
+                    }
+
                     ICollection<string> capabilities = new List<string>
                     {
                         "sso-openid-connect",
