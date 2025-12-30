@@ -89,6 +89,11 @@ jobs:
               errors += '- Tag the PR with the type of update: **Schema Version backward incompatible**, **Schema Version backward compatible**. \n';
             }
 
+            if(labels.includes("No-PaaS-breaking-change") == false &&
+               labels.includes("PaaS-breaking-change") == false) {
+              errors += '- Tag the PR with **No-PaaS-breaking-change** or **PaaS-breaking-change** to indicate PaaS compatibility. \n';
+            }
+
             if(errors != "") {
               core.setFailed(errors)
             }
