@@ -11,6 +11,7 @@ CREATE PROCEDURE dbo.MergeResources
    ,@TransactionId bigint = NULL
    ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
+   ,@Resources_Temp dbo.ResourceList_Temp READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
@@ -33,8 +34,43 @@ DECLARE @st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
+       ,@HasDecompressedLength bit = 0
 
-DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
+-- Create working table and populate from appropriate source
+DECLARE @WorkingResources TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceSurrogateId  bigint              NOT NULL
+   ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version              int                 NOT NULL
+   ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
+   ,IsDeleted            bit                 NOT NULL
+   ,IsHistory            bit                 NOT NULL
+   ,KeepHistory          bit                 NOT NULL
+   ,RawResource          varbinary(max)      NOT NULL
+   ,IsRawResourceMetaSet bit                 NOT NULL
+   ,RequestMethod        varchar(10)         NULL
+   ,SearchParamHash      varchar(64)         NULL
+   ,DecompressedLength     INT                 NULL
+)
+
+IF EXISTS (SELECT 1 FROM @Resources_Temp)
+BEGIN
+    SET @HasDecompressedLength = 1
+    INSERT INTO @WorkingResources
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength)
+    SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength
+    FROM @Resources_Temp
+END
+ELSE
+BEGIN
+    INSERT INTO @WorkingResources
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, DecompressedLength)
+    SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, HasVersionToCompare, KeepHistory, NULL
+    FROM @Resources
+END
+
+DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @WorkingResources),'Input=Empty')
 SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')+' ST='+convert(varchar,@SingleTransaction)
 
 SET @AffectedRows = 0
@@ -60,7 +96,7 @@ BEGIN TRY
   IF @InitialTranCount = 0
   BEGIN
     IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
-                 FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                 FROM @WorkingResources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
                  --WHERE B.IsHistory = 0 -- With this clause wrong plans are created on empty/small database. Commented until resource separation is in place.
               )
     BEGIN
@@ -69,7 +105,7 @@ BEGIN TRY
       INSERT INTO @Existing
               (  ResourceTypeId,           SurrogateId )
         SELECT B.ResourceTypeId, B.ResourceSurrogateId
-          FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
+          FROM (SELECT TOP (@DummyTop) * FROM @WorkingResources) A
                JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
           WHERE B.IsHistory = 0
             AND B.ResourceId = A.ResourceId
@@ -77,7 +113,7 @@ BEGIN TRY
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
       -- If all resources being merged are already in the resource table with updated versions this is a retry and only search parameters need to be updated.
-      IF @@rowcount = (SELECT count(*) FROM @Resources) SET @IsRetry = 1
+      IF @@rowcount = (SELECT count(*) FROM @WorkingResources) SET @IsRetry = 1
 
       IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
     END
@@ -92,7 +128,7 @@ BEGIN TRY
     INSERT INTO @ResourceInfos
             (  ResourceTypeId,           SurrogateId,   Version,   KeepHistory, PreviousVersion,   PreviousSurrogateId )
       SELECT A.ResourceTypeId, A.ResourceSurrogateId, A.Version, A.KeepHistory,       B.Version, B.ResourceSurrogateId
-        FROM (SELECT TOP (@DummyTop) * FROM @Resources WHERE HasVersionToCompare = 1) A
+        FROM (SELECT TOP (@DummyTop) * FROM @WorkingResources WHERE HasVersionToCompare = 1) A
              LEFT OUTER JOIN dbo.Resource B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
                ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
@@ -119,6 +155,7 @@ BEGIN TRY
              ,RawResource = 0xF -- "invisible" value
              ,SearchParamHash = NULL
              ,HistoryTransactionId = @TransactionId
+             ,DecompressedLength = 0
           WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
       ELSE
         DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
@@ -159,10 +196,17 @@ BEGIN TRY
       --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
     END
 
-    INSERT INTO dbo.Resource 
-           ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
-      SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
-        FROM @Resources
+    IF @HasDecompressedLength = 1
+      INSERT INTO dbo.Resource 
+             ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId, DecompressedLength )
+        SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId, DecompressedLength
+          FROM @WorkingResources
+    ELSE
+      INSERT INTO dbo.Resource 
+             ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
+        SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
+          FROM @WorkingResources
+
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.ResourceWriteClaim 
@@ -394,8 +438,8 @@ BEGIN TRY
   END
 
   IF @IsResourceChangeCaptureEnabled = 1 --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
-    EXECUTE dbo.CaptureResourceIdsForChanges @Resources
-
+  EXECUTE dbo.CaptureResourceIdsForChanges @Resources = @Resources, @Resources_Temp = @Resources_Temp
+  
   IF @TransactionId IS NOT NULL
     EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
