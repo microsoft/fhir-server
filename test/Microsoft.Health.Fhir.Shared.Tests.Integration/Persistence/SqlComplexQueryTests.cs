@@ -216,6 +216,11 @@ END CATCH
             // Check if stored procedure was used
             Assert.True(sprocWasUsed);
 
+            // change values and check that query hash did not change
+            query = [Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("birthdate", "lt2000-01-01"), Tuple.Create("address-city", "City2"), Tuple.Create("address-state", "State2")];
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+            Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
+
             // restore state before this test
             CustomQueries.WaitTime = 60;
 

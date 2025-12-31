@@ -51,6 +51,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
         {
+            Build(searchParameters, uriDictionary, resourceTypeDictionary, modelInfoProvider, searchParameterComparer, logger, isSystemDefined: false);
+        }
+
+        internal static void Build(
+            IReadOnlyCollection<ITypedElement> searchParameters,
+            ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
+            ILogger logger,
+            bool isSystemDefined)
+        {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
             EnsureArg.IsNotNull(uriDictionary, nameof(uriDictionary));
             EnsureArg.IsNotNull(resourceTypeDictionary, nameof(resourceTypeDictionary));
@@ -61,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList(
                 searchParameters,
                 uriDictionary,
-                modelInfoProvider).ToLookup(
+                modelInfoProvider,
+                isSystemDefined).ToLookup(
                     entry => entry.ResourceType,
                     entry => entry.SearchParameter);
 
@@ -124,7 +137,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
             IReadOnlyCollection<ITypedElement> searchParamCollection,
             IDictionary<string, SearchParameterInfo> uriDictionary,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            bool isSystemDefined = false)
         {
             var issues = new List<OperationOutcomeIssue>();
             var searchParameters = searchParamCollection.Select((x, entryIndex) =>
@@ -153,6 +167,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 try
                 {
                     SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
+
+                    // Mark spec-defined search parameters as system-defined
+                    searchParameterInfo.IsSystemDefined = isSystemDefined;
 
                     if (searchParameterInfo.Code == "_profile" && searchParameterInfo.Type == SearchParamType.Reference)
                     {
