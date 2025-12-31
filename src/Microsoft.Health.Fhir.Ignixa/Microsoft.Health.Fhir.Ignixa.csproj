@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Override global TargetFrameworks - Ignixa packages only support net9.0 -->
+    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net9.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Microsoft.Health.Fhir.Ignixa.xml</DocumentationFile>
+    <!-- Suppress version downgrade warnings for prototype - Ignixa requires newer Firely SDK -->
+    <NoWarn>$(NoWarn);NU1605</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ASP.NET Core for formatters -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ignixa FHIR SDK NuGet packages -->
+    <PackageReference Include="Ignixa.Abstractions" />
+    <PackageReference Include="Ignixa.Serialization" />
+    <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
+    <PackageReference Include="Ignixa.Specification" />
+
+    <!-- Common utilities -->
+    <PackageReference Include="Ensure.That" />
+  </ItemGroup>
+</Project>
