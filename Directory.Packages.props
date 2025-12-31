@@ -6,6 +6,7 @@
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>9.0.6</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
+    <IgnixaPackageVersion>0.0.127</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
@@ -142,5 +143,14 @@
     <PackageVersion Include="System.Drawing.Common" Version="8.0.8" />
     <PackageVersion Include="Moq" Version="4.20.69" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
+    <!-- Ignixa FHIR SDK packages -->
+    <PackageVersion Include="Ignixa.Abstractions" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Serialization" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Extensions.FirelySdk5" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Extensions.FirelySdk6" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Specification" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Search" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.FhirPath" Version="$(IgnixaPackageVersion)" />
+    <PackageVersion Include="Ignixa.Validation" Version="$(IgnixaPackageVersion)" />
   </ItemGroup>
 </Project>
