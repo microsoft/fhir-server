@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             // Verify DeleteSearchParameterAsync is called with isHardDelete: false (default)
