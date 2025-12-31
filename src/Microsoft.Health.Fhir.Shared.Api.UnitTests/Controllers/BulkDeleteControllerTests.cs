@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Theory]
         [InlineData(KnownResourceTypes.CareTeam, DeleteOperation.SoftDelete, false, "t1,t2,t3", "?p1=v1&p2=v2&p3=v3", true)]
         public async Task GivenParameters_WhenBulkDeleting_ThenBulkDeleteByResourceTypeShouldSucceed(
-            string resoureType,
+            string resourceType,
             DeleteOperation operation,
             bool removeReferences,
             string excludedResourceTypes,
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             bool valid)
         {
             await Run(
-                resoureType,
+                resourceType,
                 operation == DeleteOperation.HardDelete,
                 operation == DeleteOperation.PurgeHistory,
                 false,
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 query,
                 valid,
                 (model) => _controller.BulkDeleteByResourceType(
-                    resoureType,
+                    resourceType,
                     model,
                     operation == DeleteOperation.PurgeHistory,
                     removeReferences,
