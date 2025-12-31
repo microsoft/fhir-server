@@ -2,25 +2,17 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>10.0.68</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
+    <Hl7FhirVersion>5.13.1</Hl7FhirVersion>
+    <!-- Legacy validation packages only available up to 5.11.0 (deprecated) -->
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>9.0.6</DotNetSdkPackageVersion>
+    <DotNetSdkPackageVersion>9.0.11</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
     <IgnixaPackageVersion>0.0.127</IgnixaPackageVersion>
   </PropertyGroup>
-  <!-- SDK Packages -->
-  <Choose>
-    <When Condition="'$(TargetFramework)' == 'net8.0'">
-      <PropertyGroup>
-        <AspNetPackageVersion>8.0.14</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
-    <When Condition="'$(TargetFramework)' == 'net9.0'">
-      <PropertyGroup>
-        <AspNetPackageVersion>9.0.3</AspNetPackageVersion>
-      </PropertyGroup>
-    </When>
-  </Choose>
+  <!-- SDK Packages (net9.0 only) -->
+  <PropertyGroup>
+    <AspNetPackageVersion>9.0.3</AspNetPackageVersion>
+  </PropertyGroup>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />

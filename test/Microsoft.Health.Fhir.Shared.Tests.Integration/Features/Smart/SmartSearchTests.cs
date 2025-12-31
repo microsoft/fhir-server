@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                     NullLogger<TypedElementSearchIndexer>.Instance);
 
                 ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
-                    new RawResourceFactory(new FhirJsonSerializer()),
+                    new RawResourceFactory(new IgnixaJsonSerializer(), new FhirJsonSerializer()),
                     new FhirRequestContextAccessor(),
                     _searchIndexer,
                     _searchParameterDefinitionManager,

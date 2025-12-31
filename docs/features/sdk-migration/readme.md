@@ -38,6 +38,7 @@ A unified FHIR server using the Ignixa SDK that:
 | Investigation | Status | Verdict |
 |--------------|--------|---------|
 | [Complete Firely Replacement with Ignixa](investigations/complete-ignixa-replacement.md) | In Progress | Pending |
+| [Ignixa FHIRPath Provider Migration](investigations/ignixa-fhirpath-provider.md) | In Progress | Recommended |
 
 ## Related ADRs
 
