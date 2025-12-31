@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
         public ResourceDeserializerTests()
         {
-            _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+            _rawResourceFactory = new RawResourceFactory(new IgnixaJsonSerializer(), new FhirJsonSerializer());
         }
 
         [Fact]

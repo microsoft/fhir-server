@@ -5,10 +5,12 @@
 
 using System.Text;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -17,12 +19,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ResourceToNdjsonBytesSerializer : IResourceToByteArraySerializer
     {
+        private readonly IIgnixaJsonSerializer _ignixaSerializer;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ResourceToNdjsonBytesSerializer"/> class.
+        /// </summary>
+        /// <param name="ignixaSerializer">The Ignixa JSON serializer for FHIR resources.</param>
+        public ResourceToNdjsonBytesSerializer(IIgnixaJsonSerializer ignixaSerializer)
+        {
+            EnsureArg.IsNotNull(ignixaSerializer, nameof(ignixaSerializer));
+
+            _ignixaSerializer = ignixaSerializer;
+        }
+
         /// <inheritdoc />
         public byte[] Serialize(ResourceElement resourceElement)
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            string resourceData = resourceElement.Instance.ToJson();
+            string resourceData = SerializeToJson(resourceElement);
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
 
@@ -35,10 +50,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (addSoftDeletedExtension)
             {
-                resourceElement.TryAddSoftDeletedExtension();
+                resourceElement = resourceElement.TryAddSoftDeletedExtension();
             }
 
-            return resourceElement.Instance.ToJson();
+            return SerializeToJson(resourceElement);
+        }
+
+        private string SerializeToJson(ResourceElement resourceElement)
+        {
+            // Get JSON using Firely's ITypedElement serialization
+            // This works for both Firely-based and Ignixa-based ResourceElements
+            string firelyJson = resourceElement.Instance.ToJson();
+
+            // Parse and re-serialize with Ignixa to ensure consistent output format
+            var resourceNode = _ignixaSerializer.Parse(firelyJson);
+            return _ignixaSerializer.Serialize(resourceNode, pretty: false);
         }
     }
 }

@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
@@ -553,7 +554,7 @@ RAISERROR('Test',18,127)
         private ResourceWrapperFactory CreateResourceWrapperFactory()
         {
             var serializer = new FhirJsonSerializer();
-            var rawResourceFactory = new RawResourceFactory(serializer);
+            var rawResourceFactory = new RawResourceFactory(new IgnixaJsonSerializer(), serializer);
             var dummyRequestContext = new FhirRequestContext(
                 "POST",
                 "https://localhost/Patient",

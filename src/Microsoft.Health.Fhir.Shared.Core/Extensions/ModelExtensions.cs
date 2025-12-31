@@ -43,7 +43,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return (T)resource.ResourceInstance ?? resource.Instance.ToPoco<T>();
+            // Check if ResourceInstance is already a Resource (legacy POCO path)
+            // For Ignixa resources, ResourceInstance is a ResourceJsonNode, so we use the ITypedElement path
+            if (resource.ResourceInstance is T poco)
+            {
+                return poco;
+            }
+
+            return resource.Instance.ToPoco<T>();
         }
 
         public static Resource ToPoco(this ResourceElement resource)

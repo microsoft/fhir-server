@@ -10,7 +10,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Ignixa.Serialization.SourceNodes;
 using MediatR;
+using Microsoft.Health.Core;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -21,12 +24,14 @@ using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
     public class CreateResourceHandler : BaseResourceHandler, IRequestHandler<CreateResourceRequest, UpsertResourceResponse>
     {
         private readonly ResourceReferenceResolver _referenceResolver;
+        private readonly IIgnixaSchemaContext _schemaContext;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
 
         public CreateResourceHandler(
@@ -35,12 +40,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             ResourceReferenceResolver referenceResolver,
-            IAuthorizationService<DataActions> authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            IIgnixaSchemaContext schemaContext)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+            EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
 
             _referenceResolver = referenceResolver;
+            _schemaContext = schemaContext;
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
@@ -72,7 +80,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.TypeName, cancellationToken);
 
-            ResourceWrapper resourceWrapper = ResourceWrapperFactory.CreateResourceWrapper(resource, ResourceIdProvider, deleted: false, keepMeta: true);
+            // Generate ID and metadata
+            if (string.IsNullOrEmpty(resource.Id))
+            {
+                resource.Id = ResourceIdProvider.Create();
+            }
+
+            if (resource.Meta == null)
+            {
+                resource.Meta = new Meta();
+            }
+
+            // Store with millisecond precision
+            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
+
+            // Check if we have an Ignixa ResourceJsonNode - if so, update it in place for efficient serialization
+            ResourceElement resourceElement;
+            var resourceJsonNode = request.Resource.GetIgnixaNode();
+            if (resourceJsonNode != null)
+            {
+                // Update the ResourceJsonNode with the new ID and metadata
+                resourceJsonNode.Id = resource.Id;
+                resourceJsonNode.Meta.LastUpdated = resource.Meta.LastUpdated.Value;
+
+                // Create IgnixaResourceElement and pass it as ResourceInstance for direct property access
+                var ignixaElement = new IgnixaResourceElement(resourceJsonNode, _schemaContext.Schema);
+                resourceElement = new ResourceElement(ignixaElement.ToTypedElement(), ignixaElement);
+            }
+            else
+            {
+                // Fallback to POCO path for non-Ignixa resources
+                resourceElement = resource.ToResourceElement();
+            }
+
+            ResourceWrapper resourceWrapper = ResourceWrapperFactory.Create(resourceElement, deleted: false, keepMeta: true);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, true, keepHistory, null, false, false, request.BundleResourceContext), cancellationToken);

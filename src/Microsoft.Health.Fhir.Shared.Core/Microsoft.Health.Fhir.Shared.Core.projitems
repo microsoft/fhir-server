@@ -8,8 +8,12 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Core</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\Microsoft.Health.Fhir.Ignixa\Microsoft.Health.Fhir.Ignixa.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\FhirMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceElementIgnixaExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\OperationDefinitionMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexJobRecordExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
@@ -40,6 +44,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterInfoEqualityComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\FhirServerBuilderIgnixaPersistenceRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IIgnixaRawResourceFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IIgnixaResourceDeserializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaRawResourceFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaResourceDeserializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaSchemaContext.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ConditionalResourceHandler.cs" />
@@ -95,6 +105,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\IgnixaResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)VersionSpecificModelInfoProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchPipeBehavior.cs" />

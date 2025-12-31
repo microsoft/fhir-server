@@ -5,10 +5,12 @@
 
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.FhirPath;
 using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
+using Ignixa.FhirPath.Evaluation;
+using Ignixa.FhirPath.Parser;
 using Ignixa.Serialization.SourceNodes;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Ignixa;
 
@@ -23,11 +25,16 @@ namespace Microsoft.Health.Fhir.Ignixa;
 /// <list type="bullet">
 /// <item><description>Direct access to the underlying <see cref="ResourceJsonNode"/> for mutations and serialization</description></item>
 /// <item><description>Schema-aware access via <see cref="IElement"/> for validation and search indexing</description></item>
-/// <item><description>Firely SDK compatibility via <see cref="ITypedElement"/> for FhirPath evaluation</description></item>
+/// <item><description>Native FhirPath evaluation via <see cref="FhirPathEvaluator"/> on <see cref="IElement"/></description></item>
+/// <item><description>Firely SDK compatibility via <see cref="ITypedElement"/> when needed for legacy code paths</description></item>
 /// </list>
 /// </remarks>
-public class IgnixaResourceElement : IResourceElement
+public class IgnixaResourceElement : Core.Models.IResourceElement
 {
+    // Thread-safe parser and evaluator for FhirPath expressions
+    private static readonly FhirPathParser FhirPathParser = new();
+    private static readonly FhirPathEvaluator FhirPathEvaluator = new();
+
     private readonly ResourceJsonNode _resourceNode;
     private readonly ISchema _schema;
     private IElement? _cachedElement;
@@ -131,11 +138,16 @@ public class IgnixaResourceElement : IResourceElement
     /// <typeparam name="T">The expected return type.</typeparam>
     /// <param name="fhirPath">The FhirPath expression to evaluate.</param>
     /// <returns>The scalar result of the FhirPath evaluation.</returns>
+    /// <remarks>
+    /// Uses Ignixa's native FhirPath engine for direct evaluation on IElement,
+    /// avoiding the overhead of converting to Firely's ITypedElement.
+    /// </remarks>
     public T? Scalar<T>(string fhirPath)
     {
-        var typedElement = ToTypedElement();
-        var result = typedElement.Scalar(fhirPath);
-        return result is T typedResult ? typedResult : default;
+        var expression = FhirPathParser.Parse(fhirPath);
+        var results = FhirPathEvaluator.Evaluate(Element, expression);
+        var first = results.FirstOrDefault();
+        return first?.Value is T typedResult ? typedResult : default;
     }
 
     /// <summary>
@@ -143,10 +155,14 @@ public class IgnixaResourceElement : IResourceElement
     /// </summary>
     /// <param name="fhirPath">The FhirPath expression to evaluate.</param>
     /// <returns>An enumerable of matching <see cref="ITypedElement"/> instances.</returns>
+    /// <remarks>
+    /// Uses Ignixa's native FhirPath engine and converts results to ITypedElement for compatibility.
+    /// </remarks>
     public IEnumerable<ITypedElement> Select(string fhirPath)
     {
-        var typedElement = ToTypedElement();
-        return typedElement.Select(fhirPath);
+        var expression = FhirPathParser.Parse(fhirPath);
+        var results = FhirPathEvaluator.Evaluate(Element, expression);
+        return results.Select(e => e.ToTypedElement());
     }
 
     /// <summary>
@@ -154,10 +170,28 @@ public class IgnixaResourceElement : IResourceElement
     /// </summary>
     /// <param name="fhirPath">The FhirPath predicate expression.</param>
     /// <returns>True if the predicate matches; otherwise false.</returns>
+    /// <remarks>
+    /// Uses Ignixa's native FhirPath engine for direct evaluation on IElement.
+    /// </remarks>
     public bool Predicate(string fhirPath)
     {
-        var typedElement = ToTypedElement();
-        return typedElement.Predicate(fhirPath);
+        var expression = FhirPathParser.Parse(fhirPath);
+        var results = FhirPathEvaluator.Evaluate(Element, expression);
+        var first = results.FirstOrDefault();
+
+        // FhirPath predicate: empty = false, single boolean = that value, non-empty = true
+        if (first == null)
+        {
+            return false;
+        }
+
+        if (first.Value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        // Non-empty, non-boolean result means the expression matched something
+        return true;
     }
 
     /// <summary>

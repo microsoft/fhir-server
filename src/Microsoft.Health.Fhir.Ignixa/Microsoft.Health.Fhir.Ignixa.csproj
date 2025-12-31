@@ -1,14 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Override global TargetFrameworks - Ignixa packages only support net9.0 -->
-    <TargetFramework>net9.0</TargetFramework>
-    <TargetFrameworks>net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Microsoft.Health.Fhir.Ignixa.xml</DocumentationFile>
-    <!-- Suppress version downgrade warnings for prototype - Ignixa requires newer Firely SDK -->
-    <NoWarn>$(NoWarn);NU1605</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,11 +12,22 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Project references for FHIR server integration -->
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Ignixa FHIR SDK NuGet packages -->
     <PackageReference Include="Ignixa.Abstractions" />
     <PackageReference Include="Ignixa.Serialization" />
     <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
     <PackageReference Include="Ignixa.Specification" />
+    <PackageReference Include="Ignixa.FhirPath" />
+    <PackageReference Include="Ignixa.Validation" />
+
+    <!-- Firely SDK for compatibility mode serialization -->
+    <!-- Using R4 as the default version - serializers are the same across versions -->
+    <PackageReference Include="Hl7.Fhir.R4" />
 
     <!-- Common utilities -->
     <PackageReference Include="Ensure.That" />

@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             requestContextAccessor.RequestContext.Returns(x => new FhirRequestContext("get", "https://localhost/Patient", "https://localhost", "correlation", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>()));
 
             _wrapperFactory = new ResourceWrapperFactory(
-                                     new RawResourceFactory(new FhirJsonSerializer()),
+                                     new RawResourceFactory(new IgnixaJsonSerializer(), new FhirJsonSerializer()),
                                      requestContextAccessor,
                                      Substitute.For<ISearchIndexer>(),
                                      Substitute.For<IClaimsExtractor>(),
@@ -155,9 +156,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                 serialized = await sr.ReadToEndAsync();
             }
 
-            string originalSerializer = bundle.ToJson();
-            Assert.Equal(originalSerializer, serialized);
-
+            // Note: We don't compare exact strings because Ignixa and Firely may encode
+            // certain characters differently (e.g., '+' vs '\u002B'). Both are valid JSON.
+            // The semantic comparison via IsExactly() below verifies correctness.
             var deserializedBundle = new FhirJsonParser(DefaultParserSettings.Settings).Parse(serialized) as Hl7.Fhir.Model.Bundle;
 
             Assert.True(deserializedBundle.IsExactly(bundle));
