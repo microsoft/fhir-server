@@ -161,14 +161,25 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: testStu3
-  displayName: 'Run Stu3 Tests'
+- stage: testStu3Cosmos
+  displayName: 'Run Stu3 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - redeployStu3
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
+      appServiceName: $(DeploymentEnvironmentName)
+
+- stage: testStu3Sql
+  displayName: 'Run Stu3 SQL Tests'
+  dependsOn:
+  - BuildArtifacts
   - redeployStu3Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
@@ -200,14 +211,25 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: testR4
-  displayName: 'Run R4 Tests'
+- stage: testR4Cosmos
+  displayName: 'Run R4 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - redeployR4
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(DeploymentEnvironmentNameR4)
+      appServiceName: $(DeploymentEnvironmentNameR4)
+
+- stage: testR4Sql
+  displayName: 'Run R4 SQL Tests'
+  dependsOn:
+  - BuildArtifacts
   - redeployR4Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
@@ -239,14 +261,25 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: testR4B
-  displayName: 'Run R4B Tests'
+- stage: testR4BCosmos
+  displayName: 'Run R4B Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - redeployR4B
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: R4B
+      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
+
+- stage: testR4BSql
+  displayName: 'Run R4B SQL Tests'
+  dependsOn:
+  - BuildArtifacts
   - redeployR4BSql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4B
       keyVaultName: $(DeploymentEnvironmentNameR4B)
@@ -278,14 +311,25 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: testR5
-  displayName: 'Run R5 Tests'
+- stage: testR5Cosmos
+  displayName: 'Run R5 Cosmos Tests'
   dependsOn:
   - BuildArtifacts
   - redeployR5
+  jobs:
+  - template: ./jobs/run-cosmos-tests.yml
+    parameters:
+      version: R5
+      keyVaultName: $(DeploymentEnvironmentNameR5)
+      appServiceName: $(DeploymentEnvironmentNameR5)
+
+- stage: testR5Sql
+  displayName: 'Run R5 SQL Tests'
+  dependsOn:
+  - BuildArtifacts
   - redeployR5Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
@@ -296,10 +340,14 @@ stages:
   displayName: 'Aggregate All Coverage Reports'
   dependsOn:
   - BuildUnitTests
-  - testStu3
-  - testR4
-  - testR4B
-  - testR5
+  - testStu3Cosmos
+  - testStu3Sql
+  - testR4Cosmos
+  - testR4Sql
+  - testR4BCosmos
+  - testR4BSql
+  - testR5Cosmos
+  - testR5Sql
   condition: succeeded()
   jobs:
   - job: AggregateCoverage
@@ -314,10 +362,14 @@ stages:
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
   dependsOn:
-  - testStu3
-  - testR4
-  - testR4B
-  - testR5
+  - testStu3Cosmos
+  - testStu3Sql
+  - testR4Cosmos
+  - testR4Sql
+  - testR4BCosmos
+  - testR4BSql
+  - testR5Cosmos
+  - testR5Sql
   jobs:
   - template: ./jobs/docker-add-tag.yml
     parameters:
