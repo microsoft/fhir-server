@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
 
             _resourceWrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
-                new RawResourceFactory(new FhirJsonSerializer()),
+                new RawResourceFactory(new IgnixaJsonSerializer(), new FhirJsonSerializer()),
                 new FhirRequestContextAccessor(),
                 _searchIndexer,
                 _searchParameterDefinitionManager,

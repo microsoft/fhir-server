@@ -273,9 +273,85 @@ A working prototype has been created at `src/Microsoft.Health.Fhir.Ignixa/`:
 ## Next Steps
 
 1. [x] Prototype serialization replacement in isolated branch
-2. [ ] Upgrade Firely SDK to 5.13.1+ across the solution
-3. [ ] Drop net8.0 support (or keep separate code paths)
-4. [ ] Benchmark Ignixa vs Firely serialization performance
-5. [ ] Identify Firely-specific edge cases that need special handling
-6. [ ] Create detailed migration plan per component
-7. [ ] Get stakeholder approval for phased approach
+2. [x] Upgrade Firely SDK to 5.13.1+ across the solution
+3. [x] Drop net8.0 support (net9.0 only)
+4. [x] Configure Ignixa formatters as primary JSON serialization handlers
+5. [ ] Benchmark Ignixa vs Firely serialization performance
+6. [ ] Identify Firely-specific edge cases that need special handling
+7. [ ] Create detailed migration plan per component
+8. [ ] Get stakeholder approval for phased approach
+
+## Infrastructure Changes Completed
+
+### Firely SDK Upgrade (5.11.4 → 5.13.1)
+
+Updated `Directory.Packages.props`:
+```xml
+<Hl7FhirVersion>5.13.1</Hl7FhirVersion>
+<!-- Legacy validation packages only available up to 5.11.0 (deprecated) -->
+<Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
+```
+
+**Note:** The `Hl7.Fhir.Validation.Legacy.*` packages are deprecated and only available up to v5.11.0. The main Firely SDK packages (Hl7.Fhir.Base, Hl7.Fhir.R4, etc.) were upgraded to 5.13.1.
+
+### .NET 9.0 Only
+
+Updated `Directory.Build.props`:
+```xml
+<TargetFrameworks>net9.0</TargetFrameworks>
+```
+
+Removed the net8.0/net9.0 conditional ASP.NET version selection - now uses 9.0.3 exclusively.
+
+### Build Verification
+
+| Project | Status |
+|---------|--------|
+| Microsoft.Health.Fhir.Core | ✅ Builds |
+| Microsoft.Health.Fhir.R4.Web | ✅ Builds |
+| Microsoft.Health.Fhir.R5.Web | ✅ Builds |
+| Microsoft.Health.Fhir.Ignixa | ✅ Builds |
+| Microsoft.Health.Fhir.Core.UnitTests | ✅ 831 tests pass |
+| Microsoft.Health.Fhir.Ignixa.UnitTests | ✅ 19 tests pass |
+| Microsoft.Health.Fhir.R4.Api.UnitTests | ✅ 1083 tests pass |
+
+## Ignixa Serialization Takeover (Phase 1 Complete)
+
+The Ignixa formatters are now configured as the **primary JSON serialization handlers** in the FHIR server. This was achieved by:
+
+1. **Updated `IgnixaFhirJsonInputFormatter`** to handle:
+   - `ResourceJsonNode` (native Ignixa type)
+   - `IgnixaResourceElement` (Ignixa wrapper with schema)
+   - `Hl7.Fhir.Model.Resource` (Firely SDK type for compatibility)
+
+2. **Updated `IgnixaFhirJsonOutputFormatter`** to handle:
+   - `ResourceJsonNode` (native Ignixa type)
+   - `IgnixaResourceElement` (Ignixa wrapper with schema)
+   - `Hl7.Fhir.Model.Resource` (Firely SDK type via conversion)
+   - `RawResourceElement` (raw JSON from persistence layer)
+
+3. **FhirModule.cs** now calls `AddIgnixaSerializationWithFormatters()` which:
+   - Registers `IIgnixaJsonSerializer`
+   - Inserts Ignixa formatters at the **front** of the MVC formatter lists
+   - Ignixa formatters take precedence over Firely formatters
+
+### Compatibility Design
+
+The Ignixa formatters provide full **backward compatibility** with existing code:
+
+```
+Input: JSON Request → Ignixa parses → Returns either:
+  - ResourceJsonNode (if controller expects Ignixa type)
+  - Resource (if controller expects Firely type)
+
+Output: Response Object → Ignixa serializes:
+  - ResourceJsonNode: Direct serialization
+  - IgnixaResourceElement: Extract node, serialize
+  - Resource: Convert via Firely→JSON→Ignixa, serialize
+  - RawResourceElement: Write raw JSON directly (zero-copy)
+```
+
+This design allows **gradual migration**:
+- Existing controllers continue to work (they receive Firely `Resource`)
+- New code can use `ResourceJsonNode` for better performance
+- The same Ignixa serializer handles all JSON output
