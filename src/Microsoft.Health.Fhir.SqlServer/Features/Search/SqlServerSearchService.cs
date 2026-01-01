@@ -2376,11 +2376,26 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
         private class TokenListRowGenerator : ITableValuedParameterRowGenerator<IList<Token>, TokenListRow>
         {
+            private readonly int _codeMaxLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength;
+
             public IEnumerable<TokenListRow> GenerateRows(IList<Token> tokens)
             {
                 foreach (var token in tokens)
                 {
-                    yield return new TokenListRow(token.Code, null, token.SystemId);
+                    string code;
+                    string codeOverflow;
+                    if (token.Code.Length > _codeMaxLength)
+                    {
+                        code = token.Code[.._codeMaxLength];
+                        codeOverflow = token.Code[_codeMaxLength..];
+                    }
+                    else
+                    {
+                        code = token.Code;
+                        codeOverflow = null;
+                    }
+
+                    yield return new TokenListRow(code, codeOverflow, token.SystemId);
                 }
             }
         }
