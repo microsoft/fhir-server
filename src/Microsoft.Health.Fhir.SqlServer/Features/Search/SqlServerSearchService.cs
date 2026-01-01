@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -1854,12 +1855,17 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             cmd.Parameters.AddWithValue("@Top", top);
         }
 
-        private static bool TryExtractGetResourcesByTokensParams(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlServerFhirModel model, out short resourceTypeId, out short searchParamId, out IList<Token> tokens, out int top)
+        private bool TryExtractGetResourcesByTokensParams(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlServerFhirModel model, out short resourceTypeId, out short searchParamId, out IList<Token> tokens, out int top)
         {
             resourceTypeId = 0;
             searchParamId = 0;
             tokens = new List<Token>();
             top = searchOptions.MaxItemCount + 1;
+
+            if (_schemaInformation.Current < 102)
+            {
+                return false;
+            }
 
             var sortOrder = searchOptions.Sort.FirstOrDefault(_ => _.searchParameterInfo.Code == KnownQueryParameterNames.LastUpdated).sortOrder;
             var se = expression.SearchParamTableExpressions.FirstOrDefault(_ => _.Kind == SearchParamTableExpressionKind.Normal);
