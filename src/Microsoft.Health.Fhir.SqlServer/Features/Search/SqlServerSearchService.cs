@@ -37,6 +37,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -44,6 +46,8 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.IO;
+using Microsoft.VisualBasic.FileIO;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -498,6 +502,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _logger.LogInformation("Handled simple resource read directly via FhirDataStore.GetAsync");
                             searchResult = simpleReadResult;
                             return;
+                        }
+                        else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
+                        {
+                            PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
                         }
                         else
                         {
@@ -1836,6 +1844,98 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
         }
 
+        private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetResourcesByTokens";
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@SearchParamId", searchParamId);
+            new TokenListTableValuedParameterDefinition("@Tokens").AddParameter(cmd.Parameters, new TokenListRowGenerator().GenerateRows(tokens));
+            cmd.Parameters.AddWithValue("@Top", top);
+        }
+
+        private static bool TryExtractGetResourcesByTokensParams(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlServerFhirModel model, out short resourceTypeId, out short searchParamId, out IList<Token> tokens, out int top)
+        {
+            resourceTypeId = 0;
+            searchParamId = 0;
+            tokens = new List<Token>();
+            top = searchOptions.MaxItemCount + 1;
+
+            var sortOrder = searchOptions.Sort.FirstOrDefault(_ => _.searchParameterInfo.Code == KnownQueryParameterNames.LastUpdated).sortOrder;
+            var se = expression.SearchParamTableExpressions.FirstOrDefault(_ => _.Kind == SearchParamTableExpressionKind.Normal);
+            if (searchOptions.IncludesContinuationToken != null
+                || sortOrder != SortOrder.Ascending
+                || se == null
+                || se.QueryGenerator.Table.TableName != VLatest.TokenSearchParam.TableName
+                || se.Predicate is not MultiaryExpression me)
+            {
+                return false;
+            }
+
+            foreach (var inner in me.Expressions)
+            {
+                if (inner is SearchParameterExpression spe)
+                {
+                    if (spe.Parameter.Code == KnownQueryParameterNames.Type)
+                    {
+                        model.TryGetResourceTypeId((spe.Expression as StringExpression).Value, out resourceTypeId);
+                    }
+                    else if (spe.Parameter.Code == KnownQueryParameterNames.Identifier)
+                    {
+                        model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId);
+                        if (spe.Expression is StringExpression strExp)
+                        {
+                            tokens.Add(new Token(strExp.Value, null));
+                        }
+                        else
+                        {
+                            var mult = spe.Expression as MultiaryExpression;
+                            foreach (var exp in mult.Expressions)
+                            {
+                                if (exp is StringExpression tokenCodeExp) // token without system
+                                {
+                                    tokens.Add(new Token(tokenCodeExp.Value, null));
+                                }
+                                else
+                                {
+                                    string systemInt = null;
+                                    string codeInt = null;
+                                    foreach (var tokenSystemCodeExp in (exp as MultiaryExpression).Expressions) // token with system
+                                    {
+                                        if (tokenSystemCodeExp is StringExpression tokenSystemCodeStrExp)
+                                        {
+                                            if (tokenSystemCodeStrExp.FieldName == FieldName.TokenSystem)
+                                            {
+                                                systemInt = tokenSystemCodeStrExp.Value;
+                                            }
+                                            else if (tokenSystemCodeStrExp.FieldName == FieldName.TokenCode)
+                                            {
+                                                codeInt = tokenSystemCodeStrExp.Value;
+                                            }
+                                        }
+                                    }
+
+                                    if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                                    {
+                                        return false;
+                                    }
+
+                                    tokens.Add(new Token(codeInt, systemId));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (resourceTypeId == 0 || searchParamId == 0 || tokens.Count == 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Attempts to handle simple resource read requests directly via FhirDataStore.GetAsync
         /// instead of generating SQL queries for better performance.
@@ -2199,7 +2299,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
             }
 
-            private static void CollectResourceTypesFromExpression(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds)
+            internal static void CollectResourceTypesFromExpression(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds)
             {
                 switch (expression)
                 {
@@ -2330,6 +2430,30 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 if (schemaInformation.Current >= (int)SchemaVersion.V97)
                 {
                     _activeOnly.AddParameter(sqlCommand.Parameters, activeOnly);
+                }
+            }
+        }
+
+        private class Token
+        {
+            internal Token(string code, int? systemId)
+            {
+                Code = code;
+                SystemId = systemId;
+            }
+
+            internal string Code { get; set; }
+
+            internal int? SystemId { get; set; }
+        }
+
+        private class TokenListRowGenerator : ITableValuedParameterRowGenerator<IList<Token>, TokenListRow>
+        {
+            public IEnumerable<TokenListRow> GenerateRows(IList<Token> tokens)
+            {
+                foreach (var token in tokens)
+                {
+                    yield return new TokenListRow(token.Code, null, token.SystemId);
                 }
             }
         }
