@@ -30,8 +30,7 @@ BEGIN TRY
       WHERE IsHistory = 0 
         AND IsDeleted = 0 
       ORDER BY 
-           ResourceTypeId
-          ,ResourceSurrogateId
+           ResourceSurrogateId
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
   ELSE
     WITH cte0 AS
@@ -55,8 +54,7 @@ BEGIN TRY
       WHERE IsHistory = 0 
         AND IsDeleted = 0 
       ORDER BY 
-           ResourceTypeId
-          ,ResourceSurrogateId
+           ResourceSurrogateId
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount

@@ -2868,7 +2868,7 @@ BEGIN TRY
                     AND ResourceSurrogateId = cte1.Sid1
         WHERE    IsHistory = 0
                  AND IsDeleted = 0
-        ORDER BY ResourceTypeId, ResourceSurrogateId
+        ORDER BY ResourceSurrogateId
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     ELSE
         WITH     cte0
@@ -2908,7 +2908,7 @@ BEGIN TRY
                     AND ResourceSurrogateId = cte1.Sid1
         WHERE    IsHistory = 0
                  AND IsDeleted = 0
-        ORDER BY ResourceTypeId, ResourceSurrogateId
+        ORDER BY ResourceSurrogateId
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
