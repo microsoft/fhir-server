@@ -36,7 +36,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = false;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var options = Options.Create(securityConfiguration);
+            var handler = new GetSmartConfigurationHandler(options, new DefaultAuthenticationAuthorityProvider(options));
 
             OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
@@ -53,7 +54,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var options = Options.Create(securityConfiguration);
+            var handler = new GetSmartConfigurationHandler(options, new DefaultAuthenticationAuthorityProvider(options));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -86,7 +88,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var options = Options.Create(securityConfiguration);
+            var handler = new GetSmartConfigurationHandler(options, new DefaultAuthenticationAuthorityProvider(options));
 
             OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);
@@ -113,7 +116,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.ManagementEndpoint = managementEndpoint;
             securityConfiguration.RevocationEndpoint = revocationEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var options = Options.Create(securityConfiguration);
+            var handler = new GetSmartConfigurationHandler(options, new DefaultAuthenticationAuthorityProvider(options));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -138,7 +142,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authentication.Authority = baseEndpoint;
             securityConfiguration.EnableAadSmartOnFhirProxy = true;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var options = Options.Create(securityConfiguration);
+            var handler = new GetSmartConfigurationHandler(options, new DefaultAuthenticationAuthorityProvider(options));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -171,7 +176,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authentication.Authority = "https://logon.onmicrosoft.com/guid";
             securityConfiguration.EnableAadSmartOnFhirProxy = false;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var options = Options.Create(securityConfiguration);
+            var handler = new GetSmartConfigurationHandler(options, new DefaultAuthenticationAuthorityProvider(options));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 

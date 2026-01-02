@@ -13,6 +13,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 
@@ -56,6 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     services.AddSingleton(_securityConfiguration.Authorization);
 
                     services.AddSingleton<IAuthorizationService<DataActions>, RoleBasedFhirAuthorizationService>();
+                    services.AddSingleton<IAuthenticationAuthorityProvider, DefaultAuthenticationAuthorityProvider>();
                 }
                 else
                 {
