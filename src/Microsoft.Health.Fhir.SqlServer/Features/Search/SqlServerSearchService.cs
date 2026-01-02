@@ -1790,8 +1790,10 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
             var sortOrder = searchOptions.Sort.FirstOrDefault(_ => _.searchParameterInfo.Code == KnownQueryParameterNames.LastUpdated).sortOrder;
             var se = expression.SearchParamTableExpressions.FirstOrDefault(_ => _.Kind == SearchParamTableExpressionKind.Normal);
-            if (searchOptions.IncludesContinuationToken != null
+            if (searchOptions.CountOnly
+                || searchOptions.IncludesContinuationToken != null
                 || sortOrder != SortOrder.Ascending
+                || expression.SearchParamTableExpressions.Count != 2 // ignore complex filters
                 || se == null
                 || se.QueryGenerator.Table.TableName != VLatest.TokenSearchParam.TableName
                 || se.Predicate is not MultiaryExpression me)
@@ -1805,18 +1807,20 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 {
                     if (spe.Parameter.Code == KnownQueryParameterNames.Type)
                     {
-                        model.TryGetResourceTypeId((spe.Expression as StringExpression).Value, out resourceTypeId);
+                        if (spe.Expression is StringExpression seInt)
+                        {
+                            model.TryGetResourceTypeId(seInt.Value, out resourceTypeId);
+                        }
                     }
-                    else if (spe.Parameter.Code == KnownQueryParameterNames.Identifier)
+                    else
                     {
                         model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId);
                         if (spe.Expression is StringExpression strExp)
                         {
                             tokens.Add(new Token(strExp.Value, null));
                         }
-                        else
+                        else if (spe.Expression is MultiaryExpression mult)
                         {
-                            var mult = spe.Expression as MultiaryExpression;
                             foreach (var exp in mult.Expressions)
                             {
                                 if (exp is StringExpression tokenCodeExp) // token without system
