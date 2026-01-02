@@ -46,5 +46,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal(healthCareService.Id, queryResult2.Entry.Single().Resource.Id);
             }
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfIds_SearchReturnsExpectedResults()
+        {
+            var identifiers = (await GetHealthRecordIdentifiersAsync(CancellationToken.None)).Where(_ => _.ResourceType == ResourceType.HealthcareService.ToString()).ToList();
+            var query = $"_id={identifiers.First().Id}";
+            Bundle result = await Client.SearchAsync(ResourceType.HealthcareService, query);
+            Assert.Single(result.Entry);
+            query = $"_id={string.Join(",", identifiers.Select(_ => _.Id))}&_count=100";
+            result = await Client.SearchAsync(ResourceType.HealthcareService, query);
+            Assert.Equal(identifiers.Count, result.Entry.Count);
+        }
     }
 }
