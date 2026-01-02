@@ -3,6 +3,7 @@
   <PropertyGroup>
     <LatestSchemaVersion>101</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
+    <PackageTags>LatestSchemaVersion-$(LatestSchemaVersion)</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
