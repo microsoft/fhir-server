@@ -22,12 +22,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public class GetSmartConfigurationHandler : IRequestHandler<GetSmartConfigurationRequest, GetSmartConfigurationResponse>
     {
         private readonly SecurityConfiguration _securityConfiguration;
+        private readonly IAuthenticationAuthorityProvider _authenticationAuthorityProvider;
 
-        public GetSmartConfigurationHandler(IOptions<SecurityConfiguration> securityConfigurationOptions)
+        public GetSmartConfigurationHandler(
+            IOptions<SecurityConfiguration> securityConfigurationOptions,
+            IAuthenticationAuthorityProvider authenticationAuthorityProvider)
         {
             EnsureArg.IsNotNull(securityConfigurationOptions?.Value, nameof(securityConfigurationOptions));
+            EnsureArg.IsNotNull(authenticationAuthorityProvider, nameof(authenticationAuthorityProvider));
 
             _securityConfiguration = securityConfigurationOptions.Value;
+            _authenticationAuthorityProvider = authenticationAuthorityProvider;
         }
 
         public Task<GetSmartConfigurationResponse> Handle(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
@@ -43,9 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             {
                 try
                 {
-                    string baseEndpoint = _securityConfiguration.Authentication.Authority;
-                    Uri authorizationEndpoint = new Uri(baseEndpoint + "/authorize");
-                    Uri tokenEndpoint = new Uri(baseEndpoint + "/token");
+                    Uri authorizationEndpoint = new Uri(_authenticationAuthorityProvider.GetAuthorizationEndpoint());
+                    Uri tokenEndpoint = new Uri(_authenticationAuthorityProvider.GetTokenEndpoint());
 
                     if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {
