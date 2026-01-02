@@ -1825,24 +1825,21 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             {
                                 tokens.Add(new Token(tokenCodeExp.Value, null));
                             }
-                            else
+                            else if (exp is MultiaryExpression mexp)
                             {
                                 string systemInt = null;
                                 string codeInt = null;
-                                if (exp is MultiaryExpression mexp)
+                                foreach (var tokenSystemCodeExp in mexp.Expressions) // token with system
                                 {
-                                    foreach (var tokenSystemCodeExp in mexp.Expressions) // token with system
+                                    if (tokenSystemCodeExp is StringExpression tokenSystemCodeStrExp)
                                     {
-                                        if (tokenSystemCodeExp is StringExpression tokenSystemCodeStrExp)
+                                        if (tokenSystemCodeStrExp.FieldName == FieldName.TokenSystem)
                                         {
-                                            if (tokenSystemCodeStrExp.FieldName == FieldName.TokenSystem)
-                                            {
-                                                systemInt = tokenSystemCodeStrExp.Value;
-                                            }
-                                            else if (tokenSystemCodeStrExp.FieldName == FieldName.TokenCode)
-                                            {
-                                                codeInt = tokenSystemCodeStrExp.Value;
-                                            }
+                                            systemInt = tokenSystemCodeStrExp.Value;
+                                        }
+                                        else if (tokenSystemCodeStrExp.FieldName == FieldName.TokenCode)
+                                        {
+                                            codeInt = tokenSystemCodeStrExp.Value;
                                         }
                                     }
                                 }
