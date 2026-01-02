@@ -1829,18 +1829,15 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             {
                                 string systemInt = null;
                                 string codeInt = null;
-                                foreach (var tokenSystemCodeExp in mexp.Expressions) // token with system
+                                foreach (var tokenSystemCodeExp in mexp.Expressions.OfType<StringExpression>()) // token with system
                                 {
-                                    if (tokenSystemCodeExp is StringExpression tokenSystemCodeStrExp)
+                                    if (tokenSystemCodeExp.FieldName == FieldName.TokenSystem)
                                     {
-                                        if (tokenSystemCodeStrExp.FieldName == FieldName.TokenSystem)
-                                        {
-                                            systemInt = tokenSystemCodeStrExp.Value;
-                                        }
-                                        else if (tokenSystemCodeStrExp.FieldName == FieldName.TokenCode)
-                                        {
-                                            codeInt = tokenSystemCodeStrExp.Value;
-                                        }
+                                        systemInt = tokenSystemCodeExp.Value;
+                                    }
+                                    else if (tokenSystemCodeExp.FieldName == FieldName.TokenCode)
+                                    {
+                                        codeInt = tokenSystemCodeExp.Value;
                                     }
                                 }
 
