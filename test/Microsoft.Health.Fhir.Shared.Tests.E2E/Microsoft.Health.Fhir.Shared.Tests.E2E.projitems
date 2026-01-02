@@ -95,6 +95,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Reindex\ReindexTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Reindex\ReindexTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\TokenIntrospectionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchProxyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingAndSortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSortAndSearchValidationTestFixture.cs" />
