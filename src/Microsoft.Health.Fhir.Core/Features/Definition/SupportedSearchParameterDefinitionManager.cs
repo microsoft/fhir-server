@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -145,6 +147,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus)
         {
             _inner.UpdateSearchParameterStatus(url, desiredStatus);
+        }
+
+        public Task UpdateSearchParameterStatusAsync(string url, SearchParameterStatus desiredStatus, CancellationToken cancellationToken = default)
+        {
+            return _inner.UpdateSearchParameterStatusAsync(url, desiredStatus, cancellationToken);
         }
     }
 }

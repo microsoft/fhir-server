@@ -14,7 +14,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
 
-        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
+        /// <summary>
+        /// Marks a SearchParameter for deletion. This can be either a soft delete (PendingDelete) or hard delete (PendingHardDelete).
+        /// For hard deletes, a reindex operation is required to finalize the deletion by removing all index entries and the SearchParam registry entry.
+        /// </summary>
+        /// <param name="searchParamResource">The SearchParameter resource to delete</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <param name="ignoreSearchParameterNotSupportedException">Whether to ignore SearchParameterNotSupportedException</param>
+        /// <param name="isHardDelete">If true, marks for hard deletion (PendingHardDelete); otherwise marks for soft deletion (PendingDelete)</param>
+        /// <returns>Task representing the async operation</returns>
+        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false, bool isHardDelete = false);
 
         Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
 

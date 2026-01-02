@@ -213,6 +213,13 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
             throw new NotImplementedException();
         }
 
+        public Task UpdateSearchParameterStatusAsync(string url, SearchParameterStatus desiredStatus, CancellationToken cancellationToken = default)
+        {
+            // MinimalSearchParameterDefinitionManager is used only for resource parsing tools
+            // and doesn't need full search parameter status management
+            throw new NotImplementedException();
+        }
+
         public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
         {
             throw new NotImplementedException();

@@ -177,7 +177,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 lookup.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q) &&
                 q.TryPeek(out searchParameter))
             {
-                if (excludePendingDelete && searchParameter.SearchParameterStatus == SearchParameterStatus.PendingDelete)
+                if (excludePendingDelete &&
+                    (searchParameter.SearchParameterStatus == SearchParameterStatus.PendingDelete ||
+                     searchParameter.SearchParameterStatus == SearchParameterStatus.PendingHardDelete))
                 {
                     searchParameter = null;
                     return false;
@@ -211,7 +213,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             EnsureInitialized();
             if (UrlLookup.TryGetValue(definitionUri, out value))
             {
-                if (excludePendingDelete && value.SearchParameterStatus == SearchParameterStatus.PendingDelete)
+                if (excludePendingDelete &&
+                    (value.SearchParameterStatus == SearchParameterStatus.PendingDelete ||
+                     value.SearchParameterStatus == SearchParameterStatus.PendingHardDelete))
                 {
                     value = null;
                     return false;
@@ -331,6 +335,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
+        public async Task UpdateSearchParameterStatusAsync(string url, SearchParameterStatus desiredStatus, CancellationToken cancellationToken = default)
+        {
+            if (desiredStatus == SearchParameterStatus.HardDeleted)
+            {
+                // Call the stored procedure to hard delete
+                using IScoped<IFhirDataStore> fhirDataStore = _fhirDataStoreFactory.Invoke();
+                await fhirDataStore.Value.HardDeleteSearchParameterAsync(url, cancellationToken);
+
+                // Remove from in-memory collections
+                DeleteSearchParameter(url);
+
+                _logger.LogInformation("Hard deleted search parameter: {Url}", url);
+            }
+            else
+            {
+                // Existing logic - just update in-memory status
+                UpdateSearchParameterStatus(url, desiredStatus);
+            }
+        }
+
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
@@ -387,16 +411,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             int totalLoaded = 0;
             int totalPendingDelete = 0;
 
-            // Get all PendingDelete search parameters from the status store
+            // Get all PendingDelete and PendingHardDelete search parameters from the status store
             var allStatuses = await statusDataStore.Value.GetSearchParameterStatuses(cancellationToken);
             var pendingDeleteUrls = new HashSet<string>(
                 allStatuses
-                    .Where(s => s.Status == SearchParameterStatus.PendingDelete)
+                    .Where(s => s.Status == SearchParameterStatus.PendingDelete ||
+                                s.Status == SearchParameterStatus.PendingHardDelete)
                     .Select(s => s.Uri.OriginalString),
                 StringComparer.OrdinalIgnoreCase);
 
             _logger.LogInformation(
-                "Found {PendingDeleteCount} search parameters with PendingDelete status in the status store",
+                "Found {PendingDeleteCount} search parameters with PendingDelete or PendingHardDelete status in the status store",
                 pendingDeleteUrls.Count);
 
             do
@@ -446,7 +471,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                         var searchParam = lastVersion.RawResource.ToITypedElement(_modelInfoProvider);
                                         var urlScalar = searchParam.GetStringScalar("url");
 
-                                        // Only load if this URL is marked as PendingDelete in the status store
+                                        // Only load if this URL is marked as PendingDelete or PendingHardDelete in the status store
                                         if (!string.IsNullOrEmpty(urlScalar) && pendingDeleteUrls.Contains(urlScalar))
                                         {
                                             // Build the search parameter using the last version before deletion
@@ -460,13 +485,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                                             totalLoaded++;
 
-                                            // Update the status to PendingDelete since the resource is soft-deleted
+                                            // Update the status to match what's in the status store
                                             if (UrlLookup.TryGetValue(urlScalar, out var loadedParam))
                                             {
-                                                loadedParam.SearchParameterStatus = SearchParameterStatus.PendingDelete;
+                                                var actualStatus = allStatuses.FirstOrDefault(s => string.Equals(s.Uri.OriginalString, urlScalar, StringComparison.OrdinalIgnoreCase))?.Status ?? SearchParameterStatus.PendingDelete;
+                                                loadedParam.SearchParameterStatus = actualStatus;
                                                 totalPendingDelete++;
                                                 _logger.LogInformation(
-                                                    "Loaded PendingDelete search parameter from last version before deletion: {Url}",
+                                                    "Loaded {Status} search parameter from last version before deletion: {Url}",
+                                                    actualStatus,
                                                     urlScalar);
                                             }
                                         }
@@ -555,7 +582,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             while (continuationToken != null);
 
             _logger.LogInformation(
-                "Loaded {TotalLoaded} active and {TotalPendingDelete} PendingDelete search parameters from data store",
+                "Loaded {TotalLoaded} active and {TotalPendingDelete} PendingDelete/PendingHardDelete search parameters from data store",
                 totalLoaded,
                 totalPendingDelete);
         }
