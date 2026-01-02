@@ -2822,15 +2822,27 @@ CREATE PROCEDURE dbo.GetResourcesByTokens
 @ResourceTypeId SMALLINT, @SearchParamId SMALLINT, @Tokens dbo.TokenList READONLY, @Top INT
 AS
 SET NOCOUNT ON;
-DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResourcesByTokens', @Mode AS VARCHAR (100) = 'Tokens=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                                                               FROM   @Tokens)), @DummyTop AS BIGINT = 9223372036854775807;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResourcesByTokens', @Mode AS VARCHAR (100) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' SP=' + CONVERT (VARCHAR, @SearchParamId) + ' Tokens=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                                                                                                                                                          FROM   @Tokens)) + ' T=' + CONVERT (VARCHAR, @Top), @DummyTop AS BIGINT = 9223372036854775807;
 BEGIN TRY
     IF EXISTS (SELECT *
                FROM   @Tokens
                WHERE  CodeOverflow IS NOT NULL)
-        WITH     cte0
-        AS       (SELECT ResourceTypeId AS T1,
-                         ResourceSurrogateId AS Sid1
+        SELECT   ResourceTypeId,
+                 ResourceId,
+                 Version,
+                 IsDeleted,
+                 ResourceSurrogateId,
+                 RequestMethod,
+                 CONVERT (BIT, 1) AS IsMatch,
+                 CONVERT (BIT, 0) AS IsPartial,
+                 IsRawResourceMetaSet,
+                 SearchParamHash,
+                 RawResource
+        FROM     dbo.Resource
+                 INNER JOIN
+                 (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
+                                             ResourceSurrogateId AS Sid1
                   FROM   dbo.TokenSearchParam AS A
                          INNER JOIN
                          (SELECT TOP (@DummyTop) *
@@ -2842,38 +2854,29 @@ BEGIN TRY
                             AND (B.SystemId = A.SystemId
                                  OR B.SystemId IS NULL)
                   WHERE  ResourceTypeId = @ResourceTypeId
-                         AND SearchParamId = @SearchParamId),
-                 cte1
-        AS       (SELECT   DISTINCT TOP (@Top) T1,
-                                               Sid1,
-                                               CONVERT (BIT, 1) AS IsMatch,
-                                               CONVERT (BIT, 0) AS IsPartial
-                  FROM     cte0
-                  ORDER BY T1, Sid1)
+                         AND SearchParamId = @SearchParamId) AS A
+                 ON ResourceTypeId = T1
+                    AND ResourceSurrogateId = Sid1
+        WHERE    IsHistory = 0
+                 AND IsDeleted = 0
+        ORDER BY ResourceSurrogateId
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+    ELSE
         SELECT   ResourceTypeId,
                  ResourceId,
                  Version,
                  IsDeleted,
                  ResourceSurrogateId,
                  RequestMethod,
-                 IsMatch,
-                 IsPartial,
+                 CONVERT (BIT, 1) AS IsMatch,
+                 CONVERT (BIT, 0) AS IsPartial,
                  IsRawResourceMetaSet,
                  SearchParamHash,
                  RawResource
         FROM     dbo.Resource
                  INNER JOIN
-                 cte1
-                 ON ResourceTypeId = cte1.T1
-                    AND ResourceSurrogateId = cte1.Sid1
-        WHERE    IsHistory = 0
-                 AND IsDeleted = 0
-        ORDER BY ResourceSurrogateId
-        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-    ELSE
-        WITH     cte0
-        AS       (SELECT ResourceTypeId AS T1,
-                         ResourceSurrogateId AS Sid1
+                 (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
+                                             ResourceSurrogateId AS Sid1
                   FROM   dbo.TokenSearchParam AS A
                          INNER JOIN
                          (SELECT TOP (@DummyTop) *
@@ -2882,30 +2885,9 @@ BEGIN TRY
                             AND (B.SystemId = A.SystemId
                                  OR B.SystemId IS NULL)
                   WHERE  ResourceTypeId = @ResourceTypeId
-                         AND SearchParamId = @SearchParamId),
-                 cte1
-        AS       (SELECT   DISTINCT TOP (@Top) T1,
-                                               Sid1,
-                                               CONVERT (BIT, 1) AS IsMatch,
-                                               CONVERT (BIT, 0) AS IsPartial
-                  FROM     cte0
-                  ORDER BY T1, Sid1)
-        SELECT   ResourceTypeId,
-                 ResourceId,
-                 Version,
-                 IsDeleted,
-                 ResourceSurrogateId,
-                 RequestMethod,
-                 IsMatch,
-                 IsPartial,
-                 IsRawResourceMetaSet,
-                 SearchParamHash,
-                 RawResource
-        FROM     dbo.Resource
-                 INNER JOIN
-                 cte1
-                 ON ResourceTypeId = cte1.T1
-                    AND ResourceSurrogateId = cte1.Sid1
+                         AND SearchParamId = @SearchParamId) AS A
+                 ON ResourceTypeId = T1
+                    AND ResourceSurrogateId = Sid1
         WHERE    IsHistory = 0
                  AND IsDeleted = 0
         ORDER BY ResourceSurrogateId
