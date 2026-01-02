@@ -2221,7 +2221,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
             }
 
-            internal static void CollectResourceTypesFromExpression(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds)
+            private static void CollectResourceTypesFromExpression(Expression expression, SqlServerFhirModel model, HashSet<short> resourceTypeIds)
             {
                 switch (expression)
                 {
