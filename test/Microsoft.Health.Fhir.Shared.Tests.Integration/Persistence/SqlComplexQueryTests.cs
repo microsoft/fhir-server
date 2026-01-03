@@ -52,24 +52,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await CleanProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A,B")], CancellationToken.None);
+            //// single code without system
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A")], CancellationToken.None);
             Assert.True(await CheckIfSprocUsed(spName));
 
             await CleanProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
-            //// existing system - stored procedure should be called
+            //// single code with system. system value exists - stored procedure should be called
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A")], CancellationToken.None);
             Assert.True(await CheckIfSprocUsed(spName));
 
             await CleanProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
-            //// existing system - stored procedure should be called
+            //// multiple codes without system
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A,B")], CancellationToken.None);
+            Assert.True(await CheckIfSprocUsed(spName));
+
+            await CleanProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            //// multiple codes with system. existing system - stored procedure should be called
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], CancellationToken.None);
+            Assert.True(await CheckIfSprocUsed(spName));
+
+            await CleanProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            //// multiple codes. existing system - stored procedure should be called
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,B")], CancellationToken.None);
             Assert.True(await CheckIfSprocUsed(spName));
 
             await CleanProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
-            //// not existing system - temporarily, until system cache is updated, stored procedure should be not called
+            //// not existing system - temporarily, until system cache is updated, stored procedure should not be called
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "notexisting|A")], CancellationToken.None);
             Assert.False(await CheckIfSprocUsed(spName));
         }
