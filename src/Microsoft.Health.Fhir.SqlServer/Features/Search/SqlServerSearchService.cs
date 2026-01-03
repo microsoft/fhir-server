@@ -1798,9 +1798,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 return false;
             }
 
-            foreach (var spe in me.Expressions.OfType<SearchParameterExpression>())
+            foreach (var spe in me.Expressions.OfType<SearchParameterExpression>()) // there shoukd be 2, one for resource type, the other for code/system and search param
             {
-                if (spe.Parameter.Code == KnownQueryParameterNames.Type)
+                if (spe.Parameter.Code == KnownQueryParameterNames.Type) // resource type
                 {
                     if (spe.Expression is StringExpression seInt)
                     {
@@ -1809,14 +1809,14 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
                 else
                 {
-                    model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId);
-                    if (spe.Expression is StringExpression strExp)
+                    model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId); // search param
+                    if (spe.Expression is StringExpression strExp) // single token without system
                     {
                         tokens.Add(new Token(strExp.Value, null));
                     }
-                    else if (spe.Expression is MultiaryExpression multOr && multOr.MultiaryOperation == MultiaryOperator.Or)
+                    else if (spe.Expression is MultiaryExpression multOr && multOr.MultiaryOperation == MultiaryOperator.Or) // multiple tokens
                     {
-                        foreach (var exp in multOr.Expressions)
+                        foreach (var exp in multOr.Expressions) // multiple tokens
                         {
                             if (exp is StringExpression tokenCodeExp) // token without system
                             {
@@ -1824,20 +1824,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
                             else if (exp is MultiaryExpression mexp && mexp.MultiaryOperation == MultiaryOperator.And) // token with system
                             {
-                                string systemInt = null;
-                                string codeInt = null;
-                                foreach (var tokenSystemCodeExp in mexp.Expressions.OfType<StringExpression>())
-                                {
-                                    if (tokenSystemCodeExp.FieldName == FieldName.TokenSystem)
-                                    {
-                                        systemInt = tokenSystemCodeExp.Value;
-                                    }
-                                    else if (tokenSystemCodeExp.FieldName == FieldName.TokenCode)
-                                    {
-                                        codeInt = tokenSystemCodeExp.Value;
-                                    }
-                                }
-
+                                TryExtractTokenWithSystem(mexp, out var systemInt, out var codeInt);
                                 if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
                                 {
                                     return false;
@@ -1847,22 +1834,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
                         }
                     }
-                    else if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And)
+                    else if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And) // single token with system
                     {
-                        string systemInt = null;
-                        string codeInt = null;
-                        foreach (var exp in multAnd.Expressions.OfType<StringExpression>())
-                        {
-                            if (exp.FieldName == FieldName.TokenSystem)
-                            {
-                                systemInt = exp.Value;
-                            }
-                            else if (exp.FieldName == FieldName.TokenCode)
-                            {
-                                codeInt = exp.Value;
-                            }
-                        }
-
+                        TryExtractTokenWithSystem(multAnd, out var systemInt, out var codeInt);
                         if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
                         {
                             return false;
@@ -1881,33 +1855,21 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return true;
         }
 
-        private static bool TryAddTokenWithSystem(SearchParameterExpression spe, SqlServerFhirModel model, IList<Token> tokens)
+        private static void TryExtractTokenWithSystem(MultiaryExpression exp, out string tokenSystem, out string tokenCode)
         {
-            if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And)
+            tokenSystem = null;
+            tokenCode = null;
+            foreach (var str in exp.Expressions.OfType<StringExpression>())
             {
-                string systemInt = null;
-                string codeInt = null;
-                foreach (var exp in multAnd.Expressions.OfType<StringExpression>())
+                if (str.FieldName == FieldName.TokenSystem)
                 {
-                    if (exp.FieldName == FieldName.TokenSystem)
-                    {
-                        systemInt = exp.Value;
-                    }
-                    else if (exp.FieldName == FieldName.TokenCode)
-                    {
-                        codeInt = exp.Value;
-                    }
+                    tokenSystem = str.Value;
                 }
-
-                if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                else if (str.FieldName == FieldName.TokenCode)
                 {
-                    return false;
+                    tokenCode = str.Value;
                 }
-
-                tokens.Add(new Token(codeInt, systemId));
             }
-
-            return true;
         }
 
         /// <summary>
