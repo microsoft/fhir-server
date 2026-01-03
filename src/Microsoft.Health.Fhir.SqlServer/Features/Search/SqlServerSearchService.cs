@@ -1814,19 +1814,19 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     {
                         tokens.Add(new Token(strExp.Value, null));
                     }
-                    else if (spe.Expression is MultiaryExpression mult)
+                    else if (spe.Expression is MultiaryExpression multOr && multOr.MultiaryOperation == MultiaryOperator.Or)
                     {
-                        foreach (var exp in mult.Expressions)
+                        foreach (var exp in multOr.Expressions)
                         {
                             if (exp is StringExpression tokenCodeExp) // token without system
                             {
                                 tokens.Add(new Token(tokenCodeExp.Value, null));
                             }
-                            else if (exp is MultiaryExpression mexp)
+                            else if (exp is MultiaryExpression mexp && mexp.MultiaryOperation == MultiaryOperator.And) // token with system
                             {
                                 string systemInt = null;
                                 string codeInt = null;
-                                foreach (var tokenSystemCodeExp in mexp.Expressions.OfType<StringExpression>()) // token with system
+                                foreach (var tokenSystemCodeExp in mexp.Expressions.OfType<StringExpression>())
                                 {
                                     if (tokenSystemCodeExp.FieldName == FieldName.TokenSystem)
                                     {
@@ -1847,12 +1847,64 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
                         }
                     }
+                    else if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And)
+                    {
+                        string systemInt = null;
+                        string codeInt = null;
+                        foreach (var exp in multAnd.Expressions.OfType<StringExpression>())
+                        {
+                            if (exp.FieldName == FieldName.TokenSystem)
+                            {
+                                systemInt = exp.Value;
+                            }
+                            else if (exp.FieldName == FieldName.TokenCode)
+                            {
+                                codeInt = exp.Value;
+                            }
+                        }
+
+                        if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                        {
+                            return false;
+                        }
+
+                        tokens.Add(new Token(codeInt, systemId));
+                    }
                 }
             }
 
             if (resourceTypeId == 0 || searchParamId == 0 || tokens.Count == 0)
             {
                 return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryAddTokenWithSystem(SearchParameterExpression spe, SqlServerFhirModel model, IList<Token> tokens)
+        {
+            if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And)
+            {
+                string systemInt = null;
+                string codeInt = null;
+                foreach (var exp in multAnd.Expressions.OfType<StringExpression>())
+                {
+                    if (exp.FieldName == FieldName.TokenSystem)
+                    {
+                        systemInt = exp.Value;
+                    }
+                    else if (exp.FieldName == FieldName.TokenCode)
+                    {
+                        codeInt = exp.Value;
+                    }
+                }
+
+                if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                {
+                    return false;
+                }
+
+                tokens.Add(new Token(codeInt, systemId));
             }
 
             return true;
