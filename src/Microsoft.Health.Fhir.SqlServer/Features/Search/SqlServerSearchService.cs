@@ -37,6 +37,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -499,6 +501,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             searchResult = simpleReadResult;
                             return;
                         }
+                        else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
+                        {
+                            PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
+                        }
                         else
                         {
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
@@ -829,85 +835,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
             command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
             command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
-        }
-
-        /// <summary>
-        /// Attempts to populate a SqlCommand to use the ReadResource stored procedure for simple resource reads by ID.
-        /// This provides better performance than the generated SQL for simple resource lookups.
-        /// </summary>
-        /// <param name="expression">The SQL root expression to analyze</param>
-        /// <param name="searchOptions">The search options</param>
-        /// <param name="command">The SQL command to populate</param>
-        /// <returns>True if the command was populated for a simple resource read, false otherwise</returns>
-        private bool TryPopulateReadResourceCommand(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlCommand command)
-        {
-            // Only use ReadResource stored proc for simple cases
-            if (searchOptions.CountOnly ||
-                searchOptions.IncludeCount != 0 ||
-                searchOptions.Sort?.Count > 0 ||
-                expression.SearchParamTableExpressions.Count > 0 ||
-                expression.ResourceTableExpressions.Count != 2) // Should have exactly ResourceType and Id
-            {
-                return false;
-            }
-
-            // For versioned reads, we need ResourceVersionTypes to include History, but we still want the optimization
-            // when searching for a single resource by ID. Note: The ReadResource stored procedure supports a @version
-            // parameter, but specific version numbers are not currently passed through the search parameter system.
-            // For now, we allow the optimization for history searches but always pass NULL for version (latest version).
-            // TODO: Future enhancement could extract specific version information if available.
-            bool isHistorySearch = searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History);
-            bool isLatestOnly = searchOptions.ResourceVersionTypes == ResourceVersionType.Latest;
-
-            if (!isLatestOnly && !isHistorySearch)
-            {
-                // Only allow Latest or searches that include History (for versioned reads)
-                return false;
-            }
-
-            // Find ResourceType and Id expressions
-            SearchParameterExpression resourceTypeExpression = null;
-            SearchParameterExpression resourceIdExpression = null;
-
-            foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
-            {
-                if (searchParamExpression.Parameter.Code == SearchParameterNames.ResourceType)
-                {
-                    resourceTypeExpression = searchParamExpression;
-                }
-                else if (searchParamExpression.Parameter.Code == SearchParameterNames.Id)
-                {
-                    resourceIdExpression = searchParamExpression;
-                }
-            }
-
-            // Must have both ResourceType and Id expressions
-            if (resourceTypeExpression == null || resourceIdExpression == null)
-            {
-                return false;
-            }
-
-            // Extract resource type and id values
-            if (!TryExtractSimpleStringValue(resourceTypeExpression.Expression, out string resourceTypeName) ||
-                !TryExtractSimpleStringValue(resourceIdExpression.Expression, out string resourceId))
-            {
-                return false;
-            }
-
-            // Get resource type ID
-            if (!_model.TryGetResourceTypeId(resourceTypeName, out short resourceTypeId))
-            {
-                return false;
-            }
-
-            // Populate command to use ReadResource stored procedure
-            command.CommandType = CommandType.StoredProcedure;
-            command.CommandText = "dbo.ReadResource";
-            command.Parameters.AddWithValue("@resourceTypeId", resourceTypeId);
-            command.Parameters.AddWithValue("@resourceId", resourceId);
-            command.Parameters.AddWithValue("@version", DBNull.Value); // null for latest version
-
-            return true;
         }
 
         /// <summary>
@@ -1836,6 +1763,153 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 .AcceptVisitor(TopRewriter.Instance, searchOptions);
         }
 
+        private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetResourcesByTokens";
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@SearchParamId", searchParamId);
+            new TokenListTableValuedParameterDefinition("@Tokens").AddParameter(cmd.Parameters, new TokenListRowGenerator().GenerateRows(tokens));
+            cmd.Parameters.AddWithValue("@Top", top);
+        }
+
+        private bool TryExtractGetResourcesByTokensParams(SqlRootExpression expression, SqlSearchOptions searchOptions, SqlServerFhirModel model, out short resourceTypeId, out short searchParamId, out IList<Token> tokens, out int top)
+        {
+            resourceTypeId = 0;
+            searchParamId = 0;
+            tokens = new List<Token>();
+            top = searchOptions.MaxItemCount + 1;
+
+            if (_schemaInformation.Current < 102)
+            {
+                return false;
+            }
+
+            var sortOrder = searchOptions.Sort.FirstOrDefault(_ => _.searchParameterInfo.Code == KnownQueryParameterNames.LastUpdated).sortOrder;
+            var se = expression.SearchParamTableExpressions.FirstOrDefault(_ => _.Kind == SearchParamTableExpressionKind.Normal);
+            if (searchOptions.CountOnly
+                || searchOptions.IncludesContinuationToken != null
+                || sortOrder != SortOrder.Ascending
+                || expression.SearchParamTableExpressions.Count != 2 // ignore complex filters
+                || se == null
+                || se.QueryGenerator.Table.TableName != VLatest.TokenSearchParam.TableName
+                || se.Predicate is not MultiaryExpression me)
+            {
+                return false;
+            }
+
+            foreach (var spe in me.Expressions.OfType<SearchParameterExpression>())
+            {
+                if (spe.Parameter.Code == KnownQueryParameterNames.Type)
+                {
+                    if (spe.Expression is StringExpression seInt)
+                    {
+                        model.TryGetResourceTypeId(seInt.Value, out resourceTypeId);
+                    }
+                }
+                else
+                {
+                    model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId);
+                    if (spe.Expression is StringExpression strExp)
+                    {
+                        tokens.Add(new Token(strExp.Value, null));
+                    }
+                    else if (spe.Expression is MultiaryExpression multOr && multOr.MultiaryOperation == MultiaryOperator.Or)
+                    {
+                        foreach (var exp in multOr.Expressions)
+                        {
+                            if (exp is StringExpression tokenCodeExp) // token without system
+                            {
+                                tokens.Add(new Token(tokenCodeExp.Value, null));
+                            }
+                            else if (exp is MultiaryExpression mexp && mexp.MultiaryOperation == MultiaryOperator.And) // token with system
+                            {
+                                string systemInt = null;
+                                string codeInt = null;
+                                foreach (var tokenSystemCodeExp in mexp.Expressions.OfType<StringExpression>())
+                                {
+                                    if (tokenSystemCodeExp.FieldName == FieldName.TokenSystem)
+                                    {
+                                        systemInt = tokenSystemCodeExp.Value;
+                                    }
+                                    else if (tokenSystemCodeExp.FieldName == FieldName.TokenCode)
+                                    {
+                                        codeInt = tokenSystemCodeExp.Value;
+                                    }
+                                }
+
+                                if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                                {
+                                    return false;
+                                }
+
+                                tokens.Add(new Token(codeInt, systemId));
+                            }
+                        }
+                    }
+                    else if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And)
+                    {
+                        string systemInt = null;
+                        string codeInt = null;
+                        foreach (var exp in multAnd.Expressions.OfType<StringExpression>())
+                        {
+                            if (exp.FieldName == FieldName.TokenSystem)
+                            {
+                                systemInt = exp.Value;
+                            }
+                            else if (exp.FieldName == FieldName.TokenCode)
+                            {
+                                codeInt = exp.Value;
+                            }
+                        }
+
+                        if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                        {
+                            return false;
+                        }
+
+                        tokens.Add(new Token(codeInt, systemId));
+                    }
+                }
+            }
+
+            if (resourceTypeId == 0 || searchParamId == 0 || tokens.Count == 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryAddTokenWithSystem(SearchParameterExpression spe, SqlServerFhirModel model, IList<Token> tokens)
+        {
+            if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And)
+            {
+                string systemInt = null;
+                string codeInt = null;
+                foreach (var exp in multAnd.Expressions.OfType<StringExpression>())
+                {
+                    if (exp.FieldName == FieldName.TokenSystem)
+                    {
+                        systemInt = exp.Value;
+                    }
+                    else if (exp.FieldName == FieldName.TokenCode)
+                    {
+                        codeInt = exp.Value;
+                    }
+                }
+
+                if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                {
+                    return false;
+                }
+
+                tokens.Add(new Token(codeInt, systemId));
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Attempts to handle simple resource read requests directly via FhirDataStore.GetAsync
         /// instead of generating SQL queries for better performance.
@@ -2330,6 +2404,45 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 if (schemaInformation.Current >= (int)SchemaVersion.V97)
                 {
                     _activeOnly.AddParameter(sqlCommand.Parameters, activeOnly);
+                }
+            }
+        }
+
+        private class Token
+        {
+            internal Token(string code, int? systemId)
+            {
+                Code = code;
+                SystemId = systemId;
+            }
+
+            internal string Code { get; set; }
+
+            internal int? SystemId { get; set; }
+        }
+
+        private class TokenListRowGenerator : ITableValuedParameterRowGenerator<IList<Token>, TokenListRow>
+        {
+            private readonly int _codeMaxLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength;
+
+            public IEnumerable<TokenListRow> GenerateRows(IList<Token> tokens)
+            {
+                foreach (var token in tokens)
+                {
+                    string code;
+                    string codeOverflow;
+                    if (token.Code.Length > _codeMaxLength)
+                    {
+                        code = token.Code[.._codeMaxLength];
+                        codeOverflow = token.Code[_codeMaxLength..];
+                    }
+                    else
+                    {
+                        code = token.Code;
+                        codeOverflow = null;
+                    }
+
+                    yield return new TokenListRow(code, codeOverflow, token.SystemId);
                 }
             }
         }
