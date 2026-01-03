@@ -46,6 +46,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task SearchByTokens_GetResourcesByTokensIsUsed()
+        {
+            const string spName = "GetResourcesByTokens";
+
+            await CleanProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A,B")], CancellationToken.None);
+            Assert.True(await CheckIfSprocUsed(spName));
+
+            await CleanProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            //// existing system - stored procedure should be called
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A")], CancellationToken.None);
+            Assert.True(await CheckIfSprocUsed(spName));
+
+            await CleanProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            //// existing system - stored procedure should be called
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,B")], CancellationToken.None);
+            Assert.True(await CheckIfSprocUsed(spName));
+
+            await CleanProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            //// not existing system - temporarily, until system cache is updated, stored procedure should be not called
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "notexisting|A")], CancellationToken.None);
+            Assert.False(await CheckIfSprocUsed(spName));
+        }
+
+        [Fact]
         public async Task GivenSearchQuery_IfReuseQueryPlansIsEnabled_ThenPlansAreReusedAcrossDifferentParameterValues()
         {
             // warm up stats
@@ -93,6 +122,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 }
             }
+        }
+
+        private async Task CleanProcedureCache()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            using var cmd = new SqlCommand("ALTER DATABASE SCOPED CONFIGURATION CLEAR PROCEDURE_CACHE", conn);
+            conn.Open();
+            cmd.ExecuteNonQuery();
         }
 
         private async Task CheckQueryStore(int expected_executions, int expected_compiles)
@@ -174,9 +211,7 @@ END CATCH
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4,
-                "This test is only valid for R4");
+            Skip.If(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
 
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
@@ -188,9 +223,10 @@ END CATCH
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
 
             var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
+            var spName = "CustomQuery_" + hash;
 
             // assert an sproc was not used
-            Assert.False(await CheckIfSprocUsed(hash));
+            Assert.False(await CheckIfSprocUsed(spName));
 
             // add the sproc
             _output.WriteLine("Adding new sproc to database.");
@@ -204,7 +240,7 @@ END CATCH
                 await Task.Delay(300);
                 await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
                 Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
-                if (await CheckIfSprocUsed(hash))
+                if (await CheckIfSprocUsed(spName))
                 {
                     sprocWasUsed = true;
                     break;
@@ -225,11 +261,11 @@ END CATCH
             CustomQueries.WaitTime = 60;
 
             // drop stored procedure and clear cache, so no other tests use this stored procedure.
-            _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE [dbo].[CustomQuery_{hash}]").Wait();
+            _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
             CustomQueries.QueryStore.Clear();
         }
 
-        private async Task<bool> CheckIfSprocUsed(string hash)
+        private async Task<bool> CheckIfSprocUsed(string name)
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine("Checking database for sproc being run.");
@@ -239,25 +275,26 @@ END CATCH
 SELECT TOP 1 O.name
   FROM sys.dm_exec_procedure_stats S
        JOIN sys.objects O ON O.object_id = S.object_id
-  WHERE O.type = 'p' AND O.name = 'CustomQuery_'+@hash
+  WHERE O.type = 'p' AND O.name = @name
   ORDER BY
        S.last_execution_time DESC";
-            cmd.Parameters.AddWithValue("@hash", hash);
+            cmd.Parameters.AddWithValue("@name", name);
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
+                _output.WriteLine($"{name} was run.");
                 return true;
             }
 
-            _output.WriteLine("No evidence found of sproc being run.");
+            _output.WriteLine($"{name} was not run.");
             return false;
         }
 
-        private void AddSproc(string hash)
+        private void AddSproc(string spName)
         {
             _fixture.SqlHelper.ExecuteSqlCmd(@$"
-CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_{hash}]
+CREATE OR ALTER PROCEDURE dbo.[CustomQuery_{spName}]
    @p0 nvarchar(256)
   ,@p1 nvarchar(256)
   ,@p2 datetime2

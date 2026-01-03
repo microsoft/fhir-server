@@ -115,6 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
+            await InitSystem(databaseName);
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
         }
 
@@ -132,6 +133,14 @@ INSERT INTO Parameters (Id,Char) SELECT 'Search','LogEvent'
                 await sqlCommand.ExecuteNonQueryAsync(CancellationToken.None);
                 await connection.CloseAsync();
             });
+        }
+
+        public async Task InitSystem(string databaseName)
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken: CancellationToken.None);
+            await conn.OpenAsync(CancellationToken.None);
+            using var cmd = new SqlCommand("INSERT INTO dbo.System (Value) SELECT 'TestSystem' WHERE NOT EXISTS (SELECT * FROM dbo.System WHERE Value = 'TestSystem')", conn);
+            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
         }
 
         public async Task InitWatchdogsParameters(string databaseName)
