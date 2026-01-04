@@ -95,8 +95,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
             //// not existing system - temporarily, until system cache is updated, stored procedure should not be called
-            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "notexisting|A")], CancellationToken.None);
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "NotExisting|A")], CancellationToken.None);
             Assert.Empty(result.Results);
+            Assert.False(await CheckIfSprocUsed(spName));
+
+            await ClearProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            //// not existing system - temporarily, until system cache is updated, stored procedure should not be called
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "NotExisting|A,TestSystem|B")], CancellationToken.None);
+            Assert.Single(result.Results);
             Assert.False(await CheckIfSprocUsed(spName));
         }
 
