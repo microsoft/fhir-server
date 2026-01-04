@@ -248,7 +248,7 @@ END CATCH
 
             // Query before adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-
+            Assert.Empty(CustomQueries.QueryStore);
             var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
             var spName = "CustomQuery_" + hash;
 
@@ -260,8 +260,17 @@ END CATCH
             AddSproc(hash);
 
             // Query after adding an sproc to the database
-            await Task.Delay(2000); // more than wait time to refresh the cache
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+            var sw = Stopwatch.StartNew();
+            while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
+            {
+                await Task.Delay(300);
+                await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+                if (CustomQueries.QueryStore.Count > 0)
+                {
+                    break;
+                }
+            }
+
             Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
             Assert.Single(CustomQueries.QueryStore);
 
