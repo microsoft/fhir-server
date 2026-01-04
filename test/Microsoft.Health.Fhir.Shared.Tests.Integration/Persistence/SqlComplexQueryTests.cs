@@ -6,11 +6,16 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel.Types;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Serialization;
+using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -50,40 +55,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             const string spName = "GetResourcesByTokens";
 
-            await CleanProcedureCache();
+            await PrepareData();
+
+            await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
             //// single code without system
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A")], CancellationToken.None);
+            var result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A")], CancellationToken.None);
+            Assert.Equal(2, result.Results.Count());
             Assert.True(await CheckIfSprocUsed(spName));
 
-            await CleanProcedureCache();
+            await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
             //// single code with system. system value exists - stored procedure should be called
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A")], CancellationToken.None);
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A")], CancellationToken.None);
+            Assert.Single(result.Results);
             Assert.True(await CheckIfSprocUsed(spName));
 
-            await CleanProcedureCache();
+            await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
             //// multiple codes without system
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A,B")], CancellationToken.None);
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A,B")], CancellationToken.None);
+            Assert.Equal(4, result.Results.Count());
             Assert.True(await CheckIfSprocUsed(spName));
 
-            await CleanProcedureCache();
+            await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
             //// multiple codes with system. existing system - stored procedure should be called
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], CancellationToken.None);
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], CancellationToken.None);
+            Assert.Equal(2, result.Results.Count());
             Assert.True(await CheckIfSprocUsed(spName));
 
-            await CleanProcedureCache();
+            await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
             //// multiple codes. existing system - stored procedure should be called
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,B")], CancellationToken.None);
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,B")], CancellationToken.None);
+            Assert.Equal(3, result.Results.Count());
             Assert.True(await CheckIfSprocUsed(spName));
 
-            await CleanProcedureCache();
+            await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
             //// not existing system - temporarily, until system cache is updated, stored procedure should not be called
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "notexisting|A")], CancellationToken.None);
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "notexisting|A")], CancellationToken.None);
+            Assert.Empty(result.Results);
             Assert.False(await CheckIfSprocUsed(spName));
         }
 
@@ -137,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private async Task CleanProcedureCache()
+        private async Task ClearProcedureCache()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             using var cmd = new SqlCommand("ALTER DATABASE SCOPED CONFIGURATION CLEAR PROCEDURE_CACHE", conn);
@@ -221,6 +234,7 @@ END CATCH
         [SkippableFact]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
+            await ClearProcedureCache();
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
@@ -246,24 +260,13 @@ END CATCH
             AddSproc(hash);
 
             // Query after adding an sproc to the database
-            var sw = Stopwatch.StartNew();
-            var sprocWasUsed = false;
-            while (sw.Elapsed.TotalSeconds < 100) // previous single try after 1.1 sec delay was not reliable.
-            {
-                await Task.Delay(300);
-                await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-                Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
-                if (await CheckIfSprocUsed(spName))
-                {
-                    sprocWasUsed = true;
-                    break;
-                }
-            }
-
+            await Task.Delay(2000); // more than wait time to refresh the cache
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+            Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
             Assert.Single(CustomQueries.QueryStore);
 
             // Check if stored procedure was used
-            Assert.True(sprocWasUsed);
+            Assert.True(await CheckIfSprocUsed(spName));
 
             // change values and check that query hash did not change
             query = [Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("birthdate", "lt2000-01-01"), Tuple.Create("address-city", "City2"), Tuple.Create("address-state", "State2")];
@@ -285,23 +288,15 @@ END CATCH
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
-SELECT TOP 1 O.name
+SELECT count(*)
   FROM sys.dm_exec_procedure_stats S
        JOIN sys.objects O ON O.object_id = S.object_id
-  WHERE O.type = 'p' AND O.name = @name
-  ORDER BY
-       S.last_execution_time DESC";
+  WHERE database_id = db_id() AND O.type = 'p' AND O.name = @name
+            ";
             cmd.Parameters.AddWithValue("@name", name);
-
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                _output.WriteLine($"{name} was run.");
-                return true;
-            }
-
-            _output.WriteLine($"{name} was not run.");
-            return false;
+            var cnt = (int)cmd.ExecuteScalar();
+            _output.WriteLine($"{name} was{(cnt == 0 ? " not " : " ")}run.");
+            return cnt > 0;
         }
 
         private void AddSproc(string spName)
@@ -318,6 +313,52 @@ set nocount on
 SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(1 AS bit) AS IsMatch, CAST(0 AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
   FROM dbo.Resource r
   WHERE 1 = 2
+            ").Wait();
+        }
+
+        private Patient CreateTestPatient(Identifier identifier = null)
+        {
+            var rtn = new Patient()
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Meta = new(),
+            };
+
+            if (identifier != null)
+            {
+                rtn.Identifier = [identifier];
+            }
+
+            return rtn;
+        }
+
+        private async Task PrepareData()
+        {
+            _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.Resource").Wait();
+            _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.TokenSearchParam").Wait();
+            //// creating 4 resources
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "A")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "A")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "B")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "B")).ToResourceElement());
+            //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
+            _fixture.SqlHelper.ExecuteSqlCmd(@"
+INSERT INTO dbo.TokenSearchParam 
+    (
+         ResourceTypeId
+        ,ResourceSurrogateId
+        ,SearchParamId
+        ,SystemId
+        ,Code
+        ,CodeOverflow
+    )
+  SELECT ResourceTypeId
+        ,ResourceSurrogateId
+        ,SearchParamId = 1013
+        ,SystemId = CASE WHEN RowId IN (1,3) THEN 1 ELSE NULL END
+        ,Code = CASE WHEN RowId IN (1,2) THEN 'A' ELSE 'B' END
+        ,CodeOverflow = NULL
+    FROM (SELECT RowId = row_number() OVER (ORDER BY ResourceSurrogateId), * FROM dbo.Resource) A
             ").Wait();
         }
     }
