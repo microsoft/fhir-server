@@ -33,6 +33,12 @@ parameters:
 - name: keyVaultName
   type: string
   default: ''
+- name: addTriggeringUserAccess
+  type: boolean
+  default: false
+- name: adminUserAssignedManagedIdentityName
+  type: string
+  default: ''
 
 jobs:
 - job: provisionEnvironment
@@ -58,6 +64,60 @@ jobs:
 
         # Import retry helper for transient error handling
         . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
+        # Helper function to resolve triggering user info from git commit author
+        # Supports GitHub noreply emails by looking up username mapping in Key Vault
+        # Key Vault secret format: "objectId|upn" (e.g., "a1b2c3d4-...|joestr@microsoft.com")
+        # Returns hashtable with ObjectId and Upn properties, or $null if not found
+        function Get-TriggeringUserInfo {
+            try {
+                # Get git commit author email
+                $gitEmail = git log -1 --format='%ae' 2>$null
+                if ([string]::IsNullOrEmpty($gitEmail)) {
+                    Write-Host "Could not retrieve git commit author email."
+                    return $null
+                }
+                Write-Host "Git commit author email: $gitEmail"
+                
+                # Check if this is a GitHub noreply email pattern: 12345+username@users.noreply.github.com
+                if ($gitEmail -match '^(\d+\+)?(.+)@users\.noreply\.github\.com$') {
+                    $githubUsername = $Matches[2]
+                    Write-Host "Detected GitHub noreply email. Extracted username: $githubUsername"
+                    
+                    # Look up the Azure AD info from Key Vault secret
+                    $secretName = "github-$githubUsername"
+                    Write-Host "Looking up Key Vault secret: $secretName"
+                    try {
+                        $secret = Get-AzKeyVaultSecret -VaultName 'resolute-oss-tenant-info' -Name $secretName -AsPlainText -ErrorAction Stop
+                        if (-not [string]::IsNullOrEmpty($secret)) {
+                            # Parse secret format: "objectId|upn"
+                            $parts = $secret -split '\|'
+                            if ($parts.Count -eq 2) {
+                                $result = @{
+                                    ObjectId = $parts[0].Trim()
+                                    Upn = $parts[1].Trim()
+                                }
+                                Write-Host "Found Azure AD mapping in Key Vault - ObjectId: $($result.ObjectId), UPN: $($result.Upn)"
+                                return $result
+                            } else {
+                                Write-Warning "Key Vault secret '$secretName' has invalid format. Expected 'objectId|upn'. Skipping user provisioning."
+                                return $null
+                            }
+                        }
+                    } catch {
+                        Write-Warning "Key Vault secret '$secretName' not found. To enable automatic user provisioning, create a secret named '$secretName' with format 'objectId|upn'."
+                        return $null
+                    }
+                }
+                
+                # Not a noreply email - cannot resolve without Key Vault mapping
+                Write-Host "Git email '$gitEmail' is not a GitHub noreply email. Key Vault mapping required for user provisioning."
+                return $null
+            } catch {
+                Write-Warning "Error resolving triggering user info: $($_.Exception.Message)"
+                return $null
+            }
+        }
 
         $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
 
@@ -159,6 +219,35 @@ jobs:
                   -ErrorAction Stop
             }
 
+            # Add triggering user access to CosmosDB if enabled
+            if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
+                $userInfo = Get-TriggeringUserInfo
+                
+                if ($userInfo -and -not [string]::IsNullOrEmpty($userInfo.ObjectId)) {
+                    Write-Host "Adding triggering user (ObjectId: $($userInfo.ObjectId)) to CosmosDB..."
+                    try {
+                        Invoke-WithRetry -OperationName "Add Triggering User CosmosDB Role" -ScriptBlock {
+                            New-AzCosmosDBSqlRoleAssignment `
+                              -AccountName $webAppName `
+                              -ResourceGroupName $resourceGroupName `
+                              -Scope "/" `
+                              -PrincipalId $userInfo.ObjectId `
+                              -RoleDefinitionId "00000000-0000-0000-0000-000000000002" `
+                              -ErrorAction Stop
+                        }
+                        Write-Host "Successfully added triggering user to CosmosDB with Data Contributor role"
+                    } catch {
+                        if ($_.Exception.Message -like "*RoleAssignmentAlreadyExists*" -or $_.Exception.Message -like "*already exists*") {
+                            Write-Host "Triggering user already has CosmosDB access. Skipping."
+                        } else {
+                            Write-Warning "Could not add triggering user to CosmosDB: $($_.Exception.Message). Continuing pipeline."
+                        }
+                    }
+                } else {
+                    Write-Host "No triggering user info resolved. Skipping CosmosDB user provisioning."
+                }
+            }
+
             # Associate CosmosDB with Network Security Perimeter using external template
             Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
             
@@ -191,6 +280,138 @@ jobs:
                 
             Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
             Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
+        }
+
+        if("${{ parameters.sql }}" -eq "true"){
+            # Add triggering user access to SQL database if enabled
+            if ("${{ parameters.addTriggeringUserAccess }}" -eq "true") {
+                $userInfo = Get-TriggeringUserInfo
+                $adminUamiName = "${{ parameters.adminUserAssignedManagedIdentityName }}"
+                
+                if ($userInfo -and -not [string]::IsNullOrEmpty($userInfo.Upn) -and -not [string]::IsNullOrEmpty($adminUamiName)) {
+                    $triggeringUserUpn = $userInfo.Upn
+                    Write-Host "Adding triggering user '$triggeringUserUpn' to SQL database..."
+                    
+                    # Install SqlServer module if not available
+                    if (-not (Get-Module -ListAvailable -Name SqlServer)) {
+                        Write-Host "Installing SqlServer module..."
+                        Install-Module -Name SqlServer -Force -Scope CurrentUser -AllowClobber
+                    }
+                    Import-Module SqlServer
+                    
+                    $sqlServerName = "${{parameters.sqlServerName}}".ToLower()
+                    $databaseName = "FHIR_${{ parameters.version }}"
+                    
+                    # Get service connection info
+                    # IMPORTANT: SQL Server matches the token's 'oid' claim against the admin SID
+                    # The token contains the Service Principal's Object ID, NOT the App ID
+                    # So we must use the SP's Object ID as the admin SID
+                    $serviceConnectionAppId = (Get-AzContext).Account.Id
+                    $serviceConnectionTenantId = (Get-AzContext).Tenant.Id
+                    
+                    # Get the Service Principal's Object ID (required for SQL admin SID)
+                    $serviceConnectionObjectId = Invoke-WithRetry -OperationName "Get Service Connection Object ID" -ScriptBlock {
+                        (Get-AzADServicePrincipal -ApplicationId $serviceConnectionAppId -ErrorAction Stop).Id
+                    }
+                    $serviceConnectionDisplayName = "$(ConnectedServiceName)"
+                    Write-Host "Service connection AppId: $serviceConnectionAppId, ObjectId: $serviceConnectionObjectId, TenantId: $serviceConnectionTenantId"
+                    
+                    # Get UAMI info for restoring admin later
+                    $uami = Get-AzUserAssignedIdentity -Name $adminUamiName -ResourceGroupName $resourceGroupName
+                    $uamiPrincipalId = $uami.PrincipalId
+                    $uamiTenantId = $uami.TenantId
+                    Write-Host "UAMI '$adminUamiName' PrincipalId: $uamiPrincipalId, TenantId: $uamiTenantId"
+                    
+                    try {
+                        # Temporarily set service connection as SQL admin using ARM template
+                        # Using Object ID (not App ID) as SID - this matches what the token's 'oid' claim contains
+                        Write-Host "Setting service connection as SQL admin via ARM template..."
+                        $serviceConnectionAdminParams = @{
+                            sqlServerName = $sqlServerName
+                            sqlAdministratorLogin = $serviceConnectionDisplayName
+                            sqlAdministratorSid = $serviceConnectionObjectId
+                            sqlAdministratorTenantId = $serviceConnectionTenantId
+                            sqlServerPrincipalType = "Application"
+                        }
+                        
+                        Invoke-WithRetry -OperationName "Set Service Connection as SQL Admin" -ScriptBlock {
+                            New-AzResourceGroupDeployment `
+                              -ResourceGroupName $resourceGroupName `
+                              -Name "$sqlServerName-admin-swap-to-sc" `
+                              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json `
+                              -TemplateParameterObject $serviceConnectionAdminParams `
+                              -ErrorAction Stop
+                        }
+                        
+                        # Wait for admin change to propagate (30 seconds for AAD replication)
+                        Write-Host "Waiting 30 seconds for SQL admin change to propagate..."
+                        Start-Sleep -Seconds 30
+                        
+                        # Create SQL user for the triggering user with db_owner role
+                        $sqlQuery = "IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = N'$triggeringUserUpn') "
+                        $sqlQuery += "BEGIN "
+                        $sqlQuery += "CREATE USER [$triggeringUserUpn] FROM EXTERNAL PROVIDER; "
+                        $sqlQuery += "ALTER ROLE db_owner ADD MEMBER [$triggeringUserUpn]; "
+                        $sqlQuery += "PRINT 'Created user and added to db_owner role'; "
+                        $sqlQuery += "END "
+                        $sqlQuery += "ELSE BEGIN "
+                        $sqlQuery += "IF NOT EXISTS (SELECT 1 FROM sys.database_role_members drm "
+                        $sqlQuery += "JOIN sys.database_principals dp ON drm.member_principal_id = dp.principal_id "
+                        $sqlQuery += "JOIN sys.database_principals r ON drm.role_principal_id = r.principal_id "
+                        $sqlQuery += "WHERE dp.name = N'$triggeringUserUpn' AND r.name = 'db_owner') "
+                        $sqlQuery += "BEGIN ALTER ROLE db_owner ADD MEMBER [$triggeringUserUpn]; PRINT 'Added existing user to db_owner role'; END "
+                        $sqlQuery += "ELSE BEGIN PRINT 'User already exists with db_owner role'; END "
+                        $sqlQuery += "END"
+                        
+                        # Get fresh access token inside retry block and execute SQL
+                        Invoke-WithRetry -OperationName "Add Triggering User to SQL" -ScriptBlock {
+                            # Get fresh token with explicit tenant to avoid cache issues
+                            $freshToken = (Get-AzAccessToken -ResourceUrl "https://database.windows.net/" -TenantId $serviceConnectionTenantId).Token
+                            Write-Host "Connecting to: $sqlServerName.database.windows.net, Database: $databaseName"
+                            Write-Host "Token acquired, length: $($freshToken.Length)"
+                            
+                            Invoke-Sqlcmd `
+                              -ServerInstance "$sqlServerName.database.windows.net" `
+                              -Database $databaseName `
+                              -AccessToken $freshToken `
+                              -Query $sqlQuery `
+                              -ErrorAction Stop
+                        }
+                        
+                        Write-Host "Successfully added triggering user to SQL database with db_owner role"
+                    } catch {
+                        Write-Warning "Could not add triggering user to SQL database: $($_.Exception.Message). Continuing pipeline."
+                    } finally {
+                        # Always restore UAMI as SQL admin using ARM template
+                        Write-Host "Restoring UAMI '$adminUamiName' as SQL admin via ARM template..."
+                        try {
+                            $uamiAdminParams = @{
+                                sqlServerName = $sqlServerName
+                                sqlAdministratorLogin = $uamiPrincipalId
+                                sqlAdministratorSid = $uamiPrincipalId
+                                sqlAdministratorTenantId = $uamiTenantId
+                                sqlServerPrincipalType = "User"
+                            }
+                            
+                            Invoke-WithRetry -OperationName "Restore UAMI as SQL Admin" -ScriptBlock {
+                                New-AzResourceGroupDeployment `
+                                  -ResourceGroupName $resourceGroupName `
+                                  -Name "$sqlServerName-admin-swap-to-uami" `
+                                  -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json `
+                                  -TemplateParameterObject $uamiAdminParams `
+                                  -ErrorAction Stop
+                            }
+                            Write-Host "Successfully restored UAMI as SQL admin"
+                        } catch {
+                            Write-Error "CRITICAL: Failed to restore UAMI as SQL admin: $($_.Exception.Message)"
+                        }
+                    }
+                } elseif ([string]::IsNullOrEmpty($adminUamiName)) {
+                    Write-Host "adminUserAssignedManagedIdentityName not provided. Skipping SQL user provisioning."
+                } else {
+                    Write-Host "No triggering user info resolved. Skipping SQL user provisioning."
+                }
+            }
         }
   - template: ./provision-healthcheck.yml
     parameters:
