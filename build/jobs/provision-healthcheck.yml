@@ -1,26 +1,68 @@
 parameters:
 - name: webAppName
   type: string
+- name: timeoutMinutes
+  type: number
+  default: 10
+- name: consecutiveSuccessRequired
+  type: number
+  default: 5
 
 steps:
 - powershell: |
     $webAppName = "${{ parameters.webAppName }}".ToLower()
     $healthCheckUrl = "https://$webAppName.azurewebsites.net/health/check"
-    $healthStatus = 0
+    $timeoutMinutes = ${{ parameters.timeoutMinutes }}
+    $consecutiveSuccessRequired = ${{ parameters.consecutiveSuccessRequired }}
+    $consecutiveSuccessCount = 0
+    $startTime = Get-Date
+    $timeoutTime = $startTime.AddMinutes($timeoutMinutes)
+    
+    Write-Host "Starting health check for $healthCheckUrl"
+    Write-Host "Timeout: $timeoutMinutes minutes"
+    Write-Host "Consecutive successes required: $consecutiveSuccessRequired"
+    
     Do {
       Start-Sleep -s 5
-      Write-Host "Checking: $healthCheckUrl"
+      Write-Host "Checking: $healthCheckUrl (consecutive successes: $consecutiveSuccessCount/$consecutiveSuccessRequired)"
 
       try {
-        $healthStatus = (Invoke-WebRequest -URI $healthCheckUrl).statuscode
+        $response = Invoke-WebRequest -URI $healthCheckUrl
+        $healthStatus = $response.StatusCode
         Write-Host "Result: $healthStatus"
+        
+        if ($healthStatus -eq 200) {
+          $consecutiveSuccessCount++
+          Write-Host "Consecutive success count: $consecutiveSuccessCount/$consecutiveSuccessRequired"
+        }
+        else {
+          if ($consecutiveSuccessCount -gt 0) {
+            Write-Host "Non-200 response, resetting consecutive success count from $consecutiveSuccessCount to 0"
+          }
+          $consecutiveSuccessCount = 0
+        }
       }
       catch {
         Write-Host $PSItem.Exception.Message
+        if ($consecutiveSuccessCount -gt 0) {
+          Write-Host "Exception occurred, resetting consecutive success count from $consecutiveSuccessCount to 0"
+        }
+        $consecutiveSuccessCount = 0
       }
       finally {
         $Error.Clear()
       }
+      
+      $currentTime = Get-Date
+      if ($currentTime -gt $timeoutTime) {
+        $elapsed = [math]::Round(($currentTime - $startTime).TotalMinutes, 2)
+        Write-Host "##vso[task.logissue type=error]Health check timed out after $elapsed minutes. Only achieved $consecutiveSuccessCount/$consecutiveSuccessRequired consecutive successes."
+        exit 1
+      }
 
-    } While ($healthStatus -ne 200)
+    } While ($consecutiveSuccessCount -lt $consecutiveSuccessRequired)
+    
+    $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)
+    Write-Host "Health check passed with $consecutiveSuccessRequired consecutive successes after $elapsed seconds"
   name: PingHealthCheckEndpoint
+  retryCountOnTaskFailure: 1

@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return _testFhirServer.GetTestFhirClient(Format, clientApplication, null);
         }
 
-        public TestFhirClient Clone(AuthenticationHttpMessageHandler authenticationHandler = null)
+        public TestFhirClient Clone(HttpMessageHandler authenticationHandler = null)
         {
             return _testFhirServer.GetTestFhirClient(Format, _clientApplication, _user, reusable: false, authenticationHandler);
         }

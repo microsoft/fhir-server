@@ -50,11 +50,13 @@ stages:
           $AgeThresholdDays = ${{ parameters.AgeThresholdDays }}
 
           # Install and Import Microsoft Graph Modules
+          # Pin to version 2.33.0 due to bug in 2.34.0 affecting PowerShell 5.1
+          # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
           Write-Host "Installing Microsoft Graph modules..."
           $modules = @("Microsoft.Graph.Authentication", "Microsoft.Graph.Beta.Applications", "Microsoft.Graph.Beta.Users", "Microsoft.Graph.DirectoryObjects")
           
           foreach ($module in $modules) {
-            Install-Module -Name $module -Force -Scope CurrentUser -ErrorAction Stop
+            Install-Module -Name $module -RequiredVersion 2.33.0 -Force -Scope CurrentUser -ErrorAction Stop
             Import-Module $module
           }
 

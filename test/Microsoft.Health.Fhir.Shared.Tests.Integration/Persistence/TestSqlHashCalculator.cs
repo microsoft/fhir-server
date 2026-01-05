@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public string CalculateHash(string query)
         {
             MostRecentSqlQuery = query;
-            MostRecentSqlHash = query.ComputeHash();
+            MostRecentSqlHash = SqlQueryHashCalculator.RemoveParametersHash(query).ComputeHash();
 
             return MostRecentSqlHash;
         }
