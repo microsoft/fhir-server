@@ -22,8 +22,6 @@ BEGIN TRY
            ) A
            JOIN dbo.Resource ON ResourceSurrogateId = Sid1
       WHERE ResourceTypeId = @ResourceTypeId
-        AND IsHistory = 0 
-        AND IsDeleted = 0 
       ORDER BY 
            ResourceSurrogateId
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
@@ -48,8 +46,6 @@ BEGIN TRY
            ) A
            JOIN dbo.Resource ON ResourceSurrogateId = Sid1
       WHERE ResourceTypeId = @ResourceTypeId
-        AND IsHistory = 0 
-        AND IsDeleted = 0 
       ORDER BY 
            ResourceSurrogateId
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
@@ -75,8 +71,6 @@ BEGIN TRY
            ) A
            JOIN dbo.Resource ON ResourceSurrogateId = Sid1
       WHERE ResourceTypeId = @ResourceTypeId
-        AND IsHistory = 0 
-        AND IsDeleted = 0 
       ORDER BY 
            ResourceSurrogateId
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))

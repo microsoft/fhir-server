@@ -2856,8 +2856,6 @@ BEGIN TRY
                  dbo.Resource
                  ON ResourceSurrogateId = Sid1
         WHERE    ResourceTypeId = @ResourceTypeId
-                 AND IsHistory = 0
-                 AND IsDeleted = 0
         ORDER BY ResourceSurrogateId
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     ELSE
@@ -2896,8 +2894,6 @@ BEGIN TRY
                      dbo.Resource
                      ON ResourceSurrogateId = Sid1
             WHERE    ResourceTypeId = @ResourceTypeId
-                     AND IsHistory = 0
-                     AND IsDeleted = 0
             ORDER BY ResourceSurrogateId
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
         ELSE
@@ -2936,8 +2932,6 @@ BEGIN TRY
                      dbo.Resource
                      ON ResourceSurrogateId = Sid1
             WHERE    ResourceTypeId = @ResourceTypeId
-                     AND IsHistory = 0
-                     AND IsDeleted = 0
             ORDER BY ResourceSurrogateId
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
