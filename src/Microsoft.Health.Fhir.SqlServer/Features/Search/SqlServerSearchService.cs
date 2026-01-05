@@ -950,8 +950,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             // Only optimize for non-count queries without sorting or includes operations
             if (searchOptions.CountOnly ||
-                searchOptions.IncludeCount != 0 ||
-                searchOptions.Sort?.Count > 0 ||
+                searchOptions.IncludeTotal != TotalType.None ||
                 searchOptions.IsIncludesOperation)
             {
                 return null;
@@ -1119,11 +1118,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return false;
             }
 
-            // Check if the ID expression is an IN expression with multiple values
-            if (resourceIdExpression.Expression is InExpression<string> inExpression)
+            // Check if the ID expression is an OR expression with multiple values
+            if (resourceIdExpression.Expression is MultiaryExpression multiaryExpression)
             {
-                // Extract all IDs from the IN expression
-                resourceIds = new List<string>(inExpression.Values);
+                // Extract all IDs from the OR expression
+                resourceIds = new List<string>();
+                foreach (var subExpression in multiaryExpression.Expressions)
+                {
+                    if (TryExtractSimpleStringValue(subExpression, out string idValue))
+                    {
+                        resourceIds.Add(idValue);
+                    }
+                    else
+                    {
+                        // If any sub-expression is not a simple string, fail the extraction
+                        resourceIds.Clear();
+                        return false;
+                    }
+                }
+
                 return resourceIds.Count > 0;
             }
 
