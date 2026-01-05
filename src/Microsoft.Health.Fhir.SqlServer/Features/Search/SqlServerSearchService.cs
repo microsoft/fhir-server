@@ -1824,8 +1824,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
                             else if (exp is MultiaryExpression mexp && mexp.MultiaryOperation == MultiaryOperator.And) // token with system
                             {
-                                TryExtractTokenWithSystem(mexp, out var systemValue, out var code);
-                                if (code == null || systemValue == null)
+                                if (!TryExtractTokenWithSystem(mexp, out var systemValue, out var code))
                                 {
                                     return false;
                                 }
@@ -1842,8 +1841,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     }
                     else if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And) // single token with system
                     {
-                        TryExtractTokenWithSystem(multAnd, out var systemValue, out var code);
-                        if (code == null || systemValue == null)
+                        if (!TryExtractTokenWithSystem(multAnd, out var systemValue, out var code))
                         {
                             return false;
                         }
@@ -1867,7 +1865,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return true;
         }
 
-        private static void TryExtractTokenWithSystem(MultiaryExpression exp, out string tokenSystem, out string tokenCode)
+        private static bool TryExtractTokenWithSystem(MultiaryExpression exp, out string tokenSystem, out string tokenCode)
         {
             tokenSystem = null;
             tokenCode = null;
@@ -1882,6 +1880,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     tokenCode = str.Value;
                 }
             }
+
+            return tokenCode != null && tokenSystem != null;
         }
 
         /// <summary>
