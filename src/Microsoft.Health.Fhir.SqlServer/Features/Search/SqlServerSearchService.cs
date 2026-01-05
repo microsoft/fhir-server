@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        internal bool EnableStoredProcedures { get; set; } = true;
+        internal bool StoredProcedureLayerIsEnabled { get; set; } = true;
 
         internal ISqlServerFhirModel Model => _model;
 
@@ -503,7 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             searchResult = simpleReadResult;
                             return;
                         }
-                        else if (EnableStoredProcedures && TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
+                        else if (StoredProcedureLayerIsEnabled && TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
                         {
                             PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
                         }

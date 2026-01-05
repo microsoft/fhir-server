@@ -64,8 +64,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "A,B")], 4, spName);
             //// multiple codes with system
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], 2, spName);
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B,TestSystem|C")], 3, spName);
             //// multiple codes
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,B")], 3, spName);
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B,C")], 4, spName);
             //// not existing system
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A")], 0, spName);
             //// not existing system plus
@@ -76,11 +78,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
-            ((SqlServerSearchService)_fixture.SearchService).EnableStoredProcedures = false;
+            ((SqlServerSearchService)_fixture.SearchService).StoredProcedureLayerIsEnabled = false;
             var result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
             Assert.Equal(expectedResources, result.Results.Count());
             Assert.False(await CheckIfSprocUsed(spName));
-            ((SqlServerSearchService)_fixture.SearchService).EnableStoredProcedures = true;
+            ((SqlServerSearchService)_fixture.SearchService).StoredProcedureLayerIsEnabled = true;
             result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
             Assert.Equal(expectedResources, result.Results.Count());
             Assert.True(await CheckIfSprocUsed(spName));
@@ -331,11 +333,14 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
         {
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.Resource");
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.TokenSearchParam");
-            //// creating 4 resources
+            //// creating 6 resources
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "A")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "A")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "B")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "B")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "C")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "C")).ToResourceElement());
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.Resource) <> 6 RAISERROR('Bad rows in Resource',18,127)");
             //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
             await _fixture.SqlHelper.ExecuteSqlCmd(@"
 INSERT INTO dbo.TokenSearchParam 
@@ -350,14 +355,12 @@ INSERT INTO dbo.TokenSearchParam
   SELECT ResourceTypeId
         ,ResourceSurrogateId
         ,SearchParamId = (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri = 'http://hl7.org/fhir/SearchParameter/Patient-identifier')
-        ,SystemId = CASE WHEN RowId IN (1,3) THEN 1 ELSE NULL END
-        ,Code = CASE WHEN RowId IN (1,2) THEN 'A' ELSE 'B' END
+        ,SystemId = CASE WHEN RowId IN (1,3,5) THEN 1 ELSE NULL END
+        ,Code = CASE WHEN RowId IN (1,2) THEN 'A' WHEN RowId IN (3,4) THEN 'B' ELSE 'C' END
         ,CodeOverflow = NULL
     FROM (SELECT RowId = row_number() OVER (ORDER BY ResourceSurrogateId), * FROM dbo.Resource) A
             ");
-
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.Resource) <> 4 RAISERROR('Bad rows in Resource',18,127)");
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.TokenSearchParam) <> 4 RAISERROR('Bad rows in TokenSearchParam',18,127)");
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.TokenSearchParam) <> 6 RAISERROR('Bad rows in TokenSearchParam',18,127)");
         }
     }
 }
