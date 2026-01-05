@@ -168,9 +168,10 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamList AS TABLE (
     IsLongerThanADay2   BIT                NOT NULL);
 
 CREATE TYPE dbo.TokenList AS TABLE (
-    Code         VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
-    SystemId     INT           NULL);
+    Code         VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow VARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL,
+    SystemId     INT            NULL,
+    SystemValue  NVARCHAR (256) NULL);
 
 CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamList AS TABLE (
     ResourceTypeId      SMALLINT         NOT NULL,
@@ -2825,9 +2826,10 @@ SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResourcesByTokens', @Mode AS VARCHAR (100) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' SP=' + CONVERT (VARCHAR, @SearchParamId) + ' Tokens=' + CONVERT (VARCHAR, (SELECT count(*)
                                                                                                                                                                                                                                           FROM   @Tokens)) + ' T=' + CONVERT (VARCHAR, @Top), @DummyTop AS BIGINT = 9223372036854775807;
 BEGIN TRY
-    IF EXISTS (SELECT *
-               FROM   @Tokens
-               WHERE  CodeOverflow IS NOT NULL)
+    IF NOT EXISTS (SELECT *
+                   FROM   @Tokens
+                   WHERE  CodeOverflow IS NOT NULL
+                          OR SystemValue IS NOT NULL)
         SELECT   ResourceTypeId,
                  ResourceId,
                  Version,
@@ -2848,9 +2850,6 @@ BEGIN TRY
                          (SELECT TOP (@DummyTop) *
                           FROM   @Tokens) AS B
                          ON B.Code = A.Code
-                            AND (B.CodeOverflow = A.CodeOverflow
-                                 OR B.CodeOverflow IS NULL
-                                    AND A.CodeOverflow IS NULL)
                             AND (B.SystemId = A.SystemId
                                  OR B.SystemId IS NULL)
                   WHERE  ResourceTypeId = @ResourceTypeId
@@ -2862,36 +2861,79 @@ BEGIN TRY
         ORDER BY ResourceSurrogateId
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     ELSE
-        SELECT   ResourceTypeId,
-                 ResourceId,
-                 Version,
-                 IsDeleted,
-                 ResourceSurrogateId,
-                 RequestMethod,
-                 CONVERT (BIT, 1) AS IsMatch,
-                 CONVERT (BIT, 0) AS IsPartial,
-                 IsRawResourceMetaSet,
-                 SearchParamHash,
-                 RawResource
-        FROM     dbo.Resource
-                 INNER JOIN
-                 (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
-                                             ResourceSurrogateId AS Sid1
-                  FROM   dbo.TokenSearchParam AS A
-                         INNER JOIN
-                         (SELECT TOP (@DummyTop) *
-                          FROM   @Tokens) AS B
-                         ON B.Code = A.Code
-                            AND (B.SystemId = A.SystemId
-                                 OR B.SystemId IS NULL)
-                  WHERE  ResourceTypeId = @ResourceTypeId
-                         AND SearchParamId = @SearchParamId) AS A
-                 ON ResourceTypeId = T1
-                    AND ResourceSurrogateId = Sid1
-        WHERE    IsHistory = 0
-                 AND IsDeleted = 0
-        ORDER BY ResourceSurrogateId
-        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+        IF NOT EXISTS (SELECT *
+                       FROM   @Tokens
+                       WHERE  CodeOverflow IS NOT NULL)
+            SELECT   ResourceTypeId,
+                     ResourceId,
+                     Version,
+                     IsDeleted,
+                     ResourceSurrogateId,
+                     RequestMethod,
+                     CONVERT (BIT, 1) AS IsMatch,
+                     CONVERT (BIT, 0) AS IsPartial,
+                     IsRawResourceMetaSet,
+                     SearchParamHash,
+                     RawResource
+            FROM     dbo.Resource
+                     INNER JOIN
+                     (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
+                                                 ResourceSurrogateId AS Sid1
+                      FROM   dbo.TokenSearchParam AS A
+                             INNER JOIN
+                             (SELECT TOP (@DummyTop) *
+                              FROM   @Tokens) AS B
+                             ON B.Code = A.Code
+                                AND (CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
+                                                                             FROM   dbo.System
+                                                                             WHERE  Value = SystemValue) ELSE B.SystemId END = A.SystemId
+                                     OR B.SystemId IS NULL
+                                        AND B.SystemValue IS NULL)
+                      WHERE  ResourceTypeId = @ResourceTypeId
+                             AND SearchParamId = @SearchParamId) AS A
+                     ON ResourceTypeId = T1
+                        AND ResourceSurrogateId = Sid1
+            WHERE    IsHistory = 0
+                     AND IsDeleted = 0
+            ORDER BY ResourceSurrogateId
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+        ELSE
+            SELECT   ResourceTypeId,
+                     ResourceId,
+                     Version,
+                     IsDeleted,
+                     ResourceSurrogateId,
+                     RequestMethod,
+                     CONVERT (BIT, 1) AS IsMatch,
+                     CONVERT (BIT, 0) AS IsPartial,
+                     IsRawResourceMetaSet,
+                     SearchParamHash,
+                     RawResource
+            FROM     dbo.Resource
+                     INNER JOIN
+                     (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
+                                                 ResourceSurrogateId AS Sid1
+                      FROM   dbo.TokenSearchParam AS A
+                             INNER JOIN
+                             (SELECT TOP (@DummyTop) *
+                              FROM   @Tokens) AS B
+                             ON B.Code = A.Code
+                                AND (B.CodeOverflow = A.CodeOverflow
+                                     OR B.CodeOverflow IS NULL
+                                        AND A.CodeOverflow IS NULL)
+                                AND (CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
+                                                                             FROM   dbo.System
+                                                                             WHERE  Value = SystemValue) ELSE B.SystemId END = A.SystemId
+                                     OR B.SystemId IS NULL
+                                        AND B.SystemValue IS NULL)
+                      WHERE  ResourceTypeId = @ResourceTypeId
+                             AND SearchParamId = @SearchParamId) AS A
+                     ON ResourceTypeId = T1
+                        AND ResourceSurrogateId = Sid1
+            WHERE    IsHistory = 0
+                     AND IsDeleted = 0
+            ORDER BY ResourceSurrogateId
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
 BEGIN CATCH

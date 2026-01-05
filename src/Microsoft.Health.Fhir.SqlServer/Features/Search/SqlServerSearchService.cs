@@ -1812,7 +1812,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId); // search param
                     if (spe.Expression is StringExpression strExp) // single token without system
                     {
-                        tokens.Add(new Token(strExp.Value, null));
+                        tokens.Add(new Token(strExp.Value, null, null));
                     }
                     else if (spe.Expression is MultiaryExpression multOr && multOr.MultiaryOperation == MultiaryOperator.Or) // multiple tokens
                     {
@@ -1820,29 +1820,41 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         {
                             if (exp is StringExpression tokenCodeExp) // token without system
                             {
-                                tokens.Add(new Token(tokenCodeExp.Value, null));
+                                tokens.Add(new Token(tokenCodeExp.Value, null, null));
                             }
                             else if (exp is MultiaryExpression mexp && mexp.MultiaryOperation == MultiaryOperator.And) // token with system
                             {
-                                TryExtractTokenWithSystem(mexp, out var systemInt, out var codeInt);
-                                if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                                TryExtractTokenWithSystem(mexp, out var systemValue, out var code);
+                                if (code == null || systemValue == null)
                                 {
                                     return false;
                                 }
 
-                                tokens.Add(new Token(codeInt, systemId));
+                                int? systemId = null;
+                                if (model.TryGetSystemId(systemValue, out var systemIdInt))
+                                {
+                                    systemId = systemIdInt;
+                                }
+
+                                tokens.Add(new Token(code, systemId, systemId.HasValue ? null : systemValue));
                             }
                         }
                     }
                     else if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And) // single token with system
                     {
-                        TryExtractTokenWithSystem(multAnd, out var systemInt, out var codeInt);
-                        if (codeInt == null || systemInt == null || !model.TryGetSystemId(systemInt, out var systemId)) // TODO: Once cache update is implemented, drop code/system row instead of exiting
+                        TryExtractTokenWithSystem(multAnd, out var systemValue, out var code);
+                        if (code == null || systemValue == null)
                         {
                             return false;
                         }
 
-                        tokens.Add(new Token(codeInt, systemId));
+                        int? systemId = null;
+                        if (model.TryGetSystemId(systemValue, out var systemIdInt))
+                        {
+                            systemId = systemIdInt;
+                        }
+
+                        tokens.Add(new Token(code, systemId, systemId.HasValue ? null : systemValue));
                     }
                 }
             }
@@ -2372,15 +2384,18 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
         private class Token
         {
-            internal Token(string code, int? systemId)
+            internal Token(string code, int? systemId, string systemValue)
             {
                 Code = code;
                 SystemId = systemId;
+                SystemValue = systemValue;
             }
 
             internal string Code { get; set; }
 
             internal int? SystemId { get; set; }
+
+            internal string SystemValue { get; set; }
         }
 
         private class TokenListRowGenerator : ITableValuedParameterRowGenerator<IList<Token>, TokenListRow>
@@ -2404,7 +2419,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         codeOverflow = null;
                     }
 
-                    yield return new TokenListRow(code, codeOverflow, token.SystemId);
+                    yield return new TokenListRow(code, codeOverflow, token.SystemId, token.SystemValue);
                 }
             }
         }

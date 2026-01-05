@@ -7,7 +7,7 @@ DECLARE @st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
 
 BEGIN TRY
-  IF EXISTS (SELECT * FROM @Tokens WHERE CodeOverflow IS NOT NULL)
+  IF NOT EXISTS (SELECT * FROM @Tokens WHERE CodeOverflow IS NOT NULL OR SystemValue IS NOT NULL) -- fastest
     SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource
       FROM dbo.Resource
            JOIN (SELECT DISTINCT TOP (@Top) 
@@ -16,8 +16,26 @@ BEGIN TRY
                    FROM dbo.TokenSearchParam A
                         JOIN (SELECT TOP (@DummyTop) * FROM @Tokens) B 
                           ON B.Code = A.Code 
-                             AND (B.CodeOverflow = A.CodeOverflow OR B.CodeOverflow IS NULL AND A.CodeOverflow IS NULL) -- Causes key lookup
                              AND (B.SystemId = A.SystemId OR B.SystemId IS NULL) -- Covered by include in secondary index
+                   WHERE ResourceTypeId = @ResourceTypeId	
+                     AND SearchParamId = @SearchParamId
+                ) A
+             ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1
+      WHERE IsHistory = 0 
+        AND IsDeleted = 0 
+      ORDER BY 
+           ResourceSurrogateId
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  ELSE IF NOT EXISTS (SELECT * FROM @Tokens WHERE CodeOverflow IS NOT NULL) -- sytem lookup but no overflow
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource
+      FROM dbo.Resource
+           JOIN (SELECT DISTINCT TOP (@Top) 
+                        T1 = ResourceTypeId
+                       ,Sid1 = ResourceSurrogateId
+                   FROM dbo.TokenSearchParam A
+                        JOIN (SELECT TOP (@DummyTop) * FROM @Tokens) B 
+                          ON B.Code = A.Code 
+                             AND (CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId FROM dbo.System WHERE Value = SystemValue) ELSE B.SystemId END = A.SystemId OR B.SystemId IS NULL AND B.SystemValue IS NULL) -- Covered by include in secondary index
                    WHERE ResourceTypeId = @ResourceTypeId	
                      AND SearchParamId = @SearchParamId
                 ) A
@@ -36,7 +54,8 @@ BEGIN TRY
                    FROM dbo.TokenSearchParam A
                         JOIN (SELECT TOP (@DummyTop) * FROM @Tokens) B 
                           ON B.Code = A.Code 
-                             AND (B.SystemId = A.SystemId OR B.SystemId IS NULL) -- Covered by include in secondary index
+                             AND (B.CodeOverflow = A.CodeOverflow OR B.CodeOverflow IS NULL AND A.CodeOverflow IS NULL) -- Causes key lookup
+                             AND (CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId FROM dbo.System WHERE Value = SystemValue) ELSE B.SystemId END = A.SystemId OR B.SystemId IS NULL AND B.SystemValue IS NULL) -- Covered by include in secondary index
                    WHERE ResourceTypeId = @ResourceTypeId	
                      AND SearchParamId = @SearchParamId
                 ) A
