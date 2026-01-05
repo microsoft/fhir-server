@@ -22,7 +22,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Management.Sdk.Sfc;
 using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
@@ -57,53 +56,33 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await PrepareData();
 
-            await ClearProcedureCache();
-            Assert.False(await CheckIfSprocUsed(spName));
             //// single code without system
-            var result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A")], CancellationToken.None);
-            Assert.Equal(2, result.Results.Count());
-            Assert.True(await CheckIfSprocUsed(spName));
-
-            await ClearProcedureCache();
-            Assert.False(await CheckIfSprocUsed(spName));
-            //// single code with system. system value exists - stored procedure should be called
-            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A")], CancellationToken.None);
-            Assert.Single(result.Results);
-            Assert.True(await CheckIfSprocUsed(spName));
-
-            await ClearProcedureCache();
-            Assert.False(await CheckIfSprocUsed(spName));
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "A")], 2, spName);
+            //// single code with system
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A")], 1, spName);
             //// multiple codes without system
-            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "A,B")], CancellationToken.None);
-            Assert.Equal(4, result.Results.Count());
-            Assert.True(await CheckIfSprocUsed(spName));
-
-            await ClearProcedureCache();
-            Assert.False(await CheckIfSprocUsed(spName));
-            //// multiple codes with system. existing system - stored procedure should be called
-            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], CancellationToken.None);
-            Assert.Equal(2, result.Results.Count());
-            Assert.True(await CheckIfSprocUsed(spName));
-
-            await ClearProcedureCache();
-            Assert.False(await CheckIfSprocUsed(spName));
-            //// multiple codes. existing system - stored procedure should be called
-            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "TestSystem|A,B")], CancellationToken.None);
-            Assert.Equal(3, result.Results.Count());
-            Assert.True(await CheckIfSprocUsed(spName));
-
-            await ClearProcedureCache();
-            Assert.False(await CheckIfSprocUsed(spName));
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "A,B")], 4, spName);
+            //// multiple codes with system
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], 2, spName);
+            //// multiple codes
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,B")], 3, spName);
             //// not existing system
-            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "NotExisting|A")], CancellationToken.None);
-            Assert.Empty(result.Results);
-            Assert.True(await CheckIfSprocUsed(spName));
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A")], 0, spName);
+            //// not existing system plus
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A,TestSystem|B")], 1, spName);
+        }
 
+        private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName)
+        {
             await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
-            //// not existing system plus
-            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("identifier", "NotExisting|A,TestSystem|B")], CancellationToken.None);
-            Assert.Single(result.Results);
+            ((SqlServerSearchService)_fixture.SearchService).EnableStoredProcedures = false;
+            var result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
+            Assert.Equal(expectedResources, result.Results.Count());
+            Assert.False(await CheckIfSprocUsed(spName));
+            ((SqlServerSearchService)_fixture.SearchService).EnableStoredProcedures = true;
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
+            Assert.Equal(expectedResources, result.Results.Count());
             Assert.True(await CheckIfSprocUsed(spName));
         }
 
@@ -259,12 +238,12 @@ END CATCH
             var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
             var spName = "CustomQuery_" + hash;
 
-            // assert an sproc was not used
-            Assert.False(await CheckIfSprocUsed(spName));
-
             // add the sproc
             _output.WriteLine("Adding new sproc to database.");
-            AddSproc(hash);
+            AddSproc(spName);
+
+            // assert an sproc was not used
+            Assert.False(await CheckIfSprocUsed(spName));
 
             // Query after adding an sproc to the database
             var sw = Stopwatch.StartNew();
@@ -318,7 +297,7 @@ SELECT count(*)
         private void AddSproc(string spName)
         {
             _fixture.SqlHelper.ExecuteSqlCmd(@$"
-CREATE OR ALTER PROCEDURE dbo.[CustomQuery_{spName}]
+CREATE OR ALTER PROCEDURE dbo.[{spName}]
    @p0 nvarchar(256)
   ,@p1 nvarchar(256)
   ,@p2 datetime2

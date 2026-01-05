@@ -138,6 +138,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        internal bool EnableStoredProcedures { get; set; } = true;
+
         internal ISqlServerFhirModel Model => _model;
 
         internal static void ResetReuseQueryPlans()
@@ -501,7 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             searchResult = simpleReadResult;
                             return;
                         }
-                        else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
+                        else if (EnableStoredProcedures && TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
                         {
                             PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
                         }
@@ -1824,35 +1826,23 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             }
                             else if (exp is MultiaryExpression mexp && mexp.MultiaryOperation == MultiaryOperator.And) // token with system
                             {
-                                if (!TryExtractTokenWithSystem(mexp, out var systemValue, out var code))
+                                if (!TryExtractTokenWithSystem(model, mexp, out var token))
                                 {
                                     return false;
                                 }
 
-                                int? systemId = null;
-                                if (model.TryGetSystemId(systemValue, out var systemIdInt))
-                                {
-                                    systemId = systemIdInt;
-                                }
-
-                                tokens.Add(new Token(code, systemId, systemValue));
+                                tokens.Add(token);
                             }
                         }
                     }
                     else if (spe.Expression is MultiaryExpression multAnd && multAnd.MultiaryOperation == MultiaryOperator.And) // single token with system
                     {
-                        if (!TryExtractTokenWithSystem(multAnd, out var systemValue, out var code))
+                        if (!TryExtractTokenWithSystem(model, multAnd, out var token))
                         {
                             return false;
                         }
 
-                        int? systemId = null;
-                        if (model.TryGetSystemId(systemValue, out var systemIdInt))
-                        {
-                            systemId = systemIdInt;
-                        }
-
-                        tokens.Add(new Token(code, systemId, systemValue));
+                        tokens.Add(token);
                     }
                 }
             }
@@ -1865,10 +1855,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return true;
         }
 
-        private static bool TryExtractTokenWithSystem(MultiaryExpression exp, out string tokenSystem, out string tokenCode)
+        private static bool TryExtractTokenWithSystem(SqlServerFhirModel model, MultiaryExpression exp, out Token token)
         {
-            tokenSystem = null;
-            tokenCode = null;
+            string tokenSystem = null;
+            string tokenCode = null;
+            token = null;
             foreach (var str in exp.Expressions.OfType<StringExpression>())
             {
                 if (str.FieldName == FieldName.TokenSystem)
@@ -1881,7 +1872,20 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
             }
 
-            return tokenCode != null && tokenSystem != null;
+            if (tokenCode == null || tokenSystem == null)
+            {
+                return false;
+            }
+
+            int? systemId = null;
+            if (model.TryGetSystemId(tokenSystem, out var systemIdInt))
+            {
+                systemId = systemIdInt;
+            }
+
+            token = new Token(tokenCode, systemId, tokenSystem);
+
+            return true;
         }
 
         /// <summary>
