@@ -370,7 +370,7 @@ INSERT INTO dbo.TokenSearchParam
     )
   SELECT ResourceTypeId
         ,ResourceSurrogateId
-        ,SearchParamId = 1013
+        ,SearchParamId = (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri = 'http://hl7.org/fhir/SearchParameter/Patient-identifier')
         ,SystemId = CASE WHEN RowId IN (1,3) THEN 1 ELSE NULL END
         ,Code = CASE WHEN RowId IN (1,2) THEN 'A' ELSE 'B' END
         ,CodeOverflow = NULL
