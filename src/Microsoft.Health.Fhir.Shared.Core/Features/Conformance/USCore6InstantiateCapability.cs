@@ -53,13 +53,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Tuple.Create(KnownQueryParameterNames.Summary, "count"),
                     };
 
-                    _logger.LogInformation("Searching US Core 6 prifles...");
+                    _logger.LogInformation("Searching US Core 6 profles...");
                     var result = await searchService.Value.SearchAsync(
                         KnownResourceTypes.StructureDefinition,
                         parameters,
                         cancellationToken);
 
-                    _logger.LogInformation("{Count} US Core 6 prifles found.", result.TotalCount);
+                    _logger.LogInformation("{Count} US Core 6 profles found.", result.TotalCount);
                     if (result.TotalCount > 0)
                     {
                         return Urls;

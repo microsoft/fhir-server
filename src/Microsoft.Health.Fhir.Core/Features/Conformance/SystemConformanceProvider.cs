@@ -241,10 +241,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     await _builder.SyncProfilesAsync(cancellationToken);
 
                     // Update other fields populated by providers.
-                    await UpdateBuilderAsync(cancellationToken);
+                    await UpdateMetadataAsync(cancellationToken);
                 }
-
-                await UpdateMetadataAsync(null);
             }
         }
 
@@ -329,7 +327,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            await UpdateMetadataAsync(null);
+            await SetMetadataAsync(null);
         }
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
@@ -340,7 +338,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
 
             // There is a chance that the BackgroundLoop handler sets _metadata to null between when it is checked and returned, so the value is stored in a local variable.
-            ResourceElement metadata = await UpdateBuilderAsync(cancellationToken);
+            ResourceElement metadata = await UpdateMetadataAsync(cancellationToken);
             if (metadata == null)
             {
                 metadata = await GetCapabilityStatementOnStartup(cancellationToken);
@@ -349,7 +347,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             // The semaphore is only used for building the metadata because claiming it before the GetCapabilityStatementOnStartup was leading to deadlocks where the creation
             // of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built.
             // But the metadata builder was waiting on the rebuild handler.
-            return await UpdateMetadataAsync(metadata);
+            return await SetMetadataAsync(metadata);
         }
 
         private void LogVersioningPolicyConfiguration()
@@ -368,12 +366,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
         }
 
-        private async Task<ResourceElement> UpdateBuilderAsync(CancellationToken cancellationToken)
+        private async Task<ResourceElement> UpdateMetadataAsync(CancellationToken cancellationToken)
         {
-            var metadata = default(ResourceElement);
-            if (_builder != null)
+            // Note: the method will update non-static sections of the metadata only; thus, it does nothing
+            //       when the full metadata is not yet built.
+            if (_builder != null && _metadata != null)
             {
-                _logger.LogInformation("SystemConformanceProvider: Updating the builder.");
+                await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
+                _logger.LogInformation("SystemConformanceProvider: Updating the metadata.");
 
                 try
                 {
@@ -390,7 +390,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                             try
                             {
-                                _logger.LogInformation("SystemConformanceProvider: Updating the builder with '{ProviderName}'.", provider.ToString());
+                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}'.", provider.ToString());
                                 await provider.UpdateAsync(_builder, cancellationToken);
                             }
                             catch (Exception e)
@@ -399,23 +399,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             }
                             finally
                             {
-                                _logger.LogInformation("SystemConformanceProvider: Updating the builder with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
+                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
                             }
                         }
                     }
+
+                    _metadata = _builder.Build().ToResourceElement();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to update the builder.");
+                    _logger.LogWarning(ex, "Failed to update the metadata.");
                 }
-
-                metadata = _builder.Build().ToResourceElement();
+                finally
+                {
+                    _metadataSemaphore?.Release();
+                }
             }
 
-            return metadata;
+            return _metadata;
         }
 
-        private async Task<ResourceElement> UpdateMetadataAsync(ResourceElement metadata)
+        private async Task<ResourceElement> SetMetadataAsync(ResourceElement metadata)
         {
             await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
             try
