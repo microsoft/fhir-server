@@ -119,13 +119,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     return TokenValidationResult.Invalid("malformed_token");
                 }
 
-                // Check if token is expired (quick check before full validation)
-                if (jwtToken.ValidTo < DateTime.UtcNow)
-                {
-                    _logger.LogDebug("Token expired at {ExpirationTime}", jwtToken.ValidTo);
-                    return TokenValidationResult.Invalid("expired");
-                }
-
                 // Build validation parameters
                 var validationParameters = await GetTokenValidationParametersAsync(cancellationToken);
 

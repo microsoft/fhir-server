@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -315,6 +316,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             {
                 Content = content,
             };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
             return await _httpClient.SendAsync(request);
         }
