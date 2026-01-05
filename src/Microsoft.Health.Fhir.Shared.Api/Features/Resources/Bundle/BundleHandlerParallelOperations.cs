@@ -119,25 +119,44 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     catch (OperationCanceledException ex)
                     {
                         // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out.
-                        _logger.LogWarning(ex, "Bundle request timed out. Elapsed time {TotalElapsedMilliseconds}ms. Error: {ErrorMessage}", watch.Elapsed.TotalMilliseconds, ex.Message);
+                        _logger.LogWarning(
+                            ex,
+                            "Bundle request timed out. Elapsed time {TotalElapsedMilliseconds}ms. Error: {ErrorMessage}.",
+                            watch.Elapsed.TotalMilliseconds,
+                            ex.Message);
                     }
                     catch (BaseFhirTransactionException ex)
                     {
                         if (ex is FhirTransactionCancelledException tce)
                         {
                             // Handles client cancelled operations.
-                            _logger.LogWarning(tce, $"BundleHandler - Failed transaction. Error caused due an external cancellation. Canceling Bundle Orchestrator Operation. HttpStatusCode: {tce.ResponseStatusCode}");
+                            _logger.LogWarning(
+                                tce,
+                                "BundleHandler - Failed transaction. Error caused due an external cancellation. Canceling Bundle Orchestrator Operation. Index: {Index}. HttpStatusCode: {StatusCode}. Elapsed time {TotalElapsedMilliseconds}ms.",
+                                resourceExecutionContext.Index,
+                                tce.ResponseStatusCode,
+                                watch.Elapsed.TotalMilliseconds);
                             statistics.MarkBundleAsCancelled();
                         }
                         else if (ex is FhirTransactionFailedException tfe && tfe.IsErrorCausedDueClientFailure())
                         {
                             // Handles client failures.
-                            _logger.LogWarning(tfe, $"BundleHandler - Failed transaction. Error caused due a client failure. Cancelling Bundle Orchestrator Operation. HttpStatusCode: {tfe.ResponseStatusCode}");
+                            _logger.LogWarning(
+                                tfe,
+                                "BundleHandler - Failed transaction. Error caused due a client failure. Cancelling Bundle Orchestrator Operation. Index: {Index}. HttpStatusCode: {StatusCode}. Elapsed time {TotalElapsedMilliseconds}ms.",
+                                resourceExecutionContext.Index,
+                                tfe.ResponseStatusCode,
+                                watch.Elapsed.TotalMilliseconds);
                             statistics.MarkBundleAsFailedDueClientError();
                         }
                         else
                         {
-                            _logger.LogError(ex, $"BundleHandler - Failed transaction. Error caused due an internal operation. Canceling Bundle Orchestrator Operation. HttpStatusCode: {ex.ResponseStatusCode}");
+                            _logger.LogError(
+                                ex,
+                                "BundleHandler - Failed transaction. Error caused due an internal operation. Canceling Bundle Orchestrator Operation. Index: {Index}. HttpStatusCode: {StatusCode}. Elapsed time {TotalElapsedMilliseconds}ms.",
+                                resourceExecutionContext.Index,
+                                ex.ResponseStatusCode,
+                                watch.Elapsed.TotalMilliseconds);
                         }
 
                         // In case of a FhirTransactionFailedException, the entire Bundle Operation should be canceled.
@@ -327,6 +346,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         bundleHttpContextAccessor,
                         logger);
 
+                    LogResourceFootprint(resourceExecutionContext, logger);
+
                     // Attempt 1.
                     await resourceExecutionContext.Context.Handler.Invoke(httpContext);
 
@@ -421,12 +442,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, string resourceId, RouteContext context, int index, long length, string persistedId)
             {
                 HttpVerb = httpVerb;
                 ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
+                ResourceId = resourceId; // Resource type can be null in case HTTP GET is used.
                 Context = context;
                 Index = index;
+                Length = length;
                 PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
             }
 
@@ -434,9 +457,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             public string ResourceType { get; private set; }
 
+            public string ResourceId { get; private set; }
+
             public RouteContext Context { get; private set; }
 
             public int Index { get; private set; }
+
+            public long Length { get; private set; }
 
             public string PersistedId { get; private set; }
         }

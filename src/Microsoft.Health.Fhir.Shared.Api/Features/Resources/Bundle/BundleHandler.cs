@@ -52,6 +52,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -574,12 +575,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownHeaders.Prefer, preferValue, httpContext);
             }
 
+            string resourceId = string.Empty;
             if (requestMethod == HTTPVerb.POST || requestMethod == HTTPVerb.PUT)
             {
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
 
                 if (entry.Resource != null)
                 {
+                    resourceId = entry.Resource.Id;
                     var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(entry.Resource));
                     memoryStream.Seek(0, SeekOrigin.Begin);
                     httpContext.Request.Body = memoryStream;
@@ -593,6 +596,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 string.Equals(KnownResourceTypes.Parameters, entry.Resource?.TypeName, StringComparison.Ordinal) &&
                 entry.Resource is Parameters parametersResource)
             {
+                resourceId = parametersResource.Id;
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
                 var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(parametersResource));
                 memoryStream.Seek(0, SeekOrigin.Begin);
@@ -605,12 +609,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 string.Equals(KnownResourceTypes.Binary, entry.Resource?.TypeName, StringComparison.Ordinal) &&
                 entry.Resource is Binary binaryResource && string.Equals(KnownMediaTypeHeaderValues.ApplicationJsonPatch.ToString(), binaryResource.ContentType, StringComparison.OrdinalIgnoreCase))
             {
+                resourceId = binaryResource.Id;
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(binaryResource.ContentType);
                 var memoryStream = new MemoryStream(binaryResource.Data);
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
             }
 #endif
+            long length = 0;
+            if (httpContext.Request.Body != null)
+            {
+                length = httpContext.Request.Body.Length;
+            }
 
             var routeContext = new RouteContext(httpContext);
 
@@ -621,7 +631,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, routeContext, order, persistedId));
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, entry.Resource?.TypeName, resourceId, routeContext, order, length, persistedId));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, DefaultHttpContext httpContext)
@@ -661,6 +671,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         {
                             _resourceIdProvider.Create = () => resourceContext.PersistedId;
                         }
+
+                        LogResourceFootprint(resourceContext, _logger);
 
                         await resourceContext.Context.Handler.Invoke(httpContext);
 
@@ -990,19 +1002,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             };
         }
 
-        private static string SanitizeString(string input)
-        {
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                return string.Empty;
-            }
-
-            return input
-                .Replace(Environment.NewLine, string.Empty, StringComparison.OrdinalIgnoreCase)
-                .Replace("\r", " ", StringComparison.OrdinalIgnoreCase)
-                .Replace("\n", " ", StringComparison.OrdinalIgnoreCase);
-        }
-
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
         {
             BundleHandlerStatistics statistics = new BundleHandlerStatistics(
@@ -1031,6 +1030,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 _logger.LogWarning(ex, "Error computing bundle statistics. This error will not block the bundle processing.");
             }
+        }
+
+        private static void LogResourceFootprint(ResourceExecutionContext resourceExecutionContext, ILogger<BundleHandler> logger)
+        {
+            JObject serializableEntity = JObject.FromObject(
+                new
+                {
+                    label = "bEntry",
+                    method = resourceExecutionContext.HttpVerb.ToString(),
+                    resourceType = resourceExecutionContext.ResourceType,
+                    id = resourceExecutionContext.ResourceId,
+                    index = resourceExecutionContext.Index,
+                    length = resourceExecutionContext.Length,
+                },
+                new JsonSerializer
+                {
+                    DefaultValueHandling = DefaultValueHandling.Ignore,
+                    NullValueHandling = NullValueHandling.Ignore,
+                });
+
+            logger.LogInformation(serializableEntity.ToString(Formatting.None));
         }
     }
 }

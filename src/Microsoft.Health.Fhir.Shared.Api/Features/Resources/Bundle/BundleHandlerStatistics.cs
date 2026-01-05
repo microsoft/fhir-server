@@ -10,6 +10,7 @@ using System.Net;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Logging;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 
@@ -81,28 +82,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             int customerFailedRequests = _entries.Count(e => e.HttpStatusCode >= 400 && e.HttpStatusCode < 500);
             int successedRequests = _entries.Count(e => e.HttpStatusCode >= 200 && e.HttpStatusCode < 300);
 
-            JObject serializableEntity = JObject.FromObject(new
-            {
-                label = GetLoggingCategory(),
-                bundleType = BundleType.ToString(),
-                processingLogic = BundleProcessingLogic.ToString(),
-                optimizedQuerySet = OptimizedQueryProcessing.ToString(),
-                numberOfResources = NumberOfResources,
-                registeredEntries = RegisteredEntries,
-                executionTime = ElapsedMilliseconds,
-                clientError = FailedDueClientError,
-                cancelled = Cancelled,
-                success = successedRequests,
-                errors = failedRequests,
-                customerErrors = customerFailedRequests,
-                statistics = finalStatistics,
-                resourceTypes = resourceTypesStatistics,
-                references = new
+            JObject serializableEntity = JObject.FromObject(
+                new
                 {
-                    identifiers = GeneratedIdentifiers,
-                    references = ResolvedReferences,
+                    label = GetLoggingCategory(),
+                    bundleType = BundleType.ToString(),
+                    processingLogic = BundleProcessingLogic.ToString(),
+                    optimizedQuerySet = OptimizedQueryProcessing.ToString(),
+                    numberOfResources = NumberOfResources,
+                    registeredEntries = RegisteredEntries,
+                    executionTime = ElapsedMilliseconds,
+                    clientError = FailedDueClientError,
+                    cancelled = Cancelled,
+                    success = successedRequests,
+                    errors = failedRequests,
+                    customerErrors = customerFailedRequests,
+                    statistics = finalStatistics,
+                    resourceTypes = resourceTypesStatistics,
+                    references = new
+                    {
+                        identifiers = GeneratedIdentifiers,
+                        references = ResolvedReferences,
+                    },
                 },
-            });
+                new JsonSerializer
+                {
+                    DefaultValueHandling = DefaultValueHandling.Ignore,
+                    NullValueHandling = NullValueHandling.Ignore,
+                });
 
             return serializableEntity.ToString();
         }
