@@ -1836,7 +1836,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                     systemId = systemIdInt;
                                 }
 
-                                tokens.Add(new Token(code, systemId, systemId.HasValue ? null : systemValue));
+                                tokens.Add(new Token(code, systemId, systemValue));
                             }
                         }
                     }
@@ -1854,7 +1854,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             systemId = systemIdInt;
                         }
 
-                        tokens.Add(new Token(code, systemId, systemId.HasValue ? null : systemValue));
+                        tokens.Add(new Token(code, systemId, systemValue));
                     }
                 }
             }
@@ -2388,7 +2388,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 Code = code;
                 SystemId = systemId;
-                SystemValue = systemValue;
+                SystemValue = systemId.HasValue ? null : systemValue;
             }
 
             internal string Code { get; set; }
