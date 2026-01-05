@@ -350,15 +350,15 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
 
         private async Task PrepareData()
         {
-            _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.Resource").Wait();
-            _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.TokenSearchParam").Wait();
+            await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.Resource");
+            await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.TokenSearchParam");
             //// creating 4 resources
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "A")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "A")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "B")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "B")).ToResourceElement());
             //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
-            _fixture.SqlHelper.ExecuteSqlCmd(@"
+            await _fixture.SqlHelper.ExecuteSqlCmd(@"
 INSERT INTO dbo.TokenSearchParam 
     (
          ResourceTypeId
@@ -375,7 +375,10 @@ INSERT INTO dbo.TokenSearchParam
         ,Code = CASE WHEN RowId IN (1,2) THEN 'A' ELSE 'B' END
         ,CodeOverflow = NULL
     FROM (SELECT RowId = row_number() OVER (ORDER BY ResourceSurrogateId), * FROM dbo.Resource) A
-            ").Wait();
+            ");
+
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.Resource) <> 4 RAISERROR('Bad rows in Resource',18,127)");
+            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.TokenSearchParam) <> 4 RAISERROR('Bad rows in TokenSearchParam',18,127)");
         }
     }
 }
