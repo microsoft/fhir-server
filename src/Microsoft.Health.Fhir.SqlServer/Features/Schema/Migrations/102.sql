@@ -2841,22 +2841,22 @@ BEGIN TRY
                  IsRawResourceMetaSet,
                  SearchParamHash,
                  RawResource
-        FROM     dbo.Resource
+        FROM     (SELECT   DISTINCT TOP (@Top) ResourceSurrogateId AS Sid1
+                  FROM     (SELECT TOP (@DummyTop) *
+                            FROM   @Tokens) AS A
+                           INNER JOIN
+                           dbo.TokenSearchParam AS B
+                           ON B.Code = A.Code
+                              AND (B.SystemId = A.SystemId
+                                   OR A.SystemId IS NULL)
+                  WHERE    ResourceTypeId = @ResourceTypeId
+                           AND SearchParamId = @SearchParamId
+                  ORDER BY ResourceSurrogateId) AS A
                  INNER JOIN
-                 (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
-                                             ResourceSurrogateId AS Sid1
-                  FROM   dbo.TokenSearchParam AS A
-                         INNER JOIN
-                         (SELECT TOP (@DummyTop) *
-                          FROM   @Tokens) AS B
-                         ON B.Code = A.Code
-                            AND (B.SystemId = A.SystemId
-                                 OR B.SystemId IS NULL)
-                  WHERE  ResourceTypeId = @ResourceTypeId
-                         AND SearchParamId = @SearchParamId) AS A
-                 ON ResourceTypeId = T1
-                    AND ResourceSurrogateId = Sid1
-        WHERE    IsHistory = 0
+                 dbo.Resource
+                 ON ResourceSurrogateId = Sid1
+        WHERE    ResourceTypeId = @ResourceTypeId
+                 AND IsHistory = 0
                  AND IsDeleted = 0
         ORDER BY ResourceSurrogateId
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
@@ -2875,25 +2875,28 @@ BEGIN TRY
                      IsRawResourceMetaSet,
                      SearchParamHash,
                      RawResource
-            FROM     dbo.Resource
+            FROM     (SELECT   DISTINCT TOP (@Top) ResourceSurrogateId AS Sid1
+                      FROM     (SELECT TOP (@DummyTop) Code,
+                                                       CodeOverflow,
+                                                       CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
+                                                                                               FROM   dbo.System
+                                                                                               WHERE  Value = SystemValue) ELSE SystemId END AS SystemId,
+                                                       SystemValue
+                                FROM   @Tokens) AS A
+                               INNER JOIN
+                               dbo.TokenSearchParam AS B
+                               ON B.Code = A.Code
+                                  AND (B.SystemId = A.SystemId
+                                       OR A.SystemId IS NULL
+                                          AND A.SystemValue IS NULL)
+                      WHERE    ResourceTypeId = @ResourceTypeId
+                               AND SearchParamId = @SearchParamId
+                      ORDER BY ResourceSurrogateId) AS A
                      INNER JOIN
-                     (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
-                                                 ResourceSurrogateId AS Sid1
-                      FROM   dbo.TokenSearchParam AS A
-                             INNER JOIN
-                             (SELECT TOP (@DummyTop) *
-                              FROM   @Tokens) AS B
-                             ON B.Code = A.Code
-                                AND (CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
-                                                                             FROM   dbo.System
-                                                                             WHERE  Value = SystemValue) ELSE B.SystemId END = A.SystemId
-                                     OR B.SystemId IS NULL
-                                        AND B.SystemValue IS NULL)
-                      WHERE  ResourceTypeId = @ResourceTypeId
-                             AND SearchParamId = @SearchParamId) AS A
-                     ON ResourceTypeId = T1
-                        AND ResourceSurrogateId = Sid1
-            WHERE    IsHistory = 0
+                     dbo.Resource
+                     ON ResourceSurrogateId = Sid1
+            WHERE    ResourceTypeId = @ResourceTypeId
+                     AND IsHistory = 0
                      AND IsDeleted = 0
             ORDER BY ResourceSurrogateId
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
@@ -2909,28 +2912,31 @@ BEGIN TRY
                      IsRawResourceMetaSet,
                      SearchParamHash,
                      RawResource
-            FROM     dbo.Resource
+            FROM     (SELECT   DISTINCT TOP (@Top) ResourceSurrogateId AS Sid1
+                      FROM     (SELECT TOP (@DummyTop) Code,
+                                                       CodeOverflow,
+                                                       CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
+                                                                                               FROM   dbo.System
+                                                                                               WHERE  Value = SystemValue) ELSE SystemId END AS SystemId,
+                                                       SystemValue
+                                FROM   @Tokens) AS A
+                               INNER JOIN
+                               dbo.TokenSearchParam AS B
+                               ON B.Code = A.Code
+                                  AND (B.CodeOverflow = A.CodeOverflow
+                                       OR B.CodeOverflow IS NULL
+                                          AND A.CodeOverflow IS NULL)
+                                  AND (B.SystemId = A.SystemId
+                                       OR A.SystemId IS NULL
+                                          AND A.SystemValue IS NULL)
+                      WHERE    ResourceTypeId = @ResourceTypeId
+                               AND SearchParamId = @SearchParamId
+                      ORDER BY ResourceSurrogateId) AS A
                      INNER JOIN
-                     (SELECT DISTINCT TOP (@Top) ResourceTypeId AS T1,
-                                                 ResourceSurrogateId AS Sid1
-                      FROM   dbo.TokenSearchParam AS A
-                             INNER JOIN
-                             (SELECT TOP (@DummyTop) *
-                              FROM   @Tokens) AS B
-                             ON B.Code = A.Code
-                                AND (B.CodeOverflow = A.CodeOverflow
-                                     OR B.CodeOverflow IS NULL
-                                        AND A.CodeOverflow IS NULL)
-                                AND (CASE WHEN SystemValue IS NOT NULL THEN (SELECT SystemId
-                                                                             FROM   dbo.System
-                                                                             WHERE  Value = SystemValue) ELSE B.SystemId END = A.SystemId
-                                     OR B.SystemId IS NULL
-                                        AND B.SystemValue IS NULL)
-                      WHERE  ResourceTypeId = @ResourceTypeId
-                             AND SearchParamId = @SearchParamId) AS A
-                     ON ResourceTypeId = T1
-                        AND ResourceSurrogateId = Sid1
-            WHERE    IsHistory = 0
+                     dbo.Resource
+                     ON ResourceSurrogateId = Sid1
+            WHERE    ResourceTypeId = @ResourceTypeId
+                     AND IsHistory = 0
                      AND IsDeleted = 0
             ORDER BY ResourceSurrogateId
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
