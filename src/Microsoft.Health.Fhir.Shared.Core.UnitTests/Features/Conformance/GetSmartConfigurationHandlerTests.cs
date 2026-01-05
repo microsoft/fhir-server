@@ -109,9 +109,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
-            securityConfiguration.IntrospectionEndpoint = introspectionEndpoint;
-            securityConfiguration.ManagementEndpoint = managementEndpoint;
-            securityConfiguration.RevocationEndpoint = revocationEndpoint;
+            securityConfiguration.Authentication.IntrospectionEndpoint = introspectionEndpoint;
+            securityConfiguration.Authentication.ManagementEndpoint = managementEndpoint;
+            securityConfiguration.Authentication.RevocationEndpoint = revocationEndpoint;
 
             var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
 

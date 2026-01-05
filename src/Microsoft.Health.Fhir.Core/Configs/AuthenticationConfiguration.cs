@@ -10,5 +10,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public string Audience { get; set; }
 
         public string Authority { get; set; }
+
+        public string IntrospectionEndpoint { get; set; }
+
+        public string ManagementEndpoint { get; set; }
+
+        public string RevocationEndpoint { get; set; }
     }
 }
