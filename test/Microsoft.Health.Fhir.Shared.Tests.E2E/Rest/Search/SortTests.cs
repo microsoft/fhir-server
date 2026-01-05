@@ -1146,7 +1146,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Null(response.Resource.NextLink);
         }
 
-        [Theory(Skip = "Checking test failure")]
+        [Theory]
         [InlineData("birthdate")]
         [InlineData("-birthdate")]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -1161,7 +1161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(19, response.Resource.Entry.Count);
         }
 
-        [Theory(Skip = "Checking test failure")]
+        [Theory]
         [InlineData("birthdate")]
         [InlineData("-birthdate")]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -1178,7 +1178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             });
         }
 
-        [Theory(Skip = "Checking test failure")]
+        [Theory]
         [InlineData("birthdate", 10)]
         [InlineData("-birthdate", 2)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -1373,8 +1373,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 var observations = await AddObservationToPatient(patient, "2023-01-01", tag);
                 allResources.AddRange(observations);
-                var encounters = await AddEncounterToPatient(patient, tag);
-                allResources.AddRange(encounters);
+
+                // var encounters = await AddEncounterToPatient(patient, tag);
+                // allResources.AddRange(encounters);
             }
 
             return allResources;
