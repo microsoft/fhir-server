@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
             { KnownEnvironmentVariableNames.TestEnvironmentUrl, string.Empty },
             { KnownEnvironmentVariableNames.TestExportStoreUri, StorageEmulatorUri },
             { KnownEnvironmentVariableNames.TestIntegrationStoreUri, StorageEmulatorUri },
+            { KnownEnvironmentVariableNames.TestProxyForwardedHost, string.Empty },
+            { KnownEnvironmentVariableNames.TestProxyForwardedPrefix, string.Empty },
         };
 
         public static string GetEnvironmentVariable(string environmentVariableName, string defaultValue = default)
