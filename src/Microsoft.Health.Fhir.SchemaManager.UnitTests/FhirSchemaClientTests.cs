@@ -84,15 +84,17 @@ public class FhirSchemaClientTests
     public async Task GivenCancellationRequested_WhenGetAvailability_ThenPropagatesCancellation()
     {
         // Arrange
-        var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
-        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(cancellationTokenSource.Token)
-            .ThrowsAsync(new TaskCanceledException());
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        using (var cancellationTokenSource = new CancellationTokenSource())
+        {
+            cancellationTokenSource.Cancel();
+            _schemaManagerDataStore.GetCurrentSchemaVersionAsync(cancellationTokenSource.Token)
+                .ThrowsAsync(new TaskCanceledException());
+            var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
-        // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(
-            async () => await fhirSchemaClient.GetAvailabilityAsync(cancellationTokenSource.Token));
+            // Act & Assert
+            await Assert.ThrowsAsync<TaskCanceledException>(
+                async () => await fhirSchemaClient.GetAvailabilityAsync(cancellationTokenSource.Token));
+        }
     }
 
     [Fact]

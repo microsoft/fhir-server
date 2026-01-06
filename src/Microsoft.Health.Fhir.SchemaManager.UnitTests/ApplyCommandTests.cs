@@ -143,15 +143,18 @@ public class ApplyCommandTests
         // Arrange
         var type = new MutuallyExclusiveType { Latest = true };
         bool force = false;
-        var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
 
-        _schemaManager.ApplySchema(type, force, cancellationTokenSource.Token)
-            .Returns(Task.FromCanceled(cancellationTokenSource.Token));
+        using (var cancellationTokenSource = new CancellationTokenSource())
+        {
+            cancellationTokenSource.Cancel();
 
-        // Act & Assert
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            async () => await _applyCommand.ExecuteAsync(type, force, cancellationTokenSource.Token));
+            _schemaManager.ApplySchema(type, force, cancellationTokenSource.Token)
+                .Returns(Task.FromCanceled(cancellationTokenSource.Token));
+
+            // Act & Assert
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                async () => await _applyCommand.ExecuteAsync(type, force, cancellationTokenSource.Token));
+        }
     }
 
     [Fact]
