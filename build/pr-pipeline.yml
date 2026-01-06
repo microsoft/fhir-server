@@ -48,14 +48,6 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet8
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        targetBuildFramework: 'net8.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
