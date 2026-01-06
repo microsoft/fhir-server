@@ -43,12 +43,48 @@ stages:
             $cutoffTime = $cutoffTime.AddDays(-7)
           }
 
+          $successCount = 0
+          $failedCount = 0
+          $skippedCount = 0
+          $failedGroups = @()
+
           ForEach ($group in $resourceGroups)
           {
-            Write-Host "Deleting $($group.ResourceGroupName)"
-            $deploymentTimes = Get-AzResourceGroupDeployment -ResourceGroupName $group.ResourceGroupName | Select Timestamp | Where Timestamp -lt $cutoffTime
-            If ($deploymentTimes.Count -gt 0)
-            {
-              Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force
+            try {
+              $deploymentTimes = Get-AzResourceGroupDeployment -ResourceGroupName $group.ResourceGroupName -ErrorAction SilentlyContinue | Select Timestamp | Where Timestamp -lt $cutoffTime
+              If ($deploymentTimes.Count -gt 0)
+              {
+                Write-Host "Deleting $($group.ResourceGroupName)"
+                Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force -ErrorAction Stop
+                $successCount++
+                Write-Host "Successfully deleted $($group.ResourceGroupName)"
+              }
+              else
+              {
+                $skippedCount++
+                Write-Host "Skipping $($group.ResourceGroupName) - has recent deployments"
+              }
             }
+            catch {
+              $failedCount++
+              $failedGroups += $group.ResourceGroupName
+              Write-Warning "Failed to delete $($group.ResourceGroupName): $($_.Exception.Message)"
+              # Continue processing remaining resource groups
+            }
+          }
+
+          Write-Host ""
+          Write-Host "=========================================="
+          Write-Host "Cleanup Summary:"
+          Write-Host "  Successfully deleted: $successCount"
+          Write-Host "  Skipped (recent deployments): $skippedCount"
+          Write-Host "  Failed: $failedCount"
+          if ($failedGroups.Count -gt 0) {
+            Write-Host "  Failed groups: $($failedGroups -join ', ')"
+          }
+          Write-Host "=========================================="
+
+          # Exit with error if any deletions failed, but only after processing all groups
+          if ($failedCount -gt 0) {
+            Write-Error "Failed to delete $failedCount resource group(s). See warnings above for details."
           }
