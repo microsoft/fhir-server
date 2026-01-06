@@ -48,7 +48,8 @@ namespace Microsoft.AspNetCore.Builder
                 app.UseMiddleware<PathBaseMiddleware>(pathString);
             }
 
-            app.UseHttpsRedirection();
+            // Only use HTTPS redirection in production (commented out for local development)
+            // app.UseHttpsRedirection();
             app.UseStaticFiles();
 
             app.UseRouting();

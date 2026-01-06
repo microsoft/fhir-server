@@ -11,6 +11,7 @@ namespace Microsoft.Health.Fhir.Multitenant.Web;
 /// <summary>
 /// Background service that manages the lifecycle of tenant FHIR server instances.
 /// </summary>
+#pragma warning disable CA1515 // Consider making public types internal
 public class TenantHostService : BackgroundService
 {
     private readonly IConfiguration _configuration;
@@ -122,3 +123,4 @@ public class TenantHostService : BackgroundService
         await base.StopAsync(cancellationToken);
     }
 }
+#pragma warning restore CA1515 // Consider making public types internal

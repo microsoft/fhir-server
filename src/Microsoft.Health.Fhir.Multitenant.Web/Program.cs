@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Api.OpenIddict.FeatureProviders;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Multitenant.Core;
 using Microsoft.Health.Fhir.Multitenant.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -66,7 +67,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<TenantHostService>
 var app = builder.Build();
 
 // Configure the router middleware
-app.UseMiddleware<RouterMiddleware>();
+app.UseMiddleware<Microsoft.Health.Fhir.Multitenant.Web.RouterMiddleware>();
 
 Console.WriteLine($"Starting multitenant FHIR server router on port {settings.RouterPort}");
 Console.WriteLine($"Configured tenants: {string.Join(", ", settings.Tenants.Select(t => $"{t.TenantId}:{t.Port}"))}");
@@ -91,8 +92,12 @@ static void ConfigureTenantBuilder(WebApplicationBuilder tenantBuilder, TenantCo
         },
         mvcBuilderAction: mvcBuilder =>
         {
-            mvcBuilder.PartManager.FeatureProviders.Remove(
-                mvcBuilder.PartManager.FeatureProviders.OfType<ControllerFeatureProvider>().FirstOrDefault());
+            var existingProvider = mvcBuilder.PartManager.FeatureProviders.OfType<ControllerFeatureProvider>().FirstOrDefault();
+            if (existingProvider != null)
+            {
+                mvcBuilder.PartManager.FeatureProviders.Remove(existingProvider);
+            }
+
             mvcBuilder.PartManager.FeatureProviders.Add(new FhirControllerFeatureProvider(configuration));
         })
         .AddAzureExportDestinationClient()

@@ -11,6 +11,7 @@ namespace Microsoft.Health.Fhir.Multitenant.Web;
 /// <summary>
 /// Middleware that routes incoming requests to the appropriate tenant FHIR server instance.
 /// </summary>
+#pragma warning disable CA1515 // Consider making public types internal
 public class RouterMiddleware
 {
     private readonly RequestDelegate _next;
@@ -98,8 +99,8 @@ public class RouterMiddleware
 
         // Copy body if present - handle both Content-Length and Transfer-Encoding: chunked
         bool hasBody = context.Request.ContentLength > 0 ||
-            context.Request.Headers.TryGetValue("Transfer-Encoding", out var transferEncoding) &&
-            transferEncoding.Contains("chunked");
+            (context.Request.Headers.TryGetValue("Transfer-Encoding", out var transferEncoding) &&
+            transferEncoding.Contains("chunked"));
 
         if (hasBody)
         {
@@ -215,3 +216,4 @@ public class RouterMiddleware
                string.Equals(headerName, "Host", StringComparison.OrdinalIgnoreCase);
     }
 }
+#pragma warning restore CA1515 // Consider making public types internal
