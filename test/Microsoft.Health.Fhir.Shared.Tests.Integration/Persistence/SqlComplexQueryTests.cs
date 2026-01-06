@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
+        private string _truncation128code = $"prefix {new string('z', 128)}";
 
         public SqlComplexQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
@@ -64,14 +65,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "A,B")], 4, spName);
             //// multiple codes with system
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], 2, spName);
-            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B,TestSystem|C")], 3, spName);
             //// multiple codes
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,B")], 3, spName);
-            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B,C")], 4, spName);
             //// not existing system
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A")], 0, spName);
             //// not existing system plus
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A,TestSystem|B")], 1, spName);
+            //// truncation
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", _truncation128code)], 2, spName);
         }
 
         private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName)
@@ -338,11 +339,11 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "A")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "B")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "B")).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "C")).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "C")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code[..128])).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code)).ToResourceElement());
             await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.Resource) <> 6 RAISERROR('Bad rows in Resource',18,127)");
             //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
-            await _fixture.SqlHelper.ExecuteSqlCmd(@"
+            await _fixture.SqlHelper.ExecuteSqlCmd(@$"
 INSERT INTO dbo.TokenSearchParam 
     (
          ResourceTypeId
@@ -355,8 +356,13 @@ INSERT INTO dbo.TokenSearchParam
   SELECT ResourceTypeId
         ,ResourceSurrogateId
         ,SearchParamId = (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri = 'http://hl7.org/fhir/SearchParameter/Patient-identifier')
-        ,SystemId = CASE WHEN RowId IN (1,3,5) THEN 1 ELSE NULL END
-        ,Code = CASE WHEN RowId IN (1,2) THEN 'A' WHEN RowId IN (3,4) THEN 'B' ELSE 'C' END
+        ,SystemId = CASE WHEN RowId IN (1,3) THEN 1 ELSE NULL END
+        ,Code = CASE 
+                  WHEN RowId IN (1,2) THEN 'A' 
+                  WHEN RowId IN (3,4) THEN 'B' 
+                  WHEN RowId = 5 THEN '{_truncation128code[..128]}'
+                  WHEN RowId = 6 THEN '{_truncation128code}'
+                END
         ,CodeOverflow = NULL
     FROM (SELECT RowId = row_number() OVER (ORDER BY ResourceSurrogateId), * FROM dbo.Resource) A
             ");

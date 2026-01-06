@@ -503,7 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             searchResult = simpleReadResult;
                             return;
                         }
-                        else if (StoredProcedureLayerIsEnabled && TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
+                        else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
                         {
                             PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
                         }
@@ -1782,7 +1782,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             tokens = new List<Token>();
             top = searchOptions.MaxItemCount + 1;
 
-            if (_schemaInformation.Current < 102)
+            if (!StoredProcedureLayerIsEnabled || _schemaInformation.Current < 102)
             {
                 return false;
             }
@@ -2424,6 +2424,12 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     }
 
                     yield return new TokenListRow(code, codeOverflow, token.SystemId, token.SystemValue);
+
+                    // truncation128 logic: see TokenQueryGenerator or ask RB
+                    if (token.Code.Length > 128)
+                    {
+                        yield return new TokenListRow(code[..128], null, token.SystemId, token.SystemValue);
+                    }
                 }
             }
         }
