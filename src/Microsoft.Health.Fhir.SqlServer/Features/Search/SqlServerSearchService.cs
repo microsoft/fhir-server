@@ -1891,6 +1891,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
         private async Task<SearchResult> GetResourcesByIdsAsync(SqlRootExpression expression, SqlSearchOptions searchOptions, IFhirDataStore fhirDataStore, CancellationToken cancellationToken)
         {
+            if (!StoredProcedureLayerIsEnabled)
+            {
+                return null;
+            }
+
             if (//// Only optimize for non-count queries without sorting or includes operations
                 searchOptions.CountOnly
                 || searchOptions.IncludeTotal != TotalType.None
@@ -1900,11 +1905,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 //// Ensure we have exactly two resource table expressions(one for resource type, one for resource ID)
                 || expression.ResourceTableExpressions.Count != 2
                 || expression.SearchParamTableExpressions.Count > 0)
-            {
-                return null;
-            }
-
-            if (!StoredProcedureLayerIsEnabled)
             {
                 return null;
             }
