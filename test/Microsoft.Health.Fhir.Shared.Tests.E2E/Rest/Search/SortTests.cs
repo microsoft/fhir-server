@@ -1374,8 +1374,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 var observations = await AddObservationToPatient(patient, "2023-01-01", tag);
                 allResources.AddRange(observations);
 
-                // var encounters = await AddEncounterToPatient(patient, tag);
-                // allResources.AddRange(encounters);
+                var encounters = await AddEncounterToPatient(patient, tag);
+                allResources.AddRange(encounters);
             }
 
             return allResources;
