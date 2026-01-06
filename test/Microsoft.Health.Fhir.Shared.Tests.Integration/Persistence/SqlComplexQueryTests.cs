@@ -43,6 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
         private string _truncation128code = $"prefix {new string('z', 128)}";
+        private string _codeWithOverflow = $"prefix {new string('z', 256)}";
 
         public SqlComplexQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
@@ -73,6 +74,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A,TestSystem|B")], 1, spName);
             //// truncation
             await CheckStoredProcedureUsage([Tuple.Create("identifier", _truncation128code)], 2, spName);
+            //// overflow. 1 with exact match + 1 from truncate 128 logic
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", _codeWithOverflow)], 2, spName);
         }
 
         private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName)
@@ -341,7 +344,7 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "B")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code[..128])).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code)).ToResourceElement());
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.Resource) <> 6 RAISERROR('Bad rows in Resource',18,127)");
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _codeWithOverflow)).ToResourceElement());
             //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
             await _fixture.SqlHelper.ExecuteSqlCmd(@$"
 INSERT INTO dbo.TokenSearchParam 
@@ -362,11 +365,11 @@ INSERT INTO dbo.TokenSearchParam
                   WHEN RowId IN (3,4) THEN 'B' 
                   WHEN RowId = 5 THEN '{_truncation128code[..128]}'
                   WHEN RowId = 6 THEN '{_truncation128code}'
+                  WHEN RowId = 7 THEN '{_codeWithOverflow[..256]}'
                 END
-        ,CodeOverflow = NULL
+        ,CodeOverflow = CASE WHEN RowId = 7 THEN '{_codeWithOverflow[256..]}' END
     FROM (SELECT RowId = row_number() OVER (ORDER BY ResourceSurrogateId), * FROM dbo.Resource) A
             ");
-            await _fixture.SqlHelper.ExecuteSqlCmd("IF (SELECT count(*) FROM dbo.TokenSearchParam) <> 6 RAISERROR('Bad rows in TokenSearchParam',18,127)");
         }
     }
 }
