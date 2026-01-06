@@ -25,6 +25,9 @@ public class CommandCollectionExtensionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging();
+        var schemaManagerMock = Substitute.For<ISchemaManager>();
+        services.AddSingleton(schemaManagerMock);
 
         // Act
         services.AddCliCommands();
