@@ -26,6 +26,40 @@ stages:
         Inline: |
           Write-Host "Starting"
 
+          # Function to clean up Network Security Perimeter resources before RG deletion
+          # NSP associations block resource group deletion if not removed first
+          function Remove-NspResources {
+            param([string]$ResourceGroupName)
+            
+            Write-Host "  Checking for Network Security Perimeters in $ResourceGroupName"
+            try {
+              $nsps = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType "Microsoft.Network/networkSecurityPerimeters" -ErrorAction SilentlyContinue
+              
+              if ($nsps) {
+                foreach ($nsp in $nsps) {
+                  Write-Host "    Found NSP: $($nsp.Name)"
+                  $nspResourceId = $nsp.ResourceId
+                  
+                  # Remove associations first
+                  $associations = Get-AzResource -ResourceId "$nspResourceId/resourceAssociations" -ApiVersion "2023-08-01-preview" -ErrorAction SilentlyContinue
+                  if ($associations) {
+                    foreach ($assoc in $associations) {
+                      Write-Host "      Removing association: $($assoc.Name)"
+                      Remove-AzResource -ResourceId $assoc.ResourceId -ApiVersion "2023-08-01-preview" -Force -ErrorAction SilentlyContinue
+                    }
+                  }
+                  
+                  # Delete the NSP itself
+                  Write-Host "    Deleting NSP: $($nsp.Name)"
+                  Remove-AzResource -ResourceId $nspResourceId -ApiVersion "2023-08-01-preview" -Force -ErrorAction SilentlyContinue
+                }
+              }
+            }
+            catch {
+              Write-Warning "  Error cleaning up NSPs in $ResourceGroupName : $($_.Exception.Message)"
+            }
+          }
+
           Write-Host ${env:Exclude}
           try {
             $excludeList = ${env:Exclude}.Split(',').Trim()
@@ -55,6 +89,10 @@ stages:
               If ($deploymentTimes.Count -gt 0)
               {
                 Write-Host "Deleting $($group.ResourceGroupName)"
+                
+                # Clean up NSP resources first to avoid deletion blocking
+                Remove-NspResources -ResourceGroupName $group.ResourceGroupName
+                
                 Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force -ErrorAction Stop
                 $successCount++
                 Write-Host "Successfully deleted $($group.ResourceGroupName)"
