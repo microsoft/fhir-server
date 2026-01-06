@@ -11,6 +11,9 @@
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\Microsoft.Health.Fhir.Ignixa\Microsoft.Health.Fhir.Ignixa.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Ignixa\IgnixaFhirJsonInputFormatter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Ignixa\IgnixaFhirJsonOutputFormatter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Ignixa\ServiceCollectionExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\FhirMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceElementIgnixaExtensions.cs" />

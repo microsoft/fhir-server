@@ -7,11 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- ASP.NET Core for formatters -->
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!-- Project references for FHIR server integration -->
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
@@ -24,10 +19,6 @@
     <PackageReference Include="Ignixa.Specification" />
     <PackageReference Include="Ignixa.FhirPath" />
     <PackageReference Include="Ignixa.Validation" />
-
-    <!-- Firely SDK for compatibility mode serialization -->
-    <!-- Using R4 as the default version - serializers are the same across versions -->
-    <PackageReference Include="Hl7.Fhir.R4" />
 
     <!-- Common utilities -->
     <PackageReference Include="Ensure.That" />

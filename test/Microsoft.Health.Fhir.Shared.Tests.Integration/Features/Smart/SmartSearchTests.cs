@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -104,6 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                     _typedElementToSearchValueConverterManager,
                     Substitute.For<IReferenceToElementResolver>(),
                     ModelInfoProvider.Instance,
+                    Substitute.For<IFhirPathProvider>(),
                     NullLogger<TypedElementSearchIndexer>.Instance);
 
                 ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
