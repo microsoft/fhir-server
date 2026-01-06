@@ -3,7 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#nullable enable
+
+using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
