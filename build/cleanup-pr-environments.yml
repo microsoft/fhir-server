@@ -26,12 +26,12 @@ stages:
         Inline: |
           Write-Host "Starting"
 
-          # Function to clean up Network Security Perimeter resources before RG deletion
+          # Function to clean up Network Security Perimeter resources
           # NSP associations block resource group deletion if not removed first
           function Remove-NspResources {
             param([string]$ResourceGroupName)
             
-            Write-Host "  Checking for Network Security Perimeters in $ResourceGroupName"
+            Write-Host "  Cleaning up Network Security Perimeters in $ResourceGroupName"
             try {
               $nsps = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType "Microsoft.Network/networkSecurityPerimeters" -ErrorAction SilentlyContinue
               
@@ -53,11 +53,13 @@ stages:
                   Write-Host "    Deleting NSP: $($nsp.Name)"
                   Remove-AzResource -ResourceId $nspResourceId -ApiVersion "2023-08-01-preview" -Force -ErrorAction SilentlyContinue
                 }
+                return $true
               }
             }
             catch {
               Write-Warning "  Error cleaning up NSPs in $ResourceGroupName : $($_.Exception.Message)"
             }
+            return $false
           }
 
           Write-Host ${env:Exclude}
@@ -90,12 +92,36 @@ stages:
               {
                 Write-Host "Deleting $($group.ResourceGroupName)"
                 
-                # Clean up NSP resources first to avoid deletion blocking
-                Remove-NspResources -ResourceGroupName $group.ResourceGroupName
-                
-                Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force -ErrorAction Stop
-                $successCount++
-                Write-Host "Successfully deleted $($group.ResourceGroupName)"
+                try {
+                  Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force -ErrorAction Stop
+                  $successCount++
+                  Write-Host "Successfully deleted $($group.ResourceGroupName)"
+                }
+                catch {
+                  $errorMessage = $_.Exception.Message
+                  
+                  # Check if failure is due to Network Security Perimeter
+                  if ($errorMessage -match "networkSecurityPerimeter" -or $errorMessage -match "ResourceGroupDeletionBlocked") {
+                    Write-Warning "Resource group deletion blocked, likely due to NSP. Attempting NSP cleanup..."
+                    $nspFound = Remove-NspResources -ResourceGroupName $group.ResourceGroupName
+                    
+                    if ($nspFound) {
+                      Write-Host "NSP cleanup completed. Retrying resource group deletion..."
+                      # Retry deletion after NSP cleanup
+                      Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force -ErrorAction Stop
+                      $successCount++
+                      Write-Host "Successfully deleted $($group.ResourceGroupName) after NSP cleanup"
+                    }
+                    else {
+                      # No NSP found but still failed - rethrow
+                      throw
+                    }
+                  }
+                  else {
+                    # Not an NSP error - rethrow
+                    throw
+                  }
+                }
               }
               else
               {
