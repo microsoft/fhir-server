@@ -5,13 +5,16 @@
 
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.FhirPath;
 using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
 using Ignixa.FhirPath.Evaluation;
 using Ignixa.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using FirelyEvaluationContext = Hl7.FhirPath.EvaluationContext;
+using FirelyFhirEvaluationContext = Hl7.Fhir.FhirPath.FhirEvaluationContext;
 using IgnixaEvaluationContext = Ignixa.FhirPath.Evaluation.EvaluationContext;
+using IgnixaFhirEvaluationContext = Ignixa.FhirPath.Evaluation.FhirEvaluationContext;
 
 namespace Microsoft.Health.Fhir.Ignixa.FhirPath;
 
@@ -124,34 +127,56 @@ internal sealed class IgnixaCompiledFhirPath : ICompiledFhirPath
     /// <summary>
     /// Converts an ITypedElement to an IElement using the schema.
     /// </summary>
-    private IElement ConvertToElement(ITypedElement typedElement)
+    private static IElement ConvertToElement(ITypedElement typedElement)
     {
-        // ITypedElement already has type information, convert to ISourceNode then to IElement
-        // The extension method ToSourceNode() strips the type info, ToElement adds it back from schema
-        var sourceNode = typedElement.ToSourceNode();
-        return sourceNode.ToElement(_schema);
+        return typedElement.ToIgnixaElement();
     }
 
     /// <summary>
     /// Creates an Ignixa evaluation context from a Firely context.
     /// </summary>
-    private IgnixaEvaluationContext CreateIgnixaContext(
+    private static IgnixaFhirEvaluationContext CreateIgnixaContext(
         IElement element,
         FirelyEvaluationContext? firelyContext)
     {
-        var ignixaContext = new IgnixaEvaluationContext
+        var ignixaContext = new IgnixaFhirEvaluationContext
         {
             Resource = element,
             RootResource = element,
         };
 
-        // Transfer variables from Firely context if present
-        if (firelyContext?.Resource != null)
+        // Transfer variables and resolver from Firely context if present
+        if (firelyContext != null)
         {
             // Set %resource variable to the context resource
-            var resourceElement = ConvertToElement(firelyContext.Resource);
-            ignixaContext.Resource = resourceElement;
-            ignixaContext.SetEnvironmentVariable("resource", resourceElement);
+            if (firelyContext.Resource != null)
+            {
+                var resourceElement = ConvertToElement(firelyContext.Resource);
+                ignixaContext.Resource = resourceElement;
+                ignixaContext.SetEnvironmentVariable("resource", resourceElement);
+            }
+
+            // Transfer the element resolver for resolve() function support
+            // The context may be FhirEvaluationContext (which has ElementResolver) or base EvaluationContext
+            // Firely's resolver: Func<string, ITypedElement> (from LightweightReferenceToElementResolver.Resolve)
+            // Ignixa's resolver: Func<string, IElement?>
+            // Wrap to convert between the two
+            if (firelyContext is FirelyFhirEvaluationContext fhirContext && fhirContext.ElementResolver != null)
+            {
+                ignixaContext.ElementResolver = referenceString =>
+                {
+                    // Call Firely's resolver which returns ITypedElement
+                    var resolvedTypedElement = fhirContext.ElementResolver(referenceString);
+
+                    // Convert to IElement if not null
+                    if (resolvedTypedElement != null)
+                    {
+                        return ConvertToElement(resolvedTypedElement);
+                    }
+
+                    return null;
+                };
+            }
         }
 
         return ignixaContext;
