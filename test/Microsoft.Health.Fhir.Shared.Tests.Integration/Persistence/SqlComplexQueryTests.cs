@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await CheckStoredProcedureUsage([Tuple.Create("identifier", _codeWithOverflow)], 2, spName);
         }
 
-        private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName, bool validateUsage = true)
+        private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName, bool validateSpIsUsed = true)
         {
             await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
@@ -109,9 +109,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ((SqlServerSearchService)_fixture.SearchService).StoredProcedureLayerIsEnabled = true;
             result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
             Assert.Equal(expectedResources, result.Results.Count());
-            if (validateUsage)
+            if (validateSpIsUsed)
             {
                 Assert.True(await CheckIfSprocUsed(spName));
+            }
+            else
+            {
+                Assert.False(await CheckIfSprocUsed(spName));
             }
         }
 
