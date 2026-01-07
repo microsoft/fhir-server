@@ -110,9 +110,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         grantTypesSupported,
                         tokenEndpointAuthMethodsSupported,
                         responseTypesSupported,
-                        _securityConfiguration.IntrospectionEndpoint,
-                        _securityConfiguration.ManagementEndpoint,
-                        _securityConfiguration.RevocationEndpoint);
+                        _smartIdentityProviderConfiguration.Introspection,
+                        _smartIdentityProviderConfiguration.Management,
+                        _smartIdentityProviderConfiguration.Revocation);
                 }
                 catch (Exception e) when (e is ArgumentNullException || e is UriFormatException)
                 {
@@ -129,8 +129,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         private string GetAuthority()
         {
-            return !string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority) ?
+            var authority = !string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority) ?
                 _smartIdentityProviderConfiguration.Authority : _securityConfiguration.Authentication.Authority;
+            return authority?.TrimEnd('/');
         }
     }
 }

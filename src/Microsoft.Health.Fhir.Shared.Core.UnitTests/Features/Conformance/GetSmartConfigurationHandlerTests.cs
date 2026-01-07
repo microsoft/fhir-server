@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [InlineData(null, "https://ehr.example.com/user/manage", null)]
         [InlineData(null, null, "https://ehr.example.com/user/revoke")]
         [InlineData("https://ehr.example.com/user/introspect", "https://ehr.example.com/user/manage", "https://ehr.example.com/user/revoke")]
-        public async Task GivenASmartConfigurationHandler_WhenOtherEndpointsAreSpecifired_ThenSmartConfigurationShouldContainsOtherEndpoints(
+        public async Task GivenASmartConfigurationHandler_WhenOtherEndpointsAreSpecified_ThenSmartConfigurationShouldContainOtherEndpoints(
             string introspectionEndpoint,
             string managementEndpoint,
             string revocationEndpoint)
@@ -109,11 +109,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
-            securityConfiguration.IntrospectionEndpoint = introspectionEndpoint;
-            securityConfiguration.ManagementEndpoint = managementEndpoint;
-            securityConfiguration.RevocationEndpoint = revocationEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
+            var smartIdentityProviderConfiguration = new SmartIdentityProviderConfiguration();
+            smartIdentityProviderConfiguration.Introspection = introspectionEndpoint;
+            smartIdentityProviderConfiguration.Management = managementEndpoint;
+            smartIdentityProviderConfiguration.Revocation = revocationEndpoint;
+
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(smartIdentityProviderConfiguration));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -214,8 +216,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
             var expectedUri = !string.IsNullOrEmpty(authority) ? authority : baseUri;
-            Assert.Equal(expectedUri + "/authorize", response.AuthorizationEndpoint.ToString());
-            Assert.Equal(expectedUri + "/token", response.TokenEndpoint.ToString());
+            Assert.Equal(expectedUri.TrimEnd('/') + "/authorize", response.AuthorizationEndpoint.ToString());
+            Assert.Equal(expectedUri.TrimEnd('/') + "/token", response.TokenEndpoint.ToString());
         }
     }
 }
