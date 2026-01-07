@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.IntegrationDataStore;
@@ -18,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
@@ -26,6 +28,41 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class AzureBlobIntegrationDataStoreClientTests
     {
+        private readonly IIntegrationDataStoreClientInitializer _clientInitializer = Substitute.For<IIntegrationDataStoreClientInitializer>();
+        private readonly IOptions<IntegrationDataStoreConfiguration> _configuration = Options.Create(new IntegrationDataStoreConfiguration());
+        private readonly ILogger<AzureBlobIntegrationDataStoreClient> _logger = new NullLogger<AzureBlobIntegrationDataStoreClient>();
+
+        [Fact]
+        public void GivenNullClientInitializer_WhenCreatingClient_ThenThrowsArgumentNullException()
+        {
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new AzureBlobIntegrationDataStoreClient(null, _configuration, _logger));
+        }
+
+        [Fact]
+        public void GivenNullConfiguration_WhenCreatingClient_ThenThrowsArgumentNullException()
+        {
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new AzureBlobIntegrationDataStoreClient(_clientInitializer, null, _logger));
+        }
+
+        [Fact]
+        public void GivenNullLogger_WhenCreatingClient_ThenThrowsArgumentNullException()
+        {
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, null));
+        }
+
+        [Fact]
+        public void GivenValidParameters_WhenCreatingClient_ThenClientIsCreated()
+        {
+            // Arrange & Act
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+
+            // Assert
+            Assert.NotNull(client);
+        }
+
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenTextFileOnBlob_WhenDownloadContent_ThenContentShouldBeSame()
         {
@@ -379,6 +416,166 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 var container = client.GetBlobContainerClient(containerName);
                 await container.DeleteIfExistsAsync();
             }
+        }
+
+        [Fact]
+        public void GivenNullUri_WhenDownloadingResource_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => client.DownloadResource(null, 0, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullContainerId_WhenPreparingResource_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.PrepareResourceAsync(null, "file.txt", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullFileName_WhenPreparingResource_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.PrepareResourceAsync("container", null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullUri_WhenUploadingBlock_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            using var stream = new MemoryStream();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(null, stream, "blockId", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullStream_WhenUploadingBlock_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(uri, null, "blockId", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullBlockId_WhenUploadingBlock_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+            using var stream = new MemoryStream();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(uri, stream, null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullUri_WhenCommitting_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var blockIds = new[] { "block1", "block2" };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.CommitAsync(null, blockIds, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullBlockIds_WhenCommitting_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.CommitAsync(uri, null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullUri_WhenAppendCommitting_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var blockIds = new[] { "block1", "block2" };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.AppendCommitAsync(null, blockIds, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullBlockIds_WhenAppendCommitting_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.AppendCommitAsync(uri, null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullUri_WhenGettingProperties_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.GetPropertiesAsync(null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullUri_WhenAcquiringLease_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryAcquireLeaseAsync(null, "leaseId", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullProposedLeaseId_WhenAcquiringLease_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryAcquireLeaseAsync(uri, null, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullUri_WhenReleasingLease_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryReleaseLeaseAsync(null, "leaseId", CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenNullLeaseId_WhenReleasingLease_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryReleaseLeaseAsync(uri, null, CancellationToken.None));
         }
 
         private static IIntegrationDataStoreClientInitializer GetClientInitializer()
