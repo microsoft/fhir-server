@@ -101,6 +101,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // This requires IModelInfoProvider which is registered below
             services.AddSingleton<IIgnixaSchemaContext, IgnixaSchemaContext>();
 
+            // Register Ignixa FHIRPath provider for high-performance search indexing
+            // Uses delegate compilation for ~80% of common patterns, ~10x faster than Firely
+            services.AddIgnixaFhirPath(provider => provider.GetRequiredService<IIgnixaSchemaContext>().Schema);
+
             services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(provider =>
             {
                 var ignixaSerializer = provider.GetRequiredService<IIgnixaJsonSerializer>();
