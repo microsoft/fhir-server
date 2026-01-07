@@ -52,8 +52,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSearchService : SearchService
     {
-        private static readonly GetResourceSurrogateIdRangesProcedure GetResourceSurrogateIdRanges = new GetResourceSurrogateIdRangesProcedure();
-
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
@@ -957,11 +955,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return (sqlDataReader.GetInt64(1), sqlDataReader.GetInt64(2));
         }
 
-        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken, bool? activeOnly = false)
+        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken, bool activeOnly = false)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
-            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up, activeOnly, _schemaInformation);
+            PopulateGetResourceSurrogateIdRangesCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up, activeOnly);
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
             LogSqlCommand(sqlCommand);
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
@@ -2026,6 +2024,19 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return !string.IsNullOrEmpty(resourceType) && !string.IsNullOrEmpty(resourceId);
         }
 
+        private static void PopulateGetResourceSurrogateIdRangesCommand(SqlCommand cmd, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool up, bool activeOnly)
+        {
+            cmd.CommandText = "dbo.GetResourceSurrogateIdRanges";
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@StartId", startId);
+            cmd.Parameters.AddWithValue("@EndId", endId);
+            cmd.Parameters.AddWithValue("@RangeSize", rangeSize);
+            cmd.Parameters.AddWithValue("@NumberOfRanges", numberOfRanges);
+            cmd.Parameters.AddWithValue("@Up", up);
+            cmd.Parameters.AddWithValue("@ActiveOnly", activeOnly);
+        }
+
         private class ResourceSearchParamStats
         {
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
@@ -2348,40 +2359,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 catch (SqlException ex)
                 {
                     logger.LogWarning(ex, "ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
-                }
-            }
-        }
-
-        // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .
-        private class GetResourceSurrogateIdRangesProcedure : StoredProcedure
-        {
-            private readonly ParameterDefinition<short> _resourceTypeId = new ParameterDefinition<short>("@ResourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
-            private readonly ParameterDefinition<long> _startId = new ParameterDefinition<long>("@StartId", global::System.Data.SqlDbType.BigInt, false);
-            private readonly ParameterDefinition<long> _endId = new ParameterDefinition<long>("@EndId", global::System.Data.SqlDbType.BigInt, false);
-            private readonly ParameterDefinition<int> _rangeSize = new ParameterDefinition<int>("@RangeSize", global::System.Data.SqlDbType.Int, false);
-            private readonly ParameterDefinition<int?> _numberOfRanges = new ParameterDefinition<int?>("@NumberOfRanges", global::System.Data.SqlDbType.Int, true);
-            private readonly ParameterDefinition<bool?> _up = new ParameterDefinition<bool?>("@Up", global::System.Data.SqlDbType.Bit, true);
-            private readonly ParameterDefinition<bool?> _activeOnly = new ParameterDefinition<bool?>("@ActiveOnly", global::System.Data.SqlDbType.Bit, true);
-
-            internal GetResourceSurrogateIdRangesProcedure()
-                : base("dbo.GetResourceSurrogateIdRanges")
-            {
-            }
-
-            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up, bool? activeOnly, SchemaInformation schemaInformation)
-            {
-                sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
-                sqlCommand.CommandText = "dbo.GetResourceSurrogateIdRanges";
-                _resourceTypeId.AddParameter(sqlCommand.Parameters, resourceTypeId);
-                _startId.AddParameter(sqlCommand.Parameters, startId);
-                _endId.AddParameter(sqlCommand.Parameters, endId);
-                _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
-                _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
-                _up.AddParameter(sqlCommand.Parameters, up);
-
-                if (schemaInformation.Current >= (int)SchemaVersion.V97)
-                {
-                    _activeOnly.AddParameter(sqlCommand.Parameters, activeOnly);
                 }
             }
         }
