@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
-            var rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
+            var rawResourceFactory = Substitute.For<RawResourceFactory>(Substitute.For<IIgnixaJsonSerializer>(), new FhirJsonSerializer());
 
             var resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             resourceWrapperFactory
