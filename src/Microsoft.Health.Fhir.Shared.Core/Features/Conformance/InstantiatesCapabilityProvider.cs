@@ -31,21 +31,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             _logger = logger;
         }
 
-        public async Task BuildAsync(
-            ICapabilityStatementBuilder builder,
-            CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(builder, nameof(builder));
+        public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
+            => PopulateInstantiatesAsync(builder, cancellationToken);
 
-            var urls = await GetUrlsAsync(cancellationToken);
-            builder.Apply(
-                x =>
-                {
-                    x.Instantiates = urls.Any() ? urls : null;
-                });
-        }
+        public Task UpdateAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
+            => PopulateInstantiatesAsync(builder, cancellationToken);
 
-        public async Task UpdateAsync(
+        private async Task PopulateInstantiatesAsync(
             ICapabilityStatementBuilder builder,
             CancellationToken cancellationToken)
         {
