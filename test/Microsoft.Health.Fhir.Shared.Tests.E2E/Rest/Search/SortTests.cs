@@ -1192,7 +1192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(expectedCount * 2, response.Resource.Entry.Count);
         }
 
-        [Theory(Skip = "Checking test failure")]
+        [Theory]
         [InlineData(1, "birthdate")]
         [InlineData(2, "birthdate")]
         [InlineData(3, "birthdate")]
