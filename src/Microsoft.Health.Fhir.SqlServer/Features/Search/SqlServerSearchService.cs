@@ -478,8 +478,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             await CreateStats(expression, cancellationToken);
 
-            SearchResult searchResult = null;
+            // Reads by resource ids is handled directly via GetAsync().
+            // Search result is set only on success, otherwise it is null.
+            // SqlServerFhirDataStore uses the same retry class, so it is not needed to call this inside _sqlRetryService.ExecuteSql down below.
+            if (await GetResourcesByIdsAsync(expression, clonedSearchOptions, _fhirDataStore, cancellationToken) is SearchResult result)
+            {
+                _logger.LogInformation("Get resources by ids was handled via GetAsync()");
+                return result;
+            }
 
+            SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -493,13 +501,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
                             sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
-                        }
-                        else if (await TryHandleSimpleResourceReadAsync(expression, clonedSearchOptions, _fhirDataStore, cancellationToken) is SearchResult simpleReadResult)
-                        {
-                            // Simple resource read was handled directly via FhirDataStore.GetAsync
-                            _logger.LogInformation("Handled simple resource read directly via FhirDataStore.GetAsync");
-                            searchResult = simpleReadResult;
-                            return;
                         }
                         else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
                         {
@@ -1886,142 +1887,75 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return true;
         }
 
-        /// <summary>
-        /// Attempts to handle simple resource read requests directly via FhirDataStore.GetAsync
-        /// instead of generating SQL queries for better performance.
-        /// </summary>
-        /// <param name="expression">The SQL root expression to analyze</param>
-        /// <param name="searchOptions">Search options for the request</param>
-        /// <param name="fhirDataStore">The FHIR data store instance</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>SearchResult if this was a simple resource read, null otherwise</returns>
-        private static async Task<SearchResult> TryHandleSimpleResourceReadAsync(SqlRootExpression expression, SqlSearchOptions searchOptions, IFhirDataStore fhirDataStore, CancellationToken cancellationToken)
+        private async Task<SearchResult> GetResourcesByIdsAsync(SqlRootExpression expression, SqlSearchOptions searchOptions, IFhirDataStore fhirDataStore, CancellationToken cancellationToken)
         {
-            // Only optimize for non-count queries without sorting or includes operations
-            if (searchOptions.CountOnly ||
-                searchOptions.IncludeTotal != TotalType.None ||
-                searchOptions.IsIncludesOperation)
+            if (!StoredProcedureLayerIsEnabled)
             {
                 return null;
             }
 
-            // Only optimize for Latest or History-inclusive searches (versioned reads)
-            if (searchOptions.ResourceVersionTypes != ResourceVersionType.Latest &&
-                !searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History))
+            if (//// Only optimize for non-count queries without sorting or includes operations
+                searchOptions.CountOnly
+                || searchOptions.IncludeTotal != TotalType.None
+                || searchOptions.IsIncludesOperation
+                //// Only optimize for Latest. Full history of specific history is handled in GetResourceHandler
+                || searchOptions.ResourceVersionTypes != ResourceVersionType.Latest
+                //// Ensure we have exactly two resource table expressions(one for resource type, one for resource ID)
+                || expression.ResourceTableExpressions.Count != 2
+                || expression.SearchParamTableExpressions.Count > 0)
             {
                 return null;
             }
 
-            // Ensure we have exactly two resource table expressions (one for resource type, one for resource ID)
-            if (expression.ResourceTableExpressions.Count != 2 ||
-                expression.SearchParamTableExpressions.Count > 0)
+            // Extract resource type and IDs from the expressions
+            if (!TryExtractResourceKeys(expression, searchOptions, out IReadOnlyList<ResourceKey> resourceKeys))
             {
                 return null;
             }
 
-            // Extract resource type and ID from the expressions
-            if (!TryExtractResourceTypeAndId(expression, out string resourceType, out string resourceId, out string versionId))
+            var resourceWrappers = await fhirDataStore.GetAsync(resourceKeys, cancellationToken);
+            var results = new List<SearchResultEntry>();
+            foreach (var resourceWrapper in resourceWrappers)
             {
-                return null;
+                results.Add(new SearchResultEntry(resourceWrapper, SearchEntryMode.Match));
             }
 
-            // If requesting history, but not specific id, then this is not a simple read.
-            if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) && string.IsNullOrEmpty(versionId))
-            {
-                return null;
-            }
-
-            try
-            {
-                // Create ResourceKey with proper version handling
-                var resourceKey = string.IsNullOrEmpty(versionId)
-                    ? new ResourceKey(resourceType, resourceId)
-                    : new ResourceKey(resourceType, resourceId, versionId);
-
-                // Use FhirDataStore.GetAsync to retrieve the resource
-                var resourceWrapper = await fhirDataStore.GetAsync(resourceKey, cancellationToken);
-
-                if (resourceWrapper == null)
-                {
-                    // Resource not found - return empty search result
-                    return new SearchResult(0, searchOptions.UnsupportedSearchParams);
-                }
-
-                // Convert to SearchResultEntry
-                var searchResultEntry = new SearchResultEntry(resourceWrapper, SearchEntryMode.Match);
-                var results = new List<SearchResultEntry> { searchResultEntry };
-
-                return new SearchResult(results, null, null, searchOptions.UnsupportedSearchParams);
-            }
-            catch
-            {
-                // If anything goes wrong, fall back to SQL generation
-                return null;
-            }
+            return results.Count == 0 ? new SearchResult(0, searchOptions.UnsupportedSearchParams) : new SearchResult(results, null, null, searchOptions.UnsupportedSearchParams);
         }
 
-        /// <summary>
-        /// Attempts to extract resource type and ID from a simple resource read expression.
-        /// </summary>
-        /// <param name="expression">The SQL root expression to analyze</param>
-        /// <param name="resourceType">The extracted resource type</param>
-        /// <param name="resourceId">The extracted resource ID</param>
-        /// <param name="versionId">The extracted version ID (if any)</param>
-        /// <returns>True if extraction was successful, false otherwise</returns>
-        private static bool TryExtractResourceTypeAndId(SqlRootExpression expression, out string resourceType, out string resourceId, out string versionId)
+        private static bool TryExtractResourceKeys(SqlRootExpression expression, SearchOptions searchOptions, out IReadOnlyList<ResourceKey> resourceKeys)
         {
-            resourceType = null;
-            resourceId = null;
-            versionId = null;
+            // Calls like Patient/123/_history/456 (for a specific id and version) are handled from GetResourceHandler directly.
+            // They do not reach SqlServerSearchService class, hence there is no need to handle versions here, only current.
+            string resourceType = null;
+            var resourceKeysList = new List<ResourceKey>();
+            resourceKeys = resourceKeysList;
 
-            // Find resource type and ID expressions in ResourceTableExpressions
-            SearchParameterExpression resourceTypeExpression = null;
-            SearchParameterExpression resourceIdExpression = null;
-
-            foreach (var searchParamExpression in expression.ResourceTableExpressions.OfType<SearchParameterExpression>())
+            var e1 = expression.ResourceTableExpressions.OfType<SearchParameterExpression>().FirstOrDefault(_ => _.Parameter.Name == SearchParameterNames.ResourceType)?.Expression;
+            if (e1 is StringExpression str1)
             {
-                if (searchParamExpression.Parameter.Name == SearchParameterNames.ResourceType)
-                {
-                    resourceTypeExpression = searchParamExpression;
-                }
-                else if (searchParamExpression.Parameter.Name == SearchParameterNames.Id)
-                {
-                    resourceIdExpression = searchParamExpression;
-                }
+                resourceType = str1.Value;
             }
 
-            if (resourceTypeExpression == null || resourceIdExpression == null)
+            if (resourceType == null)
             {
                 return false;
             }
 
-            // Extract simple string values
-            if (!TryExtractSimpleStringValue(resourceTypeExpression.Expression, out resourceType) ||
-                !TryExtractSimpleStringValue(resourceIdExpression.Expression, out string fullResourceId))
+            var e2 = expression.ResourceTableExpressions.OfType<SearchParameterExpression>().FirstOrDefault(_ => _.Parameter.Name == SearchParameterNames.Id)?.Expression;
+            if (e2 is StringExpression str)
             {
-                return false;
+                resourceKeysList.Add(new ResourceKey(resourceType, str.Value, null));
             }
-
-            // Parse version from ID if present (format: "Patient/123/_history/456")
-            if (fullResourceId.Contains("/_history/", StringComparison.Ordinal))
+            else if (e2 is MultiaryExpression mult)
             {
-                var parts = fullResourceId.Split(["/_history/"], StringSplitOptions.None);
-                if (parts.Length == 2)
+                foreach (var exp in mult.Expressions.OfType<StringExpression>())
                 {
-                    resourceId = parts[0];
-                    versionId = parts[1];
-                }
-                else
-                {
-                    resourceId = fullResourceId;
+                    resourceKeysList.Add(new ResourceKey(resourceType, exp.Value, null));
                 }
             }
-            else
-            {
-                resourceId = fullResourceId;
-            }
 
-            return !string.IsNullOrEmpty(resourceType) && !string.IsNullOrEmpty(resourceId);
+            return resourceKeys.Count > 0 && resourceKeys.Count <= searchOptions.MaxItemCount; // second condition guarantees absence of continuation token
         }
 
         private static void PopulateGetResourceSurrogateIdRangesCommand(SqlCommand cmd, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool up, bool activeOnly)

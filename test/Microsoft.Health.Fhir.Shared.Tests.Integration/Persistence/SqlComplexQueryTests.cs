@@ -52,6 +52,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task SearchByIds_GetResourcesIsUsed()
+        {
+            const string spName = "GetResources";
+
+            var ids = new List<string>();
+            for (var i = 0; i < 100; i++)
+            {
+                var id = $"A{i}";
+                await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(id).ToResourceElement());
+                ids.Add(id);
+            }
+
+            await CheckStoredProcedureUsage([Tuple.Create("_id", string.Join(",", ids.Take(1)))], 1, spName);
+            await CheckStoredProcedureUsage([Tuple.Create("_id", string.Join(",", ids.Take(10)))], 10, spName);
+            await CheckStoredProcedureUsage([Tuple.Create("_id", string.Join(",", ids)), Tuple.Create("_count", "100")], 100, spName);
+            //// if count < number of requested ids, even with enabled stored procedure, it cannot be called
+            await CheckStoredProcedureUsage([Tuple.Create("_id", string.Join(",", ids)), Tuple.Create("_count", "50")], 50, spName, false);
+        }
+
+        [Fact]
         public async Task SearchByTokens_GetResourcesByTokensIsUsed()
         {
             const string spName = "GetResourcesByTokens";
@@ -78,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await CheckStoredProcedureUsage([Tuple.Create("identifier", _codeWithOverflow)], 2, spName);
         }
 
-        private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName)
+        private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName, bool validateSpIsUsed = true)
         {
             await ClearProcedureCache();
             Assert.False(await CheckIfSprocUsed(spName));
@@ -89,7 +109,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ((SqlServerSearchService)_fixture.SearchService).StoredProcedureLayerIsEnabled = true;
             result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
             Assert.Equal(expectedResources, result.Results.Count());
-            Assert.True(await CheckIfSprocUsed(spName));
+            if (validateSpIsUsed)
+            {
+                Assert.True(await CheckIfSprocUsed(spName));
+            }
+            else
+            {
+                Assert.False(await CheckIfSprocUsed(spName));
+            }
         }
 
         [Fact]
@@ -317,11 +344,11 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
             ").Wait();
         }
 
-        private Patient CreateTestPatient(Identifier identifier = null)
+        private Patient CreateTestPatient(string id = null, Identifier identifier = null)
         {
             var rtn = new Patient()
             {
-                Id = Guid.NewGuid().ToString("N"),
+                Id = id ?? Guid.NewGuid().ToString("N"),
                 Meta = new(),
             };
 
@@ -338,13 +365,13 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.Resource");
             await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.TokenSearchParam");
             //// creating 6 resources
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "A")).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "A")).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "B")).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "B")).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code[..128])).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code)).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _codeWithOverflow)).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier("TestSystem", "A")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, "A")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier("TestSystem", "B")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, "B")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, _truncation128code[..128])).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, _truncation128code)).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, _codeWithOverflow)).ToResourceElement());
             //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
             await _fixture.SqlHelper.ExecuteSqlCmd(@$"
 INSERT INTO dbo.TokenSearchParam 
