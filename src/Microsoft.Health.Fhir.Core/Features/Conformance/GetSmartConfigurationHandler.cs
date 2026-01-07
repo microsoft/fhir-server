@@ -129,8 +129,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         private string GetAuthority()
         {
-            return !string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority) ?
+            var authority = !string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority) ?
                 _smartIdentityProviderConfiguration.Authority : _securityConfiguration.Authentication.Authority;
+            return authority?.TrimEnd('/');
         }
     }
 }

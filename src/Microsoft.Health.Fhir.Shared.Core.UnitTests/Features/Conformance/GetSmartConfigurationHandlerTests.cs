@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [InlineData(null, "https://ehr.example.com/user/manage", null)]
         [InlineData(null, null, "https://ehr.example.com/user/revoke")]
         [InlineData("https://ehr.example.com/user/introspect", "https://ehr.example.com/user/manage", "https://ehr.example.com/user/revoke")]
-        public async Task GivenASmartConfigurationHandler_WhenOtherEndpointsAreSpecifired_ThenSmartConfigurationShouldContainsOtherEndpoints(
+        public async Task GivenASmartConfigurationHandler_WhenOtherEndpointsAreSpecified_ThenSmartConfigurationShouldContainOtherEndpoints(
             string introspectionEndpoint,
             string managementEndpoint,
             string revocationEndpoint)
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
-            var expectedUri = !string.IsNullOrEmpty(authority) ? authority : baseUri;
+            var expectedUri = !string.IsNullOrEmpty(authority) ? authority.TrimEnd('/') : baseUri;
             Assert.Equal(expectedUri + "/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(expectedUri + "/token", response.TokenEndpoint.ToString());
         }
