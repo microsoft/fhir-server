@@ -39,8 +39,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     {
         private const string XForwardedHost = "X-Forwarded-Host";
         private const string XForwardedPrefix = "X-Forwarded-Prefix";
-        private const string Host = "e2e.tests.fhir.microsoft.com";
-        private const string Prefix = "/search/bundle/tests";
+
+        // Configurable via environment variables for different deployment environments
+        private static readonly string Host = EnvironmentVariables.GetEnvironmentVariable(
+            KnownEnvironmentVariableNames.TestProxyForwardedHost,
+            "e2e.tests.fhir.microsoft.com");
+
+        private static readonly string Prefix = EnvironmentVariables.GetEnvironmentVariable(
+            KnownEnvironmentVariableNames.TestProxyForwardedPrefix,
+            "/search/bundle/tests");
 
         private readonly TestFhirClient _proxyClient;
 
