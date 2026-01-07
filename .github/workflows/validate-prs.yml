@@ -94,6 +94,11 @@ jobs:
               errors += '- Tag the PR with **No-PaaS-breaking-change** or **PaaS-breaking-change** to indicate PaaS compatibility. \n';
             }
 
+            if(labels.includes("ADR-Included") == false &&
+               labels.includes("No-ADR") == false) {
+              errors += '- Tag the PR with **No-ADR** or **ADR-Included** to indicate whether documentation for the change is provided or not. \n';
+            }
+
             if(errors != "") {
               core.setFailed(errors)
             }
