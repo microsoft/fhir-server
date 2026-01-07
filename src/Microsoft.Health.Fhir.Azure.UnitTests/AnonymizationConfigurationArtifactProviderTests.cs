@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
         }
 
         [Fact]
-        public async Task GivenNullConfigurationLocation_WhenFetchingAsync_ThenThrowsArgumentException()
+        public async Task GivenEmptyConfigurationLocation_WhenFetchingAsync_ThenThrowsArgumentException()
         {
             // Arrange
             var jobRecord = new ExportJobRecord(
@@ -132,7 +132,8 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 resourceType: null,
                 filters: null,
                 "hash",
-                rollingFileSizeInMB: 1);
+                rollingFileSizeInMB: 1,
+                anonymizationConfigurationLocation: string.Empty);
             using var stream = new MemoryStream();
 
             // Act & Assert
@@ -167,9 +168,17 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             var logger = new NullLogger<AnonymizationConfigurationArtifactProvider>();
             var provider = new AnonymizationConfigurationArtifactProvider(clientInitializer, tokenProvider, config, logger);
 
-            // Act & Assert - Should not throw
-            provider.Dispose();
-            provider.Dispose(); // Dispose again
+            try
+            {
+                // Act & Assert - Should not throw
+                provider.Dispose();
+                provider.Dispose(); // Dispose again
+            }
+            finally
+            {
+                // Ensure cleanup even if test fails
+                provider.Dispose();
+            }
         }
 
         [SkippableFact]

@@ -275,10 +275,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var propertiesResponse = Response.FromValue(blobProperties, Substitute.For<Response>());
             _blobClient.GetProperties(default, default).ReturnsForAnyArgs(propertiesResponse);
 
-            var contentStream = new MemoryStream(blobData);
-            var blobDownloadStreamingResult = BlobsModelFactory.BlobDownloadStreamingResult(content: contentStream);
-            var downloadResponse = Response.FromValue(blobDownloadStreamingResult, Substitute.For<Response>());
-
             _blobClient.DownloadStreamingAsync(Arg.Any<BlobDownloadOptions>(), default)
                 .Returns(callInfo =>
                 {
