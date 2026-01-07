@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Conformance
             Assert.Equal(count > 0, urls?.Any());
             if (count > 0)
             {
-                Assert.Equal(Url, urls.FirstOrDefault(), StringComparer.OrdinalIgnoreCase);
+                Assert.Equal(Url, urls?.FirstOrDefault(), StringComparer.OrdinalIgnoreCase);
             }
 
             Assert.Equal(KnownResourceTypes.StructureDefinition, resourceType, StringComparer.OrdinalIgnoreCase);

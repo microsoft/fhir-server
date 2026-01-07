@@ -396,6 +396,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             catch (Exception e)
                             {
                                 _logger.LogWarning(e, "Failed to update Capability Statement.");
+                                throw;
                             }
                             finally
                             {
@@ -405,10 +406,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     }
 
                     _metadata = _builder.Build().ToResourceElement();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to update the metadata.");
                 }
                 finally
                 {
