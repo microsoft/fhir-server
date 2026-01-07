@@ -130,6 +130,11 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// </summary>
         public SearchParameterStatus SearchParameterStatus { get; set; }
 
+        /// <summary>
+        /// Returns true if this parameter is defined by the FHIR specification (out-of-the-box) and should not be modified or deleted by users
+        /// </summary>
+        public bool IsSystemDefined { get; set; }
+
         public bool Equals([AllowNull] SearchParameterInfo other)
         {
             if (other == null)

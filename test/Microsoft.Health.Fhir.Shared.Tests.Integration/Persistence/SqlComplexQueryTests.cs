@@ -6,18 +6,22 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel.Types;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Serialization;
+using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Management.Sdk.Sfc;
 using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
@@ -38,11 +42,54 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
+        private string _truncation128code = $"prefix {new string('z', 128)}";
+        private string _codeWithOverflow = $"prefix {new string('z', 256)}";
 
         public SqlComplexQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _output = output;
+        }
+
+        [Fact]
+        public async Task SearchByTokens_GetResourcesByTokensIsUsed()
+        {
+            const string spName = "GetResourcesByTokens";
+
+            await PrepareData();
+
+            //// single code without system
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "A")], 2, spName);
+            //// single code with system
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A")], 1, spName);
+            //// multiple codes without system
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "A,B")], 4, spName);
+            //// multiple codes with system
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,TestSystem|B")], 2, spName);
+            //// multiple codes
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "TestSystem|A,B")], 3, spName);
+            //// not existing system
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A")], 0, spName);
+            //// not existing system plus
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A,TestSystem|B")], 1, spName);
+            //// truncation
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", _truncation128code)], 2, spName);
+            //// overflow. 1 with exact match + 1 from truncate 128 logic
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", _codeWithOverflow)], 2, spName);
+        }
+
+        private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName)
+        {
+            await ClearProcedureCache();
+            Assert.False(await CheckIfSprocUsed(spName));
+            ((SqlServerSearchService)_fixture.SearchService).StoredProcedureLayerIsEnabled = false;
+            var result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
+            Assert.Equal(expectedResources, result.Results.Count());
+            Assert.False(await CheckIfSprocUsed(spName));
+            ((SqlServerSearchService)_fixture.SearchService).StoredProcedureLayerIsEnabled = true;
+            result = await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
+            Assert.Equal(expectedResources, result.Results.Count());
+            Assert.True(await CheckIfSprocUsed(spName));
         }
 
         [Fact]
@@ -93,6 +140,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 }
             }
+        }
+
+        private async Task ClearProcedureCache()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            using var cmd = new SqlCommand("ALTER DATABASE SCOPED CONFIGURATION CLEAR PROCEDURE_CACHE", conn);
+            conn.Open();
+            cmd.ExecuteNonQuery();
         }
 
         private async Task CheckQueryStore(int expected_executions, int expected_compiles)
@@ -171,12 +226,11 @@ END CATCH
         [SkippableFact]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
+            await ClearProcedureCache();
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
-            Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4,
-                "This test is only valid for R4");
+            Skip.If(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
 
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
@@ -186,73 +240,70 @@ END CATCH
 
             // Query before adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-
+            Assert.Empty(CustomQueries.QueryStore);
             var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
-
-            // assert an sproc was not used
-            Assert.False(await CheckIfSprocUsed(hash));
+            var spName = "CustomQuery_" + hash;
 
             // add the sproc
             _output.WriteLine("Adding new sproc to database.");
-            AddSproc(hash);
+            AddSproc(spName);
+
+            // assert an sproc was not used
+            Assert.False(await CheckIfSprocUsed(spName));
 
             // Query after adding an sproc to the database
             var sw = Stopwatch.StartNew();
-            var sprocWasUsed = false;
-            while (sw.Elapsed.TotalSeconds < 100) // previous single try after 1.1 sec delay was not reliable.
+            while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
             {
                 await Task.Delay(300);
                 await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-                Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
-                if (await CheckIfSprocUsed(hash))
+                if (CustomQueries.QueryStore.Count > 0)
                 {
-                    sprocWasUsed = true;
                     break;
                 }
             }
 
+            Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
             Assert.Single(CustomQueries.QueryStore);
 
             // Check if stored procedure was used
-            Assert.True(sprocWasUsed);
+            Assert.True(await CheckIfSprocUsed(spName));
+
+            // change values and check that query hash did not change
+            query = [Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("birthdate", "lt2000-01-01"), Tuple.Create("address-city", "City2"), Tuple.Create("address-state", "State2")];
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+            Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
 
             // restore state before this test
             CustomQueries.WaitTime = 60;
 
             // drop stored procedure and clear cache, so no other tests use this stored procedure.
-            _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE [dbo].[CustomQuery_{hash}]").Wait();
+            _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
             CustomQueries.QueryStore.Clear();
         }
 
-        private async Task<bool> CheckIfSprocUsed(string hash)
+        private async Task<bool> CheckIfSprocUsed(string name)
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine("Checking database for sproc being run.");
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
-SELECT TOP 1 O.name
+SELECT count(*)
   FROM sys.dm_exec_procedure_stats S
        JOIN sys.objects O ON O.object_id = S.object_id
-  WHERE O.type = 'p' AND O.name = 'CustomQuery_'+@hash
-  ORDER BY
-       S.last_execution_time DESC";
-            cmd.Parameters.AddWithValue("@hash", hash);
-
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                return true;
-            }
-
-            _output.WriteLine("No evidence found of sproc being run.");
-            return false;
+  WHERE database_id = db_id() AND O.type = 'p' AND O.name = @name
+            ";
+            cmd.Parameters.AddWithValue("@name", name);
+            var cnt = (int)cmd.ExecuteScalar();
+            _output.WriteLine($"{name} was{(cnt == 0 ? " not " : " ")}run.");
+            return cnt > 0;
         }
 
-        private void AddSproc(string hash)
+        private void AddSproc(string spName)
         {
             _fixture.SqlHelper.ExecuteSqlCmd(@$"
-CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_{hash}]
+CREATE OR ALTER PROCEDURE dbo.[{spName}]
    @p0 nvarchar(256)
   ,@p1 nvarchar(256)
   ,@p2 datetime2
@@ -264,6 +315,61 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
   FROM dbo.Resource r
   WHERE 1 = 2
             ").Wait();
+        }
+
+        private Patient CreateTestPatient(Identifier identifier = null)
+        {
+            var rtn = new Patient()
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Meta = new(),
+            };
+
+            if (identifier != null)
+            {
+                rtn.Identifier = [identifier];
+            }
+
+            return rtn;
+        }
+
+        private async Task PrepareData()
+        {
+            await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.Resource");
+            await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE dbo.TokenSearchParam");
+            //// creating 6 resources
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "A")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "A")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier("TestSystem", "B")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, "B")).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code[..128])).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _truncation128code)).ToResourceElement());
+            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(new Identifier(null, _codeWithOverflow)).ToResourceElement());
+            //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
+            await _fixture.SqlHelper.ExecuteSqlCmd(@$"
+INSERT INTO dbo.TokenSearchParam 
+    (
+         ResourceTypeId
+        ,ResourceSurrogateId
+        ,SearchParamId
+        ,SystemId
+        ,Code
+        ,CodeOverflow
+    )
+  SELECT ResourceTypeId
+        ,ResourceSurrogateId
+        ,SearchParamId = (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri = 'http://hl7.org/fhir/SearchParameter/Patient-identifier')
+        ,SystemId = CASE WHEN RowId IN (1,3) THEN 1 ELSE NULL END
+        ,Code = CASE 
+                  WHEN RowId IN (1,2) THEN 'A' 
+                  WHEN RowId IN (3,4) THEN 'B' 
+                  WHEN RowId = 5 THEN '{_truncation128code[..128]}'
+                  WHEN RowId = 6 THEN '{_truncation128code}'
+                  WHEN RowId = 7 THEN '{_codeWithOverflow[..256]}'
+                END
+        ,CodeOverflow = CASE WHEN RowId = 7 THEN '{_codeWithOverflow[256..]}' END
+    FROM (SELECT RowId = row_number() OVER (ORDER BY ResourceSurrogateId), * FROM dbo.Resource) A
+            ");
         }
     }
 }

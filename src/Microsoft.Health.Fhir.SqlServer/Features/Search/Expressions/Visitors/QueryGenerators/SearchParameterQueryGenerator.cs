@@ -130,41 +130,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitNotReferenced(NotReferencedExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            // This expression needs a table alias as it is using a subquery.
-            EnsureArg.IsNotNullOrEmpty(context.TableAlias, nameof(context.TableAlias));
-
-            var referenceTargetTableAlias = context.TableAlias + ".";
-            var referenceSourceTableAlias = "refSource";
-
-            context.StringBuilder.AppendLine($"{referenceTargetTableAlias}{VLatest.Resource.IsHistory} = 0");
-            context.StringBuilder.AppendLine($"AND {referenceTargetTableAlias}{VLatest.Resource.IsDeleted} = 0");
-            context.StringBuilder.AppendLine("AND NOT EXISTS").AppendLine("(");
+            context.StringBuilder.AppendLine($"{VLatest.Resource.IsHistory} = 0");
+            context.StringBuilder.AppendLine($"AND {VLatest.Resource.IsDeleted} = 0");
+            context.StringBuilder.AppendLine("AND NOT EXISTS ").AppendLine("(");
             using (context.StringBuilder.Indent())
             {
-                context.StringBuilder.AppendLine($"SELECT {VLatest.ReferenceSearchParam.ReferenceResourceId}");
-                context.StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).AppendLine($" {referenceSourceTableAlias}");
+                context.StringBuilder.AppendLine($"SELECT *");
+                context.StringBuilder.Append($"FROM (SELECT SourceResourceTypeId = {VLatest.ReferenceSearchParam.ResourceTypeId}, {VLatest.ReferenceSearchParam.SearchParamId}, {VLatest.ReferenceSearchParam.ReferenceResourceId}, {VLatest.ReferenceSearchParam.ReferenceResourceTypeId} FROM ").Append(VLatest.ReferenceSearchParam).AppendLine(") R");
 
                 using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
                 {
                     nestedDelimited.BeginDelimitedElement();
-                    context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceId}");
+                    context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.ReferenceResourceId} = {VLatest.Resource.ResourceId}");
 
                     nestedDelimited.BeginDelimitedElement();
-                    context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {referenceTargetTableAlias}{VLatest.Resource.ResourceTypeId}");
+                    context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.ReferenceResourceTypeId} = {VLatest.Resource.ResourceTypeId}");
 
                     if (expression.SourceResourceType != null)
                     {
                         var resourceTypeId = context.Model.GetResourceTypeId(expression.SourceResourceType);
 
                         nestedDelimited.BeginDelimitedElement();
-                        context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.ResourceTypeId} = {resourceTypeId}");
+                        context.StringBuilder.Append($"SourceResourceTypeId = {resourceTypeId}");
 
                         if (expression.ReferenceSearchParameter != null)
                         {
                             var searchParamId = context.Model.GetSearchParamId(expression.ReferenceSearchParameter.Url);
 
                             nestedDelimited.BeginDelimitedElement();
-                            context.StringBuilder.Append($"{referenceSourceTableAlias}.{VLatest.ReferenceSearchParam.SearchParamId} = {searchParamId}");
+                            context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.SearchParamId} = {searchParamId}");
                         }
                     }
                 }
