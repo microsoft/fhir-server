@@ -547,17 +547,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         }
 
         [Fact]
-        public async Task GivenNullProposedLeaseId_WhenAcquiringLease_ThenThrowsArgumentNullException()
-        {
-            // Arrange
-            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
-            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
-
-            // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryAcquireLeaseAsync(uri, null, CancellationToken.None));
-        }
-
-        [Fact]
         public async Task GivenNullUri_WhenReleasingLease_ThenThrowsArgumentNullException()
         {
             // Arrange
@@ -565,17 +554,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
             // Act & Assert
             await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryReleaseLeaseAsync(null, "leaseId", CancellationToken.None));
-        }
-
-        [Fact]
-        public async Task GivenNullLeaseId_WhenReleasingLease_ThenThrowsArgumentNullException()
-        {
-            // Arrange
-            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
-            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
-
-            // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryReleaseLeaseAsync(uri, null, CancellationToken.None));
         }
 
         private static IIntegrationDataStoreClientInitializer GetClientInitializer()

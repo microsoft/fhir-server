@@ -166,19 +166,11 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             var tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             var config = Options.Create(new ExportJobConfiguration());
             var logger = new NullLogger<AnonymizationConfigurationArtifactProvider>();
-            var provider = new AnonymizationConfigurationArtifactProvider(clientInitializer, tokenProvider, config, logger);
+            using var provider = new AnonymizationConfigurationArtifactProvider(clientInitializer, tokenProvider, config, logger);
 
-            try
-            {
-                // Act & Assert - Should not throw
-                provider.Dispose();
-                provider.Dispose(); // Dispose again
-            }
-            finally
-            {
-                // Ensure cleanup even if test fails
-                provider.Dispose();
-            }
+            // Act & Assert - Should not throw when disposed multiple times
+            provider.Dispose();
+            provider.Dispose(); // Dispose again
         }
 
         [SkippableFact]
