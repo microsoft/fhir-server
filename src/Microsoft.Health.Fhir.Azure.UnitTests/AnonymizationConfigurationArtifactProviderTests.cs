@@ -141,6 +141,16 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
         }
 
         [Fact]
+        public async Task GivenNullJobRecord_WhenFetchingAsync_ThenThrowsNullReferenceException()
+        {
+            // Arrange
+            using var stream = new MemoryStream();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<NullReferenceException>(() => _provider.FetchAsync(null, stream, CancellationToken.None));
+        }
+
+        [Fact]
         public async Task GivenNullTargetStream_WhenFetchingAsync_ThenThrowsArgumentNullException()
         {
             // Arrange
@@ -171,6 +181,71 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             // Act & Assert - Should not throw when disposed multiple times
             provider.Dispose();
             provider.Dispose(); // Dispose again
+        }
+
+        [Fact]
+        public async Task GivenJobRecordWithoutAcrReference_WhenFetchingAsync_ThenUsesBlobStoragePath()
+        {
+            // Arrange
+            var clientInitializer = Substitute.For<IExportClientInitializer<BlobServiceClient>>();
+            var tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            var config = Options.Create(new ExportJobConfiguration());
+            var logger = new NullLogger<AnonymizationConfigurationArtifactProvider>();
+
+            var jobRecord = new ExportJobRecord(
+                new Uri("https://localhost/$export"),
+                ExportJobType.All,
+                "Dummy",
+                resourceType: null,
+                filters: null,
+                "hash",
+                rollingFileSizeInMB: 1,
+                anonymizationConfigurationCollectionReference: null, // No ACR reference
+                anonymizationConfigurationLocation: "config.json");
+
+            using var provider = new AnonymizationConfigurationArtifactProvider(clientInitializer, tokenProvider, config, logger);
+            using var stream = new MemoryStream();
+
+            // Act & Assert - Will attempt to use blob storage path and fail since we don't have real blob infrastructure
+            // This test verifies the code path selection logic
+            await Assert.ThrowsAnyAsync<Exception>(() => provider.FetchAsync(jobRecord, stream, CancellationToken.None));
+
+            // Verify that GetAuthorizedClient was called (blob storage path)
+            clientInitializer.Received(1).GetAuthorizedClient(Arg.Any<ExportJobConfiguration>());
+        }
+
+        [Fact]
+        public async Task GivenJobRecordWithAcrReference_WhenFetchingAsync_ThenUsesAcrPath()
+        {
+            // Arrange
+            var clientInitializer = Substitute.For<IExportClientInitializer<BlobServiceClient>>();
+            var tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            tokenProvider.GetTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns("Bearer test-token");
+
+            var config = Options.Create(new ExportJobConfiguration());
+            var logger = new NullLogger<AnonymizationConfigurationArtifactProvider>();
+
+            var jobRecord = new ExportJobRecord(
+                new Uri("https://localhost/$export"),
+                ExportJobType.All,
+                "Dummy",
+                resourceType: null,
+                filters: null,
+                "hash",
+                rollingFileSizeInMB: 1,
+                anonymizationConfigurationCollectionReference: "test.azurecr.io/repo:tag", // ACR reference present
+                anonymizationConfigurationLocation: "config.json");
+
+            using var provider = new AnonymizationConfigurationArtifactProvider(clientInitializer, tokenProvider, config, logger);
+            using var stream = new MemoryStream();
+
+            // Act & Assert - Will attempt to use ACR path and fail since we don't have real ACR
+            // This test verifies the code path selection logic
+            await Assert.ThrowsAnyAsync<Exception>(() => provider.FetchAsync(jobRecord, stream, CancellationToken.None));
+
+            // Verify that token provider was called (ACR path)
+            await tokenProvider.Received(1).GetTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
         [SkippableFact]

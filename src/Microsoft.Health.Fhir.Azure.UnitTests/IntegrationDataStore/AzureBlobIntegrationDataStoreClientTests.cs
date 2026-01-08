@@ -429,6 +429,39 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         }
 
         [Fact]
+        public void GivenValidUri_WhenDownloadingResource_ThenReturnsStream()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+
+            // Act
+            var stream = client.DownloadResource(uri, 0, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(stream);
+            Assert.IsType<AzureBlobSourceStream>(stream);
+            stream.Dispose();
+        }
+
+        [Fact]
+        public void GivenValidUriWithOffset_WhenDownloadingResource_ThenReturnsStream()
+        {
+            // Arrange
+            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
+            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
+            long startOffset = 1024;
+
+            // Act
+            var stream = client.DownloadResource(uri, startOffset, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(stream);
+            Assert.IsType<AzureBlobSourceStream>(stream);
+            stream.Dispose();
+        }
+
+        [Fact]
         public async Task GivenNullContainerId_WhenPreparingResource_ThenThrowsArgumentNullException()
         {
             // Arrange
