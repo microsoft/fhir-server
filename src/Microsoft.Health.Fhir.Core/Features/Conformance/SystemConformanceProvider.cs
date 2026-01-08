@@ -368,55 +368,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         private async Task<ResourceElement> UpdateMetadataAsync(CancellationToken cancellationToken)
         {
-            // Note: the method will update non-static sections of the metadata only; thus, it does nothing
-            //       when the full metadata is not yet built.
-            if (_builder != null && _metadata != null)
+            await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
+            try
             {
-                await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
-                _logger.LogInformation("SystemConformanceProvider: Updating the metadata.");
-
-                try
+                // Note: the method will update non-static sections of the metadata only; thus, it does nothing
+                //       when the full metadata is not yet built.
+                if (_builder != null && _metadata != null)
                 {
-                    if (_builder != null && _metadata != null)
-                    {
-                        using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
-                        {
-                            var providers = providerFactory.Value?
-                                .Where(x => x is IVolatileProvideCapability)?
-                                .Select(x => (IVolatileProvideCapability)x)
-                                .ToList()
-                                ?? new List<IVolatileProvideCapability>();
-                            foreach (var provider in providers)
-                            {
-                                Stopwatch watch = Stopwatch.StartNew();
+                    _logger.LogInformation("SystemConformanceProvider: Updating the metadata.");
 
-                                try
-                                {
-                                    _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}'.", provider.ToString());
-                                    await provider.UpdateAsync(_builder, cancellationToken);
-                                }
-                                catch (Exception e)
-                                {
-                                    _logger.LogWarning(e, "Failed to update Capability Statement.");
-                                    throw;
-                                }
-                                finally
-                                {
-                                    _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
-                                }
+                    using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+                    {
+                        var providers = providerFactory.Value?
+                            .Where(x => x is IVolatileProvideCapability)?
+                            .Select(x => (IVolatileProvideCapability)x)
+                            .ToList()
+                            ?? new List<IVolatileProvideCapability>();
+                        foreach (var provider in providers)
+                        {
+                            Stopwatch watch = Stopwatch.StartNew();
+
+                            try
+                            {
+                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}'.", provider.ToString());
+                                await provider.UpdateAsync(_builder, cancellationToken);
+                            }
+                            catch (Exception e)
+                            {
+                                _logger.LogWarning(e, "Failed to update Capability Statement.");
+                                throw;
+                            }
+                            finally
+                            {
+                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
                             }
                         }
-
-                        _metadata = _builder.Build().ToResourceElement();
                     }
-                }
-                finally
-                {
-                    _metadataSemaphore?.Release();
-                }
-            }
 
-            return _metadata;
+                    _metadata = _builder.Build().ToResourceElement();
+                }
+
+                return _metadata;
+            }
+            finally
+            {
+                _metadataSemaphore?.Release();
+            }
         }
 
         private async Task<ResourceElement> SetMetadataAsync(ResourceElement metadata)
