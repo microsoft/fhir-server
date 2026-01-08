@@ -58,11 +58,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private string SerializeToJson(ResourceElement resourceElement)
         {
-            // Get JSON using Firely's ITypedElement serialization
-            // This works for both Firely-based and Ignixa-based ResourceElements
-            string firelyJson = resourceElement.Instance.ToJson();
+            // OPTIMIZED: Direct Ignixa serialization (no round-trip through Firely)
+            // This is now safe after PR #165 fixed Ignixa ↔ Firely compatibility
+            var ignixaNode = resourceElement.GetIgnixaNode();
+            if (ignixaNode != null)
+            {
+                // Fast path: Direct serialization from Ignixa node (most common case)
+                return _ignixaSerializer.Serialize(ignixaNode, pretty: false);
+            }
 
-            // Parse and re-serialize with Ignixa to ensure consistent output format
+            // Legacy fallback: For Firely-based ResourceElements (shouldn't happen post-migration)
+            // Convert Firely ITypedElement → JSON → Ignixa → JSON
+            string firelyJson = resourceElement.Instance.ToJson();
             var resourceNode = _ignixaSerializer.Parse(firelyJson);
             return _ignixaSerializer.Serialize(resourceNode, pretty: false);
         }
