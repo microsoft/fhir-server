@@ -635,7 +635,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// </summary>
         private ResourceWrapper CreateUpdateWrapper(ResourceElement resourceElement)
         {
-            ResourceWrapper updateWrapper = _resourceWrapperFactory.CreateResourceWrapper(resourceElement.ToPoco<Resource>(), _resourceIdProvider, deleted: false, keepMeta: true);
+            // FIX: Use factory.Create() directly instead of ToPoco() to avoid Firely SDK v5.13.1 bug with choice types
+            // The bug: ToPoco() internally uses Firely SDK's FhirJsonParser which fails on choice types like effectiveDateTime
+            // See: test-ignixa-choice-type-repro.md and docs/features/sdk-migration/ignixa-firely-poco-conversion-issue.md
+            ResourceWrapper updateWrapper = _resourceWrapperFactory.Create(resourceElement, deleted: false, keepMeta: true);
             return updateWrapper;
         }
 
