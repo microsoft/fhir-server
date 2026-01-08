@@ -38,5 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public EncryptionConfiguration Encryption { get; } = new EncryptionConfiguration();
 
         public ResourceManagerConfig ResourceManager { get; } = new ResourceManagerConfig();
+
+        public SmartIdentityProviderConfiguration SmartIdentityProvider { get; } = new SmartIdentityProviderConfiguration();
     }
 }

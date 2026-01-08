@@ -343,7 +343,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 10) }));
 
@@ -454,7 +454,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 10) }));
 
@@ -552,7 +552,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 100) }));
 
@@ -871,7 +871,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 10) }));
 
@@ -973,7 +973,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 10) }));
 
@@ -1131,7 +1131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 100) }));
 
@@ -1143,7 +1143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 50) }));
 
@@ -1339,7 +1339,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 30) }));
 
@@ -1351,7 +1351,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 25) }));
 
@@ -1363,7 +1363,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 20) }));
 
@@ -1478,7 +1478,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 100) }));
 
@@ -1806,7 +1806,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<int>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
-                Arg.Any<bool?>())
+                Arg.Any<bool>())
                 .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
                     new List<(long StartId, long EndId)> { (1, 10) }));
 
