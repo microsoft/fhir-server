@@ -15,6 +15,9 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
 {
+    /// <summary>
+    /// Provides capability to populate the 'instantiates' field of the CapabilityStatement.
+    /// </summary>
     public class InstantiatesCapabilityProvider : IVolatileProvideCapability
     {
         private readonly Func<IScoped<IEnumerable<IInstantiateCapability>>> _instantiateCapabilityDelegate;

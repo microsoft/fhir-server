@@ -16,6 +16,9 @@ using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
+    /// <summary>
+    /// Provides instantiation capability for US Core 6.0.0 profiles.
+    /// </summary>
     public class USCore6InstantiateCapability : IInstantiateCapability
     {
         private static readonly string[] Urls =
@@ -53,13 +56,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Tuple.Create(KnownQueryParameterNames.Summary, "count"),
                     };
 
-                    _logger.LogInformation("Searching US Core 6 profles...");
+                    _logger.LogInformation("Searching US Core 6 profiles...");
                     var result = await searchService.Value.SearchAsync(
                         KnownResourceTypes.StructureDefinition,
                         parameters,
                         cancellationToken);
 
-                    _logger.LogInformation("{Count} US Core 6 profles found.", result.TotalCount);
+                    _logger.LogInformation("{Count} US Core 6 profiles found.", result.TotalCount);
                     if (result.TotalCount > 0)
                     {
                         return Urls;
