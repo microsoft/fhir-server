@@ -377,35 +377,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                 try
                 {
-                    using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+                    if (_builder != null && _metadata != null)
                     {
-                        var providers = providerFactory.Value?
-                            .Where(x => x is IVolatileProvideCapability)?
-                            .Select(x => (IVolatileProvideCapability)x)
-                            .ToList()
-                            ?? new List<IVolatileProvideCapability>();
-                        foreach (var provider in providers)
+                        using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
-                            Stopwatch watch = Stopwatch.StartNew();
+                            var providers = providerFactory.Value?
+                                .Where(x => x is IVolatileProvideCapability)?
+                                .Select(x => (IVolatileProvideCapability)x)
+                                .ToList()
+                                ?? new List<IVolatileProvideCapability>();
+                            foreach (var provider in providers)
+                            {
+                                Stopwatch watch = Stopwatch.StartNew();
 
-                            try
-                            {
-                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}'.", provider.ToString());
-                                await provider.UpdateAsync(_builder, cancellationToken);
-                            }
-                            catch (Exception e)
-                            {
-                                _logger.LogWarning(e, "Failed to update Capability Statement.");
-                                throw;
-                            }
-                            finally
-                            {
-                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
+                                try
+                                {
+                                    _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}'.", provider.ToString());
+                                    await provider.UpdateAsync(_builder, cancellationToken);
+                                }
+                                catch (Exception e)
+                                {
+                                    _logger.LogWarning(e, "Failed to update Capability Statement.");
+                                    throw;
+                                }
+                                finally
+                                {
+                                    _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
+                                }
                             }
                         }
-                    }
 
-                    _metadata = _builder.Build().ToResourceElement();
+                        _metadata = _builder.Build().ToResourceElement();
+                    }
                 }
                 finally
                 {
