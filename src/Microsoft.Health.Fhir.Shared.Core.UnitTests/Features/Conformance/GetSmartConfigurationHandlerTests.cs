@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = false;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
             OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
             OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [InlineData(null, "https://ehr.example.com/user/manage", null)]
         [InlineData(null, null, "https://ehr.example.com/user/revoke")]
         [InlineData("https://ehr.example.com/user/introspect", "https://ehr.example.com/user/manage", "https://ehr.example.com/user/revoke")]
-        public async Task GivenASmartConfigurationHandler_WhenOtherEndpointsAreSpecifired_ThenSmartConfigurationShouldContainsOtherEndpoints(
+        public async Task GivenASmartConfigurationHandler_WhenOtherEndpointsAreSpecified_ThenSmartConfigurationShouldContainOtherEndpoints(
             string introspectionEndpoint,
             string managementEndpoint,
             string revocationEndpoint)
@@ -109,11 +109,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
-            securityConfiguration.IntrospectionEndpoint = introspectionEndpoint;
-            securityConfiguration.ManagementEndpoint = managementEndpoint;
-            securityConfiguration.RevocationEndpoint = revocationEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var smartIdentityProviderConfiguration = new SmartIdentityProviderConfiguration();
+            smartIdentityProviderConfiguration.Introspection = introspectionEndpoint;
+            smartIdentityProviderConfiguration.Management = managementEndpoint;
+            smartIdentityProviderConfiguration.Revocation = revocationEndpoint;
+
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(smartIdentityProviderConfiguration));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -138,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authentication.Authority = baseEndpoint;
             securityConfiguration.EnableAadSmartOnFhirProxy = true;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -171,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authentication.Authority = "https://logon.onmicrosoft.com/guid";
             securityConfiguration.EnableAadSmartOnFhirProxy = false;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(new SmartIdentityProviderConfiguration()));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -191,6 +193,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.NotNull(response.GrantTypesSupported);
             Assert.NotNull(response.TokenEndpointAuthMethodsSupported);
             Assert.NotNull(response.ResponseTypesSupported);
+        }
+
+        [Theory]
+        [InlineData("https://smart.example.com/")]
+        [InlineData(null)]
+        public async Task GivenASmartConfigurationHandler_When3rdPartyIdpSpecified_ThenCorrectAuthorityEndpointShouldBeReturned(string authority)
+        {
+            var requestUri = new System.Uri("https://fhir.example.com/");
+            var request = new GetSmartConfigurationRequest(requestUri);
+
+            var baseUri = "https://logon.onmicrosoft.com/guid";
+            var securityConfiguration = new SecurityConfiguration();
+            securityConfiguration.Authorization.Enabled = true;
+            securityConfiguration.Authentication.Authority = baseUri;
+
+            var smartIdentityProviderConfiguration = new SmartIdentityProviderConfiguration();
+            smartIdentityProviderConfiguration.Authority = authority;
+
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Options.Create(smartIdentityProviderConfiguration));
+
+            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+
+            var expectedUri = !string.IsNullOrEmpty(authority) ? authority : baseUri;
+            Assert.Equal(expectedUri.TrimEnd('/') + "/authorize", response.AuthorizationEndpoint.ToString());
+            Assert.Equal(expectedUri.TrimEnd('/') + "/token", response.TokenEndpoint.ToString());
         }
     }
 }
