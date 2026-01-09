@@ -19,6 +19,7 @@ jobs:
       ScriptType: InlineScript
       Inline: |
         # Install and import required Microsoft Graph modules (2.33.0 is the last stable version for PS 5.1 hosted agents)
+        $graphModuleVersion = '2.33.0'
         $graphModules = @(
           'Microsoft.Graph.Authentication',
           'Microsoft.Graph.Applications',
@@ -27,11 +28,13 @@ jobs:
         )
 
         foreach ($module in $graphModules) {
-          if (-not (Get-Module -ListAvailable -Name $module -RequiredVersion 2.33.0)) {
-            Install-Module -Name $module -RequiredVersion 2.33.0 -Scope CurrentUser -Force -AllowClobber
+          $installed = Get-Module -ListAvailable -Name $module | Where-Object { $_.Version -eq [version]$graphModuleVersion }
+
+          if (-not $installed) {
+            Install-Module -Name $module -RequiredVersion $graphModuleVersion -Scope CurrentUser -Force -AllowClobber
           }
 
-          Import-Module -Name $module -RequiredVersion 2.33.0 -ErrorAction Stop
+          Import-Module -Name $module -ErrorAction Stop
         }
 
         $username = "$(tenant-admin-user-name)"
