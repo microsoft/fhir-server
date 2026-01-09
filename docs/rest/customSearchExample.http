@@ -147,3 +147,56 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ### Same as above but reversed.
 GET https://{{hostname}}/Patient?CreatedDate:missing=false&_sort=-CreatedDate
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Try to update an out of the box search param
+PUT https://{{hostname}}/SearchParameter/AllergyIntolerance-clinical-status
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "SearchParameter",
+  "id": "AllergyIntolerance-clinical-status",
+  "url": "http://hl7.org/fhir/SearchParameter/AllergyIntolerance-clinical-status",
+  "version": "4.0.1",
+  "name": "clinical-status",
+  "status": "active",
+  "experimental": false,
+  "date": "2019-11-01T09:29:23+11:00",
+  "publisher": "Health Level Seven International (Patient Care)",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://hl7.org/fhir"
+        }
+      ]
+    }
+  ],
+  "description": "active | inactive | resolved",
+  "code": "clinical-status",
+  "base": [
+    "AllergyIntolerance"
+  ],
+  "type": "token",
+  "expression": "AllergyIntolerance.clinicalStatus",
+  "xpath": "f:AllergyIntolerance/f:clinicalStatus",
+  "xpathUsage": "normal",
+  "multipleOr": true,
+  "multipleAnd": true
+}
+
+### Try to delete an out of the box search param
+DELETE https://{{hostname}}/SearchParameter/AllergyIntolerance-clinical-status
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Delete custom search param example.
+DELETE https://{{hostname}}/SearchParameter/resource-created-date2
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Delete non-existent search param example.
+DELETE https://{{hostname}}/SearchParameter/unknown
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}

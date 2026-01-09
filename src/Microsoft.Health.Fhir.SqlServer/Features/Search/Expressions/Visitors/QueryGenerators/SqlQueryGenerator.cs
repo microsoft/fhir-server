@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _stackDepth = 0;
 
         private const string _joinShift = "     ";
+        internal const string ParametersHashStart = "/* HASH ";
+        internal const string ParametersHashEnd = " */";
 
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCteIds;
@@ -186,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
-                            AddHash(); // hash is required in upper SQL
+                            AddParametersHash(); // hash is required in upper SQL
                             sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
 
@@ -221,11 +223,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!visitedInclude)
             {
-                AddHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
+                AddParametersHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
             }
             else if (visitedInclude && _smartV2UnionVisited)
             {
-                AddHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
+                AddParametersHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
             }
 
             string resourceTableAlias = "r";
@@ -389,7 +391,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AddHash(bool forSmartV2Include = false)
+        private void AddParametersHash(bool forSmartV2Include = false)
         {
             foreach (var searchParamId in Parameters.SearchParamIds)
             {
@@ -404,7 +406,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // that are related to TOP clauses or continuation tokens.
                 // We can exclude more in the future.
 
-                StringBuilder.Append("/* HASH ");
+                StringBuilder.Append(ParametersHashStart);
                 if (forSmartV2Include)
                 {
                     // Only add the hash for smart scope parameters
@@ -417,8 +419,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     Parameters.AppendHashedParameterNames(StringBuilder);
                 }
 
-                StringBuilder.AppendLine(" */");
+                StringBuilder.Append(ParametersHashEnd);
             }
+
+            StringBuilder.AppendLine(); // do not include EOL into parameters hash line to get same behavior on Windows and Linux
         }
 
         /// <summary>
@@ -587,7 +591,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            var tableAlias = "predecessorTable";
             var specialCaseTableName = searchParamTableExpression.QueryGenerator.Table;
 
             if (searchParamTableExpression.ChainLevel == 0)
@@ -600,7 +603,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("SELECT ")
                         .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                         .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                        .Append("FROM ").AppendLine($"{searchParamTableExpression.QueryGenerator.Table} {tableAlias}");
+                        .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
                 }
                 else
                 {
@@ -610,7 +613,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                         .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
                         .Append(cte).AppendLine(".SortValue")
-                        .Append("FROM ").AppendLine($"{searchParamTableExpression.QueryGenerator.Table} {tableAlias}")
+                        .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
                         .Append(_joinShift).Append("JOIN ").Append(cte)
                         .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(cte).Append(".T1")
                         .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).AppendLine(".Sid1");
@@ -629,7 +632,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine($"{specialCaseTableName} {tableAlias}")
+                    .Append("FROM ").AppendLine(specialCaseTableName)
                     .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
@@ -643,7 +646,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine($"{searchParamTableExpression.QueryGenerator.Table} {tableAlias}")
+                    .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
                     .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
@@ -652,12 +655,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             if (UseAppendWithJoin()
                 && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !context.SkipAppendIntersectionWithPredecessor)
             {
-                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, tableAlias);
+                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
             }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, tableAlias, specialCaseTableName);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
 
                 // For smart request when we have union of all scopes ANDed with their respective search parameters
                 // Like (ResourceType = x and searchParam1 = foo) Intersect (ResourceType = x and searchParam2 = doo) UNION (ResourceType = y and searchParam3 = goo) Intersect (ResourceType = y and searchParam4 = woo)
@@ -667,7 +670,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (!context.SkipAppendIntersectionWithPredecessor)
                     {
                         // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
-                        AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, tableAlias);
+                        AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
                 }
 
@@ -675,7 +678,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     delimited.BeginDelimitedElement();
                     CheckForIdentifierSearchParams(searchParamTableExpression.Predicate);
-                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext(tableAlias));
+                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                 }
             }
         }
