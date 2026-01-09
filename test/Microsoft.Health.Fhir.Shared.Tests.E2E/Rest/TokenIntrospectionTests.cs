@@ -60,11 +60,11 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             Assert.Equal("Bearer", tokenTypeElement.GetString());
 
             // Verify standard claims exist
-            Assert.True(response.ContainsKey("sub"));
-            Assert.True(response.ContainsKey("iss"));
-            Assert.True(response.ContainsKey("aud"));
+            Assert.True(response.TryGetValue("sub", out _));
+            Assert.True(response.TryGetValue("iss", out _));
+            Assert.True(response.TryGetValue("aud", out _));
             Assert.True(response.TryGetValue("exp", out JsonElement expirationElement));
-            Assert.True(response.ContainsKey("client_id"));
+            Assert.True(response.TryGetValue("client_id", out _));
 
             // Verify timestamps are Unix timestamps (positive numbers)
             Assert.True(expirationElement.GetInt64() > 0);
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var responseJson = await introspectionResponse.Content.ReadAsStringAsync();
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
-            Assert.True(response["active"].GetBoolean());
+            Assert.True(response.TryGetValue("active", out JsonElement activeScopeElement) && activeScopeElement.GetBoolean());
 
             // Scope should be a space-separated string, not an array
             if (response.TryGetValue("scope", out JsonElement scopeElement))
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var responseJson = await introspectionResponse.Content.ReadAsStringAsync();
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
-            Assert.True(response["active"].GetBoolean());
+            Assert.True(response.TryGetValue("active", out JsonElement activeFhirUserElement) && activeFhirUserElement.GetBoolean());
 
             // SMART clients should have fhirUser claim
             if (response.TryGetValue("fhirUser", out JsonElement fhirUserElement))
@@ -241,12 +241,14 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var readerResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                 await readerIntrospection.Content.ReadAsStringAsync());
 
-            Assert.True(adminResponse["active"].GetBoolean());
-            Assert.True(readerResponse["active"].GetBoolean());
+            Assert.True(adminResponse.TryGetValue("active", out JsonElement adminActiveElement) && adminActiveElement.GetBoolean());
+            Assert.True(readerResponse.TryGetValue("active", out JsonElement readerActiveElement) && readerActiveElement.GetBoolean());
 
             // Verify different client_ids
-            var adminClientId = adminResponse["client_id"].GetString();
-            var readerClientId = readerResponse["client_id"].GetString();
+            Assert.True(adminResponse.TryGetValue("client_id", out JsonElement adminClientIdElement));
+            Assert.True(readerResponse.TryGetValue("client_id", out JsonElement readerClientIdElement));
+            var adminClientId = adminClientIdElement.GetString();
+            var readerClientId = readerClientIdElement.GetString();
             Assert.NotEqual(adminClientId, readerClientId);
         }
 
@@ -307,18 +309,26 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         /// </summary>
         private async Task<HttpResponseMessage> IntrospectTokenAsync(string authToken, string tokenToIntrospect)
         {
-            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "token", tokenToIntrospect },
             });
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
+            var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
             {
                 Content = content,
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
-            return await _httpClient.SendAsync(request);
+            try
+            {
+                return await _httpClient.SendAsync(request);
+            }
+            finally
+            {
+                request.Dispose();
+                content.Dispose();
+            }
         }
     }
 }

@@ -153,8 +153,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
-            Assert.True((bool)response["active"]);
+            Assert.True(response.TryGetValue("active", out var active) && (bool)active);
             Assert.Equal("test-user-123", response["sub"]);
             Assert.Equal("test-client", response["client_id"]);
         }
@@ -181,8 +180,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
-            Assert.True((bool)response["active"]);
+            Assert.True(response.TryGetValue("active", out var active) && (bool)active);
             Assert.Equal("Patient/test-patient-456", response["patient"]);
             Assert.Equal("https://fhir-server.com/Practitioner/test-practitioner-789", response["fhirUser"]);
         }
@@ -208,7 +206,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
+            Assert.True(response.TryGetValue("active", out _));
             Assert.Equal(rawScope, response["scope"]);
         }
 
@@ -233,7 +231,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
+            Assert.True(response.TryGetValue("active", out _));
             Assert.Equal(combinedScopes, response["scope"]);
         }
 
@@ -258,9 +256,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
-            Assert.True(response.ContainsKey("exp"));
-            Assert.True(response.ContainsKey("iat"));
+            Assert.True(response.TryGetValue("active", out _));
+            Assert.True(response.TryGetValue("exp", out _));
+            Assert.True(response.TryGetValue("iat", out _));
         }
 
         [Fact]
@@ -283,7 +281,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var response = Assert.IsType<Dictionary<string, object>>(okResult.Value);
-            Assert.True(response.ContainsKey("active"));
+            Assert.True(response.TryGetValue("active", out _));
             Assert.Equal("test-client-app", response["sub"]);
             Assert.Equal("test-client-app", response["client_id"]);
         }
