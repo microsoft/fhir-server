@@ -46,25 +46,25 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var introspectionResponse = await IntrospectTokenAsync(accessToken, accessToken);
 
             // Assert - Verify RFC 7662 compliance
-            Assert.Equal(HttpStatusCode.OK, introspectionResponse.StatusCode);
-
             var responseJson = await introspectionResponse.Content.ReadAsStringAsync();
+            Assert.True(introspectionResponse.StatusCode == HttpStatusCode.OK, $"Expected OK status but got {introspectionResponse.StatusCode}. Response: {responseJson}");
+
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
             // Verify active status
-            Assert.True(response.TryGetValue("active", out JsonElement activeElement));
-            Assert.True(activeElement.GetBoolean());
+            Assert.True(response.TryGetValue("active", out JsonElement activeElement), $"Response missing 'active' claim. Response: {responseJson}");
+            Assert.True(activeElement.GetBoolean(), $"Expected active=true but got active=false. Response: {responseJson}");
 
             // Verify token type
-            Assert.True(response.TryGetValue("token_type", out JsonElement tokenTypeElement));
+            Assert.True(response.TryGetValue("token_type", out JsonElement tokenTypeElement), $"Response missing 'token_type' claim. Response: {responseJson}");
             Assert.Equal("Bearer", tokenTypeElement.GetString());
 
             // Verify standard claims exist
-            Assert.True(response.TryGetValue("sub", out _));
-            Assert.True(response.TryGetValue("iss", out _));
-            Assert.True(response.TryGetValue("aud", out _));
-            Assert.True(response.TryGetValue("exp", out JsonElement expirationElement));
-            Assert.True(response.TryGetValue("client_id", out _));
+            Assert.True(response.TryGetValue("sub", out _), $"Response missing 'sub' claim. Response: {responseJson}");
+            Assert.True(response.TryGetValue("iss", out _), $"Response missing 'iss' claim. Response: {responseJson}");
+            Assert.True(response.TryGetValue("aud", out _), $"Response missing 'aud' claim. Response: {responseJson}");
+            Assert.True(response.TryGetValue("exp", out JsonElement expirationElement), $"Response missing 'exp' claim. Response: {responseJson}");
+            Assert.True(response.TryGetValue("client_id", out _), $"Response missing 'client_id' claim. Response: {responseJson}");
 
             // Verify timestamps are Unix timestamps (positive numbers)
             Assert.True(expirationElement.GetInt64() > 0);
@@ -87,7 +87,9 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var responseJson = await introspectionResponse.Content.ReadAsStringAsync();
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
-            Assert.True(response.TryGetValue("active", out JsonElement activeScopeElement) && activeScopeElement.GetBoolean());
+            Assert.True(
+                response.TryGetValue("active", out JsonElement activeScopeElement) && activeScopeElement.GetBoolean(),
+                $"Expected active=true but token is inactive or missing 'active' claim. Response: {responseJson}");
 
             // Scope should be a space-separated string, not an array
             if (response.TryGetValue("scope", out JsonElement scopeElement))
@@ -111,7 +113,9 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var responseJson = await introspectionResponse.Content.ReadAsStringAsync();
             var response = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
 
-            Assert.True(response.TryGetValue("active", out JsonElement activeFhirUserElement) && activeFhirUserElement.GetBoolean());
+            Assert.True(
+                response.TryGetValue("active", out JsonElement activeFhirUserElement) && activeFhirUserElement.GetBoolean(),
+                $"Expected active=true for SmartUserClient but token is inactive or missing 'active' claim. Response: {responseJson}");
 
             // SMART clients should have fhirUser claim
             if (response.TryGetValue("fhirUser", out JsonElement fhirUserElement))
@@ -236,17 +240,21 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             var readerIntrospection = await IntrospectTokenAsync(readerToken, readerToken);
 
             // Assert - Both should be active
-            var adminResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                await adminIntrospection.Content.ReadAsStringAsync());
-            var readerResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                await readerIntrospection.Content.ReadAsStringAsync());
+            var adminResponseJson = await adminIntrospection.Content.ReadAsStringAsync();
+            var readerResponseJson = await readerIntrospection.Content.ReadAsStringAsync();
+            var adminResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(adminResponseJson);
+            var readerResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(readerResponseJson);
 
-            Assert.True(adminResponse.TryGetValue("active", out JsonElement adminActiveElement) && adminActiveElement.GetBoolean());
-            Assert.True(readerResponse.TryGetValue("active", out JsonElement readerActiveElement) && readerActiveElement.GetBoolean());
+            Assert.True(
+                adminResponse.TryGetValue("active", out JsonElement adminActiveElement) && adminActiveElement.GetBoolean(),
+                $"Expected admin token to be active. Response: {adminResponseJson}");
+            Assert.True(
+                readerResponse.TryGetValue("active", out JsonElement readerActiveElement) && readerActiveElement.GetBoolean(),
+                $"Expected reader token to be active. Response: {readerResponseJson}");
 
             // Verify different client_ids
-            Assert.True(adminResponse.TryGetValue("client_id", out JsonElement adminClientIdElement));
-            Assert.True(readerResponse.TryGetValue("client_id", out JsonElement readerClientIdElement));
+            Assert.True(adminResponse.TryGetValue("client_id", out JsonElement adminClientIdElement), $"Admin response missing 'client_id'. Response: {adminResponseJson}");
+            Assert.True(readerResponse.TryGetValue("client_id", out JsonElement readerClientIdElement), $"Reader response missing 'client_id'. Response: {readerResponseJson}");
             var adminClientId = adminClientIdElement.GetString();
             var readerClientId = readerClientIdElement.GetString();
             Assert.NotEqual(adminClientId, readerClientId);

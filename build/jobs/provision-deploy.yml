@@ -81,7 +81,7 @@ jobs:
             numberOfInstances = 2
             serviceName = $webAppName
             keyVaultName = "${{ parameters.keyVaultName }}".ToLower()
-            securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
+            securityAuthenticationAuthority = "https://sts.windows.net/$(tenant-id-guid)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
             additionalFhirServerConfigProperties = $additionalProperties
             enableAadSmartOnFhirProxy = $true
