@@ -38,38 +38,43 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             HttpContext httpContext = context.HttpContext;
 
-            if (!ShouldIgnoreValidation(httpContext))
+            // Skip FHIR format validation for non-FHIR endpoints (e.g., CustomError, OAuth endpoints)
+            // These endpoints may use different content types like application/x-www-form-urlencoded
+            if (ShouldSkipValidation(httpContext))
             {
-                _parametersValidator.CheckPrettyParameter(httpContext);
-                _parametersValidator.CheckSummaryParameter(httpContext);
-                _parametersValidator.CheckElementsParameter(httpContext);
-                await _parametersValidator.CheckRequestedContentTypeAsync(httpContext);
+                await base.OnActionExecutionAsync(context, next);
+                return;
+            }
 
-                // If the request is a put or post and has a content-type, check that it's supported
-                if (httpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.OrdinalIgnoreCase) ||
-                    httpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.OrdinalIgnoreCase))
+            _parametersValidator.CheckPrettyParameter(httpContext);
+            _parametersValidator.CheckSummaryParameter(httpContext);
+            _parametersValidator.CheckElementsParameter(httpContext);
+            await _parametersValidator.CheckRequestedContentTypeAsync(httpContext);
+
+            // If the request is a put or post and has a content-type, check that it's supported
+            if (httpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.OrdinalIgnoreCase) ||
+                httpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.OrdinalIgnoreCase))
+            {
+                if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                 {
-                    if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
+                    if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
                     {
-                        if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
-                        {
-                            throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
-                        }
-                    }
-                    else
-                    {
-                        // If no content type is supplied, then the server should respond with an unsupported media type exception.
-                        throw new UnsupportedMediaTypeException(Api.Resources.ContentTypeHeaderRequired);
+                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
                     }
                 }
-                else if (httpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.OrdinalIgnoreCase))
+                else
                 {
-                    if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
+                    // If no content type is supplied, then the server should respond with an unsupported media type exception.
+                    throw new UnsupportedMediaTypeException(Api.Resources.ContentTypeHeaderRequired);
+                }
+            }
+            else if (httpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.OrdinalIgnoreCase))
+            {
+                if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
+                {
+                    if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
                     {
-                        if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
-                        {
-                            throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
-                        }
+                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
                     }
                 }
             }
@@ -77,9 +82,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             await base.OnActionExecutionAsync(context, next);
         }
 
-        private static bool ShouldIgnoreValidation(HttpContext httpContext)
+        private static bool ShouldSkipValidation(HttpContext httpContext)
         {
-            return httpContext.Request.Path.StartsWithSegments("/CustomError", StringComparison.OrdinalIgnoreCase);
+            // Errored requests from token introspection endpoint (e.g. 401) will get resouted here and must allow an alternate content type.
+            if (httpContext.Request.Path.StartsWithSegments("/CustomError", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
