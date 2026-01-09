@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -692,6 +693,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(2, version3.Meta.Tag.Count(t => t.System == "ORGANIZATION_ID"));
             Assert.NotNull(version3.Meta.Tag.FirstOrDefault(t => t.Code == "tag1"));
             Assert.NotNull(version3.Meta.Tag.FirstOrDefault(t => t.Code == "tag2"));
+        }
+
+        [Fact]
+        public async Task GivenPatchFhirRequestWithEmptyBody_WhenInvoked_ThenReturnsBadRequest()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Patch, "Patient/example");
+            request.Content = new StringContent(string.Empty); // Empty body
+            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/fhir+json");
+
+            var response = await _client.HttpClient.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }
 }
