@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using Microsoft.Health.Test.Utilities;
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
-            _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
+            _rawResourceFactory = Substitute.For<RawResourceFactory>(new IgnixaJsonSerializer(), new FhirJsonSerializer());
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
                 .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())

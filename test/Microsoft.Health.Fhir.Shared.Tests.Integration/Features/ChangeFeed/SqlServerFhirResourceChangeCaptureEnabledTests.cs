@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -442,7 +443,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             }
 
             var resource = patient.ToTypedElement().ToResourceElement();
-            var rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
+            var rawResourceFactory = Substitute.For<RawResourceFactory>(new IgnixaJsonSerializer(), new FhirJsonSerializer());
             var wrapper = new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest("Import"), true, new List<SearchIndexEntry>(), null, null, "ABC");
 
             return wrapper;

@@ -68,10 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Legacy fallback: For Firely-based ResourceElements (shouldn't happen post-migration)
-            // Convert Firely ITypedElement → JSON → Ignixa → JSON
-            string firelyJson = resourceElement.Instance.ToJson();
-            var resourceNode = _ignixaSerializer.Parse(firelyJson);
-            return _ignixaSerializer.Serialize(resourceNode, pretty: false);
+            // Return Firely JSON directly without attempting to parse/reserialize through Ignixa
+            return resourceElement.Instance.ToJson();
         }
     }
 }
