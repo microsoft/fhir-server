@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         /// </summary>
         public const string OidcConfigurationHttpClientName = "OidcConfiguration";
 
+        private static readonly List<string> DefaultScopeClaimNames = new List<string> { "scp" };
+
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly JwtSecurityTokenHandler _tokenHandler;
         private readonly ILogger<DefaultTokenIntrospectionService> _logger;
@@ -261,7 +263,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         protected string GetScopeFromMultipleClaims(ClaimsPrincipal principal)
         {
             // Check all configured scope claim names
-            var scopeClaimNames = SecurityConfiguration.Authorization.ScopesClaim ?? new List<string> { "scp" };
+            var scopeClaimNames = SecurityConfiguration.Authorization.ScopesClaim ?? DefaultScopeClaimNames;
 
             // Find the first claim name that has associated claims
             var scopeClaims = scopeClaimNames
