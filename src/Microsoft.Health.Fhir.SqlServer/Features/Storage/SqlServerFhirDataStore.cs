@@ -436,6 +436,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
+                    if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
+                    {
+                        var delayMs = RandomNumberGenerator.GetInt32(1000, 5000);
+                        _logger.LogWarning(e, $"Throttling detected on {nameof(ImportResourcesInternalAsync)}, backing off for {{DelayMs}}ms resources={{Resources}}", delayMs, resources.Count);
+                        await Task.Delay(delayMs, cancellationToken);
+                        continue;
+                    }
+
                     if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < maxRetries)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}} resources={{Resources}}", retries, resources.Count);
