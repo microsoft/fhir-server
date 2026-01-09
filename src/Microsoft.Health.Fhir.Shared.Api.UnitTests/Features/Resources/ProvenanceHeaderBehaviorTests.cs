@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
     [Trait(Traits.Category, Categories.Web)]
     public class ProvenanceHeaderBehaviorTests
     {
-        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly FhirJsonDeserializer _fhirJsonParser;
         private readonly ProvenanceHeaderBehavior _behavior;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMediator _mediator;
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
 
-            _fhirJsonParser = new FhirJsonParser();
+            _fhirJsonParser = new FhirJsonDeserializer();
             _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
             _httpContextAccessor.HttpContext.Returns(new DefaultHttpContext());
 

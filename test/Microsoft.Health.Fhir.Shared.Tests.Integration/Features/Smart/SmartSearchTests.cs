@@ -10,6 +10,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
@@ -734,11 +735,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         private void ConfigureFhirRequestContext(
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ICollection<ScopeRestriction> scopes)
+            ICollection<ScopeRestriction> scopes,
+            bool applyFineGrainedAccessControlWithSearchParameters = false)
         {
             var accessControlContext = new AccessControlContext()
             {
                 ApplyFineGrainedAccessControl = true,
+                ApplyFineGrainedAccessControlWithSearchParameters = applyFineGrainedAccessControlWithSearchParameters,
             };
 
             foreach (var scope in scopes)
@@ -747,6 +750,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             }
 
             contextAccessor.RequestContext.AccessControlContext.Returns(accessControlContext);
+        }
+
+        private async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
+        {
+            ResourceElement resourceElement = resource.ToResourceElement();
+
+            var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = new ResourceRequest(httpMethod);
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
+            wrapper.SearchParameterHash = "hash";
+
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
         }
 
         // SMART v2 Granular Scope Tests

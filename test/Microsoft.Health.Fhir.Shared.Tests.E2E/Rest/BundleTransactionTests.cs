@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Security.Policy;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             bundleAsString = bundleAsString.Replace("234235", Guid.NewGuid().ToString());
             bundleAsString = bundleAsString.Replace("456456", Guid.NewGuid().ToString());
 
-            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var parser = new FhirJsonDeserializer();
             var requestBundle = parser.Deserialize<Bundle>(bundleAsString);
 
             requestBundle.Entry.Add(new EntryComponent
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [RetryTheory]
+        [RetryFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAProperTransactionBundle_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndProperOperationOutComeIsReturned()
         {
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var bundleAsString = Samples.GetJson("Bundle-TransactionWithConditionalReferenceReferringToSameResource");
             bundleAsString = bundleAsString.Replace("http:/example.org/fhir/ids|234234", $"http:/example.org/fhir/ids|{id}");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var parser = new FhirJsonDeserializer();
             var bundle = parser.Deserialize<Bundle>(bundleAsString);
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle));
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var id = Guid.NewGuid().ToString();
             var bundleAsString = Samples.GetJson("Bundle-TransactionWithValidBundleEntry");
             bundleAsString = bundleAsString.Replace("identifier=234234", $"identifier={id}");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var parser = new FhirJsonDeserializer();
             var requestBundle = parser.Deserialize<Bundle>(bundleAsString);
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.PostBundleAsync(requestBundle));
@@ -279,7 +280,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var bundleAsString = Samples.GetJson("Bundle-TransactionWithReferenceInResourceBody");
             bundleAsString = bundleAsString.Replace("http:/example.org/fhir/ids|234234", $"http:/example.org/fhir/ids|{id}");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
+            var parser = new FhirJsonDeserializer();
             var bundle = parser.Deserialize<Bundle>(bundleAsString);
 
             using FhirResponse<Bundle> fhirResponseForReferenceResolution = await _client.PostBundleAsync(bundle);

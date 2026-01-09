@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable SDK0001 // ToTypedElement is experimental - needed for testing
+
 using System.Net.Http;
 using System.Threading;
 using Hl7.Fhir.ElementModel;

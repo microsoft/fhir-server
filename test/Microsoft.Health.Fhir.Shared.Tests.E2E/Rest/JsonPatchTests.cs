@@ -3,6 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable CS0618 // FhirJsonParser is obsolete
+#pragma warning disable SDK0001 // ToTypedElement is experimental
+
 using System;
 using System.Net;
 using System.Threading.Tasks;
