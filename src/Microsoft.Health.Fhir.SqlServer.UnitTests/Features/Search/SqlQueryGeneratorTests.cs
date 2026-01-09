@@ -182,7 +182,7 @@ public class SqlQueryGeneratorTests
             ResourceVersionTypes = ResourceVersionType.Latest,
         };
 
-        var output = _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+        _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
 
         string generatedSql = _strBuilder.ToString();
 
