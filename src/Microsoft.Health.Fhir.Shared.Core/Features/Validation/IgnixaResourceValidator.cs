@@ -27,9 +27,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// This validator implements a tiered validation strategy:
     /// </para>
     /// <list type="bullet">
-    /// <item><description>For Ignixa resources: Uses Ignixa.Validation with configurable depth (Minimal/Spec) for ~1-5ms validation</description></item>
+    /// <item><description>For Ignixa resources: Uses Ignixa.Validation with Compatibility depth for ~1-5ms validation</description></item>
     /// <item><description>For non-Ignixa resources: Falls back to Firely DotNetAttributeValidation for compatibility</description></item>
     /// </list>
+    /// <para>
+    /// The validator uses Compatibility mode which accepts relative or local references in Coding.system fields,
+    /// making it suitable for migrating from Microsoft FHIR Server with existing test data.
+    /// </para>
     /// <para>
     /// The validator caches compiled validation schemas per resource type for optimal performance.
     /// </para>
@@ -59,11 +63,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _schemaCache = new ConcurrentDictionary<string, ValidationSchema>(StringComparer.OrdinalIgnoreCase);
             _schemaBuilder = new StructureDefinitionSchemaBuilder();
 
-            // Configure fast-mode validation (Tier 1-2: structure + cardinality + types)
-            // Skip terminology validation for performance in the critical path
+            // Configure validation with Compatibility mode for Microsoft FHIR Server migration.
+            // Compatibility mode accepts relative or local references in Coding.system fields,
+            // which is particularly relevant for internal categorization in meta.tag fields.
+            // This resolves validation errors with test data that uses relative URIs.
+            // Skip terminology validation for performance in the critical path.
             _validationSettings = new ValidationSettings
             {
-                Depth = ValidationDepth.Spec,
+                Depth = ValidationDepth.Compatibility,
                 SkipTerminologyValidation = true,
             };
         }

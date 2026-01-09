@@ -48,11 +48,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _resource = Samples.GetDefaultObservation().ToPoco<Observation>();
             _resource.Id = "test";
 
-            // Expected bytes should use Ignixa serialization format for consistency
+            // Expected bytes use Firely serialization format since the test deserializer
+            // creates Firely-based ResourceElements without Ignixa nodes (legacy fallback path)
             string firelyJson = new FhirJsonSerializer().SerializeToString(_resource);
-            var resourceNode = _ignixaSerializer.Parse(firelyJson);
-            string ignixaJson = _ignixaSerializer.Serialize(resourceNode, pretty: false);
-            string expectedString = $"{ignixaJson}\n";
+            string expectedString = $"{firelyJson}\n";
 
             _expectedBytes = Encoding.UTF8.GetBytes(expectedString);
         }
