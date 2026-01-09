@@ -309,25 +309,17 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         /// </summary>
         private async Task<HttpResponseMessage> IntrospectTokenAsync(string authToken, string tokenToIntrospect)
         {
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            using (var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 { "token", tokenToIntrospect },
-            });
-
-            var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
+            }))
+            using (var request = new HttpRequestMessage(HttpMethod.Post, _introspectionUri)
             {
                 Content = content,
-            };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
-
-            try
+            })
             {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
                 return await _httpClient.SendAsync(request);
-            }
-            finally
-            {
-                request.Dispose();
-                content.Dispose();
             }
         }
     }
