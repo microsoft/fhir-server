@@ -18,14 +18,25 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: |
-        # Install only required Microsoft Graph modules for better performance
-        # Pin to version 2.33.0 due to bug in 2.34.0 affecting PowerShell 5.1
-        # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
-        Install-Module -Name Microsoft.Graph.Authentication -RequiredVersion 2.33.0 -Force
-        Install-Module -Name Microsoft.Graph.Applications -RequiredVersion 2.33.0 -Force
-        Install-Module -Name Microsoft.Graph.Users -RequiredVersion 2.33.0 -Force
-        Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -RequiredVersion 2.33.0 -Force
-        
+        # Install and import required Microsoft Graph modules (2.33.0 is the last stable version for PS 5.1 hosted agents)
+        $graphModuleVersion = '2.33.0'
+        $graphModules = @(
+          'Microsoft.Graph.Authentication',
+          'Microsoft.Graph.Applications',
+          'Microsoft.Graph.Users',
+          'Microsoft.Graph.Identity.DirectoryManagement'
+        )
+
+        foreach ($module in $graphModules) {
+          $installed = Get-Module -ListAvailable -Name $module | Where-Object { $_.Version -eq [version]$graphModuleVersion }
+
+          if (-not $installed) {
+            Install-Module -Name $module -RequiredVersion $graphModuleVersion -Scope CurrentUser -Force -AllowClobber
+          }
+
+          Import-Module -Name $module -ErrorAction Stop
+        }
+
         $username = "$(tenant-admin-user-name)"
         $clientId = "$(tenant-admin-service-principal-name)"
         $clientSecret = "$(tenant-admin-service-principal-password)"
@@ -36,7 +47,7 @@ jobs:
         $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $clientSecret_secure
 
         # Connect to Microsoft Graph using client credentials
-        Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential
+        Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential -NoWelcome
 
         Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
         Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
