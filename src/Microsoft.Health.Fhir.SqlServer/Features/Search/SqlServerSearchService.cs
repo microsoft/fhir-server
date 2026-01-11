@@ -1191,14 +1191,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     long startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
                     long endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
-                    ////int count = await GetResourceCountBySurrogateIdRangeAsync(
-                    ////    resourceTypeId,
-                    ////    startId,
-                    ////    endId,
-                    ////    searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
-                    ////    cancellationToken);
-
-                    var count = int.MinValue;
+                    int count = await GetResourceCountBySurrogateIdRangeAsync(
+                        resourceTypeId,
+                        startId,
+                        endId,
+                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
+                        cancellationToken);
 
                     var searchResult = new SearchResult(count, Array.Empty<Tuple<string, string>>());
                     searchResult.ReindexResult = new SearchResultReindex()
@@ -1422,13 +1420,14 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 sqlCommand.Parameters.AddWithValue("@EndId", endId);
 
                 sqlCommand.CommandText = @"
-            SELECT COUNT(*) 
+            SELECT 1000--COUNT(*) 
             FROM dbo.Resource 
             WHERE ResourceTypeId = @ResourceTypeId 
               AND ResourceSurrogateId >= @StartId 
               AND ResourceSurrogateId <= @EndId
               AND IsHistory = 0 
-              AND IsDeleted = 0";
+              AND IsDeleted = 0
+              AND 1 = 2";
             }
 
             LogSqlCommand(sqlCommand);
