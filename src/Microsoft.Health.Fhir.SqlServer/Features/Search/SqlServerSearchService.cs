@@ -1191,12 +1191,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     long startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
                     long endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
-                    int count = await GetResourceCountBySurrogateIdRangeAsync(
-                        resourceTypeId,
-                        startId,
-                        endId,
-                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
-                        cancellationToken);
+                    ////int count = await GetResourceCountBySurrogateIdRangeAsync(
+                    ////    resourceTypeId,
+                    ////    startId,
+                    ////    endId,
+                    ////    searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
+                    ////    cancellationToken);
+
+                    var count = int.MinValue;
 
                     var searchResult = new SearchResult(count, Array.Empty<Tuple<string, string>>());
                     searchResult.ReindexResult = new SearchResultReindex()
