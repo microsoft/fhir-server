@@ -47,5 +47,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// to determine how long to wait before starting the reindex job processing
         /// </summary>
         public int ReindexDelayMultiplier { get; set; } = 3;
+
+        /// <summary>
+        /// Controls how many surrogate ID ranges are fetched per database call when calculating
+        /// job ranges. Uses batched calls to avoid timeout on large tables.
+        /// </summary>
+        public int NumberOfParallelRecordRanges { get; set; } = 100;
     }
 }
