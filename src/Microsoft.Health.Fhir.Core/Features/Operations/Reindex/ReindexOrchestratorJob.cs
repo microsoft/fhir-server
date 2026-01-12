@@ -413,7 +413,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
         {
-            if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
+            if (cancellationToken.IsCancellationRequested)
             {
                 throw new OperationCanceledException("Reindex operation cancelled by customer.");
             }
