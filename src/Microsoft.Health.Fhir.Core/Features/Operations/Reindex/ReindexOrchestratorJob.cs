@@ -129,10 +129,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
                 var queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
 
-                // Only create jobs if we don't have any at this point.
-                if (!queryReindexProcessingJobs.Any())
+                // For SQL Server, always attempt job creation - we use Export-style resume logic
+                // to calculate remaining work from existing jobs, preventing duplicates.
+                // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
+                if (_isSurrogateIdRangingSupported || !queryReindexProcessingJobs.Any())
                 {
-                    await CreateReindexProcessingJobsAsync(cancellationToken);
+                    if (queryReindexProcessingJobs.Any())
+                    {
+                        _logger.LogJobInformation(_jobInfo, "Found {Count} existing processing jobs. Resuming job creation to ensure completeness.", queryReindexProcessingJobs.Count);
+                    }
+
+                    await CreateReindexProcessingJobsAsync(queryReindexProcessingJobs, cancellationToken);
                     jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
                     queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
                 }
@@ -193,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(IList<JobInfo> existingProcessingJobs, CancellationToken cancellationToken)
         {
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
@@ -388,7 +395,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.QueryList.TryAdd(query, 1);
             }
 
-            return await EnqueueQueryProcessingJobsAsync(cancellationToken);
+            return await EnqueueQueryProcessingJobsAsync(existingProcessingJobs, cancellationToken);
         }
 
         private void AddErrorResult(string severity, string issueType, string message)
@@ -404,12 +411,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _currentResult.Error = errorList;
         }
 
-        private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(IList<JobInfo> existingProcessingJobs, CancellationToken cancellationToken)
         {
             if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
             {
                 throw new OperationCanceledException("Reindex operation cancelled by customer.");
             }
+
+            // Build a map of max EndResourceSurrogateId per resource type from existing jobs
+            // This allows us to resume job creation from where we left off (Export-style pattern)
+            var maxEnqueuedSurrogateIdByResourceType = existingProcessingJobs
+                .Select(j => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition))
+                .Where(d => d?.ResourceCount != null && d.ResourceCount.EndResourceSurrogateId > 0)
+                .GroupBy(d => d.ResourceType)
+                .ToDictionary(g => g.Key, g => g.Max(d => d.ResourceCount.EndResourceSurrogateId));
 
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
@@ -443,6 +458,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var numberOfRangesPerBatch = _operationsConfiguration.Reindex.NumberOfParallelRecordRanges;
                     long startId = resourceCount.StartResourceSurrogateId;
                     long endId = resourceCount.EndResourceSurrogateId;
+
+                    // Resume from where we left off if jobs already exist for this resource type
+                    if (maxEnqueuedSurrogateIdByResourceType.TryGetValue(resourceType, out var maxEnqueued))
+                    {
+                        if (maxEnqueued >= endId)
+                        {
+                            _logger.LogJobInformation(
+                                _jobInfo,
+                                "Skipping resource type {ResourceType} - all jobs already created (maxEnqueued={MaxEnqueued}, endId={EndId}).",
+                                resourceType,
+                                maxEnqueued,
+                                endId);
+                            continue;
+                        }
+
+                        startId = maxEnqueued + 1;
+                        _logger.LogJobInformation(
+                            _jobInfo,
+                            "Resuming job creation for resource type {ResourceType} from SurrogateId {StartId} (previously enqueued up to {MaxEnqueued}).",
+                            resourceType,
+                            startId,
+                            maxEnqueued);
+                    }
 
                     _logger.LogJobInformation(
                         _jobInfo,
