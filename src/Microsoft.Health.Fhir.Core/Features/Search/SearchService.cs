@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             int numberOfRanges,
             bool up,
             CancellationToken cancellationToken,
-            bool? activeOnly = false)
+            bool activeOnly = false)
         {
             throw new NotImplementedException();
         }

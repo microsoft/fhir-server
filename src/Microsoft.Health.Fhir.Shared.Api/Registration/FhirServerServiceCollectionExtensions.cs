@@ -93,6 +93,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Terminology));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {

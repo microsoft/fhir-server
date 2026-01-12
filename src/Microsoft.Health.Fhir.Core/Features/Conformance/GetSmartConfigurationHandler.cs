@@ -22,12 +22,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public class GetSmartConfigurationHandler : IRequestHandler<GetSmartConfigurationRequest, GetSmartConfigurationResponse>
     {
         private readonly SecurityConfiguration _securityConfiguration;
+        private readonly SmartIdentityProviderConfiguration _smartIdentityProviderConfiguration;
 
-        public GetSmartConfigurationHandler(IOptions<SecurityConfiguration> securityConfigurationOptions)
+        public GetSmartConfigurationHandler(
+            IOptions<SecurityConfiguration> securityConfigurationOptions,
+            IOptions<SmartIdentityProviderConfiguration> smartIdentityProviderConfiguration)
         {
             EnsureArg.IsNotNull(securityConfigurationOptions?.Value, nameof(securityConfigurationOptions));
+            EnsureArg.IsNotNull(smartIdentityProviderConfiguration?.Value, nameof(smartIdentityProviderConfiguration));
 
             _securityConfiguration = securityConfigurationOptions.Value;
+            _smartIdentityProviderConfiguration = smartIdentityProviderConfiguration.Value;
         }
 
         public Task<GetSmartConfigurationResponse> Handle(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
@@ -43,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             {
                 try
                 {
-                    string baseEndpoint = _securityConfiguration.Authentication.Authority;
+                    string baseEndpoint = GetAuthority();
                     Uri authorizationEndpoint = new Uri(baseEndpoint + "/authorize");
                     Uri tokenEndpoint = new Uri(baseEndpoint + "/token");
 
@@ -105,9 +110,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         grantTypesSupported,
                         tokenEndpointAuthMethodsSupported,
                         responseTypesSupported,
-                        _securityConfiguration.IntrospectionEndpoint,
-                        _securityConfiguration.ManagementEndpoint,
-                        _securityConfiguration.RevocationEndpoint);
+                        _smartIdentityProviderConfiguration.Introspection,
+                        _smartIdentityProviderConfiguration.Management,
+                        _smartIdentityProviderConfiguration.Revocation);
                 }
                 catch (Exception e) when (e is ArgumentNullException || e is UriFormatException)
                 {
@@ -120,6 +125,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             throw new OperationFailedException(
                 Core.Resources.SecurityConfigurationAuthorizationNotEnabled,
                 HttpStatusCode.BadRequest);
+        }
+
+        private string GetAuthority()
+        {
+            var authority = !string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority) ?
+                _smartIdentityProviderConfiguration.Authority : _securityConfiguration.Authentication.Authority;
+            return authority?.TrimEnd('/');
         }
     }
 }
