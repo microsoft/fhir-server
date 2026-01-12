@@ -1153,7 +1153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResourcesGreaterThanOnePage_WhenSearchedWithSortAndInclude_ThenSearchResultsContainIncludedResources(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservationAndEncounter(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
 
@@ -1168,7 +1168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenSearchResultsContainAnIncludesContinuationToken(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservationAndEncounter(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
 
@@ -1185,7 +1185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndIncludeOnDataThatOnlyPartiallyContainsTheSortField_ThenTheRightIncludedResourcesAreReturned(string sortParameterName, int expectedCount)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservationAndEncounter(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count={expectedCount}");
 
@@ -1204,7 +1204,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenTheSecondPhaseContinuationTokenIsReturned(int includesCount, string sort)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservationAndEncounter(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_revinclude=Encounter:subject&_count=12&_includesCount={includesCount}");
             var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
@@ -1215,7 +1215,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 var includedResults = await Client.SearchAsync(relatedLink.Url);
                 includedCount += includedResults.Resource.Entry.Count();
-                relatedLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
+
+                var nextLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
+                Assert.NotEqual(relatedLink.Url, nextLink.Url);
+                relatedLink = nextLink;
             }
 
             Assert.Equal(24 - includesCount, includedCount);
