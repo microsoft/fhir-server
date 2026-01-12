@@ -52,6 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Controls how many surrogate ID ranges are fetched per database call when calculating
         /// job ranges. Uses batched calls to avoid timeout on large tables.
         /// </summary>
-        public int NumberOfParallelRecordRanges { get; set; } = 100;
+        public int NumberOfRecordRanges { get; set; } = 100;
     }
 }

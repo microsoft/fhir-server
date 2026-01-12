@@ -447,7 +447,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Use batched calls to GetSurrogateIdRanges to avoid timeout on large tables
                     // Following the same pattern as Export job
                     // Stream and enqueue each batch immediately so workers can start processing sooner
-                    var numberOfRangesPerBatch = _operationsConfiguration.Reindex.NumberOfParallelRecordRanges;
+                    var numberOfRangesPerBatch = _operationsConfiguration.Reindex.NumberOfRecordRanges;
                     long startId = resourceCount.StartResourceSurrogateId;
                     long endId = resourceCount.EndResourceSurrogateId;
 
