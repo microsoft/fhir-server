@@ -399,11 +399,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
 
-            // Wait for processing jobs to be created - expect many jobs since all resource types should be included
+            // Wait for processing jobs to be created - expect jobs for all resource types
+            // Use longer timeout and wait for all types since dictionary iteration order is non-deterministic
             var processingJobs = await WaitForJobsAsync(
                 jobInfo.GroupId,
-                TimeSpan.FromSeconds(60),
-                expectedMinimumJobs: Math.Min(10, allResourceTypes.Count)); // Expect at least 10 different resource types
+                TimeSpan.FromSeconds(120),
+                expectedMinimumJobs: allResourceTypes.Count); // Wait for all resource types
 
             // Assert
             Assert.True(processingJobs.Count > 0, "Processing jobs should have been created");
@@ -494,14 +495,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10);
 
+            // Get the expected DomainResource types (excluding Binary, Bundle, Parameters)
+            var allResourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames().ToList();
+            var domainResourceTypes = allResourceTypes.Where(rt =>
+                rt != "Binary" && rt != "Bundle" && rt != "Parameters").ToList();
+
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
 
-            // Wait for processing jobs to be created
-            var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(60), expectedMinimumJobs: 1);
+            // Wait for processing jobs to be created - wait for all DomainResource types
+            // Use longer timeout since dictionary iteration order is non-deterministic
+            var processingJobs = await WaitForJobsAsync(
+                jobInfo.GroupId,
+                TimeSpan.FromSeconds(120),
+                expectedMinimumJobs: domainResourceTypes.Count);
 
             // Assert
             Assert.True(processingJobs.Count > 0, "Processing jobs should have been created");
@@ -513,8 +523,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Distinct()
                 .ToList();
 
-            // Verify that multiple resource types were included
-            Assert.True(resourceTypesInJobs.Count >= 3, $"Should have jobs for multiple resource types derived from DomainResource. Found: {string.Join(", ", resourceTypesInJobs)}");
+            // Verify that many DomainResource types were included
+            Assert.True(resourceTypesInJobs.Count >= domainResourceTypes.Count - 5, $"Should have jobs for most resource types derived from DomainResource. Found: {resourceTypesInJobs.Count}, Expected at least: {domainResourceTypes.Count - 5}");
 
             // Verify that non-DomainResource types were excluded
             Assert.DoesNotContain("Binary", resourceTypesInJobs);
