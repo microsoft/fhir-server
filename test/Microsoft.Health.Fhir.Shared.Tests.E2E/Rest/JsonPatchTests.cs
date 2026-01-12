@@ -443,5 +443,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Single(historyResponse.Resource.Entry);
             }
         }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData(" ")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnEmptyJsonPatchBody_WhenPatchJsonEndpointIsCalled_ThenServerShouldReturnBadRequest(string emptyBody)
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            // Empty body should trigger EmptyBodyBehavior.Disallow and return BadRequest
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(response.Resource, emptyBody));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
     }
 }
