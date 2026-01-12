@@ -38,6 +38,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             HttpContext httpContext = context.HttpContext;
 
+            // Skip FHIR format validation for non-FHIR endpoints (e.g., CustomError, OAuth endpoints)
+            // These endpoints may use different content types like application/x-www-form-urlencoded
+            if (ShouldSkipValidation(httpContext))
+            {
+                await base.OnActionExecutionAsync(context, next);
+                return;
+            }
+
             _parametersValidator.CheckPrettyParameter(httpContext);
             _parametersValidator.CheckSummaryParameter(httpContext);
             _parametersValidator.CheckElementsParameter(httpContext);
@@ -72,6 +80,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
 
             await base.OnActionExecutionAsync(context, next);
+        }
+
+        private static bool ShouldSkipValidation(HttpContext httpContext)
+        {
+            // Errored requests from token introspection endpoint (e.g. 401) will get resouted here and must allow an alternate content type.
+            if (httpContext.Request.Path.StartsWithSegments("/CustomError", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
