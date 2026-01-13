@@ -126,7 +126,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var searchParams = new List<Tuple<string, string>>()
             {
-                new Tuple<string, string>(KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId),
                 new Tuple<string, string>(KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.GlobalEndSurrogateId),
                 new Tuple<string, string>(KnownQueryParameterNames.StartSurrogateId, KnownQueryParameterNames.StartSurrogateId),
                 new Tuple<string, string>(KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.EndSurrogateId),
@@ -193,7 +192,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 (KnownQueryParameterNames.Type, definition.Type),
                 (KnownQueryParameterNames.GlobalEndSurrogateId, definition.GlobalEndSurrogateId),
                 (KnownQueryParameterNames.EndSurrogateId, definition.EndSurrogateId),
-                (KnownQueryParameterNames.GlobalStartSurrogateId, definition.GlobalStartSurrogateId),
                 (KnownQueryParameterNames.StartSurrogateId, definition.StartSurrogateId),
                 (KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString()),
             };

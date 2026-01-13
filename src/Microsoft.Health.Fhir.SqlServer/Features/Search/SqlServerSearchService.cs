@@ -820,7 +820,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var resourceTypeId = _model.GetResourceTypeId(hints.First(x => x.Param == KnownQueryParameterNames.Type).Value);
             var startId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             var endId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-            var globalStartId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
             PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.History), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
@@ -836,25 +835,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
             command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
             command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
-        }
-
-        /// <summary>
-        /// Attempts to extract a simple string value from an expression (e.g., StringExpression).
-        /// </summary>
-        /// <param name="expression">The expression to analyze</param>
-        /// <param name="value">The extracted string value</param>
-        /// <returns>True if a simple string value was extracted, false otherwise</returns>
-        private static bool TryExtractSimpleStringValue(Expression expression, out string value)
-        {
-            value = null;
-
-            if (expression is StringExpression stringExpression)
-            {
-                value = stringExpression.Value;
-                return !string.IsNullOrEmpty(value);
-            }
-
-            return false;
         }
 
         /// <summary>
