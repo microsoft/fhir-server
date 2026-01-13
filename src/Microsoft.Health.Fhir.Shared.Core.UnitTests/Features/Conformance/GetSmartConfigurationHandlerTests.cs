@@ -23,10 +23,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     [Trait(Traits.Category, Categories.Conformance)]
     public class GetSmartConfigurationHandlerTests
     {
-        public GetSmartConfigurationHandlerTests()
-        {
-        }
-
         [Fact]
         public async Task GivenASmartConfigurationHandler_WhenSecurityConfigurationNotEnabled_Then400ExceptionThrown()
         {

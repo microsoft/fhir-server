@@ -74,24 +74,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public ICollection<string> ScopesSupported { get; private set; }
 
         [JsonProperty("code_challenge_methods_supported")]
-        public ICollection<string> CodeChallengeMethodsSupported { get; }
+        public ICollection<string> CodeChallengeMethodsSupported { get; private set; }
 
         [JsonProperty("grant_types_supported")]
-        public ICollection<string> GrantTypesSupported { get; }
+        public ICollection<string> GrantTypesSupported { get; private set; }
 
         [JsonProperty("token_endpoint_auth_methods_supported")]
-        public ICollection<string> TokenEndpointAuthMethodsSupported { get; }
+        public ICollection<string> TokenEndpointAuthMethodsSupported { get; private set; }
 
         [JsonProperty("response_types_supported")]
-        public ICollection<string> ResponseTypesSupported { get; }
+        public ICollection<string> ResponseTypesSupported { get; private set; }
 
         [JsonProperty("introspection_endpoint")]
-        public string IntrospectionEndpoint { get; }
+        public string IntrospectionEndpoint { get; private set; }
 
         [JsonProperty("management_endpoint")]
-        public string ManagementEndpoint { get; }
+        public string ManagementEndpoint { get; private set; }
 
         [JsonProperty("revocation_endpoint")]
-        public string RevocationEndpoint { get; }
+        public string RevocationEndpoint { get; private set; }
     }
 }
