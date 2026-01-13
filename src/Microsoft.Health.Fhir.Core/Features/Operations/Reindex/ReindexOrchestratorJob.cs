@@ -129,9 +129,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
                 var queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
 
-                // Only create jobs if we don't have any at this point.
-                if (!queryReindexProcessingJobs.Any())
+                // For SQL Server, always attempt job creation - we use Export-style resume logic
+                // to calculate remaining work from existing jobs, preventing duplicates.
+                // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
+                if (_isSurrogateIdRangingSupported || !queryReindexProcessingJobs.Any())
                 {
+                    if (queryReindexProcessingJobs.Any())
+                    {
+                        _logger.LogJobInformation(_jobInfo, "Found {Count} existing processing jobs. Re-submitting jobs (database handles deduplication).", queryReindexProcessingJobs.Count);
+                    }
+
                     await CreateReindexProcessingJobsAsync(cancellationToken);
                     jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
                     queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
@@ -406,13 +413,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
         {
-            if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
+            if (cancellationToken.IsCancellationRequested)
             {
                 throw new OperationCanceledException("Reindex operation cancelled by customer.");
             }
 
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
-            var definitions = new List<string>();
+            var allEnqueuedJobIds = new List<long>();
 
             foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts)
             {
@@ -432,27 +439,70 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogJobWarning(_jobInfo, "No valid search parameters found for resource type {ResourceType} in reindex job {JobId}.", resourceType, _jobInfo.Id);
                 }
 
-                // Create a list to store the ranges for processing
-                List<(long StartId, long EndId)> processingRanges = new List<(long StartId, long EndId)>();
+                int totalRangesEnqueued = 0;
 
                 // Check if surrogate ID ranging hasn't been determined yet or is supported
                 if (_isSurrogateIdRangingSupported)
                 {
-                    // Try to use the GetSurrogateIdRanges method (SQL Server path)
+                    // Use batched calls to GetSurrogateIdRanges to avoid timeout on large tables
+                    // Following the same pattern as Export job
+                    // Stream and enqueue each batch immediately so workers can start processing sooner
+                    var numberOfRangesPerBatch = _operationsConfiguration.Reindex.NumberOfRecordRanges;
+                    long startId = resourceCount.StartResourceSurrogateId;
+                    long endId = resourceCount.EndResourceSurrogateId;
+
+                    _logger.LogJobInformation(
+                        _jobInfo,
+                        "Fetching and enqueueing surrogate ID ranges for resource type {ResourceType} in batches of {BatchSize}. StartId={StartId}, EndId={EndId}",
+                        resourceType,
+                        numberOfRangesPerBatch,
+                        startId,
+                        endId);
+
                     using (IScoped<ISearchService> searchService = _searchServiceFactory())
                     {
-                        var ranges = await searchService.Value.GetSurrogateIdRanges(
-                            resourceType,
-                            resourceCount.StartResourceSurrogateId,
-                            resourceCount.EndResourceSurrogateId,
-                            resourcesPerJob,
-                            (int)Math.Ceiling(resourceCount.Count / (double)resourcesPerJob),
-                            true,
-                            cancellationToken,
-                            true);
+                        IReadOnlyList<(long StartId, long EndId)> ranges;
+                        do
+                        {
+                            // Check for cancellation between batches
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                throw new OperationCanceledException("Reindex operation cancelled by customer.");
+                            }
 
-                        processingRanges.AddRange(ranges);
+                            ranges = await searchService.Value.GetSurrogateIdRanges(
+                                resourceType,
+                                startId,
+                                endId,
+                                resourcesPerJob,
+                                numberOfRangesPerBatch,
+                                true,
+                                cancellationToken,
+                                true);
+
+                            if (ranges.Any())
+                            {
+                                // Stream: Create and enqueue job definitions for this batch immediately
+                                var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
+                                    ranges,
+                                    resourceType,
+                                    validSearchParameterUrls,
+                                    cancellationToken);
+
+                                allEnqueuedJobIds.AddRange(batchJobIds);
+                                totalRangesEnqueued += ranges.Count;
+
+                                startId = ranges[^1].EndId + 1; // Move past the last range
+                            }
+                        }
+                        while (ranges.Any());
                     }
+
+                    _logger.LogJobInformation(
+                        _jobInfo,
+                        "Completed fetching and enqueueing {RangeCount} surrogate ID ranges for resource type {ResourceType}.",
+                        totalRangesEnqueued,
+                        resourceType);
                 }
                 else
                 {
@@ -463,49 +513,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogJobInformation(_jobInfo, "Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
 
                     // Create uniform-sized chunks based on resource count
+                    var processingRanges = new List<(long StartId, long EndId)>();
                     for (int i = 0; i < numberOfChunks; i++)
                     {
                         processingRanges.Add((0, 0)); // For Cosmos, we don't use surrogate IDs directly
                     }
-                }
 
-                // Create job definitions from the ranges
-                foreach (var range in processingRanges)
-                {
-                    var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
-                    {
-                        LastModified = Clock.UtcNow,
-                        Status = OperationStatus.Queued,
-                        StartResourceSurrogateId = range.StartId,
-                        EndResourceSurrogateId = range.EndId,
-                    };
+                    // Enqueue all Cosmos ranges at once (they don't have the same large-scale issue)
+                    var batchJobIds = await CreateAndEnqueueJobDefinitionsAsync(
+                        processingRanges,
+                        resourceType,
+                        validSearchParameterUrls,
+                        cancellationToken);
 
-                    SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, _cancellationToken);
-
-                    if (countOnlyResults?.TotalCount == 0)
-                    {
-                        // nothing to do here
-                        continue;
-                    }
-
-                    var reindexJobPayload = new ReindexProcessingJobDefinition()
-                    {
-                        TypeId = (int)JobType.ReindexProcessing,
-                        GroupId = _jobInfo.GroupId,
-                        ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
-                        ResourceCount = new SearchResultReindex
-                        {
-                            StartResourceSurrogateId = range.StartId,
-                            EndResourceSurrogateId = range.EndId,
-                            Count = countOnlyResults?.TotalCount ?? 0,
-                        },
-                        ResourceType = resourceType,
-                        MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
-                        MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
-                        SearchParameterUrls = validSearchParameterUrls.ToImmutableList(),
-                    };
-
-                    definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
+                    allEnqueuedJobIds.AddRange(batchJobIds);
                 }
 
                 _logger.LogJobInformation(
@@ -516,6 +537,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     string.Join(", ", validSearchParameterUrls));
             }
 
+            _logger.LogJobInformation(_jobInfo, "Enqueued {Count} total query processing jobs.", allEnqueuedJobIds.Count);
+            return allEnqueuedJobIds;
+        }
+
+        /// <summary>
+        /// Creates job definitions from ranges and enqueues them immediately.
+        /// This enables streaming/pipelining where workers can start processing while more ranges are being fetched.
+        /// </summary>
+        private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(
+            IReadOnlyList<(long StartId, long EndId)> ranges,
+            string resourceType,
+            List<string> validSearchParameterUrls,
+            CancellationToken cancellationToken)
+        {
+            var definitions = new List<string>();
+
+            foreach (var range in ranges)
+            {
+                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                {
+                    LastModified = Clock.UtcNow,
+                    Status = OperationStatus.Queued,
+                    StartResourceSurrogateId = range.StartId,
+                    EndResourceSurrogateId = range.EndId,
+                };
+
+                SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, cancellationToken);
+
+                if (countOnlyResults?.TotalCount == 0)
+                {
+                    // nothing to do here
+                    continue;
+                }
+
+                var reindexJobPayload = new ReindexProcessingJobDefinition()
+                {
+                    TypeId = (int)JobType.ReindexProcessing,
+                    GroupId = _jobInfo.GroupId,
+                    ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
+                    ResourceCount = new SearchResultReindex
+                    {
+                        StartResourceSurrogateId = range.StartId,
+                        EndResourceSurrogateId = range.EndId,
+                        Count = countOnlyResults?.TotalCount ?? 0,
+                    },
+                    ResourceType = resourceType,
+                    MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
+                    MaximumNumberOfResourcesPerWrite = _reindexJobRecord.MaximumNumberOfResourcesPerWrite,
+                    SearchParameterUrls = validSearchParameterUrls.ToImmutableList(),
+                };
+
+                definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
+            }
+
+            if (!definitions.Any())
+            {
+                return Array.Empty<long>();
+            }
+
             try
             {
                 var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, cancellationToken))
@@ -523,12 +603,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     .OrderBy(id => id)
                     .ToList());
 
-                _logger.LogJobInformation(_jobInfo, "Enqueued {Count} query processing jobs.", jobIds.Count);
+                _logger.LogJobInformation(_jobInfo, "Enqueued batch of {Count} jobs for resource type {ResourceType}.", jobIds.Count, resourceType);
                 return jobIds;
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, _jobInfo, "Failed to enqueue jobs.");
+                _logger.LogJobError(ex, _jobInfo, "Failed to enqueue jobs for resource type {ResourceType}.", resourceType);
                 throw;
             }
         }
