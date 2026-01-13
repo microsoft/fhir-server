@@ -885,16 +885,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         {
             _searchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var ranges = new List<(long StartId, long EndId)>();
+                var ranges = new List<(long StartId, long EndId, int Count)>();
                 if (x.ArgAt<long>(1) <= x.ArgAt<long>(2)) // start <= end to break internal loop
                 {
                     for (int i = 0; i < numRanges; i++)
                     {
-                        ranges.Add((long.MaxValue - i - 100, long.MaxValue - i - 50));
+                        ranges.Add((long.MaxValue - i - 100, long.MaxValue - i - 50, 51));
                     }
                 }
 
-                return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(ranges);
+                return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(ranges);
             });
         }
 

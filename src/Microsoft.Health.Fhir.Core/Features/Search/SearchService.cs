@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        public virtual Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
+        public virtual Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(
             string resourceType,
             long startId,
             long endId,
