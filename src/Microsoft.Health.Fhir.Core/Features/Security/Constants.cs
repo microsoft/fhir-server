@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
-using static System.Formats.Asn1.AsnWriter;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
