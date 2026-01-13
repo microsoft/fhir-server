@@ -210,12 +210,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         var startId = callInfo.ArgAt<long>(1);
                         if (startId <= rangeEnd)
                         {
-                            return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                                new List<(long StartId, long EndId)> { (rangeStart, rangeEnd) });
+                            return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, 1) });
                         }
 
-                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                            new List<(long StartId, long EndId)>());
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                            new List<(long StartId, long EndId, int Count)>());
                     });
             }
             else
@@ -234,12 +234,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         var startId = callInfo.ArgAt<long>(1);
                         if (startId <= rangeEnd)
                         {
-                            return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                                new List<(long StartId, long EndId)> { (rangeStart, rangeEnd) });
+                            return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, 1) });
                         }
 
-                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                            new List<(long StartId, long EndId)>());
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                            new List<(long StartId, long EndId, int Count)>());
                     });
             }
         }
@@ -667,11 +667,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResultWithData);
 
-            var ranges = new List<(long, long)>
+            var ranges = new List<(long, long, int)>
             {
-                (1, 100),
-                (101, 200),
-                (201, 250),
+                (1, 100, 100),
+                (101, 200, 100),
+                (201, 250, 50),
             };
             _searchService.GetSurrogateIdRanges(
                 Arg.Any<string>(),
@@ -687,11 +687,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     var startId = callInfo.ArgAt<long>(1);
                     if (startId <= 1)
                     {
-                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(ranges);
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(ranges);
                     }
 
-                    return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                        new List<(long StartId, long EndId)>());
+                    return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                        new List<(long StartId, long EndId, int Count)>());
                 });
 
             var jobInfo = await CreateReindexJobRecord();
@@ -1625,11 +1625,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResultWithData);
 
-            var ranges = new List<(long, long)>
+            var ranges = new List<(long, long, int)>
             {
-                (1, 100),
-                (101, 200),
-                (201, 250),
+                (1, 100, 100),
+                (101, 200, 100),
+                (201, 250, 50),
             };
             _searchService.GetSurrogateIdRanges(
                 Arg.Any<string>(),
@@ -1645,11 +1645,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     var startId = callInfo.ArgAt<long>(1);
                     if (startId <= 1)
                     {
-                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(ranges);
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(ranges);
                     }
 
-                    return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                        new List<(long StartId, long EndId)>());
+                    return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                        new List<(long StartId, long EndId, int Count)>());
                 });
 
             var jobInfo = await CreateReindexJobRecord(targetResourceTypes: targetResourceTypes);

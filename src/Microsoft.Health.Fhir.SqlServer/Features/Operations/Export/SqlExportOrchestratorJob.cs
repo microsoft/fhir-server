@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                 var enqueuedSurrogateId = (enqueuedJobs?.Any() ?? false) ? enqueuedJobs.Max(x => long.Parse(x.EndSurrogateId)) : 0;
                 var startId = Math.Max(globalStartId, enqueuedSurrogateId + 1);
 
-                IReadOnlyList<(long StartId, long EndId)> response = null;
+                IReadOnlyList<(long StartId, long EndId, int Count)> response = null;
                 do
                 {
                     response = await _searchService.GetSurrogateIdRanges(

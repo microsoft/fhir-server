@@ -461,7 +461,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     using (IScoped<ISearchService> searchService = _searchServiceFactory())
                     {
-                        IReadOnlyList<(long StartId, long EndId)> ranges;
+                        IReadOnlyList<(long StartId, long EndId, int Count)> ranges;
                         do
                         {
                             // Check for cancellation between batches
@@ -513,10 +513,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogJobInformation(_jobInfo, "Using calculated ranges for resource type {ResourceType}. Creating {Count} chunks.", resourceType, numberOfChunks);
 
                     // Create uniform-sized chunks based on resource count
-                    var processingRanges = new List<(long StartId, long EndId)>();
+                    var processingRanges = new List<(long StartId, long EndId, int Count)>();
                     for (int i = 0; i < numberOfChunks; i++)
                     {
-                        processingRanges.Add((0, 0)); // For Cosmos, we don't use surrogate IDs directly
+                        processingRanges.Add((0, 0, 0)); // For Cosmos, we don't use surrogate IDs directly
                     }
 
                     // Enqueue all Cosmos ranges at once (they don't have the same large-scale issue)
@@ -546,7 +546,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// This enables streaming/pipelining where workers can start processing while more ranges are being fetched.
         /// </summary>
         private async Task<IReadOnlyList<long>> CreateAndEnqueueJobDefinitionsAsync(
-            IReadOnlyList<(long StartId, long EndId)> ranges,
+            IReadOnlyList<(long StartId, long EndId, int Count)> ranges,
             string resourceType,
             List<string> validSearchParameterUrls,
             CancellationToken cancellationToken)
