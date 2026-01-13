@@ -1217,6 +1217,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 includedCount += includedResults.Resource.Entry.Count();
 
                 var nextLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
+                if (nextLink == null)
+                {
+                    break;
+                }
+
                 Assert.NotEqual(relatedLink.Url, nextLink.Url);
                 relatedLink = nextLink;
             }
