@@ -209,6 +209,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Stopwatch sw = Stopwatch.StartNew();
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
+                    if (_metadata != null && _builder != null && _builder.IsSyncRequested())
+                    {
+                        _logger.LogInformation("SystemConformanceProvider sync is requested.");
+                        break;
+                    }
+
                     await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
 
                     if (_disposed)

@@ -123,6 +123,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             _logger.LogDebug("Finished validating");
 
+            CheckForMissingProfileFailures(result);
+
             if (stopwatch.ElapsedMilliseconds > 1000)
             {
                 _logger.LogWarning("Long running validation: {Time}", stopwatch.ElapsedMilliseconds);
@@ -140,6 +142,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 .ToArray();
 
             return outcomeIssues;
+        }
+
+        private void CheckForMissingProfileFailures(OperationOutcome operationOutcome)
+        {
+            if (operationOutcome == null || operationOutcome?.Errors == 0)
+            {
+                return;
+            }
+
+            foreach (OperationOutcome.IssueComponent issue in operationOutcome.Issue)
+            {
+                if (issue.Details?.Text?.Contains("Unable to resolve reference to profile", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    _logger.LogDebug("Validation failure due to missing profile.");
+                }
+            }
         }
     }
 }

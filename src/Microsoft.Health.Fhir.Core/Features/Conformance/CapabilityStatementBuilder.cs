@@ -349,6 +349,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
+        public bool IsSyncRequested()
+        {
+            return _supportedProfiles.IsSyncRequested();
+        }
+
         public ICapabilityStatementBuilder SyncSearchParameters()
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())

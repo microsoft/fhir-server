@@ -76,6 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
 
+        public bool IsSyncRequested()
+        {
+            return _expirationTime < DateTime.UtcNow;
+        }
+
         public void Refresh()
         {
             _logger.LogInformation("Marking profiles for refresh");
@@ -113,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
                 }
 
-                _logger.LogDebug("Profiles updated.");
+                _logger.LogInformation("Profiles updated. {CountOfProfiles} Profile(s) are loaded in memory.", _summaries.Count);
                 return _summaries;
             }
             finally
