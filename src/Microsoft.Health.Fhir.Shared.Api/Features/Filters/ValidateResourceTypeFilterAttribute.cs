@@ -30,21 +30,39 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var actionModelType) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                var resource = ParseResource((Resource)parsedModel);
-                ValidateType(resource, (string)actionModelType);
+                string resourceTypeName = GetResourceTypeName(parsedModel);
+                ValidateType(resourceTypeName, (string)actionModelType);
             }
 
             // Validated Resource Type of Parameters
             if (context.ActionArguments.TryGetValue(KnownActionParameterNames.ParamsResource, out var parsedParamModel))
             {
-                var resource = ParseResource((Resource)parsedParamModel);
-                ValidateType(resource, KnownResourceTypes.Parameters);
+                string resourceTypeName = GetResourceTypeName(parsedParamModel);
+                ValidateType(resourceTypeName, KnownResourceTypes.Parameters);
             }
         }
 
-        private static void ValidateType(Resource resource, string expectedType)
+        private string GetResourceTypeName(object parsedModel)
         {
-            if (!string.Equals(expectedType, resource.TypeName, StringComparison.OrdinalIgnoreCase))
+            // Handle IResourceElement (Ignixa types like IgnixaResourceElement)
+            if (parsedModel is IResourceElement resourceElement)
+            {
+                return resourceElement.InstanceType;
+            }
+
+            // Handle Firely Resource types
+            if (parsedModel is Resource resource)
+            {
+                var resolved = ParseResource(resource);
+                return resolved.TypeName;
+            }
+
+            throw new InvalidOperationException($"Cannot extract resource type from {parsedModel?.GetType().Name ?? "null"}");
+        }
+
+        private static void ValidateType(string actualType, string expectedType)
+        {
+            if (!string.Equals(expectedType, actualType, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                     {
