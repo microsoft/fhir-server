@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable SDK0001 // ToTypedElement is experimental - needed for testing
+
 using System.Net.Http;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
@@ -86,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenACreateResourceRequest_WhenCreatingASearchParameterResource_ThenAddNewSearchParameterShouldBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "Id" };
-            var resource = searchParameter.ToTypedElement().ToResourceElement();
+            var resource = searchParameter.ToPocoNode().ToResourceElement();
 
             var request = new CreateResourceRequest(resource, bundleResourceContext: null);
             var wrapper = CreateResourceWrapper(resource, false);
@@ -123,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenADeleteResourceRequest_WhenDeletingASearchParameterResource_TheDeleteSearchParameterShouldBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "Id" };
-            var resource = searchParameter.ToTypedElement().ToResourceElement();
+            var resource = searchParameter.ToPocoNode().ToResourceElement();
 
             var key = new ResourceKey("SearchParameter", "Id");
             var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
@@ -143,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenADeleteResourceRequest_WhenDeletingAnAlreadyDeletedSearchParameterResource_TheDeleteSearchParameterShouldNotBeCalled()
         {
             var searchParameter = new SearchParameter() { Id = "Id" };
-            var resource = searchParameter.ToTypedElement().ToResourceElement();
+            var resource = searchParameter.ToPocoNode().ToResourceElement();
 
             var key = new ResourceKey("SearchParameter", "Id");
             var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);

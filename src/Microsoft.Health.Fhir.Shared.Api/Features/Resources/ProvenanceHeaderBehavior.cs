@@ -29,12 +29,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>
     {
-        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly FhirJsonDeserializer _fhirJsonParser;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMediator _mediator;
         private IProvenanceHeaderState _state;
 
-        public ProvenanceHeaderBehavior(FhirJsonParser fhirJsonParser, IHttpContextAccessor httpContextAccessor, IMediator mediator, IProvenanceHeaderState state)
+        public ProvenanceHeaderBehavior(FhirJsonDeserializer fhirJsonParser, IHttpContextAccessor httpContextAccessor, IMediator mediator, IProvenanceHeaderState state)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             Provenance provenance;
             try
             {
-                provenance = _fhirJsonParser.Parse<Provenance>(value);
+                provenance = _fhirJsonParser.Deserialize<Provenance>(value);
             }
             catch
             {

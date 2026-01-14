@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable CS0618 // FhirJsonParser is obsolete
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

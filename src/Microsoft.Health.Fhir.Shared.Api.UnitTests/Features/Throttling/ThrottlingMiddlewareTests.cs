@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Io;
+using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -291,7 +292,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _httpContext.Response.Body.Position = 0;
             var responseBody = new StreamReader(_httpContext.Response.Body).ReadToEnd();
 
-            JsonSerializerOptions options = new JsonSerializerOptions().ForFhir(typeof(OperationOutcome).Assembly);
+            JsonSerializerOptions options = new JsonSerializerOptions().ForFhir(ModelInspector.Base);
             OperationOutcome resourceType = JsonSerializer.Deserialize<OperationOutcome>(responseBody, options);
 
             Assert.Equal(OperationOutcome.IssueType.Throttled, resourceType.Issue[0].Code);

@@ -55,8 +55,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
             }
 
-            var parser = new FhirJsonParser();
-            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.Parse<Resource>(Samples.GetJson(filename)) });
+            var parser = new FhirJsonDeserializer();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.DeserializeResource(Samples.GetJson(filename)) });
 
             outcome = await _client.ValidateAsync(path, parameters.ToJson());
 
@@ -79,8 +79,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
             }
 
-            var parser = new FhirJsonParser();
-            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.Parse<Resource>(Samples.GetJson(filename)) });
+            var parser = new FhirJsonDeserializer();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.DeserializeResource(Samples.GetJson(filename)) });
 
             outcome = await _client.ValidateAsync(path, parameters.ToJson());
 
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Exception exception = null;
             try
             {
-                new FhirJsonParser().Parse<Resource>(payload);
+                new FhirJsonDeserializer().DeserializeResource(payload);
             }
             catch (Exception ex)
             {
@@ -141,8 +141,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
             var fhirSource = Samples.GetJson("Profile-Patient-uscore");
-            var parser = new FhirJsonParser();
-            var patient = parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
+            var parser = new FhirJsonDeserializer();
+            var patient = parser.DeserializeResource(fhirSource).ToPocoNode().ToResourceElement();
             Patient createdResource = await _client.CreateAsync(patient.ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Parameters parameters = new Parameters();
             parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
 
-            var parser = new FhirJsonParser();
+            var parser = new FhirJsonDeserializer();
             parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = Samples.GetDefaultPatient().ToPoco<Patient>() });
 
             exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ValidateAsync("Patient/$validate", parameters.ToJson()));

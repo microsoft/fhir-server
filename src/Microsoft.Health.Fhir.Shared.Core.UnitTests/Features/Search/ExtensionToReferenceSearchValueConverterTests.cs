@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             ReferenceSearchValue expected = _referenceSearchValueParser.Parse(reference.Reference);
 
-            var values = (await GetTypeConverterAsync()).ConvertTo(extension.ToTypedElement()).ToList();
+            var values = (await GetTypeConverterAsync()).ConvertTo(extension.ToPocoNode()).ToList();
 
             Assert.NotNull(values);
             Assert.True(values.Count == 1);

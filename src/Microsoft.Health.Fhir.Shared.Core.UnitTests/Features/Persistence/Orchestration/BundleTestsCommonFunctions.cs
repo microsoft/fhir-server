@@ -98,9 +98,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             return patient;
         }
 
-        public static async Task<ResourceWrapper> GetResourceWrapperAsync(DomainResource resource)
+        public static ResourceWrapper GetResourceWrapper(DomainResource resource)
         {
-            var json = await JsonSerializer.SerializeToStringAsync(resource);
+            var json = JsonSerializer.SerializeToString(resource);
 
             var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
 
@@ -123,9 +123,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             return wrapper;
         }
 
-        public static async Task<ResourceWrapperOperation> GetResourceWrapperOperationAsync(DomainResource resource, BundleResourceContext bundleResourceContext)
+        public static ResourceWrapperOperation GetResourceWrapperOperation(DomainResource resource, BundleResourceContext bundleResourceContext)
         {
-            ResourceWrapper wrapper = await GetResourceWrapperAsync(resource);
+            ResourceWrapper wrapper = GetResourceWrapper(resource);
             return new ResourceWrapperOperation(wrapper, true, true, null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext);
         }
 

@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         internal static async Task<Dictionary<(string resourceType, string resourceId, string versionId), Resource>> GetResourcesFromFhirServer(
             TestFhirClient testFhirClient,
             Uri requestUri,
-            FhirJsonParser fhirJsonParser,
+            FhirJsonDeserializer fhirJsonParser,
             ITestOutputHelper outputHelper)
         {
             var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         internal static async Task<Dictionary<(string resourceType, string resourceId, string versionId), Resource>> GetResourcesWithHistoryFromFhirServer(
             TestFhirClient testFhirClient,
             Uri requestUri,
-            FhirJsonParser fhirJsonParser,
+            FhirJsonDeserializer fhirJsonParser,
             ITestOutputHelper outputHelper)
         {
             var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         private static async IAsyncEnumerable<Resource> GetResourceListFromFhirServer(
             TestFhirClient testFhirClient,
             Uri requestUri,
-            FhirJsonParser fhirJsonParser)
+            FhirJsonDeserializer fhirJsonParser)
         {
             while (requestUri != null)
             {
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 using HttpResponseMessage response = await testFhirClient.HttpClient.SendAsync(request);
 
                 var responseString = await response.Content.ReadAsStringAsync();
-                Bundle searchResults = fhirJsonParser.Parse<Bundle>(responseString);
+                Bundle searchResults = fhirJsonParser.Deserialize<Bundle>(responseString);
 
                 // Look at whether a continuation token has been returned.
                 string nextLink = searchResults.NextLink?.ToString();
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         internal static async Task<Dictionary<(string resourceType, string resourceId, string versionId), Resource>> DownloadBlobAndParse(
             IList<Uri> blobUri,
-            FhirJsonParser fhirJsonParser,
+            FhirJsonDeserializer fhirJsonParser,
             ITestOutputHelper outputHelper)
         {
             if (blobUri == null || blobUri.Count == 0)
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                     Resource resource;
                     try
                     {
-                        resource = fhirJsonParser.Parse<Resource>(entry);
+                        resource = fhirJsonParser.DeserializeResource(entry);
                     }
                     catch (Exception ex)
                     {

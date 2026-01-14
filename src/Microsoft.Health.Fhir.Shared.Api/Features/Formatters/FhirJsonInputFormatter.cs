@@ -6,6 +6,7 @@
 using System;
 using System.Buffers;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -19,10 +20,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     internal class FhirJsonInputFormatter : TextInputFormatter
     {
-        private readonly FhirJsonParser _parser;
+        private readonly FhirJsonDeserializer _parser;
         private readonly IArrayPool<char> _charPool;
 
-        public FhirJsonInputFormatter(FhirJsonParser parser, ArrayPool<char> charPool)
+        public FhirJsonInputFormatter(FhirJsonDeserializer parser, ArrayPool<char> charPool)
         {
             EnsureArg.IsNotNull(parser, nameof(parser));
             EnsureArg.IsNotNull(charPool, nameof(charPool));
@@ -62,38 +63,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             if (string.Equals(request.Method, HttpMethods.Post, StringComparison.OrdinalIgnoreCase) &&
                 request.Path.Value.Equals("/", System.StringComparison.OrdinalIgnoreCase))
             {
-                var newsettings = _parser.Settings.Clone();
-                newsettings.AllowUnrecognizedEnums = true;
-                newsettings.AcceptUnknownMembers = true;
-                newsettings.ExceptionHandler = (source, args) =>
+                var newsettings = new DeserializerSettings()
                 {
-                    context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
+                    AllowUnrecognizedEnums = true,
+                    AcceptUnknownMembers = true,
+                    /* This property no longer exists. https://github.com/FirelyTeam/firely-net-sdk/wiki/Breaking-changes-in-6.0#breaking-changes-to-the-parsers
+                    ExceptionHandler = (source, args) =>
+                    {
+                        context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
+                    },
+                    */
                 };
 
                 /*Current parser is initialized with a setting (TruncateDateTimeToDate) that was marked as Obsolete.
                  To avoid changing existing behavior, same settings (one that was Obsolete) are used below. So, code added to
-                disable the warning.*/
-#pragma warning disable CS0618 // Type or member is obsolete
-                var jsonParserForBundle = new FhirJsonParser(newsettings);
-#pragma warning disable CS0618 // Type or member is obsolete
+                disable the warning.
+                ^ Trying out the new descerializer.*/
+                var jsonParserForBundle = new FhirJsonDeserializer(newsettings);
 
                 parserToUse = jsonParserForBundle;
             }
 
             using (var streamReader = context.ReaderFactory(request.Body, encoding))
-            using (var jsonReader = new JsonTextReader(streamReader))
             {
                 Exception delayedException = null;
                 Resource model = null;
 
-                jsonReader.DateParseHandling = DateParseHandling.None;
-                jsonReader.FloatParseHandling = FloatParseHandling.Decimal;
-                jsonReader.ArrayPool = _charPool;
-                jsonReader.CloseInput = false;
-
                 try
                 {
-                    model = await parserToUse.ParseAsync<Resource>(jsonReader);
+                    var inputString = await streamReader.ReadToEndAsync();
+                    model = parserToUse.DeserializeResource(inputString);
                 }
                 catch (Exception ex)
                 {

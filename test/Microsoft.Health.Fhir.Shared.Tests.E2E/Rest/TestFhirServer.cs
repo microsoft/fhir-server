@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 throw new HttpRequestException(errorMessage);
             }
 
-            CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
+            CapabilityStatement metadata = new FhirJsonDeserializer().Deserialize<CapabilityStatement>(content);
             Metadata = metadata.ToResourceElement();
 
 #if Stu3 || R4 || R4B

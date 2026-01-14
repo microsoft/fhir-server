@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             },
         };
 
-        private static readonly FhirJsonParser Parser = new FhirJsonParser();
+        private static readonly FhirJsonDeserializer Parser = new FhirJsonDeserializer();
 
         [Fact]
         public void GivenAJObjectAndJsonContentType_WhenCheckingCanWrite_ThenFalseShouldBeReturned()
@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             Assert.False(string.IsNullOrEmpty(content));
 
-            var r = Parser.Parse<Resource>(content);
+            var r = Parser.Deserialize<Resource>(content);
             Assert.NotNull(r);
             if (bundle)
             {

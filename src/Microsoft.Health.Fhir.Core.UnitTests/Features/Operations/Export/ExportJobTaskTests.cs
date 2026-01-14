@@ -1528,7 +1528,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _ =>
                 {
                     capturedSearch = true;
-                    return new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive("anonymized-resource")));
+                    return new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive("anonymized-resource")).ToPocoNode());
                 });
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
@@ -2217,8 +2217,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IScoped<IAnonymizerFactory> anonymizerFactory = null,
             ILogger<ExportJobTask> logger = null)
         {
-            _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x => x.ArgAt<ResourceElement>(0).Instance.Value.ToString());
-            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
+            _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x =>
+            {
+                // Need to fix this, the tests won't pass but I don't know how to get the value from the resource element
+                x.ArgAt<ResourceElement>(0).Instance.Poco.ToString();
+                return string.Empty;
+            });
+            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId)).ToPocoNode()));
 
             _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
