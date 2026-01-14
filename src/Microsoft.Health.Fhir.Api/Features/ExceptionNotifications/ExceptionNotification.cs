@@ -10,8 +10,8 @@ using Microsoft.Health.Fhir.Core.Features.Metrics;
 namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
 {
     /// <summary>
-    /// A MediatR message containing information about exceptions with the context of the current request.
-    /// Consume these using MediatR to collect stats about exceptions.
+    /// A Medino message containing information about exceptions with the context of the current request.
+    /// Consume these using Medino to collect stats about exceptions.
     /// </summary>
     public class ExceptionNotification : IMetricsNotification
     {

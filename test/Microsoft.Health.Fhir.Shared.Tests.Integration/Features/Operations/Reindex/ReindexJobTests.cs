@@ -14,7 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -336,7 +336,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             // Create a reindex job
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
-            CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            CreateReindexResponse response = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(response);
             Assert.NotNull(response.Job);
@@ -386,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await CancelActiveReindexJobIfExists();
 
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
-            CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            CreateReindexResponse response = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
@@ -416,7 +416,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                         break;
                 }
 
-                CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+                CreateReindexResponse response = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
             }
             catch (FhirException fhirExp)
             {
@@ -448,7 +448,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     break;
             }
 
-            CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            CreateReindexResponse response = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
         }
@@ -460,7 +460,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             UpsertOutcome observationSample = await CreateObservationResource(observationId);
             var request = GetReindexRequest("POST", observationId, "Observation");
 
-            ReindexSingleResourceResponse response = await _reindexSingleResourceRequestHandler.Handle(request, CancellationToken.None);
+            ReindexSingleResourceResponse response = await _reindexSingleResourceRequestHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(response);
         }
@@ -530,7 +530,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await CancelActiveReindexJobIfExists();
 
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
-            CreateReindexResponse firstResponse = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            CreateReindexResponse firstResponse = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(firstResponse);
             Assert.False(string.IsNullOrWhiteSpace(firstResponse.Job.JobRecord.Id));
@@ -540,7 +540,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             OperationStatus originalStatus = firstResponse.Job.JobRecord.Status;
 
             // Create another reindex request - should return the same job instead of throwing an exception
-            CreateReindexResponse secondResponse = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            CreateReindexResponse secondResponse = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(secondResponse);
             Assert.Equal(originalJobId, secondResponse.Job.JobRecord.Id);
@@ -710,7 +710,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
-                await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
+                await cancelReindexHandler.HandleAsync(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
                 var reindexWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
                 Assert.Equal(OperationStatus.Canceled, reindexWrapper.JobRecord.Status);
@@ -1106,7 +1106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 request = new CreateReindexRequest(new List<string>(), new List<string>());
             }
 
-            CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            CreateReindexResponse response = await _createReindexRequestHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
@@ -1271,7 +1271,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             if (found && !string.IsNullOrEmpty(id))
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
-                await cancelReindexHandler.Handle(new CancelReindexRequest(id), cancellationToken);
+                await cancelReindexHandler.HandleAsync(new CancelReindexRequest(id), cancellationToken);
 
                 // Optionally, wait for the job to be marked as canceled
                 var job = await _fhirOperationDataStore.GetReindexJobByIdAsync(id, cancellationToken);

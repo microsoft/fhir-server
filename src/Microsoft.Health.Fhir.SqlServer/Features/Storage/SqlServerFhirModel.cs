@@ -11,7 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _highestInitializedVersion = version;
 
-            await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
+            await _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None);
         }
 
         private async Task InitializeBase(CancellationToken cancellationToken)

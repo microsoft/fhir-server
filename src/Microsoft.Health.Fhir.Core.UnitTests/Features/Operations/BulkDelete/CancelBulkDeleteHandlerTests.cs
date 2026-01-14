@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
 
             var request = new CancelBulkDeleteRequest(1);
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
 
             var request = new CancelBulkDeleteRequest(1);
-            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         private async Task RunBulkDeleteTest(IReadOnlyList<JobInfo> jobs, HttpStatusCode expectedStatus)
@@ -134,12 +134,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             if (expectedStatus == HttpStatusCode.Conflict)
             {
-                OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await _handler.Handle(request, CancellationToken.None));
+                OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
                 Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
             }
             else
             {
-                var response = await _handler.Handle(request, CancellationToken.None);
+                var response = await _handler.HandleAsync(request, CancellationToken.None);
 
                 Assert.Equal(expectedStatus, response.StatusCode);
                 if (expectedStatus == HttpStatusCode.Accepted)

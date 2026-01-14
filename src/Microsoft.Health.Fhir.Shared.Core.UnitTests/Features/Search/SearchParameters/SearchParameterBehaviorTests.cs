@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
             var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
             await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
             var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new DeleteResourceResponse(key);
 
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new DeleteResourceResponse(key);
 
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new DeleteResourceResponse(key);
 
             var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
-            await behavior.Handle(request,  async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Should throw MethodNotAllowedException for system-defined parameter
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () =>
-                await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None));
+                await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None));
 
             // Verify DeleteSearchParameterAsync was never called
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
             var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             // Should call AddSearchParameterAsync since the resource doesn't exist
             await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
 
             var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
-            await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
+            await behavior.HandleAsync(request, async () => await Task.Run(() => response), CancellationToken.None);
 
             // Should call UpdateSearchParameterAsync since the resource exists
             await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());

@@ -7,13 +7,13 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
-    public class GetOperationVersionsHandler : IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>
+    public sealed class GetOperationVersionsHandler : IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>
     {
         private readonly IModelInfoProvider _provider;
 
@@ -25,12 +25,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         }
 
         Task<GetOperationVersionsResponse> IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>.
-            Handle(GetOperationVersionsRequest request, CancellationToken cancellationToken)
+            HandleAsync(GetOperationVersionsRequest request, CancellationToken cancellationToken)
         {
             return Task.FromResult(Handle(request));
         }
 
-        protected GetOperationVersionsResponse Handle(GetOperationVersionsRequest request)
+        private GetOperationVersionsResponse Handle(GetOperationVersionsRequest request)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

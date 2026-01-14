@@ -34,7 +34,7 @@ public class StorageInitializedHealthCheckTests
     [Fact]
     public async Task GivenStorageInitialized_WhenCheckHealthAsync_ThenReturnsHealthy()
     {
-        await _sut.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+        await _sut.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
         HealthCheckResult result = await _sut.CheckHealthAsync(new HealthCheckContext(), CancellationToken.None);
 

@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate, treatDatesAsStrings);
-            ConvertDataResponse response = await _mediator.Send(convertDataRequest, cancellationToken: default);
+            ConvertDataResponse response = await _mediator.SendAsync(convertDataRequest, cancellationToken: default);
 
             return new ContentResult
             {

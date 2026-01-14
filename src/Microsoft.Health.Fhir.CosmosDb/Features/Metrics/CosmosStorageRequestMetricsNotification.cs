@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.Core.Features.Metrics;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
 {
     /// <summary>
-    /// A MediatR notification containing statistics about Cosmos DB usage while handling a request.
+    /// A Medino notification containing statistics about Cosmos DB usage while handling a request.
     /// </summary>
     public class CosmosStorageRequestMetricsNotification : IMetricsNotification
     {

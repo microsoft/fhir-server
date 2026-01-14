@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public async Task<TDeleteResourceResponse> Handle(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<TDeleteResourceResponse> HandleAsync(TDeleteResourceRequest request, RequestHandlerDelegate<TDeleteResourceResponse> next, CancellationToken cancellationToken)
         {
             var deleteRequest = request as DeleteResourceRequest;
             ResourceWrapper searchParamResource = null;
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
             }
 
-            return await next(cancellationToken);
+            return await next();
         }
     }
 }

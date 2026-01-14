@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net.Http;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -44,11 +46,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         [Fact]
         public async Task GivenARequest_WhenValidatingCapability_ThenAllValidationRulesShouldRun()
         {
-            var preProcessor = new ValidateCapabilityPreProcessor<GetResourceRequest>(_conformanceProvider);
+            var preProcessor = new ValidateCapabilityPreProcessor<GetResourceRequest, GetResourceResponse>(_conformanceProvider);
 
             var getResourceRequest = new GetResourceRequest("Observation", Guid.NewGuid().ToString(), bundleResourceContext: null);
+            var resource = Samples.GetDefaultObservation().UpdateId("observation1");
+            var mockResponse = new GetResourceResponse(CreateRawResourceElement(resource));
 
-            await preProcessor.Process(getResourceRequest, CancellationToken.None);
+            await preProcessor.HandleAsync(getResourceRequest, () => Task.FromResult(mockResponse), CancellationToken.None);
         }
 
         [Theory]
@@ -56,11 +60,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         [InlineData(DeleteOperation.HardDelete)]
         public async Task GivenARequestNotAllowed_WhenValidatingCapability_ThenMethodNotAllowedExceptionShouldThrow(DeleteOperation deleteOperation)
         {
-            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest>(_conformanceProvider);
+            var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest, DeleteResourceResponse>(_conformanceProvider);
 
             var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), deleteOperation, bundleResourceContext: null);
 
-            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(deleteResourceRequest, CancellationToken.None));
+            await Assert.ThrowsAsync<MethodNotAllowedException>(
+                async () => await preProcessor.HandleAsync(
+                    deleteResourceRequest,
+                    () => Task.FromResult(new DeleteResourceResponse(new ResourceKey("Observation", "test-id"))),
+                    CancellationToken.None));
+        }
+
+        private static RawResourceElement CreateRawResourceElement(ResourceElement resource)
+        {
+            var rawResource = new RawResource("data", FhirResourceFormat.Json, isMetaSet: true);
+            var wrapper = new ResourceWrapper(
+                resource,
+                rawResource,
+                new ResourceRequest(HttpMethod.Post, "http://fhir"),
+                deleted: false,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null);
+
+            return new RawResourceElement(wrapper);
         }
     }
 }

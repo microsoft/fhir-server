@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CheckIfSearchParameterStatusIsEnabledOrADHS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
-            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
+            SearchParameterStateResponse result = await _mediator.SendAsync(request, cancellationToken);
 
             return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CheckIfSearchParameterStatusIsEnabledOrADHS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
-            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
+            SearchParameterStateResponse result = await _mediator.SendAsync(request, cancellationToken);
 
             return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfSearchParameterStatusIsEnabledOrADHS();
             SearchParameterStateUpdateRequest updateRequest = ParseUpdateRequestBody(inputParams);
-            SearchParameterStateUpdateResponse result = await _mediator.Send(updateRequest, cancellationToken);
+            SearchParameterStateUpdateResponse result = await _mediator.SendAsync(updateRequest, cancellationToken);
 
             return FhirResult.Create(result.UpdateStatus, System.Net.HttpStatusCode.OK);
         }

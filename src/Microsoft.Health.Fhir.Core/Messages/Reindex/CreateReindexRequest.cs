@@ -5,7 +5,7 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using MediatR;
+using Medino;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
