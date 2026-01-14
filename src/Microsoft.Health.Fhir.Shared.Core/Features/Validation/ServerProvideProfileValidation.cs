@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
@@ -49,6 +50,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private DateTime _expirationTime;
         private ILogger<ServerProvideProfileValidation> _logger;
 
+        // Background task to monitor for profile changes.
+        private Task _backgroundTask;
+        private string _mostRecentProfileHash = string.Empty;
+
         public ServerProvideProfileValidation(
             Func<IScoped<ISearchService>> searchServiceFactory,
             IOptions<ValidateOperationConfiguration> options,
@@ -68,10 +73,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             _resourcesByUri = new FhirMemoryCache<Resource>(
                 nameof(ServerProvideProfileValidation),
-                50,
-                TimeSpan.FromDays(1000),
-                _logger,
+                sizeLimit: 500,
+                entryExpirationTime: TimeSpan.FromDays(1000),
+                logger: _logger,
                 limitType: FhirCacheLimitType.Count);
+
+            CancellationToken cancellationToken = CancellationToken.None;
+            _backgroundTask = Task.Run(() => BackgroundLoop(cancellationToken), cancellationToken);
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
@@ -83,8 +91,68 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public void Refresh()
         {
-            _logger.LogInformation("Marking profiles for refresh");
+            _logger.LogInformation("Profiles: Marking profiles for refresh");
             _expirationTime = DateTime.UtcNow.AddMilliseconds(-1);
+        }
+
+        public void Dispose()
+        {
+            _resourcesByUri?.Dispose();
+            _cacheSemaphore?.Dispose();
+        }
+
+        public async Task<Resource> ResolveByCanonicalUriAsync(string uri)
+        {
+            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByCanonicalUri(uri);
+            return LoadBySummary(summary);
+        }
+
+        public async Task<Resource> ResolveByUriAsync(string uri)
+        {
+            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByUri(uri);
+            return LoadBySummary(summary);
+        }
+
+        public async Task<IEnumerable<string>> GetSupportedProfilesAsync(string resourceType, CancellationToken cancellationToken, bool disableCacheRefresh = false)
+        {
+            IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(cancellationToken, false, disableCacheRefresh);
+            return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
+                .Where(x =>
+                {
+                    if (!x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
+                    {
+                        return false;
+                    }
+
+                    return string.Equals((string)type, resourceType, StringComparison.OrdinalIgnoreCase);
+                })
+                .Select(x => GetCanonicalUrl(x)).ToList();
+        }
+
+        private static string GetCanonicalUrl(ArtifactSummary artifact)
+        {
+            var url = artifact.ResourceUri;
+            if (artifact.TryGetValue(_structureDefinitionVersionKey, out object version) && version != null && !string.IsNullOrEmpty(version.ToString()))
+            {
+                return $"{url}|{version}";
+            }
+
+            return url;
+        }
+
+        private static string GetHashForSupportedProfiles(IReadOnlyCollection<ArtifactSummary> summaries)
+        {
+            if (summaries == null)
+            {
+                return string.Empty;
+            }
+
+            var sb = new StringBuilder();
+            summaries.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
+               .Where(x => x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
+               .Select(x => GetCanonicalUrl(x)).ToList().ForEach(url => sb.Append(url));
+
+            return sb.ToString().ComputeHash();
         }
 
         private async Task<IEnumerable<ArtifactSummary>> ListSummariesAsync(CancellationToken cancellationToken, bool resetStatementIfNew = true, bool disablePull = false)
@@ -102,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     return _summaries;
                 }
 
-                _logger.LogDebug("Profile cache expired, updating.");
+                _logger.LogDebug("Profiles: cache expired, updating.");
 
                 _resourcesByUri.Clear();
 
@@ -114,11 +182,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                 if (newHash != oldHash)
                 {
-                    _logger.LogDebug("New Profiles found.");
+                    _logger.LogDebug("Profiles: New Profiles found.");
                     await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
                 }
 
-                _logger.LogInformation("Profiles updated. {CountOfProfiles} Profile(s) are loaded in memory.", _summaries.Count);
+                _logger.LogInformation("Profiles: Profiles are updated. {CountOfProfiles} Profile(s) are loaded in memory.", _summaries.Count);
                 return _summaries;
             }
             finally
@@ -209,64 +277,79 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return null;
         }
 
-        public async Task<Resource> ResolveByCanonicalUriAsync(string uri)
+        private async Task BackgroundLoop(CancellationToken cancellationToken)
         {
-            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByCanonicalUri(uri);
-            return LoadBySummary(summary);
-        }
+            // Waiting for the service to be fully started.
+            // At this time profiles should have been loaded once.
+            await Task.Delay(TimeSpan.FromSeconds(300), cancellationToken);
 
-        public async Task<Resource> ResolveByUriAsync(string uri)
-        {
-            var summary = (await ListSummariesAsync(CancellationToken.None)).ResolveByUri(uri);
-            return LoadBySummary(summary);
-        }
+            while (true)
+            {
+                try
+                {
+                    string profileHash = await GetMostRecentProfileHashAsync(cancellationToken);
 
-        public async Task<IEnumerable<string>> GetSupportedProfilesAsync(string resourceType, CancellationToken cancellationToken, bool disableCacheRefresh = false)
-        {
-            IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(cancellationToken, false, disableCacheRefresh);
-            return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
-                .Where(x =>
+                    if (string.IsNullOrEmpty(_mostRecentProfileHash))
                     {
-                        if (!x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
-                        {
-                            return false;
-                        }
+                        _mostRecentProfileHash = profileHash;
+                        _logger.LogInformation("Profiles: Initial profile hash recorded. Hash: {ProfileHash}", profileHash);
+                    }
+                    else if (_mostRecentProfileHash != profileHash)
+                    {
+                        _mostRecentProfileHash = profileHash;
+                        _logger.LogInformation("Profiles: Changes detected in the server. Marking profiles for refresh. Hash: {ProfileHash}", profileHash);
+                        Refresh();
+                    }
+                }
+                catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogError(oce, "Profiles: Background profile update task cancelled.");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Profiles: Background profile update task failed.");
+                }
 
-                        return string.Equals((string)type, resourceType, StringComparison.OrdinalIgnoreCase);
-                    })
-                .Select(x => GetCanonicalUrl(x)).ToList();
+                await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken);
+            }
         }
 
-        private static string GetCanonicalUrl(ArtifactSummary artifact)
+        private async Task<string> GetMostRecentProfileHashAsync(CancellationToken cancellationToken)
         {
-            var url = artifact.ResourceUri;
-            if (artifact.TryGetValue(_structureDefinitionVersionKey, out object version) && version != null && !string.IsNullOrEmpty(version.ToString()))
+            StringBuilder hashBuilder = new StringBuilder();
+
+            using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
-                return $"{url}|{version}";
+                foreach (var type in _supportedTypes)
+                {
+                    string lastUpdatedStringPerType = "none";
+                    long countPerType = 0;
+
+                    var queryParameters = new List<Tuple<string, string>>
+                    {
+                        new Tuple<string, string>(KnownQueryParameterNames.Sort, "-_lastUpdated"),
+                        new Tuple<string, string>(KnownQueryParameterNames.Count, "1"),
+                        new Tuple<string, string>(KnownQueryParameterNames.Elements, "id,lastModified"),
+                    };
+                    var searchResult = await searchService.Value.SearchAsync(type, queryParameters, cancellationToken);
+                    if (searchResult.Results.Any())
+                    {
+                        lastUpdatedStringPerType = searchResult.Results.First().Resource.LastModified.ToString("o");
+                    }
+
+                    queryParameters = new List<Tuple<string, string>>
+                    {
+                        new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                    };
+                    searchResult = await searchService.Value.SearchAsync(type, queryParameters, cancellationToken);
+                    countPerType = searchResult.TotalCount ?? 0;
+
+                    hashBuilder.Append(string.Concat("{", type, ",", countPerType, ",", lastUpdatedStringPerType, "}"));
+                }
             }
 
-            return url;
-        }
-
-        private static string GetHashForSupportedProfiles(IReadOnlyCollection<ArtifactSummary> summaries)
-        {
-            if (summaries == null)
-            {
-                return string.Empty;
-            }
-
-            var sb = new StringBuilder();
-            summaries.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
-               .Where(x => x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
-               .Select(x => GetCanonicalUrl(x)).ToList().ForEach(url => sb.Append(url));
-
-            return sb.ToString().ComputeHash();
-        }
-
-        public void Dispose()
-        {
-            _resourcesByUri?.Dispose();
-            _cacheSemaphore?.Dispose();
+            return hashBuilder.ToString();
         }
     }
 }

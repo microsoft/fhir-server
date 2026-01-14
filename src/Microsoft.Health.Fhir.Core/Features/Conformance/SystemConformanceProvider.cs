@@ -236,13 +236,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     }
                 }
 
-                if (_builder != null)
+                try
                 {
-                    // Update search params;
-                    _builder.SyncSearchParameters();
+                    if (_builder != null)
+                    {
+                        // Update search params.
+                        _builder.SyncSearchParameters();
 
-                    // Update supported profiles;
-                    await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
+                        // Update supported profiles.
+                        await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
+                    }
+                }
+                catch (Exception e)
+                {
+                    // Do not let exceptions escape the background loop.
+                    _logger.LogError(e, "SystemConformanceProvider: Unexpected error during background capability statement rebuild.");
                 }
 
                 await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
