@@ -205,7 +205,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobInformation(_jobInfo, "Performing full SearchParameter database refresh and hash recalculation for reindex job.");
 
                 // Use the enhanced method with forceFullRefresh flag
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true);
+                // Wrapped with retry policy for SQL timeouts and Cosmos DB 429 errors
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true));
 
                 // Update the reindex job record with the latest hash map
                 _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
