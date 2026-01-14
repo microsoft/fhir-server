@@ -1,5 +1,4 @@
-﻿# Configuration based on https://help.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates
-
+# Configuration based on https://help.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates
 version: 2
 updates:
   - package-ecosystem: "nuget"
@@ -9,7 +8,6 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
-
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -17,7 +15,6 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
-
   - package-ecosystem: "docker"
     directory: "/build/docker"
     schedule:
@@ -25,3 +22,13 @@ updates:
       time: "08:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 20
+  - package-ecosystem: dotnet-sdk
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
