@@ -41,18 +41,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
         private static string _structureDefinitionVersionKey = "Conformance.version";
 
+        private readonly Task _backgroundTask;
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly FhirMemoryCache<Resource> _resourcesByUri;
         private readonly IMediator _mediator;
+
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
         private ILogger<ServerProvideProfileValidation> _logger;
-
-        // Background task to monitor for profile changes.
-        private Task _backgroundTask;
         private string _mostRecentProfileHash = string.Empty;
+        private bool _isExternalDependentSyncRequired = false;
 
         public ServerProvideProfileValidation(
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -78,15 +78,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 logger: _logger,
                 limitType: FhirCacheLimitType.Count);
 
-            CancellationToken cancellationToken = CancellationToken.None;
-            _backgroundTask = Task.Run(() => BackgroundLoop(cancellationToken), cancellationToken);
+            _backgroundTask = Task.Run(() => BackgroundLoop(CancellationToken.None), CancellationToken.None);
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
 
         public bool IsSyncRequested()
         {
-            return _expirationTime < DateTime.UtcNow;
+            return _isExternalDependentSyncRequired;
         }
 
         public void Refresh()
@@ -115,6 +114,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public async Task<IEnumerable<string>> GetSupportedProfilesAsync(string resourceType, CancellationToken cancellationToken, bool disableCacheRefresh = false)
         {
+            // Mark that sync is no longer required as we are fetching the latest profiles.
+            _isExternalDependentSyncRequired = false;
+
             IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(cancellationToken, false, disableCacheRefresh);
             return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                 .Where(x =>
@@ -279,9 +281,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private async Task BackgroundLoop(CancellationToken cancellationToken)
         {
+            const int startDelayInMinutes = 5;
+            const int validationDelayInMinutes = 1;
+
             // Waiting for the service to be fully started.
-            // At this time profiles should have been loaded once.
-            await Task.Delay(TimeSpan.FromSeconds(300), cancellationToken);
+            // At this time profiles should have been loaded at least once.
+            await Task.Delay(TimeSpan.FromMinutes(startDelayInMinutes), cancellationToken);
 
             while (true)
             {
@@ -293,12 +298,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     {
                         _mostRecentProfileHash = profileHash;
                         _logger.LogInformation("Profiles: Initial profile hash recorded. Hash: {ProfileHash}", profileHash);
+                        _isExternalDependentSyncRequired = true;
                     }
                     else if (_mostRecentProfileHash != profileHash)
                     {
                         _mostRecentProfileHash = profileHash;
-                        _logger.LogInformation("Profiles: Changes detected in the server. Marking profiles for refresh. Hash: {ProfileHash}", profileHash);
-                        Refresh();
+                        _logger.LogInformation("Profiles: Changes detected in the server. Letting dependents know refresh is required. Hash: {ProfileHash}", profileHash);
+                        _isExternalDependentSyncRequired = true;
                     }
                 }
                 catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
@@ -311,7 +317,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     _logger.LogError(ex, "Profiles: Background profile update task failed.");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken);
+                await Task.Delay(TimeSpan.FromMinutes(validationDelayInMinutes), cancellationToken);
             }
         }
 
