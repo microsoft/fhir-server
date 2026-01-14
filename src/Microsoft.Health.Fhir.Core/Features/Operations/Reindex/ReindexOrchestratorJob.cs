@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.JsonPatch.Internal;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -54,6 +55,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
+
+        /// <summary>
+        /// Retry policy for Cosmos DB 429 (TooManyRequests) errors.
+        /// Uses the RetryAfter hint from Cosmos DB if available, otherwise waits 1-5 seconds.
+        /// </summary>
+        private static readonly AsyncPolicy _requestRateRetries = Policy
+            .Handle<RequestRateExceededException>()
+            .WaitAndRetryAsync(
+                3,
+                (retryAttempt, exception, context) =>
+                {
+                    var rrException = exception as RequestRateExceededException;
+                    return rrException?.RetryAfter ?? TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000));
+                },
+                (exception, timeSpan, retryAttempt, context) => Task.CompletedTask);
+
+        /// <summary>
+        /// Combined retry policy for search parameter status updates.
+        /// Handles both SQL Server timeouts and Cosmos DB 429 errors.
+        /// </summary>
+        private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
         private HashSet<long> _processedJobIds = new HashSet<long>();
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
@@ -756,12 +778,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     case SearchParameterStatus.PendingDisable:
                         _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Disabled.", searchParameterUrl);
-                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Disabled, cancellationToken);
+                        await _searchParameterStatusRetries.ExecuteAsync(
+                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Disabled, cancellationToken));
                         _processedSearchParameters.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.PendingDelete:
                         _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Deleted.", searchParameterUrl);
-                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Deleted, cancellationToken);
+                        await _searchParameterStatusRetries.ExecuteAsync(
+                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Deleted, cancellationToken));
                         _processedSearchParameters.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.Supported:
@@ -774,7 +798,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (fullyIndexedParamUris.Count > 0)
             {
                 _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris} to Enabled.'", string.Join("', '", fullyIndexedParamUris));
-                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken);
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken));
                 _processedSearchParameters.UnionWith(fullyIndexedParamUris);
             }
         }
