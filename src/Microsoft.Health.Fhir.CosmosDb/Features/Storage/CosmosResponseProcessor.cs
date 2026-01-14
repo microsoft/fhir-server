@@ -144,7 +144,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (!string.IsNullOrEmpty(sessionToken))
             {
-                fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
+                try
+                {
+                    fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
+                }
+                catch (InvalidOperationException e)
+                {
+                    _logger.LogError(e, "Error setting session token in response headers.");
+                }
             }
 
             if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessagesProperty, out object propertyValue))

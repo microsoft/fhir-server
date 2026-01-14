@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private async Task BackgroundLoop(CancellationToken cancellationToken)
         {
-            const int startDelayInMinutes = 5;
+            const int startDelayInMinutes = 2;
             const int validationDelayInMinutes = 1;
 
             // Waiting for the service to be fully started.
@@ -290,31 +290,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             while (true)
             {
+                Stopwatch stopwatch = Stopwatch.StartNew();
                 try
                 {
                     string profileHash = await GetMostRecentProfileHashAsync(cancellationToken);
+                    stopwatch.Stop();
 
                     if (string.IsNullOrEmpty(_mostRecentProfileHash))
                     {
                         _mostRecentProfileHash = profileHash;
-                        _logger.LogInformation("Profiles: Initial profile hash recorded. Hash: {ProfileHash}", profileHash);
+                        _logger.LogInformation("Profiles: Initial profile hash recorded. Hash: {ProfileHash}. Elapsed time: {ElapsedTime}ms", profileHash, stopwatch.ElapsedMilliseconds);
                         _isExternalDependentSyncRequired = true;
                     }
                     else if (_mostRecentProfileHash != profileHash)
                     {
                         _mostRecentProfileHash = profileHash;
-                        _logger.LogInformation("Profiles: Changes detected in the server. Letting dependents know refresh is required. Hash: {ProfileHash}", profileHash);
+                        _logger.LogInformation("Profiles: Changes detected in the server. Letting dependents know refresh is required. Hash: {ProfileHash}. Elapsed time: {ElapsedTime}ms", profileHash, stopwatch.ElapsedMilliseconds);
                         _isExternalDependentSyncRequired = true;
                     }
                 }
                 catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogError(oce, "Profiles: Background profile update task cancelled.");
+                    _logger.LogError(oce, "Profiles: Background profile update task cancelled. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
                     return;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Profiles: Background profile update task failed.");
+                    _logger.LogError(ex, "Profiles: Background profile update task failed. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
                 }
 
                 await Task.Delay(TimeSpan.FromMinutes(validationDelayInMinutes), cancellationToken);
