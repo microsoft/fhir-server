@@ -857,7 +857,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
                 string userAction = Core.Resources.ReindexingUserAction;
-                _logger.LogWarning("{Warning}", message);
+                _logger.LogError("{Error}", message);
+                throw new PreconditionFailedException(message + " " + userAction);
             }
         }
 

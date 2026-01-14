@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -34,6 +35,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(MaxTimeoutRetries, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
+
+        private static readonly AsyncPolicy _requestRateRetries = Policy
+            .Handle<RequestRateExceededException>()
+            .WaitAndRetryAsync(
+                MaxTimeoutRetries,
+                (_, ex, _) =>
+                {
+                    if (ex is RequestRateExceededException rateEx && rateEx.RetryAfter.HasValue)
+                    {
+                        return rateEx.RetryAfter.Value;
+                    }
+
+                    return TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000));
+                },
+                (_, _, _, _) => Task.CompletedTask);
+
+        /// <summary>
+        /// Combined retry policy for BulkUpdateSearchParameterIndicesAsync that handles both
+        /// SQL Server timeouts and Cosmos DB 429 (TooManyRequests) errors.
+        /// </summary>
+        private static readonly AsyncPolicy _bulkUpdateRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
@@ -531,7 +553,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 for (int i = 0; i < updateSearchIndices.Count; i += batchSize)
                 {
                     var batch = updateSearchIndices.GetRange(i, Math.Min(batchSize, updateSearchIndices.Count - i));
-                    await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken);
+                    try
+                    {
+                        await _bulkUpdateRetries.ExecuteAsync(
+                            async () => await store.Value.BulkUpdateSearchParameterIndicesAsync(batch, cancellationToken));
+                    }
+                    catch (PreconditionFailedException ex)
+                    {
+                        // Version conflicts can occur when resources are updated during reindex.
+                        // Log warning and continue - conflicting resources will be picked up in the next reindex cycle.
+                        _logger.LogWarning(ex, "Version conflict during reindex batch update. Some resources were modified during reindex and will be reprocessed in a subsequent cycle.");
+                    }
 
                     if (cancellationToken.IsCancellationRequested)
                     {

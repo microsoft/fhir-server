@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -651,6 +652,72 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.NotNull(jobResult.Error);
             Assert.Contains("General error", jobResult.Error);
             Assert.Equal(1, jobResult.FailedResourceCount);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithPreconditionFailedException_JobCompletesSuccessfully()
+        {
+            // Arrange: Set up a job that will have a version conflict during bulk update
+            var expectedResourceType = "Patient";
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 3,
+                    EndResourceSurrogateId = 300,
+                    StartResourceSurrogateId = 1,
+                },
+                ResourceTypeSearchParameterHashMap = "patientHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap);
+
+            var jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var searchResultEntries = Enumerable.Range(1, 3)
+                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
+                .ToList();
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(new SearchResult(
+                    searchResultEntries,
+                    null,
+                    null,
+                    new List<Tuple<string, string>>()));
+
+            // Simulate version conflict - PreconditionFailedException should be caught and logged, not fail the job
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(
+                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
+                Arg.Any<CancellationToken>())
+                .Returns(Task.FromException(new PreconditionFailedException("2 resources had version conflicts during reindex.")));
+
+            // Act
+            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+
+            // Assert: Job should complete successfully without error, and resources should be counted as succeeded
+            // (the conflicting resources will be picked up in the next reindex cycle)
+            Assert.Null(jobResult.Error);
+            Assert.Equal(3, jobResult.SucceededResourceCount);
+            Assert.Equal(0, jobResult.FailedResourceCount);
         }
 
         [Fact]
