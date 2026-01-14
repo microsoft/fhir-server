@@ -873,5 +873,92 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             // Verify multiple batches were fetched (at least 2 for the resources + 1 that returns empty)
             Assert.True(callCount >= 2, $"Expected at least 2 search calls for batch processing, but got {callCount}");
         }
+
+        [Fact]
+        public async Task ExecuteAsync_WithOutOfMemoryException_ReducesBatchSizeAndRetries()
+        {
+            var expectedResourceType = "DiagnosticReport";
+            int callCount = 0;
+
+            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 10000, // Large batch that might cause OOM
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 5,
+                    EndResourceSurrogateId = 1000,
+                    StartResourceSurrogateId = 1,
+                },
+                ResourceTypeSearchParameterHashMap = "diagnosticHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 100,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 100,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var successfulEntries = Enumerable.Range(1, 5)
+                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
+                .ToList();
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(callInfo =>
+                {
+                    callCount++;
+
+                    // First call throws OOM to simulate large resource fetch failure
+                    if (callCount == 1)
+                    {
+                        throw new OutOfMemoryException("Simulated OOM when fetching large batch of resources");
+                    }
+
+                    // After OOM, subsequent calls succeed with resources
+                    if (callCount == 2)
+                    {
+                        return new SearchResult(
+                            successfulEntries,
+                            null,
+                            null,
+                            new List<Tuple<string, string>>())
+                        {
+                            MaxResourceSurrogateId = 500,
+                            TotalCount = 5,
+                        };
+                    }
+
+                    // Final call returns empty (no more resources)
+                    return new SearchResult(
+                        new List<SearchResultEntry>(),
+                        null,
+                        null,
+                        new List<Tuple<string, string>>())
+                    {
+                        TotalCount = 0,
+                    };
+                });
+
+            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+
+            // Verify resources were processed after OOM recovery
+            Assert.Equal(5, jobResult.SucceededResourceCount);
+
+            // Verify OOM was handled and recovery happened (first call fails, subsequent calls succeed)
+            Assert.True(callCount >= 2, $"Expected at least 2 search calls for OOM recovery, but got {callCount}");
+        }
     }
 }
