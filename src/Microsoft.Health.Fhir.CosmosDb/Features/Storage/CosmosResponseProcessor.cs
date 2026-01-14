@@ -150,6 +150,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 catch (InvalidOperationException e)
                 {
+                    // InvalidOperationException can be thrown if the headers collection is read-only.
+                    // Adding this catch to avoid potential crashes in such scenarios and track how often this occurs.
                     _logger.LogError(e, "Error setting session token in response headers.");
                 }
             }

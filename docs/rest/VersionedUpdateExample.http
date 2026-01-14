@@ -230,13 +230,23 @@ If-Match: W/"2"
   }
 }
 
+
+###
+# Post a us-core-patient profile
+# This will be returned in capability statement.
+### 
+GET https://{{hostname}}/Metadata
+
+
+
+
 ###
 # Post a us-core-patient profile
 # This will be returned in capability statement.
 # @name patient
 POST https://{{hostname}}/StructureDefinition
 Content-Type: application/json
-Authorization: Bearer {{bearer.response.body.access_token}}
+// Authorization: Bearer {{bearer.response.body.access_token}}
 
 {
   "resourceType": "StructureDefinition",
