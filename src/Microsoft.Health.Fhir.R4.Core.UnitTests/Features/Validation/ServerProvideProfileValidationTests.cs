@@ -60,8 +60,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
                 _searchServiceFactory,
                 _options,
                 _mediator,
-                NullLogger<ServerProvideProfileValidation>.Instance,
-                _hostApplicationLifetime);
+                _hostApplicationLifetime,
+                NullLogger<ServerProvideProfileValidation>.Instance);
         }
 
         [Fact]

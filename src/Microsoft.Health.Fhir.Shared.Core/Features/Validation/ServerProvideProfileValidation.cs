@@ -60,8 +60,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             Func<IScoped<ISearchService>> searchServiceFactory,
             IOptions<ValidateOperationConfiguration> options,
             IMediator mediator,
-            ILogger<ServerProvideProfileValidation> logger,
-            IHostApplicationLifetime hostApplicationLifetime)
+            IHostApplicationLifetime hostApplicationLifetime,
+            ILogger<ServerProvideProfileValidation> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
@@ -83,8 +83,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 limitType: FhirCacheLimitType.Count);
 
             // Setting up background task to monitor profile changes.
-            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
-            _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
+            // The background task will only be created if the interval is higher than zero.
+            if (_validateOperationConfig.BackgroundProfileStatusCheckIntervalInSeconds > 0)
+            {
+                _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
+                _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
+            }
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
