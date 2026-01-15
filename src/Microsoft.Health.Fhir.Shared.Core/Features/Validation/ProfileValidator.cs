@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private void CheckForMissingProfileFailures(OperationOutcome operationOutcome)
         {
-            if (operationOutcome == null || operationOutcome?.Errors == 0)
+            if (operationOutcome == null || operationOutcome.Errors == 0 || operationOutcome.Issue == null || !operationOutcome.Issue.Any())
             {
                 return;
             }
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             {
                 if (issue.Details?.Text?.Contains("Unable to resolve reference to profile", StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    _logger.LogDebug("Validation failure due to missing profile.");
+                    _logger.LogDebug("Validation failure due to missing profile. {Details}", issue.Details.Text);
                 }
             }
         }
