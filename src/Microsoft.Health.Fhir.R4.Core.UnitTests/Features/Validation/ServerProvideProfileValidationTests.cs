@@ -7,10 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -33,6 +32,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
     [Trait(Traits.Category, Categories.Validate)]
     public class ServerProvideProfileValidationTests : IDisposable
     {
+        private readonly IHostApplicationLifetime _hostApplicationLifetime;
         private readonly ISearchService _searchService;
         private readonly IScoped<ISearchService> _scopedSearchService;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
@@ -42,6 +42,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
 
         public ServerProvideProfileValidationTests()
         {
+            _hostApplicationLifetime = Substitute.For<IHostApplicationLifetime>();
+            _hostApplicationLifetime.ApplicationStopping.Returns(CancellationToken.None);
             _searchService = Substitute.For<ISearchService>();
             _scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             _scopedSearchService.Value.Returns(_searchService);
@@ -58,7 +60,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
                 _searchServiceFactory,
                 _options,
                 _mediator,
-                NullLogger<ServerProvideProfileValidation>.Instance);
+                NullLogger<ServerProvideProfileValidation>.Instance,
+                _hostApplicationLifetime);
         }
 
         [Fact]

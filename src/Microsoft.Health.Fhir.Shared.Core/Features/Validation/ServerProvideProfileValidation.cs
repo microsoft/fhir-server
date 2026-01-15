@@ -15,10 +15,10 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Specification;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Summary;
 using MediatR;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
@@ -42,28 +42,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private static string _structureDefinitionVersionKey = "Conformance.version";
 
         private readonly Task _backgroundTask;
+        private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly FhirMemoryCache<Resource> _resourcesByUri;
         private readonly IMediator _mediator;
 
+        private bool _isDisposed = false;
+        private string _mostRecentProfileHash = string.Empty;
+        private bool _isExternalDependentSyncRequired = false;
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
         private ILogger<ServerProvideProfileValidation> _logger;
-        private string _mostRecentProfileHash = string.Empty;
-        private bool _isExternalDependentSyncRequired = false;
 
         public ServerProvideProfileValidation(
             Func<IScoped<ISearchService>> searchServiceFactory,
             IOptions<ValidateOperationConfiguration> options,
             IMediator mediator,
-            ILogger<ServerProvideProfileValidation> logger)
+            ILogger<ServerProvideProfileValidation> logger,
+            IHostApplicationLifetime hostApplicationLifetime)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(hostApplicationLifetime, nameof(hostApplicationLifetime));
 
             _searchServiceFactory = searchServiceFactory;
             _expirationTime = DateTime.UtcNow;
@@ -78,7 +82,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 logger: _logger,
                 limitType: FhirCacheLimitType.Count);
 
-            _backgroundTask = Task.Run(() => BackgroundLoop(CancellationToken.None), CancellationToken.None);
+            // Setting up background task to monitor profile changes.
+            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
+            _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
@@ -96,8 +102,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public void Dispose()
         {
-            _resourcesByUri?.Dispose();
-            _cacheSemaphore?.Dispose();
+            if (!_isDisposed)
+            {
+                if (_cancellationTokenSource?.IsCancellationRequested == false)
+                {
+                    _cancellationTokenSource.Cancel();
+                }
+
+                _resourcesByUri?.Dispose();
+                _cacheSemaphore?.Dispose();
+                _cancellationTokenSource?.Dispose();
+
+                _isDisposed = true;
+            }
         }
 
         public async Task<Resource> ResolveByCanonicalUriAsync(string uri)
@@ -281,12 +298,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private async Task BackgroundLoop(CancellationToken cancellationToken)
         {
-            const int startDelayInMinutes = 2;
-            const int validationDelayInMinutes = 1;
-
             // Waiting for the service to be fully started.
             // At this time profiles should have been loaded at least once.
-            await Task.Delay(TimeSpan.FromMinutes(startDelayInMinutes), cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(_validateOperationConfig.BackgroundProfileStatusDelayedStartInSeconds), cancellationToken);
 
             while (true)
             {
@@ -311,16 +325,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 }
                 catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogError(oce, "Profiles: Background profile update task cancelled. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
-                    return;
+                    _logger.LogError(oce, "Profiles: Background profile status task cancelled. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Profiles: Background profile update task failed. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
+                    _logger.LogError(ex, "Profiles: Background profile status task failed. Elapsed time: {ElapsedTime}ms", stopwatch.ElapsedMilliseconds);
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(validationDelayInMinutes), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(_validateOperationConfig.BackgroundProfileStatusCheckIntervalInSeconds), cancellationToken);
             }
+
+            _logger.LogInformation("Profiles: Background profile status task is completed.");
         }
 
         private async Task<string> GetMostRecentProfileHashAsync(CancellationToken cancellationToken)
