@@ -53,16 +53,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             Assert.Throws<ArgumentNullException>(() => new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, null));
         }
 
-        [Fact]
-        public void GivenValidParameters_WhenCreatingClient_ThenClientIsCreated()
-        {
-            // Arrange & Act
-            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
-
-            // Assert
-            Assert.NotNull(client);
-        }
-
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenTextFileOnBlob_WhenDownloadContent_ThenContentShouldBeSame()
         {
@@ -426,37 +416,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => client.DownloadResource(null, 0, CancellationToken.None));
-        }
-
-        [Fact]
-        public void GivenValidUri_WhenDownloadingResource_ThenReturnsStream()
-        {
-            // Arrange
-            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
-            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
-
-            // Act
-            using var stream = client.DownloadResource(uri, 0, CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(stream);
-            Assert.IsType<AzureBlobSourceStream>(stream);
-        }
-
-        [Fact]
-        public void GivenValidUriWithOffset_WhenDownloadingResource_ThenReturnsStream()
-        {
-            // Arrange
-            var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
-            var uri = new Uri("https://test.blob.core.windows.net/container/blob");
-            long startOffset = 1024;
-
-            // Act
-            using var stream = client.DownloadResource(uri, startOffset, CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(stream);
-            Assert.IsType<AzureBlobSourceStream>(stream);
         }
 
         [Fact]

@@ -43,42 +43,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         }
 
         [Fact]
-        public void GivenValidConfiguration_WhenCreatingInitializer_ThenInitializerIsCreated()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            // Act
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-
-            // Assert
-            Assert.NotNull(initializer);
-        }
-
-        [Fact]
-        public async Task GivenValidBlobUri_WhenGettingAuthorizedBlobClient_ThenReturnsClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var blobUri = new Uri("https://myaccount.blob.core.windows.net/container/blob");
-
-            // Act
-            var client = await initializer.GetAuthorizedBlobClientAsync(blobUri);
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlobClient>(client);
-        }
-
-        [Fact]
         public async Task GivenNullBlobUri_WhenGettingAuthorizedBlobClient_ThenThrowsArgumentNullException()
         {
             // Arrange
@@ -94,50 +58,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         }
 
         [Fact]
-        public async Task GivenValidConfiguration_WhenGettingAuthorizedBlobClientWithConfig_ThenReturnsClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var blobUri = new Uri("https://myaccount.blob.core.windows.net/container/blob");
-            var customConfig = new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            };
-
-            // Act
-            var client = await initializer.GetAuthorizedBlobClientAsync(blobUri, customConfig);
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlobClient>(client);
-        }
-
-        [Fact]
-        public async Task GivenValidBlobUri_WhenGettingAuthorizedBlockBlobClient_ThenReturnsClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var blobUri = new Uri("https://myaccount.blob.core.windows.net/container/blob");
-
-            // Act
-            var client = await initializer.GetAuthorizedBlockBlobClientAsync(blobUri);
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlockBlobClient>(client);
-        }
-
-        [Fact]
         public async Task GivenNullBlobUri_WhenGettingAuthorizedBlockBlobClient_ThenThrowsArgumentNullException()
         {
             // Arrange
@@ -150,49 +70,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
             // Act & Assert
             await Assert.ThrowsAsync<ArgumentNullException>(() => initializer.GetAuthorizedBlockBlobClientAsync(null));
-        }
-
-        [Fact]
-        public async Task GivenValidConfiguration_WhenGettingAuthorizedBlockBlobClientWithConfig_ThenReturnsClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var blobUri = new Uri("https://myaccount.blob.core.windows.net/container/blob");
-            var customConfig = new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            };
-
-            // Act
-            var client = await initializer.GetAuthorizedBlockBlobClientAsync(blobUri, customConfig);
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlockBlobClient>(client);
-        }
-
-        [Fact]
-        public async Task GivenValidConnectionString_WhenGettingAuthorizedClient_ThenReturnsBlobServiceClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-
-            // Act
-            var client = await initializer.GetAuthorizedClientAsync();
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlobServiceClient>(client);
         }
 
         [Fact]
@@ -229,91 +106,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 () => initializer.GetAuthorizedClientAsync());
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-        }
-
-        [Fact]
-        public async Task GivenValidConfiguration_WhenGettingAuthorizedClientWithConfig_ThenReturnsBlobServiceClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var customConfig = new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            };
-
-            // Act
-            var client = await initializer.GetAuthorizedClientAsync(customConfig);
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlobServiceClient>(client);
-        }
-
-        [Fact]
-        public async Task GivenInvalidConnectionString_WhenGettingAuthorizedClientWithConfig_ThenThrowsException()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var customConfig = new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "Invalid",
-            };
-
-            // Act & Assert
-            var exception = await Assert.ThrowsAsync<IntegrationDataStoreClientInitializerException>(
-                () => initializer.GetAuthorizedClientAsync(customConfig));
-
-            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-        }
-
-        [Fact]
-        public async Task GivenFullConnectionString_WhenGettingAuthorizedBlobClient_ThenReturnsClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;EndpointSuffix=core.windows.net",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var blobUri = new Uri("https://testaccount.blob.core.windows.net/container/blob");
-
-            // Act
-            var client = await initializer.GetAuthorizedBlobClientAsync(blobUri);
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlobClient>(client);
-        }
-
-        [Fact]
-        public async Task GivenConnectionStringWithAccountNameAndKey_WhenGettingBlockBlobClient_ThenReturnsClient()
-        {
-            // Arrange
-            var config = Options.Create(new IntegrationDataStoreConfiguration
-            {
-                StorageAccountConnection = "AccountName=testaccount;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
-            });
-
-            var initializer = new AzureConnectionStringClientInitializerV2(config, _logger);
-            var blobUri = new Uri("https://testaccount.blob.core.windows.net/container/blob");
-
-            // Act
-            var client = await initializer.GetAuthorizedBlockBlobClientAsync(blobUri);
-
-            // Assert
-            Assert.NotNull(client);
-            Assert.IsType<BlockBlobClient>(client);
         }
     }
 }

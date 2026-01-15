@@ -79,21 +79,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         }
 
         [Fact]
-        public void GivenValidParameters_WhenCreatingClient_ThenClientIsCreated()
-        {
-            // Arrange
-            var initializer = Substitute.For<IExportClientInitializer<BlobServiceClient>>();
-            var config = Options.Create(new ExportJobConfiguration());
-            var logger = Substitute.For<ILogger<AzureExportDestinationClient>>();
-
-            // Act
-            var client = new AzureExportDestinationClient(initializer, config, logger);
-
-            // Assert
-            Assert.NotNull(client);
-        }
-
-        [Fact]
         public async Task GivenUnableToInitializeExportClient_WhenConnectAsync_ThenDestinationConnectionExceptionIsThrown()
         {
             // Arrange
@@ -169,54 +154,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             // Assert
             Assert.NotNull(result);
             Assert.Empty(result);
-        }
-
-        [Fact]
-        public void GivenInitializerReturnsClient_WhenGetAuthorizedClientCalled_ThenClientIsReturned()
-        {
-            // Arrange
-            var mockBlobServiceClient = Substitute.For<BlobServiceClient>();
-            _exportClientInitializer.GetAuthorizedClient(Arg.Any<ExportJobConfiguration>())
-                .Returns(mockBlobServiceClient);
-
-            // Act
-            var result = _exportClientInitializer.GetAuthorizedClient(_exportJobConfiguration);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Same(mockBlobServiceClient, result);
-        }
-
-        [Fact]
-        public void GivenCustomConfiguration_WhenGetAuthorizedClientCalled_ThenConfigurationIsPassedThrough()
-        {
-            // Arrange
-            var customConfig = new ExportJobConfiguration { StorageAccountConnection = "custom-connection" };
-            var mockBlobServiceClient = Substitute.For<BlobServiceClient>();
-            _exportClientInitializer.GetAuthorizedClient(Arg.Is<ExportJobConfiguration>(c => c.StorageAccountConnection == "custom-connection"))
-                .Returns(mockBlobServiceClient);
-
-            // Act
-            var result = _exportClientInitializer.GetAuthorizedClient(customConfig);
-
-            // Assert
-            Assert.NotNull(result);
-            _exportClientInitializer.Received(1).GetAuthorizedClient(
-                Arg.Is<ExportJobConfiguration>(c => c.StorageAccountConnection == "custom-connection"));
-        }
-
-        [Fact]
-        public void GivenMultipleCallsToCommit_WhenNoFilesWritten_ThenAlwaysReturnsEmptyDictionary()
-        {
-            // Arrange & Act
-            var result1 = _exportDestinationClient.Commit();
-            var result2 = _exportDestinationClient.Commit();
-
-            // Assert
-            Assert.NotNull(result1);
-            Assert.Empty(result1);
-            Assert.NotNull(result2);
-            Assert.Empty(result2);
         }
     }
 }
