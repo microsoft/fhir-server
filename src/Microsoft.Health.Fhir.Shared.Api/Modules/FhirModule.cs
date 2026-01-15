@@ -153,11 +153,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<TextOutputFormatter>();
 
-            services.Add<FhirRequestContextAccessor>()
-                .Singleton()
-                .AsSelf()
-                .AsService<RequestContextAccessor<IFhirRequestContext>>();
-
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
