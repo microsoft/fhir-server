@@ -14,8 +14,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
     /// For expressions over a reference search parameter where the type is not specified
-    /// (e.g. "abc" instead of "Patient/123") AND the search parameter is constrained to be
-    /// of only one type, rewrites the expression to specify the single target type.
+    /// (e.g. "abc" instead of "Patient/123"), rewrites the expression to specify the target type(s).
+    /// If the search parameter has one target type, adds an equality filter.
+    /// If the search parameter has multiple target types, adds an OR expression with all possible types.
     /// </summary>
     internal class UntypedReferenceRewriter : ExpressionRewriterWithInitialContext<object>
     {
@@ -25,16 +26,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             // Handle reference search parameters as well as composite search parameters with one or more reference components.
             // We first create a bitmask with bits set representing the component indexes that are candidates for this rule.
-            // Bit 0 is for reference, non-composite parameters where the reference is of a single possible type
-            // Bits 1 and up represent the component indexes (plus one) where the component is a reference search parameter with one type
+            // Bit 0 is for reference, non-composite parameters where the reference has one or more target resource types
+            // Bits 1 and up represent the component indexes (plus one) where the component is a reference search parameter with one or more target types
 
             int componentCandidates = expression.Parameter.Type switch
             {
-                SearchParamType.Reference when expression.Parameter.TargetResourceTypes?.Count == 1 => 1,
+                SearchParamType.Reference when expression.Parameter.TargetResourceTypes?.Count >= 1 => 1,
                 SearchParamType.Composite =>
                     expression.Parameter.Component.Aggregate(
                             (index: 1, flags: 0),
-                            (acc, c) => (index: acc.index + 1, flags: acc.flags | (c.ResolvedSearchParameter.Type == SearchParamType.Reference && c.ResolvedSearchParameter.TargetResourceTypes?.Count == 1 ? 1 << acc.index : 0)))
+                            (acc, c) => (index: acc.index + 1, flags: acc.flags | (c.ResolvedSearchParameter.Type == SearchParamType.Reference && c.ResolvedSearchParameter.TargetResourceTypes?.Count >= 1 ? 1 << acc.index : 0)))
                         .flags,
                 _ => 0,
             };
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         /// <param name="searchParameter">The context search parameter</param>
         /// <param name="expression">The expression to rewrite</param>
         /// <param name="componentCandidates">
-        ///     A bitset with bits set at indexes where components are reference search parameters that can be of a single type.
+        ///     A bitset with bits set at indexes where components are reference search parameters that have one or more target types.
         ///     Bit index 0 is used for non-composite search parameters. Bits 1 and up are the one-based indexes of the components of a composite search parameter.</param>
         /// <returns>A rewritten expression or the same instance if no changes made.</returns>
         private static Expression RewriteSubexpression(SearchParameterInfo searchParameter, Expression expression, int componentCandidates)
@@ -135,11 +136,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 int? actualComponentIndex = i == 0 ? null : (i - 1);
 
-                string targetResourceType = actualComponentIndex == null
-                    ? searchParameter.TargetResourceTypes.Single()
-                    : searchParameter.Component[actualComponentIndex.Value].ResolvedSearchParameter.TargetResourceTypes.Single();
+                IReadOnlyList<string> targetResourceTypes = actualComponentIndex == null
+                    ? searchParameter.TargetResourceTypes
+                    : searchParameter.Component[actualComponentIndex.Value].ResolvedSearchParameter.TargetResourceTypes;
 
-                newExpressionsToBeAnded.Add(Expression.StringEquals(FieldName.ReferenceResourceType, actualComponentIndex, targetResourceType, false));
+                if (targetResourceTypes.Count == 1)
+                {
+                    // Single target type - add simple equality expression
+                    newExpressionsToBeAnded.Add(Expression.StringEquals(FieldName.ReferenceResourceType, actualComponentIndex, targetResourceTypes[0], false));
+                }
+                else
+                {
+                    // Multiple target types - add OR expression
+                    var typeExpressions = targetResourceTypes
+                        .Select(t => Expression.StringEquals(FieldName.ReferenceResourceType, actualComponentIndex, t, false))
+                        .ToArray();
+                    newExpressionsToBeAnded.Add(Expression.Or(typeExpressions));
+                }
             }
 
             return Expression.And(newExpressionsToBeAnded);
