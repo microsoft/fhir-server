@@ -139,6 +139,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
+            // This is needed for tracking if a request is truncating include results.
+            // The context is shared for the lifetime of the request, so the issues need to be cleared between searches.
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+
             var searchCount = 1000;
             bool tooManyIncludeResults = false;
 
