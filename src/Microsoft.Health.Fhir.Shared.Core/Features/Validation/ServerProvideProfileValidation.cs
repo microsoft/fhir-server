@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                         new Tuple<string, string>(KnownQueryParameterNames.Elements, "id,lastModified"),
                     };
                     var searchResult = await searchService.Value.SearchAsync(type, queryParameters, cancellationToken);
-                    if (searchResult.Results.Any())
+                    if (searchResult?.Results?.Any() == true)
                     {
                         lastUpdatedStringPerType = searchResult.Results.First().Resource.LastModified.ToString("o");
                     }
@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                         new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
                     };
                     searchResult = await searchService.Value.SearchAsync(type, queryParameters, cancellationToken);
-                    countPerType = searchResult.TotalCount ?? 0;
+                    countPerType = searchResult?.TotalCount ?? 0;
 
                     hashBuilder.Append(string.Concat("{", type, ",", countPerType, ",", lastUpdatedStringPerType, "}"));
                 }

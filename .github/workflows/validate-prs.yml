@@ -96,7 +96,7 @@ jobs:
 
             if(labels.includes("ADR-Included") == false &&
                labels.includes("No-ADR") == false) &&
-               excludeAuthors.includes(author) == false {
+               excludeAuthors.includes(author) == false) {
               errors += '- Tag the PR with **No-ADR** or **ADR-Included** to indicate whether documentation for the change is provided or not. \n';
             }
 
