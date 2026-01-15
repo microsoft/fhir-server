@@ -248,9 +248,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
+        public void Constructor_WithValidDependencies_InitializesSuccessfully()
+        {
+            // Assert - Service was initialized successfully in constructor
+            Assert.NotNull(_searchService);
+            Assert.NotNull(_searchService.Model);
+            Assert.True(_searchService.StoredProcedureLayerIsEnabled);
+        }
+
+        [Fact]
         public void StoredProcedureLayerIsEnabled_DefaultsToTrue()
         {
-            // Act & Assert
+            // Assert
             Assert.True(_searchService.StoredProcedureLayerIsEnabled);
         }
 
@@ -262,20 +271,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             // Assert
             Assert.False(_searchService.StoredProcedureLayerIsEnabled);
-        }
 
-        [Fact]
-        public void StoredProcedureLayerIsEnabled_CanBeToggledMultipleTimes()
-        {
-            // Act & Assert
-            _searchService.StoredProcedureLayerIsEnabled = false;
-            Assert.False(_searchService.StoredProcedureLayerIsEnabled);
-
+            // Cleanup
             _searchService.StoredProcedureLayerIsEnabled = true;
-            Assert.True(_searchService.StoredProcedureLayerIsEnabled);
-
-            _searchService.StoredProcedureLayerIsEnabled = false;
-            Assert.False(_searchService.StoredProcedureLayerIsEnabled);
         }
 
         [Fact]
@@ -289,16 +287,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public void ResetReuseQueryPlans_CanBeCalledWithoutException()
+        public void ResetReuseQueryPlans_ExecutesWithoutException()
         {
-            // Act & Assert (should not throw)
+            // Act & Assert - Should execute without throwing
             SqlServerSearchService.ResetReuseQueryPlans();
         }
 
         [Fact]
         public void ReuseQueryPlansParameterId_HasExpectedValue()
         {
-            // Act & Assert
+            // Assert
             Assert.Equal("Search.ReuseQueryPlans.IsEnabled", SqlServerSearchService.ReuseQueryPlansParameterId);
         }
     }

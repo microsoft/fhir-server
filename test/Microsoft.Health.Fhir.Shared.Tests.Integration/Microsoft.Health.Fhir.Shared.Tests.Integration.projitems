@@ -33,6 +33,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlRetryServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerCreateStatsForSmartTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerMemberMatchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSearchParameterStatusDataStoreTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSetMergeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerCreateStatsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerColumnTypeChangeTests.cs" />
