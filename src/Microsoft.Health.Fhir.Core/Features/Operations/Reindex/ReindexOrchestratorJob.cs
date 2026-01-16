@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.SearchParams.Add(searchParams);
             }
 
-            // TODO:
+            // TODO: Racing problem
             // end surrogate id is currently set during CalculateAndSetTotalAndResourceCounts(). Consider a scenario when this process completes before all FHIR instances completed
             // search param cache updates. Then some writes can happen with old search parameter definitions, but their surrogate ids will be higher than end
             // surrogate id, and they will be excluded from reindex. How do we handle this scenario?
@@ -633,7 +633,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 SearchResult searchResult = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, true, _cancellationToken);
                 totalCount += searchResult != null ? searchResult.TotalCount.Value : 0;
 
-                if (searchResult?.ReindexResult?.StartResourceSurrogateId > 0)
+                if (searchResult?.ReindexResult?.StartResourceSurrogateId > 0) // TODO: Is it applicable to SQL only
                 {
                     SearchResultReindex reindexResults = searchResult.ReindexResult;
                     _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex()
