@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             try
             {
                 // Set up test data using the common setup method
-                System.Diagnostics.Debug.WriteLine($"Setting up test data for SupplyDelivery and Person resources...");
+                Debug.WriteLine($"Setting up test data for SupplyDelivery and Person resources...");
 
                 // Setup Persons first, then SupplyDeliveries sequentially (not in parallel)
                 // This ensures Persons are fully created before SupplyDeliveries start
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     finalSupplyDeliveryCount >= supplyDeliveryCount,
                     $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {finalSupplyDeliveryCount}");
 
-                System.Diagnostics.Debug.WriteLine($"Test data setup complete - SupplyDelivery: {finalSupplyDeliveryCount}, Person: {finalPersonCount}");
+                Debug.WriteLine($"Test data setup complete - SupplyDelivery: {finalSupplyDeliveryCount}, Person: {finalPersonCount}");
 
                 // Create a single search parameter that applies to BOTH SupplyDelivery and Immunization
                 // This allows us to test the scenario where one resource type has data and another has none
@@ -153,9 +153,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             finally
             {
                 // Cleanup all test data including resources and search parameters
-                System.Diagnostics.Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
+                Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
                 await CleanupTestDataAsync(testResources, mixedBaseSearchParam, personSearchParam);
-                System.Diagnostics.Debug.WriteLine("Cleanup completed");
+                Debug.WriteLine("Cleanup completed");
             }
         }
 
