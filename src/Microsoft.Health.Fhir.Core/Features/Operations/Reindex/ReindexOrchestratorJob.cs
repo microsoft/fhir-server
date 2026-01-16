@@ -563,11 +563,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     EndResourceSurrogateId = range.EndId,
                 };
 
-                SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, cancellationToken);
-
-                if (countOnlyResults?.TotalCount == 0)
+                var countOnlyResults = _isSql ? null : await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, cancellationToken);
+                if (countOnlyResults?.TotalCount == 0) // nothing to do here
                 {
-                    // nothing to do here
                     continue;
                 }
 

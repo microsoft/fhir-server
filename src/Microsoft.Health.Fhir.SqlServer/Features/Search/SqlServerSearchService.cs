@@ -1158,15 +1158,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>SearchResult</returns>
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            if (searchOptions.CountOnly)
-            {
-                throw new NotSupportedException("Count queries are deprecated");
-            }
-
             var resourceType = GetForceReindexResourceType(searchOptions);
-            var queryHints = searchOptions.QueryHints;
-            var startId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-            var endId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            var startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            var endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
             // Search within the surrogate ID range
             var results = await SearchBySurrogateIdRange(
