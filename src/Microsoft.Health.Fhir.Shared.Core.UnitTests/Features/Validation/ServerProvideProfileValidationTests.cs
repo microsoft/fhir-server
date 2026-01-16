@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             {
                 CacheDurationInSeconds = 300, // 5 minutes
                 BackgroundProfileStatusDelayedStartInSeconds = 1,
-                BackgroundProfileStatusCheckIntervalInSeconds = 3,
+                BackgroundProfileStatusCheckIntervalInSeconds = 5,
             };
             _options = Options.Create(config);
 
@@ -387,7 +387,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         private void SetupSearchServiceWithResults(string resourceType, params Resource[] resources)
         {
             var searchEntries = resources.Select(r => CreateSearchResultEntry(r)).ToList();
-            var searchResult = new SearchResult(searchEntries, null, null, new List<Tuple<string, string>>());
+            var searchResult = new SearchResult(searchEntries, null, null, new List<Tuple<string, string>>()) { TotalCount = searchEntries.Count };
 
             _searchService.SearchAsync(
                 resourceType,
@@ -402,7 +402,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                     type,
                     Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                     Arg.Any<CancellationToken>())
-                    .Returns(new SearchResult(new List<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()));
+                    .Returns(new SearchResult(new List<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()) { TotalCount = 0 });
             }
         }
 

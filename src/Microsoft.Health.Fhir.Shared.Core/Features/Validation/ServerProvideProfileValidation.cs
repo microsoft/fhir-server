@@ -50,8 +50,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly IMediator _mediator;
 
         private bool _isDisposed = false;
-        private string _mostRecentProfileHash = string.Empty;
-        private bool _isExternalDependentSyncRequired = false;
+        private string _mostRecentProfileHash = null;
+        private long _isExternalDependentSyncRequiredThreadSafe = 0;
         private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
         private ILogger<ServerProvideProfileValidation> _logger;
@@ -83,8 +83,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 limitType: FhirCacheLimitType.Count);
 
             // Setting up background task to monitor profile changes.
-            // The background task will only be created if the interval is higher than zero.
-            if (_validateOperationConfig.BackgroundProfileStatusCheckIntervalInSeconds > 0)
+            // The background task will only be created if the interval is higher or equal than five seconds (for security).
+            if (_validateOperationConfig.BackgroundProfileStatusCheckIntervalInSeconds >= 5)
             {
                 _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
                 _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
@@ -95,12 +95,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public bool IsSyncRequested()
         {
-            return _isExternalDependentSyncRequired;
+            return Interlocked.Read(ref _isExternalDependentSyncRequiredThreadSafe) != 0;
         }
 
         public void MarkSyncCompleted()
         {
-            _isExternalDependentSyncRequired = false;
+            Interlocked.Exchange(ref _isExternalDependentSyncRequiredThreadSafe, 0);
         }
 
         public void Refresh()
@@ -116,6 +116,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 if (_cancellationTokenSource?.IsCancellationRequested == false)
                 {
                     _cancellationTokenSource.Cancel();
+                }
+
+                if (_backgroundTask != null)
+                {
+                    // Background task should be listening for _cancellationTokenSource.
+                    // Once _cancellationTokenSource is cancelled, wait for a maximum of 3 seconds for the task to complete.
+                    for (int i = 0; i < 3; i++)
+                    {
+                        if (_backgroundTask.IsCompleted || _backgroundTask.IsCanceled || _backgroundTask.IsFaulted || _backgroundTask.IsCompletedSuccessfully)
+                        {
+                            break;
+                        }
+
+                        Thread.Sleep(1000);
+                    }
                 }
 
                 _resourcesByUri?.Dispose();
@@ -316,17 +331,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     string profileHash = await GetMostRecentProfileHashAsync(cancellationToken);
                     stopwatch.Stop();
 
-                    if (string.IsNullOrEmpty(_mostRecentProfileHash))
+                    if (string.IsNullOrEmpty(_mostRecentProfileHash) && !string.IsNullOrEmpty(profileHash))
                     {
-                        _mostRecentProfileHash = profileHash;
+                        Interlocked.Exchange(ref _mostRecentProfileHash, profileHash);
                         _logger.LogInformation("Profiles: Initial profile hash recorded. Hash: {ProfileHash}. Elapsed time: {ElapsedTime}ms", profileHash, stopwatch.ElapsedMilliseconds);
-                        _isExternalDependentSyncRequired = true;
+                        Interlocked.Exchange(ref _isExternalDependentSyncRequiredThreadSafe, 1);
                     }
                     else if (_mostRecentProfileHash != profileHash)
                     {
-                        _mostRecentProfileHash = profileHash;
+                        Interlocked.Exchange(ref _mostRecentProfileHash, profileHash);
                         _logger.LogInformation("Profiles: Changes detected in the server. Letting dependents know refresh is required. Hash: {ProfileHash}. Elapsed time: {ElapsedTime}ms", profileHash, stopwatch.ElapsedMilliseconds);
-                        _isExternalDependentSyncRequired = true;
+                        Interlocked.Exchange(ref _isExternalDependentSyncRequiredThreadSafe, 1);
                     }
                 }
                 catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
@@ -349,6 +364,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             StringBuilder hashBuilder = new StringBuilder();
 
+            long totalCountOfProfiles = 0;
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
                 foreach (var type in _supportedTypes)
@@ -374,9 +390,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     };
                     searchResult = await searchService.Value.SearchAsync(type, queryParameters, cancellationToken);
                     countPerType = searchResult?.TotalCount ?? 0;
+                    totalCountOfProfiles += (int)countPerType;
 
                     hashBuilder.Append(string.Concat("{", type, ",", countPerType, ",", lastUpdatedStringPerType, "}"));
                 }
+            }
+
+            if (totalCountOfProfiles == 0)
+            {
+                // If there are no custom profiles, then hash is null.
+                // That should avoid unnecessary refreshes when a process starts with no profiles.
+                return null;
             }
 
             return hashBuilder.ToString();
