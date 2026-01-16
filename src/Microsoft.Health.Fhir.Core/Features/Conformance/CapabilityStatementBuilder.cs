@@ -349,7 +349,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public bool IsSyncRequested()
+        public bool IsSyncProfilesRequested()
         {
             return _supportedProfiles.IsSyncRequested();
         }
@@ -395,6 +395,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                 await SyncProfileAsync(resource, disableCacheRefresh, cancellationToken);
             }
+
+            // At the end of profiles syncronization, mark sync as completed.
+            _supportedProfiles.MarkSyncCompleted();
 
             return this;
         }

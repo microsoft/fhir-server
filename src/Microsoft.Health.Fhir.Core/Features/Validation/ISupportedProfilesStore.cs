@@ -27,5 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         void Refresh();
 
         bool IsSyncRequested();
+
+        void MarkSyncCompleted();
     }
 }

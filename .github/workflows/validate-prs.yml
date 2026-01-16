@@ -84,7 +84,7 @@ jobs:
 
             if(labels.includes("SQL Scripts") == true && 
                labels.includes("Schema Version backward incompatible") == false &&
-               labels.includes("Schema Version unchanged") == false &&              
+               labels.includes("Schema Version unchanged") == false &&
                labels.includes("Schema Version backward compatible") == false) {
               errors += '- Tag the PR with the type of update: **Schema Version backward incompatible**, **Schema Version backward compatible**. \n';
             }
@@ -95,7 +95,7 @@ jobs:
             }
 
             if(labels.includes("ADR-Included") == false &&
-               labels.includes("No-ADR") == false) &&
+               labels.includes("No-ADR") == false &&
                excludeAuthors.includes(author) == false) {
               errors += '- Tag the PR with **No-ADR** or **ADR-Included** to indicate whether documentation for the change is provided or not. \n';
             }

@@ -126,6 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             // Act
             var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+            _serverProvideProfileValidation.MarkSyncCompleted();
 
             // Assert
             Assert.NotNull(profiles);
@@ -149,6 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             // Act
             var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+            _serverProvideProfileValidation.MarkSyncCompleted();
 
             // Assert
             Assert.NotNull(profiles);
@@ -171,6 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
             // Act
             profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Observation", CancellationToken.None);
+            _serverProvideProfileValidation.MarkSyncCompleted();
 
             // Assert
             Assert.NotNull(profiles);

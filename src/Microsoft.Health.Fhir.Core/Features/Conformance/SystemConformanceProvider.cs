@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Stopwatch sw = Stopwatch.StartNew();
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
-                    if (_builder != null && _builder.IsSyncRequested())
+                    if (_builder != null && _builder.IsSyncProfilesRequested())
                     {
                         _logger.LogInformation("SystemConformanceProvider sync is requested.");
                         break;

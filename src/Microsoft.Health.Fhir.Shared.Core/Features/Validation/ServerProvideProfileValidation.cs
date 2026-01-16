@@ -98,6 +98,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return _isExternalDependentSyncRequired;
         }
 
+        public void MarkSyncCompleted()
+        {
+            _isExternalDependentSyncRequired = false;
+        }
+
         public void Refresh()
         {
             _logger.LogInformation("Profiles: Marking profiles for refresh");
@@ -135,9 +140,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public async Task<IEnumerable<string>> GetSupportedProfilesAsync(string resourceType, CancellationToken cancellationToken, bool disableCacheRefresh = false)
         {
-            // Mark that sync is no longer required as we are fetching the latest profiles.
-            _isExternalDependentSyncRequired = false;
-
             IEnumerable<ArtifactSummary> summary = await ListSummariesAsync(cancellationToken, false, disableCacheRefresh);
             return summary.Where(x => x.ResourceTypeName == KnownResourceTypes.StructureDefinition)
                 .Where(x =>

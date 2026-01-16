@@ -57,10 +57,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         Task<ICapabilityStatementBuilder> SyncProfilesAsync(CancellationToken cancellationToken, bool disableCacheRefresh = false);
 
         /// <summary>
-        ///  Gets whether sync has been requested for this ICapabilityStatementBuilder.
+        ///  Gets whether Profile sync has been requested for this ICapabilityStatementBuilder.
         /// </summary>
         /// <returns>true if sync has been requested for this ICapabilityStatementBuilder; otherwise, false.</returns>
-        bool IsSyncRequested();
+        bool IsSyncProfilesRequested();
 
         /// <summary>
         /// Create json representation of capability statement.
