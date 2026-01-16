@@ -1158,55 +1158,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>SearchResult</returns>
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            string resourceType = GetForceReindexResourceType(searchOptions);
             if (searchOptions.CountOnly)
             {
-                _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
-
-                // Check if we have surrogate ID range hints - if so, use the optimized range count
-                if (searchOptions.QueryHints != null &&
-                    searchOptions.QueryHints.Any(h => h.Param == KnownQueryParameterNames.StartSurrogateId) &&
-                    searchOptions.QueryHints.Any(h => h.Param == KnownQueryParameterNames.EndSurrogateId))
-                {
-                    long startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-                    long endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-
-                    int count = await GetResourceCountBySurrogateIdRangeAsync(
-                        resourceTypeId,
-                        startId,
-                        endId,
-                        searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
-                        cancellationToken);
-
-                    var searchResult = new SearchResult(count, Array.Empty<Tuple<string, string>>());
-                    searchResult.ReindexResult = new SearchResultReindex()
-                    {
-                        Count = count,
-                        StartResourceSurrogateId = startId,
-                        EndResourceSurrogateId = endId,
-                    };
-
-                    _logger.LogInformation("Count for reindex by range: Resource Type={ResourceType} StartId={StartId} EndId={EndId} Count={Count}", resourceType, startId, endId, count);
-
-                    return searchResult;
-                }
-
-                // Fall back to the original method if no range hints are provided
-                return await SearchForReindexSurrogateIdsBySearchParamHashAsync(resourceTypeId, searchOptions.MaxItemCount, cancellationToken, searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+                throw new NotSupportedException("Count queries are deprecated");
             }
 
+            var resourceType = GetForceReindexResourceType(searchOptions);
             var queryHints = searchOptions.QueryHints;
-            long globalStartId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
-            long globalEndId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-            long queryStartId = globalStartId;
-
-            SearchResult results = null;
+            var startId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            var endId = long.Parse(queryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
 
             // Search within the surrogate ID range
-            results = await SearchBySurrogateIdRange(
+            var results = await SearchBySurrogateIdRange(
                 resourceType,
-                globalStartId,
-                globalEndId,
+                startId,
+                endId,
                 null,
                 null,
                 cancellationToken,
@@ -1220,187 +1186,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             // Return empty result when no resources are found in the given range provided by queryHints.
-            _logger.LogInformation("No surrogate ID ranges found containing data. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, globalStartId, globalEndId);
+            _logger.LogInformation("No surrogate ID ranges found containing data. Resource Type={ResourceType} StartId={StartId} EndId={EndId}", resourceType, startId, endId);
             return new SearchResult(0, []);
-        }
-
-        /// <summary>
-        /// Searches for the count of resources in n number of sql calls because it uses searchParamHash and because
-        /// Resource.SearchParamHash doesn't have an index on it, we need to use maxItemCount to limit the total
-        /// number of resources per query
-        /// </summary>
-        /// <param name="resourceTypeId">The id for the resource type</param>
-        /// <param name="maxItemCount">The max items to query at a time</param>
-        /// <param name="cancellationToken">The cancellation token</param>
-        /// <param name="searchParamHash">SearchParamHash if we need to filter out the results</param>
-        /// <returns>SearchResult</returns>
-        private async Task<SearchResult> SearchForReindexSurrogateIdsBySearchParamHashAsync(short resourceTypeId, int maxItemCount, CancellationToken cancellationToken, string searchParamHash = null)
-        {
-            bool hasSearchParamHash = !string.IsNullOrWhiteSpace(searchParamHash);
-            _logger.LogInformation("SearchForReindexSurrogateIds: ResourceTypeId={ResourceTypeId}, MaxItemCount={MaxItemCount}, HasSearchParamHash={HasSearchParamHash}", resourceTypeId, maxItemCount, hasSearchParamHash);
-
-            // can't use totalCount for reindex on extremely large dbs because we don't have an
-            // index on Resource.SearchParamHash which would be necessary to calculate an accurate count
-            int totalCount = 0;
-            long startResourceSurrogateId = 0;
-            long tmpStartResourceSurrogateId = 0;
-            long endResourceSurrogateId = 0;
-            int rowCount = maxItemCount;
-            SearchResult searchResult = null;
-
-            while (true)
-            {
-                long tmpEndResourceSurrogateId;
-                int tmpCount;
-
-                using var sqlCommand = new SqlCommand();
-                sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
-                sqlCommand.Parameters.AddWithValue("@p1", resourceTypeId);
-                sqlCommand.Parameters.AddWithValue("@p2", tmpStartResourceSurrogateId);
-                sqlCommand.Parameters.AddWithValue("@p3", rowCount);
-
-                if (hasSearchParamHash)
-                {
-                    sqlCommand.Parameters.AddWithValue("@p0", searchParamHash);
-                    sqlCommand.CommandText = @"
-                        SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
-                          FROM (SELECT TOP (@p3) ResourceSurrogateId
-                                  FROM dbo.Resource
-                                  WHERE ResourceTypeId = @p1
-                                    AND IsHistory = 0
-                                    AND IsDeleted = 0
-                                    AND ResourceSurrogateId > @p2
-                                    AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
-                                  ORDER BY
-                                       ResourceSurrogateId
-                               ) A";
-                }
-                else
-                {
-                    sqlCommand.CommandText = @"
-                        SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
-                          FROM (SELECT TOP (@p3) ResourceSurrogateId
-                                  FROM dbo.Resource
-                                  WHERE ResourceTypeId = @p1
-                                    AND IsHistory = 0
-                                    AND IsDeleted = 0
-                                    AND ResourceSurrogateId > @p2
-                                  ORDER BY
-                                       ResourceSurrogateId
-                               ) A";
-                }
-
-                LogSqlCommand(sqlCommand);
-
-                IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
-                if (results.Count == 0)
-                {
-                    break;
-                }
-
-                (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) singleResult = results.Single();
-
-                tmpStartResourceSurrogateId = singleResult.StartResourceSurrogateId;
-                tmpEndResourceSurrogateId = singleResult.EndResourceSurrogateId;
-                tmpCount = singleResult.Count;
-
-                totalCount += tmpCount;
-                if (startResourceSurrogateId == 0)
-                {
-                    startResourceSurrogateId = tmpStartResourceSurrogateId;
-                }
-
-                if (tmpEndResourceSurrogateId > 0)
-                {
-                    endResourceSurrogateId = tmpEndResourceSurrogateId;
-                    tmpStartResourceSurrogateId = tmpEndResourceSurrogateId;
-                }
-
-                if (tmpCount <= 1)
-                {
-                    break;
-                }
-            }
-
-            searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
-            searchResult.ReindexResult = new SearchResultReindex()
-            {
-                Count = totalCount,
-                StartResourceSurrogateId = startResourceSurrogateId,
-                EndResourceSurrogateId = endResourceSurrogateId,
-            };
-
-            return searchResult;
-        }
-
-        /// <summary>
-        /// Gets the count of resources within a specific surrogate ID range.
-        /// </summary>
-        /// <param name="resourceTypeId">The resource type ID</param>
-        /// <param name="startId">The lower bound surrogate ID (inclusive)</param>
-        /// <param name="endId">The upper bound surrogate ID (inclusive)</param>
-        /// <param name="searchParamHash">Optional search parameter hash filter</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>The count of resources within the specified range</returns>
-        private async Task<int> GetResourceCountBySurrogateIdRangeAsync(
-            short resourceTypeId,
-            long startId,
-            long endId,
-            string searchParamHash,
-            CancellationToken cancellationToken)
-        {
-            using var sqlCommand = new SqlCommand();
-            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-
-            if (!string.IsNullOrWhiteSpace(searchParamHash))
-            {
-                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-                sqlCommand.Parameters.AddWithValue("@StartId", startId);
-                sqlCommand.Parameters.AddWithValue("@EndId", endId);
-                sqlCommand.Parameters.AddWithValue("@SearchParamHash", searchParamHash);
-
-                sqlCommand.CommandText = @"
-            SELECT COUNT(*) 
-            FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
-              AND IsHistory = 0 
-              AND IsDeleted = 0
-              AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
-            }
-            else
-            {
-                sqlCommand.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-                sqlCommand.Parameters.AddWithValue("@StartId", startId);
-                sqlCommand.Parameters.AddWithValue("@EndId", endId);
-
-                sqlCommand.CommandText = @"
-            SELECT COUNT(*) 
-            FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
-              AND IsHistory = 0 
-              AND IsDeleted = 0";
-            }
-
-            LogSqlCommand(sqlCommand);
-
-            int count = 0;
-            await _sqlRetryService.ExecuteSql(
-                sqlCommand,
-                async (cmd, cancel) =>
-                {
-                    var result = await cmd.ExecuteScalarAsync(cancel);
-                    count = Convert.ToInt32(result);
-                    return;
-                },
-                _logger,
-                null,
-                cancellationToken);
-
-            return count;
         }
 
         private int GetReindexCommandTimeout()
