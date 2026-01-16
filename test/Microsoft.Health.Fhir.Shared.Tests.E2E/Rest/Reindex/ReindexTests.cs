@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(TimeSpan.FromMinutes(1));
+                await Task.Delay(TimeSpan.FromSeconds(4)); // should be 2 * SearchParameterCacheRefreshIntervalSeconds
 
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
@@ -1024,19 +1024,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             throw new Xunit.Sdk.XunitException(
                 $"Search parameter {searchParameterCode} should be usable after reindex (failed after {maxRetries} attempts). Error: {lastException?.Message}",
                 lastException);
-        }
-
-        /// <summary>
-        /// Gets the current count of resources for a specific resource type.
-        /// </summary>
-        /// <param name="resourceType">The FHIR resource type to count (e.g., "Person", "Specimen")</param>
-        /// <returns>The total count of resources matching the criteria</returns>
-        private async Task<int> GetResourceCountAsync(string resourceType)
-        {
-            string query = $"{resourceType}?_summary=count";
-
-            Bundle bundle = await _fixture.TestFhirClient.SearchAsync(query);
-            return bundle.Total ?? 0;
         }
 
         /// <summary>
