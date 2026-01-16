@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         if (startId <= rangeEnd)
                         {
                             return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
-                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, 1) });
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, (int)(rangeEnd - rangeStart)) });
                         }
 
                         return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         if (startId <= rangeEnd)
                         {
                             return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
-                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, 1) });
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, (int)(rangeEnd - rangeStart)) });
                         }
 
                         return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
@@ -391,6 +391,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         resourceType: resourceType);
                 });
 
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
+
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10);
 
             var jobInfo = await CreateReindexJobRecord();
@@ -493,6 +495,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         resourceType: resourceType);
                 });
 
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
+
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10);
 
             // Get the expected DomainResource types (excluding Binary, Bundle, Parameters)
@@ -589,6 +593,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>())
                 .Returns(searchResult);
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
 
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
 
@@ -693,6 +699,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
                         new List<(long StartId, long EndId, int Count)>());
                 });
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(
@@ -909,6 +917,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResult);
 
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
+
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
@@ -1000,6 +1010,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>())
                 .Returns(searchResult);
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
 
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
@@ -1148,6 +1160,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>())
                 .Returns(CreateSearchResult(resourceCount: 50, resourceType: "Observation"));
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
 
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 50, resourceType: "Observation");
@@ -1336,6 +1350,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(CreateSearchResult(resourceCount: 20, resourceType: "Condition"));
 
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
+
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 30, resourceType: "Patient");
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 25, resourceType: "Observation");
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 20, resourceType: "Condition");
@@ -1442,6 +1458,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     // Otherwise, return resources that need reindexing
                     return CreateSearchResult(resourceCount: 100, resourceType: "Patient");
                 });
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
 
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
 
@@ -1770,6 +1788,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>())
                 .Returns(searchResult);
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
 
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
