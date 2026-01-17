@@ -564,7 +564,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 };
 
                 var countOnlyResults = _isSql ? null : await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, cancellationToken);
-                if (countOnlyResults?.TotalCount == 0) // nothing to do here
+                if (countOnlyResults?.TotalCount == 0) // nothing to do here. this will never be true for SQL.
                 {
                     continue;
                 }
@@ -578,7 +578,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         StartResourceSurrogateId = range.StartId,
                         EndResourceSurrogateId = range.EndId,
-                        Count = countOnlyResults?.TotalCount ?? 0,
+                        Count = countOnlyResults?.TotalCount ?? range.Count,
                     },
                     ResourceType = resourceType,
                     MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,

@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         if (startId <= rangeEnd)
                         {
                             return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
-                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, (int)(rangeEnd - rangeStart)) });
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, (int)(rangeEnd - rangeStart + 1)) });
                         }
 
                         return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         if (startId <= rangeEnd)
                         {
                             return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
-                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, (int)(rangeEnd - rangeStart)) });
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, (int)(rangeEnd - rangeStart + 1)) });
                         }
 
                         return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
@@ -607,11 +607,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Wait for processing jobs to be created
             var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(30), expectedMinimumJobs: 1);
 
-            // Assert - Verify that SearchForReindexAsync was called
-            await _searchService.Received().SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+            // Assert - Verify that GetSurrogateIdRanges was called
+            await _searchService.Received().GetSurrogateIdRanges(
                 Arg.Any<string>(),
-                Arg.Any<bool>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                true,
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>());
 
