@@ -40,13 +40,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// The continuation token for the search results
         /// </summary>
         public string ContinuationToken { get; set; }
-
-        /// <summary>
-        /// Determines whether the Count property should be serialized.
-        /// </summary>
-        public bool ShouldSerializeCount()
-        {
-            return Count != 0;
-        }
     }
 }
