@@ -820,7 +820,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var resourceTypeId = _model.GetResourceTypeId(hints.First(x => x.Param == KnownQueryParameterNames.Type).Value);
             var startId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             var endId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.EndSurrogateId).Value);
-            var globalStartId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
             PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.History), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
@@ -836,25 +835,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
             command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
             command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
-        }
-
-        /// <summary>
-        /// Attempts to extract a simple string value from an expression (e.g., StringExpression).
-        /// </summary>
-        /// <param name="expression">The expression to analyze</param>
-        /// <param name="value">The extracted string value</param>
-        /// <returns>True if a simple string value was extracted, false otherwise</returns>
-        private static bool TryExtractSimpleStringValue(Expression expression, out string value)
-        {
-            value = null;
-
-            if (expression is StringExpression stringExpression)
-            {
-                value = stringExpression.Value;
-                return !string.IsNullOrEmpty(value);
-            }
-
-            return false;
         }
 
         /// <summary>
@@ -951,12 +931,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return new SearchResult(resources, null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
         }
 
-        private static (long StartId, long EndId) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
+        private static (long StartId, long EndId, int Count) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
         {
-            return (sqlDataReader.GetInt64(1), sqlDataReader.GetInt64(2));
+            return (sqlDataReader.GetInt64(1), sqlDataReader.GetInt64(2), sqlDataReader.GetInt32(3));
         }
 
-        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken, bool activeOnly = false)
+        public override async Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken, bool activeOnly = false)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
@@ -1256,10 +1236,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>SearchResult</returns>
         private async Task<SearchResult> SearchForReindexSurrogateIdsBySearchParamHashAsync(short resourceTypeId, int maxItemCount, CancellationToken cancellationToken, string searchParamHash = null)
         {
-            if (string.IsNullOrWhiteSpace(searchParamHash))
-            {
-                return await SearchForReindexSurrogateIdsWithoutSearchParamHashAsync(resourceTypeId, cancellationToken);
-            }
+            bool hasSearchParamHash = !string.IsNullOrWhiteSpace(searchParamHash);
+            _logger.LogInformation("SearchForReindexSurrogateIds: ResourceTypeId={ResourceTypeId}, MaxItemCount={MaxItemCount}, HasSearchParamHash={HasSearchParamHash}", resourceTypeId, maxItemCount, hasSearchParamHash);
 
             // can't use totalCount for reindex on extremely large dbs because we don't have an
             // index on Resource.SearchParamHash which would be necessary to calculate an accurate count
@@ -1277,22 +1255,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
-                sqlCommand.Parameters.AddWithValue("@p0", searchParamHash);
                 sqlCommand.Parameters.AddWithValue("@p1", resourceTypeId);
                 sqlCommand.Parameters.AddWithValue("@p2", tmpStartResourceSurrogateId);
                 sqlCommand.Parameters.AddWithValue("@p3", rowCount);
-                sqlCommand.CommandText = @"
-SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
-  FROM (SELECT TOP (@p3) ResourceSurrogateId
-          FROM dbo.Resource
-          WHERE ResourceTypeId = @p1
-            AND IsHistory = 0
-            AND IsDeleted = 0
-            AND ResourceSurrogateId > @p2
-            AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
-          ORDER BY
-               ResourceSurrogateId
-       ) A";
+
+                if (hasSearchParamHash)
+                {
+                    sqlCommand.Parameters.AddWithValue("@p0", searchParamHash);
+                    sqlCommand.CommandText = @"
+                        SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
+                          FROM (SELECT TOP (@p3) ResourceSurrogateId
+                                  FROM dbo.Resource
+                                  WHERE ResourceTypeId = @p1
+                                    AND IsHistory = 0
+                                    AND IsDeleted = 0
+                                    AND ResourceSurrogateId > @p2
+                                    AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
+                                  ORDER BY
+                                       ResourceSurrogateId
+                               ) A";
+                }
+                else
+                {
+                    sqlCommand.CommandText = @"
+                        SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
+                          FROM (SELECT TOP (@p3) ResourceSurrogateId
+                                  FROM dbo.Resource
+                                  WHERE ResourceTypeId = @p1
+                                    AND IsHistory = 0
+                                    AND IsDeleted = 0
+                                    AND ResourceSurrogateId > @p2
+                                  ORDER BY
+                                       ResourceSurrogateId
+                               ) A";
+                }
+
                 LogSqlCommand(sqlCommand);
 
                 IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
@@ -1323,47 +1320,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 {
                     break;
                 }
-            }
-
-            searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
-            searchResult.ReindexResult = new SearchResultReindex()
-            {
-                Count = totalCount,
-                StartResourceSurrogateId = startResourceSurrogateId,
-                EndResourceSurrogateId = endResourceSurrogateId,
-            };
-
-            return searchResult;
-        }
-
-        /// <summary>
-        /// Searches for the count of resources in one sql call because it doesn't use searchParamHash
-        /// </summary>
-        /// <param name="resourceTypeId">The id for the resource type</param>
-        /// <param name="cancellationToken">The cancellation token</param>
-        /// <returns>SearchResult</returns>
-        private async Task<SearchResult> SearchForReindexSurrogateIdsWithoutSearchParamHashAsync(short resourceTypeId, CancellationToken cancellationToken)
-        {
-            int totalCount = 0;
-            long startResourceSurrogateId = 0;
-            long endResourceSurrogateId = 0;
-
-            SearchResult searchResult = null;
-
-            using var sqlCommand = new SqlCommand();
-            sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
-            sqlCommand.Parameters.AddWithValue("@p0", resourceTypeId);
-            sqlCommand.CommandText = "SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*) FROM dbo.Resource WHERE ResourceTypeId = @p0 AND IsHistory = 0 AND IsDeleted = 0";
-            LogSqlCommand(sqlCommand);
-
-            IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
-            if (results.Count > 0)
-            {
-                (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) singleResult = results.Single();
-
-                startResourceSurrogateId = singleResult.StartResourceSurrogateId;
-                endResourceSurrogateId = singleResult.EndResourceSurrogateId;
-                totalCount = singleResult.Count;
             }
 
             searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
@@ -2105,7 +2061,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         break;
 
                     default:
-                        // Non-search-parameter leaf (e.g. compartment) – ignore for stats
+                        // Non-search-parameter leaf (e.g. compartment) ï¿½ ignore for stats
                         break;
                 }
             }

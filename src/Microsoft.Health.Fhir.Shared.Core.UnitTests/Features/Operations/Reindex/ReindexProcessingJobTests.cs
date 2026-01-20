@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -654,6 +655,72 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
+        public async Task ExecuteAsync_WithPreconditionFailedException_JobCompletesSuccessfully()
+        {
+            // Arrange: Set up a job that will have a version conflict during bulk update
+            var expectedResourceType = "Patient";
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 3,
+                    EndResourceSurrogateId = 300,
+                    StartResourceSurrogateId = 1,
+                },
+                ResourceTypeSearchParameterHashMap = "patientHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap);
+
+            var jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var searchResultEntries = Enumerable.Range(1, 3)
+                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
+                .ToList();
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(new SearchResult(
+                    searchResultEntries,
+                    null,
+                    null,
+                    new List<Tuple<string, string>>()));
+
+            // Simulate version conflict - PreconditionFailedException should be caught and logged, not fail the job
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(
+                Arg.Any<IReadOnlyCollection<ResourceWrapper>>(),
+                Arg.Any<CancellationToken>())
+                .Returns(Task.FromException(new PreconditionFailedException("2 resources had version conflicts during reindex.")));
+
+            // Act
+            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+
+            // Assert: Job should complete successfully without error, and resources should be counted as succeeded
+            // (the conflicting resources will be picked up in the next reindex cycle)
+            Assert.Null(jobResult.Error);
+            Assert.Equal(3, jobResult.SucceededResourceCount);
+            Assert.Equal(0, jobResult.FailedResourceCount);
+        }
+
+        [Fact]
         public async Task GetResourcesToReindexAsync_WithContinuationToken_IncludesTokenInQuery()
         {
             var expectedResourceType = "Patient";
@@ -764,6 +831,201 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
 
             Assert.Equal(3, jobResult.SucceededResourceCount);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithLargeSurrogateIdRange_ProcessesInMemorySafeBatches()
+        {
+            // This test verifies that when processing a large surrogate ID range,
+            // the job correctly fetches resources in smaller memory-safe batches
+            // by advancing the StartSurrogateId after each batch based on MaxResourceSurrogateId.
+            var expectedResourceType = "Patient";
+            var startId = 100L;
+            var endId = 5000L;
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 10000, // Large batch configured
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 6, // 6 resources total across multiple batches
+                    EndResourceSurrogateId = endId,
+                    StartResourceSurrogateId = startId,
+                    ContinuationToken = null,
+                },
+                ResourceTypeSearchParameterHashMap = "patientHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Patient-name" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap);
+
+            var jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            // First batch returns 3 resources with MaxResourceSurrogateId = 200
+            var firstBatchEntries = Enumerable.Range(1, 3)
+                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
+                .ToList();
+
+            // Second batch returns 3 more resources with MaxResourceSurrogateId = 400
+            var secondBatchEntries = Enumerable.Range(4, 3)
+                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
+                .ToList();
+
+            var callCount = 0;
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(x =>
+                {
+                    callCount++;
+                    if (callCount == 1)
+                    {
+                        // First batch
+                        return new SearchResult(
+                            firstBatchEntries,
+                            null,
+                            null,
+                            new List<Tuple<string, string>>())
+                        {
+                            MaxResourceSurrogateId = 200, // Will cause next batch to start from 201
+                            TotalCount = 3,
+                        };
+                    }
+                    else if (callCount == 2)
+                    {
+                        // Second batch
+                        return new SearchResult(
+                            secondBatchEntries,
+                            null,
+                            null,
+                            new List<Tuple<string, string>>())
+                        {
+                            MaxResourceSurrogateId = 400,
+                            TotalCount = 3,
+                        };
+                    }
+                    else
+                    {
+                        // No more resources
+                        return new SearchResult(
+                            new List<SearchResultEntry>(),
+                            null,
+                            null,
+                            new List<Tuple<string, string>>())
+                        {
+                            TotalCount = 0,
+                        };
+                    }
+                });
+
+            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+
+            // Verify all 6 resources were processed across multiple batches
+            Assert.Equal(6, jobResult.SucceededResourceCount);
+
+            // Verify multiple batches were fetched (at least 2 for the resources + 1 that returns empty)
+            Assert.True(callCount >= 2, $"Expected at least 2 search calls for batch processing, but got {callCount}");
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithOutOfMemoryException_ReducesBatchSizeAndRetries()
+        {
+            var expectedResourceType = "DiagnosticReport";
+            int callCount = 0;
+
+            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 10000, // Large batch that might cause OOM
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 5,
+                    EndResourceSurrogateId = 1000,
+                    StartResourceSurrogateId = 1,
+                },
+                ResourceTypeSearchParameterHashMap = "diagnosticHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 100,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 100,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var successfulEntries = Enumerable.Range(1, 5)
+                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
+                .ToList();
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(callInfo =>
+                {
+                    callCount++;
+
+                    // First call throws OOM to simulate large resource fetch failure
+                    if (callCount == 1)
+                    {
+                        throw new OutOfMemoryException("Simulated OOM when fetching large batch of resources");
+                    }
+
+                    // After OOM, subsequent calls succeed with resources
+                    if (callCount == 2)
+                    {
+                        return new SearchResult(
+                            successfulEntries,
+                            null,
+                            null,
+                            new List<Tuple<string, string>>())
+                        {
+                            MaxResourceSurrogateId = 500,
+                            TotalCount = 5,
+                        };
+                    }
+
+                    // Final call returns empty (no more resources)
+                    return new SearchResult(
+                        new List<SearchResultEntry>(),
+                        null,
+                        null,
+                        new List<Tuple<string, string>>())
+                    {
+                        TotalCount = 0,
+                    };
+                });
+
+            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
+            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+
+            // Verify resources were processed after OOM recovery
+            Assert.Equal(5, jobResult.SucceededResourceCount);
+
+            // Verify OOM was handled and recovery happened (first call fails, subsequent calls succeed)
+            Assert.True(callCount >= 2, $"Expected at least 2 search calls for OOM recovery, but got {callCount}");
         }
     }
 }

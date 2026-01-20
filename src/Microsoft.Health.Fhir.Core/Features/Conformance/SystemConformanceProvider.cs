@@ -209,6 +209,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Stopwatch sw = Stopwatch.StartNew();
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
+                    if (_builder != null && _builder.IsSyncProfilesRequested())
+                    {
+                        _logger.LogInformation("SystemConformanceProvider sync is requested.");
+                        break;
+                    }
+
                     await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
 
                     if (_disposed)
@@ -230,18 +236,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     }
                 }
 
-                if (_builder != null)
+                try
                 {
-                    var cancellationToken = _cancellationTokenSource.Token;
+                    if (_builder != null)
+                    {
+                        // Update search params.
+                        _builder.SyncSearchParameters();
 
-                    // Update search params;
-                    _builder.SyncSearchParameters();
+                        // Update supported profiles.
+                        await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
 
-                    // Update supported profiles;
-                    await _builder.SyncProfilesAsync(cancellationToken);
-
-                    // Update other fields populated by providers.
-                    await UpdateMetadataAsync(cancellationToken);
+                        // Update other fields populated by providers.
+                        await UpdateMetadataAsync(cancellationToken);
+                    }
+                }
+                catch (Exception e)
+                {
+                    // Do not let exceptions escape the background loop.
+                    _logger.LogError(e, "SystemConformanceProvider: Unexpected error during background capability statement rebuild.");
                 }
             }
         }

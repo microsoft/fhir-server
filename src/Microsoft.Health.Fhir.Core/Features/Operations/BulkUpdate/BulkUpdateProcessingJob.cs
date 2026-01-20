@@ -110,7 +110,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, definition.Type));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, definition.GlobalEndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, definition.EndSurrogateId));
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, definition.GlobalStartSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, definition.StartSurrogateId));
 
                     // Subjobs based on resource type-surrogate id ranges, are already scoped to a range definition.MaximumNumberOfResourcesPerQuery
