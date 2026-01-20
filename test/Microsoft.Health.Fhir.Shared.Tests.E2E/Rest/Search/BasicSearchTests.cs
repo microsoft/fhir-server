@@ -1269,6 +1269,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenAnIdLookupSearchRequestWithDuplicateIds_WhenHandled_ThenDeduppedResultsAreReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // Create the resources
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
+            string ids = string.Join(",", patients.Select(p => p.Id).Concat(new[] { patients[0].Id, patients[1].Id }));
+
+            // The tag filter can't be used since it triggers a different code path than just using _id.
+            Bundle bundle = await Client.SearchAsync($"Patient?_id={ids}");
+            Assert.NotNull(bundle);
+            Assert.Equal(3, bundle.Entry.Count);
+        }
+
         private async Task<Observation[]> CreateObservationWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;
