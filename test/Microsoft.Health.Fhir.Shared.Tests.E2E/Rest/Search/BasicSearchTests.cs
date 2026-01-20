@@ -1277,7 +1277,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Create the resources
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
             string ids = string.Join(",", patients.Select(p => p.Id).Concat(new[] { patients[0].Id, patients[1].Id }));
-            Bundle bundle = await Client.SearchAsync($"Patient?_id={ids}&_tag={tag}");
+
+            // The tag filter can't be used since it triggers a different code path than just using _id.
+            Bundle bundle = await Client.SearchAsync($"Patient?_id={ids}");
             Assert.NotNull(bundle);
             Assert.Equal(3, bundle.Entry.Count);
         }
