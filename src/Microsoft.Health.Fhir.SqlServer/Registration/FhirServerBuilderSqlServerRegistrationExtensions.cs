@@ -185,6 +185,13 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
+            // Register StatsProvider and StatsHandler for $stats endpoint
+            services.AddSingleton<Microsoft.Health.Fhir.SqlServer.Features.Stats.SqlServerStatsProvider>();
+            services.Add<Microsoft.Health.Fhir.SqlServer.Features.Stats.StatsHandler>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()
                     .Singleton()
