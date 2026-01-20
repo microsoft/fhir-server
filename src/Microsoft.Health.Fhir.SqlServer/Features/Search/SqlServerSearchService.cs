@@ -1951,7 +1951,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 foreach (var exp in mult.Expressions.OfType<StringExpression>())
                 {
-                    resourceKeysList.Add(new ResourceKey(resourceType, exp.Value, null));
+                    var key = new ResourceKey(resourceType, exp.Value, null);
+                    if (!resourceKeysList.Contains(key))
+                    {
+                        resourceKeysList.Add(key);
+                    }
                 }
             }
 
