@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         {
             // Arrange - Short string that fits in Text column (equals operator, length <= 256)
             var shortValue = "John";
-            var stringExpression = Expression.Equals(FieldName.String, null, shortValue);
+            var stringExpression = Expression.StringEquals(FieldName.String, null, shortValue, ignoreCase: false);
             var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
             var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
                 new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Arrange - Long string that exceeds Text column limit (257 chars)
             // Note: The rewriter uses VLatest.StringSearchParam.Text.Metadata.MaxLength at runtime
             var longValue = new string('a', 257);
-            var stringExpression = Expression.Equals(FieldName.String, null, longValue);
+            var stringExpression = Expression.StringEquals(FieldName.String, null, longValue, ignoreCase: false);
             var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
             var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
                 new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
@@ -86,11 +86,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Act
             var result = (SqlRootExpression)LegacyStringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
 
-            // Assert - For long strings, if concatenation is added there will be 2 expressions
-            // If VLatest max length is greater than 257, concatenation may not be added
-            // This test verifies the rewriter doesn't crash and processes the expression
-            Assert.NotNull(result);
-            Assert.NotEmpty(result.SearchParamTableExpressions);
+            // Assert - Long string with equals operator adds concatenation
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            var concatenationSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[1].Predicate;
+            var concatenationString = (StringExpression)concatenationSearchParam.Expression;
+            Assert.Equal(SqlFieldName.TextOverflow, concatenationString.FieldName);
+            Assert.Equal(StringOperator.Equals, concatenationString.StringOperator);
         }
 
         [Fact]
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         {
             // Arrange - String exactly at the limit (256 characters)
             var boundaryValue = new string('b', MaxTextLength);
-            var stringExpression = Expression.Equals(FieldName.String, null, boundaryValue);
+            var stringExpression = Expression.StringEquals(FieldName.String, null, boundaryValue, ignoreCase: false);
             var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
             var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
                 new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
@@ -184,9 +185,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         [Fact]
         public void GivenChainExpression_WhenVisited_ThenDoesNotRewrite()
         {
-            // Arrange - Chain expressions should be skipped
+            // Arrange - Chain expressions should be skipped even with long string values
             var longValue = new string('c', 257);
-            var stringExpression = Expression.Equals(FieldName.String, null, longValue);
+            var stringExpression = Expression.StringEquals(FieldName.String, null, longValue, ignoreCase: false);
             var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
             var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
                 new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Chain));
@@ -238,6 +239,90 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var concatenationSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[1].Predicate;
             var concatenationString = (StringExpression)concatenationSearchParam.Expression;
             Assert.True(concatenationString.IgnoreCase);
+        }
+
+        [Fact]
+        public void GivenStringSearchParamWithEndsWithOperator_WhenVisited_ThenAddsConcatenation()
+        {
+            // Arrange - EndsWith operator always checks overflow
+            var value = "end";
+            var stringExpression = Expression.EndsWith(FieldName.String, null, value, ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+
+            // Act
+            var result = (SqlRootExpression)LegacyStringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
+
+            // Assert - EndsWith adds concatenation regardless of length
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            var concatenationSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[1].Predicate;
+            var concatenationString = (StringExpression)concatenationSearchParam.Expression;
+            Assert.Equal(SqlFieldName.TextOverflow, concatenationString.FieldName);
+            Assert.Equal(StringOperator.EndsWith, concatenationString.StringOperator);
+        }
+
+        [Fact]
+        public void GivenStringSearchParamWithNotStartsWithOperator_WhenVisited_ThenAddsConcatenation()
+        {
+            // Arrange - NotStartsWith operator always checks overflow
+            var value = "notstart";
+            var stringExpression = Expression.NotStartsWith(FieldName.String, null, value, ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+
+            // Act
+            var result = (SqlRootExpression)LegacyStringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
+
+            // Assert - NotStartsWith adds concatenation regardless of length
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            var concatenationSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[1].Predicate;
+            var concatenationString = (StringExpression)concatenationSearchParam.Expression;
+            Assert.Equal(SqlFieldName.TextOverflow, concatenationString.FieldName);
+            Assert.Equal(StringOperator.NotStartsWith, concatenationString.StringOperator);
+        }
+
+        [Fact]
+        public void GivenStringSearchParamWithNotContainsOperator_WhenVisited_ThenAddsConcatenation()
+        {
+            // Arrange - NotContains operator always checks overflow
+            var value = "notcontains";
+            var stringExpression = Expression.NotContains(FieldName.String, null, value, ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+
+            // Act
+            var result = (SqlRootExpression)LegacyStringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
+
+            // Assert - NotContains adds concatenation regardless of length
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            var concatenationSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[1].Predicate;
+            var concatenationString = (StringExpression)concatenationSearchParam.Expression;
+            Assert.Equal(SqlFieldName.TextOverflow, concatenationString.FieldName);
+            Assert.Equal(StringOperator.NotContains, concatenationString.StringOperator);
+        }
+
+        [Fact]
+        public void GivenStringSearchParamWithNotEndsWithOperator_WhenVisited_ThenAddsConcatenation()
+        {
+            // Arrange - NotEndsWith operator always checks overflow
+            var value = "notend";
+            var stringExpression = Expression.NotEndsWith(FieldName.String, null, value, ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+
+            // Act
+            var result = (SqlRootExpression)LegacyStringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
+
+            // Assert - NotEndsWith adds concatenation regardless of length
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            var concatenationSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[1].Predicate;
+            var concatenationString = (StringExpression)concatenationSearchParam.Expression;
+            Assert.Equal(SqlFieldName.TextOverflow, concatenationString.FieldName);
+            Assert.Equal(StringOperator.NotEndsWith, concatenationString.StringOperator);
         }
     }
 }
