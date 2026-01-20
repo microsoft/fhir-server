@@ -200,11 +200,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenStringWithComponentIndex_WhenVisited_ThenPreservesComponentIndex()
+        public void GivenStringExpressionWithLongValue_WhenVisited_ThenPreservesValueInConcatenation()
         {
-            // Arrange - String expression with component index
+            // Arrange - String expression with long value to trigger concatenation
             var longValue = new string('y', 257);
-            var stringExpression = Expression.Equals(FieldName.String, 1, longValue);
+            var stringExpression = Expression.StringEquals(FieldName.String, null, longValue, ignoreCase: false);
             var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
             var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
                 new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.Equal(2, result.SearchParamTableExpressions.Count);
             var concatenationSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[1].Predicate;
             var concatenationString = (StringExpression)concatenationSearchParam.Expression;
-            Assert.Equal(1, concatenationString.ComponentIndex);
+            Assert.Null(concatenationString.ComponentIndex);
             Assert.Equal(longValue, concatenationString.Value);
         }
 
