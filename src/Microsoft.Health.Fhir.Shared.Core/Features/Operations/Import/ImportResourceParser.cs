@@ -38,8 +38,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            var resourceNode = _serializer.Parse(rawResource);
-            ValidateResourceId(resourceNode?.Id);
+            var resourceNode = _serializer.Parse(rawResource)
+                ?? throw new InvalidOperationException("Failed to parse resource from raw JSON.");
+            ValidateResourceId(resourceNode.Id);
             CheckConditionalReferenceInResource(resourceNode, importMode);
 
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resourceNode.Meta.LastUpdated == null;

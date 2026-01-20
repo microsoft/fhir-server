@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.FhirPath
             // Try conversion for common types
             if (value != null && typeof(T) == typeof(string))
             {
-                return (T)(object)value.ToString();
+                return (T)(object)value.ToString()!;
             }
 
             return default;
