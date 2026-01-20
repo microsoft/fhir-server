@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Ignixa.Abstractions;
 using Ignixa.Serialization.SourceNodes;
@@ -126,16 +127,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             // Convert issues to ValidationResult if collection is provided
             if (validationResults != null)
             {
-                foreach (var issue in result.Issues)
+                foreach (var issue in result.Issues.Where(i => i.Severity == IssueSeverity.Error || i.Severity == IssueSeverity.Fatal))
                 {
-                    if (issue.Severity == IssueSeverity.Error || issue.Severity == IssueSeverity.Fatal)
-                    {
-                        var memberNames = string.IsNullOrEmpty(issue.Path)
-                            ? null
-                            : new[] { issue.Path };
+                    var memberNames = string.IsNullOrEmpty(issue.Path)
+                        ? null
+                        : new[] { issue.Path };
 
-                        validationResults.Add(new DataAnnotations.ValidationResult(issue.Message, memberNames));
-                    }
+                    validationResults.Add(new DataAnnotations.ValidationResult(issue.Message, memberNames));
                 }
             }
 

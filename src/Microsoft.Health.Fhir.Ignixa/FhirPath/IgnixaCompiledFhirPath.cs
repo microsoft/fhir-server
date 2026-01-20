@@ -57,15 +57,9 @@ internal sealed class IgnixaCompiledFhirPath : ICompiledFhirPath
         var ignixaContext = CreateIgnixaContext(ignixaElement, context);
 
         // Evaluate using compiled delegate (fast path) or interpreter (fallback)
-        IEnumerable<IElement> results;
-        if (_compiledDelegate != null)
-        {
-            results = _compiledDelegate(ignixaElement, ignixaContext);
-        }
-        else
-        {
-            results = _evaluator.Evaluate(ignixaElement, _ast, ignixaContext);
-        }
+        var results = _compiledDelegate != null
+            ? _compiledDelegate(ignixaElement, ignixaContext)
+            : _evaluator.Evaluate(ignixaElement, _ast, ignixaContext);
 
         // Convert results back to ITypedElement
         foreach (var result in results)
