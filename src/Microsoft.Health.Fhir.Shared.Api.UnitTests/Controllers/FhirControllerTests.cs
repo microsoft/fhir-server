@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalCreateResourceRequest>());
 
-            var response = await _fhirController.ConditionalCreate(resource);
+            var response = await _fhirController.ConditionalCreate(resource.ToResourceElement());
             if (saveOutcome.HasValue)
             {
                 Assert.IsType<FhirResult>(response);
