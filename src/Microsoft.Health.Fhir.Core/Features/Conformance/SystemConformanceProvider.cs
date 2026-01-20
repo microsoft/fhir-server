@@ -240,11 +240,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_builder != null)
                     {
+                        var cancellationToken = _cancellationTokenSource.Token;
+
                         // Update search params.
                         _builder.SyncSearchParameters();
 
                         // Update supported profiles.
-                        await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
+                        await _builder.SyncProfilesAsync(cancellationToken);
 
                         // Update other fields populated by providers.
                         await UpdateMetadataAsync(cancellationToken);
