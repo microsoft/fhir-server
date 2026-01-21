@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Health
             if (!healthy)
             {
                 var notification = new ImproperBehaviorNotification(message);
-                await _healthCheck.Handle(
+                await _healthCheck.HandleAsync(
                     notification,
                     CancellationToken.None);
             }

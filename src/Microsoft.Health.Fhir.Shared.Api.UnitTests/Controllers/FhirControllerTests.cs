@@ -224,14 +224,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
 
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync(
                 Arg.Any<ConditionalCreateResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(saveOutcome == null ? null : new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), saveOutcome.Value)));
 
             var request = default(ConditionalCreateResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync(
                     Arg.Any<ConditionalCreateResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalCreateResourceRequest>());
@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<ConditionalCreateResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _requestContextAccessor.RequestContext.Properties
