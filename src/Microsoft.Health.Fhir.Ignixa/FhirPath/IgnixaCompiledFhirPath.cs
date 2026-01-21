@@ -133,6 +133,7 @@ internal sealed class IgnixaCompiledFhirPath : ICompiledFhirPath
         IElement element,
         FirelyEvaluationContext? firelyContext)
     {
+        // Build context using immutable pattern with init properties and fluent methods
         var ignixaContext = new IgnixaFhirEvaluationContext
         {
             Resource = element,
@@ -146,8 +147,9 @@ internal sealed class IgnixaCompiledFhirPath : ICompiledFhirPath
             if (firelyContext.Resource != null)
             {
                 var resourceElement = ConvertToElement(firelyContext.Resource);
-                ignixaContext.Resource = resourceElement;
-                ignixaContext.SetEnvironmentVariable("resource", resourceElement);
+                ignixaContext = (IgnixaFhirEvaluationContext)ignixaContext
+                    .WithResource(resourceElement)
+                    .WithEnvironmentVariable("resource", resourceElement);
             }
 
             // Transfer the element resolver for resolve() function support
@@ -157,7 +159,7 @@ internal sealed class IgnixaCompiledFhirPath : ICompiledFhirPath
             // Wrap to convert between the two
             if (firelyContext is FirelyFhirEvaluationContext fhirContext && fhirContext.ElementResolver != null)
             {
-                ignixaContext.ElementResolver = referenceString =>
+                ignixaContext = ignixaContext.WithElementResolver(referenceString =>
                 {
                     // Call Firely's resolver which returns ITypedElement
                     var resolvedTypedElement = fhirContext.ElementResolver(referenceString);
@@ -169,7 +171,7 @@ internal sealed class IgnixaCompiledFhirPath : ICompiledFhirPath
                     }
 
                     return null;
-                };
+                });
             }
         }
 
