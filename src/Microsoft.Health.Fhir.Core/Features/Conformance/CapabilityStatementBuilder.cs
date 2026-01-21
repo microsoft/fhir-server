@@ -349,6 +349,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
+        public bool IsSyncProfilesRequested()
+        {
+            return _supportedProfiles.IsSyncRequested();
+        }
+
         public ICapabilityStatementBuilder SyncSearchParameters()
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
@@ -390,6 +395,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                 await SyncProfileAsync(resource, disableCacheRefresh, cancellationToken);
             }
+
+            // At the end of profiles syncronization, mark sync as completed.
+            _supportedProfiles.MarkSyncCompleted();
 
             return this;
         }

@@ -253,6 +253,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 selectingFromResourceTable = true;
 
+                StringBuilder.Append("SELECT * FROM (");
+
                 // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
                 StringBuilder.Append("SELECT DISTINCT ");
 
@@ -331,9 +333,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 if (!searchOptions.CountOnly)
                 {
-                    StringBuilder.Append("ORDER BY ");
+                    var orderTableAlias = "t";
+                    StringBuilder.Append(") AS ").Append(orderTableAlias).Append(" ORDER BY ");
 
-                    if (_rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                    var hasIncludes = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+
+                    if (hasIncludes)
                     {
                         // ensure the matches appear before includes
                         StringBuilder.Append("IsMatch DESC, ");
@@ -349,22 +354,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
                                 _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
                             };
-                            sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                        })
-                            .AppendLine();
+
+                            if (hasIncludes)
+                            {
+                                // when includes are present, we want to ensure that only matches sorted by the sort field
+                                sb.Append("(CASE WHEN IsMatch = 1 THEN ");
+                                sb.Append(column, orderTableAlias);
+                                sb.Append(" ELSE NULL END) ");
+                            }
+                            else
+                            {
+                                sb.Append(column, orderTableAlias).Append(" ");
+                            }
+
+                            sb.Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        });
+
+                        if (hasIncludes)
+                        {
+                            StringBuilder.Append(", (CASE WHEN IsMatch = 0 THEN ").Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ELSE NULL END) ASC, ");
+                            StringBuilder.Append("(CASE WHEN IsMatch = 0 THEN ").Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).Append(" ELSE NULL END) ASC ");
+                        }
+
+                        StringBuilder.AppendLine();
                     }
                     else if (IsSortValueNeeded(searchOptions) && !context.IsIncludesOperation)
                     {
+                        if (hasIncludes)
+                        {
+                            StringBuilder
+                                .Append("(CASE WHEN IsMatch = 1 THEN ")
+                                .Append(orderTableAlias)
+                                .Append(".SortValue ELSE NULL END) ");
+                        }
+                        else
+                        {
+                            StringBuilder
+                                .Append(orderTableAlias)
+                                .Append(".SortValue ");
+                        }
+
                         StringBuilder
-                            .Append(TableExpressionName(_tableExpressionCounter))
-                            .Append(".SortValue ")
                             .Append(searchOptions.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
-                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
                     }
                     else
                     {
                         StringBuilder
-                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
                     }
 
                     AddOptionClause();
@@ -1257,7 +1296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 StringBuilder.AppendLine("UNION ALL");
                 StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial");
-                if (sortValueNeeded)
+                if (sortValueNeeded && !context.IsIncludesOperation)
                 {
                     StringBuilder.AppendLine(", NULL as SortValue ");
                 }
