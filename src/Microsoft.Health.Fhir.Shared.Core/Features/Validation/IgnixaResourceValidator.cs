@@ -16,6 +16,7 @@ using Ignixa.Validation.Schema;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using DataAnnotations = System.ComponentModel.DataAnnotations;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// <list type="bullet">
     /// <item><description>For Ignixa resources: Uses Ignixa.Validation with Compatibility depth for ~1-5ms validation</description></item>
     /// <item><description>For non-Ignixa resources: Falls back to Firely DotNetAttributeValidation for compatibility</description></item>
+    /// <item><description>For conformance resources: Falls back to Firely validation due to complex nested types</description></item>
     /// </list>
     /// <para>
     /// The validator uses Compatibility mode which accepts relative or local references in Coding.system fields,
@@ -41,6 +43,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// </remarks>
     public sealed class IgnixaResourceValidator : IModelAttributeValidator
     {
+        /// <summary>
+        /// Conformance resource types that should use fallback validation.
+        /// These resources have complex nested types (ElementDefinition, etc.) that
+        /// are not properly validated by Ignixa.
+        /// </summary>
+        private static readonly HashSet<string> ConformanceResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "StructureDefinition",
+            "ImplementationGuide",
+            "OperationDefinition",
+            "SearchParameter",
+            "CompartmentDefinition",
+            "CapabilityStatement",
+            "CodeSystem",
+            "ValueSet",
+            "ConceptMap",
+            "NamingSystem",
+            "TerminologyCapabilities",
+            "MessageDefinition",
+            "GraphDefinition",
+            "ExampleScenario",
+        };
+
         private readonly IIgnixaSchemaContext _schemaContext;
         private readonly ModelAttributeValidator _fallbackValidator;
         private readonly ConcurrentDictionary<string, ValidationSchema> _schemaCache;
@@ -105,6 +130,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             string resourceType,
             ICollection<DataAnnotations.ValidationResult> validationResults)
         {
+            // Conformance resources have complex nested types (ElementDefinition, etc.)
+            // that are not properly validated by Ignixa. Fall back to Firely validation.
+            if (ConformanceResourceTypes.Contains(resourceType))
+            {
+                var ignixaElement = new IgnixaResourceElement(resourceNode, _schemaContext.Schema);
+                return _fallbackValidator.TryValidate(ignixaElement.ToResourceElement(), validationResults, recurse: false);
+            }
+
             // Get or build the validation schema for this resource type
             var schema = GetOrBuildSchema(resourceType);
             if (schema == null)
