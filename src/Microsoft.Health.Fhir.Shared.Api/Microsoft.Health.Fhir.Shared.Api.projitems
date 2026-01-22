@@ -23,6 +23,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\TokenIntrospectionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpRequestExtension.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttribute.cs" />

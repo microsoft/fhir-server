@@ -28,6 +28,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\TokenIntrospectionControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttributeTests.cs" />

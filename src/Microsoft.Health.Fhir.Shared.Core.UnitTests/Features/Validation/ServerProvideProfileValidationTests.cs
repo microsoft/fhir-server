@@ -7,10 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -33,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
     [Trait(Traits.Category, Categories.Validate)]
     public class ServerProvideProfileValidationTests : IDisposable
     {
+        private readonly IHostApplicationLifetime _hostApplicationLifetime;
         private readonly ISearchService _searchService;
         private readonly IScoped<ISearchService> _scopedSearchService;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
@@ -42,6 +42,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 
         public ServerProvideProfileValidationTests()
         {
+            _hostApplicationLifetime = Substitute.For<IHostApplicationLifetime>();
+            _hostApplicationLifetime.ApplicationStopping.Returns(CancellationToken.None);
             _searchService = Substitute.For<ISearchService>();
             _scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             _scopedSearchService.Value.Returns(_searchService);
@@ -51,6 +53,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             var config = new ValidateOperationConfiguration
             {
                 CacheDurationInSeconds = 300, // 5 minutes
+                BackgroundProfileStatusDelayedStartInSeconds = 1,
+                BackgroundProfileStatusCheckIntervalInSeconds = 5,
             };
             _options = Options.Create(config);
 
@@ -58,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
                 _searchServiceFactory,
                 _options,
                 _mediator,
+                _hostApplicationLifetime,
                 NullLogger<ServerProvideProfileValidation>.Instance);
         }
 
@@ -87,6 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             // Assert
             Assert.NotNull(profiles);
             Assert.Empty(profiles);
+            Assert.False(_serverProvideProfileValidation.IsSyncRequested());
         }
 
         [Fact]
@@ -103,6 +109,77 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
             Assert.NotNull(profiles);
             Assert.Single(profiles);
             Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient", profiles);
+        }
+
+        [Fact]
+        public async Task GivenANewStructureDefinition_WhenBackgroundLoopRuns_ThenSyncIsRequested()
+        {
+            // Arrange
+            var patientProfile = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfile);
+
+            // Wait for background refresh to complete
+            await Task.Delay(TimeSpan.FromSeconds(10));
+
+            // Sync should be requested after profile is added.
+            Assert.True(_serverProvideProfileValidation.IsSyncRequested());
+
+            // Act
+            var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+            _serverProvideProfileValidation.MarkSyncCompleted();
+
+            // Assert
+            Assert.NotNull(profiles);
+            Assert.Single(profiles);
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient", profiles);
+            Assert.False(_serverProvideProfileValidation.IsSyncRequested());
+        }
+
+        [Fact]
+        public async Task GivenMultipleNewStructureDefinitions_WhenBackgroundLoopRuns_ThenSyncIsRequested()
+        {
+            // Arrange
+            var patientProfile = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfile);
+
+            // Wait for background refresh to complete
+            await Task.Delay(TimeSpan.FromSeconds(10));
+
+            // Sync should be requested after profile is added.
+            Assert.True(_serverProvideProfileValidation.IsSyncRequested());
+
+            // Act
+            var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+            _serverProvideProfileValidation.MarkSyncCompleted();
+
+            // Assert
+            Assert.NotNull(profiles);
+            Assert.Single(profiles);
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient", profiles);
+            Assert.False(_serverProvideProfileValidation.IsSyncRequested());
+
+            var observationProfile = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-observation", "Observation");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfile, observationProfile);
+
+            // Refreshing the profiles to reset cache expiration time.
+            // This is something that would be done by the dependent services in a real scenario.
+            _serverProvideProfileValidation.Refresh();
+
+            // Wait for background refresh to complete
+            await Task.Delay(TimeSpan.FromSeconds(10));
+
+            // Sync should be requested after profile is added.
+            Assert.True(_serverProvideProfileValidation.IsSyncRequested());
+
+            // Act
+            profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Observation", CancellationToken.None);
+            _serverProvideProfileValidation.MarkSyncCompleted();
+
+            // Assert
+            Assert.NotNull(profiles);
+            Assert.Single(profiles);
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-observation", profiles);
+            Assert.False(_serverProvideProfileValidation.IsSyncRequested());
         }
 
         [Fact]
@@ -310,22 +387,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         private void SetupSearchServiceWithResults(string resourceType, params Resource[] resources)
         {
             var searchEntries = resources.Select(r => CreateSearchResultEntry(r)).ToList();
-            var searchResult = new SearchResult(searchEntries, null, null, new List<Tuple<string, string>>());
+            var searchResult = new SearchResult(searchEntries, null, null, new List<Tuple<string, string>>()) { TotalCount = searchEntries.Count };
 
             _searchService.SearchAsync(
                 resourceType,
-                Arg.Any<List<Tuple<string, string>>>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<CancellationToken>())
                 .Returns(searchResult);
 
             // Setup for other resource types to return empty
-            foreach (var type in new[] { "ValueSet", "CodeSystem", "StructureDefinition" }.Where(type => type != resourceType))
+            foreach (string type in new[] { "ValueSet", "CodeSystem", "StructureDefinition" }.Where(type => type != resourceType))
             {
                 _searchService.SearchAsync(
                     type,
-                    Arg.Any<List<Tuple<string, string>>>(),
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                     Arg.Any<CancellationToken>())
-                    .Returns(new SearchResult(new List<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()));
+                    .Returns(new SearchResult(new List<SearchResultEntry>(), null, null, new List<Tuple<string, string>>()) { TotalCount = 0 });
             }
         }
 

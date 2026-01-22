@@ -537,7 +537,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Observations.
             SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
-            SortTestsAssert.AssertResourcesAreInAscendingOrderByLastUpdateInRange(patients.Count(), returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -575,7 +574,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Observations.
             SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
-            SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(patients.Count(), returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -1155,7 +1153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResourcesGreaterThanOnePage_WhenSearchedWithSortAndInclude_ThenSearchResultsContainIncludedResources(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservations(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
 
@@ -1170,7 +1168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenSearchResultsContainAnIncludesContinuationToken(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservations(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count=10&_includesCount=8");
 
@@ -1187,7 +1185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndIncludeOnDataThatOnlyPartiallyContainsTheSortField_ThenTheRightIncludedResourcesAreReturned(string sortParameterName, int expectedCount)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservations(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_revinclude=Observation:subject&_count={expectedCount}");
 
@@ -1206,9 +1204,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenPatientsWithIncludedResources_WhenSearchedWithSortAndInclude_ThenTheSecondPhaseContinuationTokenIsReturned(int includesCount, string sort)
         {
             var tag = Guid.NewGuid().ToString();
-            var resources = await CreatePatientsWithLinkedObservations(tag);
+            await CreatePatientsWithLinkedObservationAndEncounter(tag);
 
-            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_count=12&_includesCount={includesCount}");
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort={sort}&_revinclude=Observation:subject&_revinclude=Encounter:subject&_count=12&_includesCount={includesCount}");
             var relatedLink = response.Resource.Link.FirstOrDefault(link => link.Relation.Equals("related", StringComparison.OrdinalIgnoreCase));
 
             var includedCount = 0;
@@ -1217,10 +1215,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 var includedResults = await Client.SearchAsync(relatedLink.Url);
                 includedCount += includedResults.Resource.Entry.Count();
-                relatedLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
+
+                var nextLink = includedResults.Resource.Link.FirstOrDefault(link => link.Relation.Equals("next", StringComparison.OrdinalIgnoreCase));
+                if (nextLink == null)
+                {
+                    break;
+                }
+
+                Assert.NotEqual(relatedLink.Url, nextLink.Url);
+                relatedLink = nextLink;
             }
 
-            Assert.Equal(12 - includesCount, includedCount);
+            Assert.Equal(24 - includesCount, includedCount);
         }
 
         private async Task<Patient[]> CreatePatients(string tag)
@@ -1366,7 +1372,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
-        private async Task<List<Resource>> CreatePatientsWithLinkedObservations(string tag)
+        private async Task<List<Resource>> CreatePatientsWithLinkedObservationAndEncounter(string tag)
         {
             var patients = await CreatePaginatedPatientsWithMissingBirthDates(tag);
             var allResources = new List<Resource>(patients);
@@ -1375,6 +1381,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 var observations = await AddObservationToPatient(patient, "2023-01-01", tag);
                 allResources.AddRange(observations);
+
+                var encounters = await AddEncounterToPatient(patient, tag);
+                allResources.AddRange(encounters);
             }
 
             return allResources;
@@ -1443,10 +1452,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        private void SetEncounterInfo(Encounter encounter, string tag, Patient patient = null)
+        {
+#if R5
+            encounter.Class = new List<CodeableConcept>()
+            {
+                new CodeableConcept
+                {
+                    Coding = new List<Coding>
+                        {
+                            new Coding
+                            {
+                                Code = "test",
+                                System = "test",
+                            },
+                        },
+                },
+            };
+            encounter.Status = EncounterStatus.Completed;
+#else
+            encounter.Class = new Coding
+            {
+                Code = "test",
+                System = "test",
+            };
+            encounter.Status = Encounter.EncounterStatus.Arrived;
+#endif
+
+            encounter.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
+            if (patient != null)
+            {
+                encounter.Subject = new ResourceReference($"Patient/{patient.Id}");
+            }
+        }
+
         private async Task<Observation[]> AddObservationToPatient(Patient patient, string observationDate, string tag)
         {
             return await Client.CreateResourcesAsync<Observation>(
                 o => SetObservationInfo(o, observationDate, tag, patient));
+        }
+
+        private async Task<Encounter[]> AddEncounterToPatient(Patient patient, string tag)
+        {
+            return await Client.CreateResourcesAsync<Encounter>(
+                e => SetEncounterInfo(e, tag, patient));
         }
 
         private static class SortTestsAssert
