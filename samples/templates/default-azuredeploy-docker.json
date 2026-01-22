@@ -372,6 +372,8 @@
             "properties": {
                 "name": "[parameters('serviceName')]",
                 "siteConfig": {
+                    "acrUseManagedIdentityCreds": "[variables('hasAcrPullUami')]",
+                    "acrUserManagedIdentityID": "[if(variables('hasAcrPullUami'), parameters('acrPullUserAssignedManagedIdentityResourceId'), json('null'))]",
                     "appSettings": [
                         {
                             "name": "DOCKER_REGISTRY_SERVER_URL",
