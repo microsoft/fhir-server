@@ -95,7 +95,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonConverter(typeof(ReindexJobQueryStatusConverter))]
         public ConcurrentDictionary<ReindexJobQueryStatus, byte> QueryList { get; private set; } = new ConcurrentDictionary<ReindexJobQueryStatus, byte>();
 
-        // TODO: It is not clear why concurrent dictionarires are required, as all reindex jobs are single threaded.
         [JsonProperty(JobRecordProperties.ResourceCounts)]
         [JsonConverter(typeof(ReindexJobQueryResourceCountsConverter))]
         public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, SearchResultReindex>();
@@ -103,7 +102,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.Count)]
         public long Count { get; set; }
 
-        // TODO: Job record is not logged to the database till the very end of reindex. Not clear why we need progress.
         [JsonProperty(JobRecordProperties.Progress)]
         public long Progress { get; set; }
 
@@ -117,7 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public long FailureCount { get; set; }
 
         // TODO: Resources is an incorrect name as it realy holds resource types.
-        // TODO: It is not clear why some collections are readony and others are not.
         [JsonProperty(JobRecordProperties.Resources)]
         public ICollection<string> Resources { get; private set; } = new List<string>();
 
