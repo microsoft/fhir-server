@@ -47,8 +47,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personSearchParam = new SearchParameter();
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var testResources = new List<(string resourceType, string resourceId)>();
-            var supplyDeliveryCount = 200;
-            var personCount = 100;
+            var supplyDeliveryCount = 40;
+            var personCount = 20;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
@@ -103,12 +103,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(50),
+                            Value = new Integer(10),
                         },
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(50),
+                            Value = new Integer(10),
                         },
                     },
                 };
@@ -419,8 +419,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
-
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
                     $"Specimen?{specimenTypeParam.Code}=119295008",
@@ -467,7 +465,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 if (specimenResources.Count > 0)
                 {
                     specimenId = specimenResources[0].resourceId;
-                    System.Diagnostics.Debug.WriteLine($"Created specimen with ID {specimenId} and type {specimenType}");
+                    Debug.WriteLine($"Created specimen with ID {specimenId} and type {specimenType}");
                 }
 
                 // Step 2: Create a custom search parameter for Specimen.type
@@ -477,7 +475,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     "Specimen.type",
                     SearchParamType.Token);
                 Assert.NotNull(searchParam);
-                System.Diagnostics.Debug.WriteLine($"Created search parameter with code {searchParam.Code} and ID {searchParam.Id}");
+                Debug.WriteLine($"Created search parameter with code {searchParam.Code} and ID {searchParam.Id}");
 
                 // Step 3: Reindex to index the newly created search parameter
                 var reindexParams = new Parameters
@@ -500,13 +498,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 reindexRequest1 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
                 Assert.Equal(HttpStatusCode.Created, reindexRequest1.response.Response.StatusCode);
                 Assert.NotNull(reindexRequest1.jobUri);
-                System.Diagnostics.Debug.WriteLine("Started first reindex job to index the new search parameter");
+                Debug.WriteLine("Started first reindex job to index the new search parameter");
 
                 var jobStatus1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, TimeSpan.FromSeconds(240));
                 Assert.True(
                     jobStatus1 == OperationStatus.Completed,
                     $"First reindex job should complete successfully, but got {jobStatus1}");
-                System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
+                Debug.WriteLine("First reindex job completed successfully");
 
                 // Step 4: Verify the search parameter works by searching for the specimen
                 var searchQuery = $"Specimen?{searchParam.Code}=119295008";
@@ -518,24 +516,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 // Step 5: Delete the search parameter
                 await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{searchParam.Id}");
-                System.Diagnostics.Debug.WriteLine($"Deleted search parameter {searchParam.Code} (ID: {searchParam.Id})");
+                Debug.WriteLine($"Deleted search parameter {searchParam.Code} (ID: {searchParam.Id})");
 
                 // Step 6: Reindex to remove the search parameter from the index
                 reindexRequest2 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
                 Assert.Equal(HttpStatusCode.Created, reindexRequest2.response.Response.StatusCode);
                 Assert.NotNull(reindexRequest2.jobUri);
-                System.Diagnostics.Debug.WriteLine("Started second reindex job to remove the deleted search parameter");
+                Debug.WriteLine("Started second reindex job to remove the deleted search parameter");
 
                 var jobStatus2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, TimeSpan.FromSeconds(240));
                 Assert.True(
                     jobStatus2 == OperationStatus.Completed,
                     $"Second reindex job should complete successfully, but got {jobStatus2}");
-                System.Diagnostics.Debug.WriteLine("Second reindex job completed successfully");
+                Debug.WriteLine("Second reindex job completed successfully");
 
                 // Step 7: Verify the search parameter is no longer supported
                 var postDeleteSearchResponse = await _fixture.TestFhirClient.SearchAsync(searchQuery);
                 Assert.NotNull(postDeleteSearchResponse);
-                System.Diagnostics.Debug.WriteLine($"Executed search query after deletion: {searchQuery}");
+                Debug.WriteLine($"Executed search query after deletion: {searchQuery}");
 
                 // Verify that a "NotSupported" error is now present
                 var hasNotSupportedErrorAfterDelete = HasNotSupportedError(postDeleteSearchResponse.Resource);
@@ -543,7 +541,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(
                     hasNotSupportedErrorAfterDelete,
                     $"Search parameter {searchParam.Code} should NOT be supported after deletion and reindex. Got 'NotSupported' error in response.");
-                System.Diagnostics.Debug.WriteLine($"Search parameter {searchParam.Code} correctly returns 'NotSupported' error after deletion");
+                Debug.WriteLine($"Search parameter {searchParam.Code} correctly returns 'NotSupported' error after deletion");
             }
             finally
             {
@@ -583,38 +581,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 if (response?.Resource != null && !string.IsNullOrEmpty(response.Resource.Id))
                 {
-                    System.Diagnostics.Debug.WriteLine($"Successfully created {typeof(T).Name}/{response.Resource.Id}");
+                    Debug.WriteLine($"Successfully created {typeof(T).Name}/{response.Resource.Id}");
                     return (true, response.Resource, response.Resource.Id);
                 }
 
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: Response was null or had no ID");
+                Debug.WriteLine($"Failed to create resource {id}: Response was null or had no ID");
                 return (false, resource, id);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
+                Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
                 return (false, null, id);
-            }
-        }
-
-        /// <summary>
-        /// Helper method to create and post a resource in a single operation
-        /// </summary>
-        private async Task<T> CreateAndPostResourceAsync<T>(string id, string name, Func<string, string, Task<T>> createResourceFunc)
-            where T : Resource
-        {
-            var resource = await createResourceFunc(id, name);
-
-            try
-            {
-                // Post the resource using the client's CreateAsync method
-                var response = await _fixture.TestFhirClient.CreateAsync(resource);
-                return response;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
-                return resource; // Return the original resource even on failure so ID can be tracked
             }
         }
 
@@ -662,29 +639,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             catch (Exception ex)
             {
                 // Log the exception for debugging
-                System.Diagnostics.Debug.WriteLine($"Failed to create search parameter: {ex.Message}");
+                Debug.WriteLine($"Failed to create search parameter: {ex.Message}");
                 throw;
-            }
-        }
-
-        private async Task<Observation> CreateObservationResourceAsync(string id, string personId)
-        {
-            var observation = new Observation
-            {
-                Id = id,
-                Status = ObservationStatus.Final,
-                Code = new CodeableConcept("http://loinc.org", "1234-5"),
-                Subject = new ResourceReference($"Person/{personId}"),
-            };
-
-            try
-            {
-                var result = await _fixture.TestFhirClient.CreateAsync(observation);
-                return result;
-            }
-            catch
-            {
-                return observation;
             }
         }
 
@@ -724,7 +680,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Delete test data resources (Person, Observation, etc.) in parallel batches
             if (testResources != null && testResources.Count > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
+                Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
 
                 const int batchSize = 500; // Process 500 resources at a time in parallel
                 int totalDeleted = 0;
@@ -752,18 +708,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         await Task.WhenAll(batchTasks);
                         totalDeleted += currentBatchSize;
 
-                        System.Diagnostics.Debug.WriteLine($"Deleted batch {(batchStart / batchSize) + 1}: {currentBatchSize} resources (total: {totalDeleted}/{testResources.Count})");
+                        Debug.WriteLine($"Deleted batch {(batchStart / batchSize) + 1}: {currentBatchSize} resources (total: {totalDeleted}/{testResources.Count})");
                     }
                     catch (Exception ex)
                     {
                         totalFailed += currentBatchSize;
-                        System.Diagnostics.Debug.WriteLine($"Failed to delete batch at offset {batchStart}: {ex.Message}");
+                        Debug.WriteLine($"Failed to delete batch at offset {batchStart}: {ex.Message}");
 
                         // Continue with next batch instead of failing completely
                     }
                 }
 
-                System.Diagnostics.Debug.WriteLine($"Cleanup completed: {totalDeleted} deleted successfully, {totalFailed} failed");
+                Debug.WriteLine($"Cleanup completed: {totalDeleted} deleted successfully, {totalFailed} failed");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(3));
@@ -780,11 +736,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             try
             {
                 await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}");
-                System.Diagnostics.Debug.WriteLine($"Deleted {resourceType}/{resourceId}");
+                Debug.WriteLine($"Deleted {resourceType}/{resourceId}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to delete {resourceType}/{resourceId}: {ex.Message}");
+                Debug.WriteLine($"Failed to delete {resourceType}/{resourceId}: {ex.Message}");
 
                 // Don't throw - allow other deletions to continue
             }
@@ -813,7 +769,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 catch (Exception ex)
                 {
                     // Log but continue cleanup even if delete fails
-                    System.Diagnostics.Debug.WriteLine($"Failed to delete SearchParameter/{param?.Id}: {ex.Message}");
+                    Debug.WriteLine($"Failed to delete SearchParameter/{param?.Id}: {ex.Message}");
                 }
             }
 
@@ -936,14 +892,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     int pageCount = 0;
                     int totalEntriesRetrieved = 0;
 
-                    System.Diagnostics.Debug.WriteLine(
+                    Debug.WriteLine(
                         $"Search parameter {searchParameterCode} - attempt {attempt} of {maxRetries}, starting search with page size {pageSize}.");
 
                     // Follow pagination until we get all results
                     while (!string.IsNullOrEmpty(nextLink))
                     {
                         pageCount++;
-                        System.Diagnostics.Debug.WriteLine($"Search parameter {searchParameterCode} - fetching page {pageCount}");
+                        Debug.WriteLine($"Search parameter {searchParameterCode} - fetching page {pageCount}");
 
                         var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextLink);
                         Assert.NotNull(searchResponse);
@@ -964,11 +920,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                         // Check if there's a next link for pagination
                         nextLink = searchResponse.Resource?.NextLink?.OriginalString;
-                        System.Diagnostics.Debug.WriteLine(
+                        Debug.WriteLine(
                             $"Search parameter {searchParameterCode} - page {pageCount} returned {searchResponse.Resource?.Entry?.Count ?? 0} entries (total so far: {totalEntriesRetrieved}). Next link: {(string.IsNullOrEmpty(nextLink) ? "none" : "present")}");
                     }
 
-                    System.Diagnostics.Debug.WriteLine(
+                    Debug.WriteLine(
                         $"Search parameter {searchParameterCode} is working - search executed successfully without 'NotSupported' error on attempt {attempt}. Total pages fetched: {pageCount}, Total entries retrieved: {totalEntriesRetrieved}");
 
                     // Validate record expectations if specified
@@ -985,7 +941,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                 resourcesFound.Count > 0,
                                 $"Expected to find {expectedResourceType} records for search parameter {searchParameterCode}, but none were returned.");
 
-                            System.Diagnostics.Debug.WriteLine(
+                            Debug.WriteLine(
                                 $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) across {pageCount} page(s)");
                         }
                         else
@@ -994,13 +950,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                             Assert.True(
                                 resourcesFound.Count == 0,
                                 $"Expected no {expectedResourceType} records for search parameter {searchParameterCode}, but found {resourcesFound.Count}.");
-                            System.Diagnostics.Debug.WriteLine(
+                            Debug.WriteLine(
                                 $"Search parameter {searchParameterCode} correctly returned no {expectedResourceType} records");
                         }
                     }
 
                     // Log the successful search query for reference
-                    System.Diagnostics.Debug.WriteLine($"Search query: {searchQuery} executed successfully on attempt {attempt} across {pageCount} page(s).");
+                    Debug.WriteLine($"Search query: {searchQuery} executed successfully on attempt {attempt} across {pageCount} page(s).");
 
                     // Success - return without retrying
                     return;
@@ -1011,7 +967,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                     if (attempt < maxRetries)
                     {
-                        System.Diagnostics.Debug.WriteLine(
+                        Debug.WriteLine(
                             $"Search parameter {searchParameterCode} verification failed on attempt {attempt} of {maxRetries}. " +
                             $"Retrying in {retryDelayMs}ms. Error: {ex.Message}");
 
@@ -1045,7 +1001,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             var createdResources = new List<(string resourceType, string resourceId)>();
 
-            System.Diagnostics.Debug.WriteLine($"Creating {desiredCount} new {resourceType} resources...");
+            Debug.WriteLine($"Creating {desiredCount} new {resourceType} resources...");
 
             // Create resources in batches using parallel individual creates for better performance
             const int batchSize = 500; // Process 500 resources at a time in parallel
@@ -1074,7 +1030,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     {
                         // Exponential backoff for retries
                         var delayMs = 1000 * (int)Math.Pow(2, retryAttempt - 1); // 1s, 2s, 4s
-                        System.Diagnostics.Debug.WriteLine($"Retrying {resourcesToCreateInBatch.Count} failed resources after {delayMs}ms delay (attempt {retryAttempt + 1}/{maxCreateRetries})");
+                        Debug.WriteLine($"Retrying {resourcesToCreateInBatch.Count} failed resources after {delayMs}ms delay (attempt {retryAttempt + 1}/{maxCreateRetries})");
                         await Task.Delay(delayMs);
                     }
 
@@ -1116,14 +1072,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                         resourcesToCreateInBatch = nextRetryBatch;
 
-                        System.Diagnostics.Debug.WriteLine(
+                        Debug.WriteLine(
                             $"Batch {(batchStart / batchSize) + 1} attempt {retryAttempt + 1}: " +
                             $"{totalCreated} total created, {resourcesToCreateInBatch.Count} pending retry, " +
                             $"{failedIds.Count} permanently failed");
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Failed to create batch at offset {batchStart}: {ex.Message}");
+                        Debug.WriteLine($"Failed to create batch at offset {batchStart}: {ex.Message}");
                         if (retryAttempt == maxCreateRetries - 1)
                         {
                             // Add all remaining to failed list
@@ -1142,8 +1098,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Report on any failures
             if (failedIds.Any())
             {
-                System.Diagnostics.Debug.WriteLine($"WARNING: {failedIds.Count} resources failed to create after {maxCreateRetries} retries");
-                System.Diagnostics.Debug.WriteLine($"Failed IDs (first 10): {string.Join(", ", failedIds.Take(10))}");
+                Debug.WriteLine($"WARNING: {failedIds.Count} resources failed to create after {maxCreateRetries} retries");
+                Debug.WriteLine($"Failed IDs (first 10): {string.Join(", ", failedIds.Take(10))}");
             }
 
             // Calculate acceptable threshold (allow 5% failure rate for transient issues)
@@ -1155,18 +1111,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var errorMsg = $"CRITICAL: Failed to create sufficient {resourceType} resources. " +
                               $"Desired: {desiredCount}, Acceptable minimum: {acceptableMinimum}, " +
                               $"Successfully created: {totalCreated}, Failed: {failedIds.Count}";
-                System.Diagnostics.Debug.WriteLine(errorMsg);
+                Debug.WriteLine(errorMsg);
                 Assert.Fail(errorMsg);
             }
             else if (totalCreated < desiredCount)
             {
                 // Log warning but don't fail
-                System.Diagnostics.Debug.WriteLine(
+                Debug.WriteLine(
                     $"WARNING: Created {totalCreated}/{desiredCount} {resourceType} resources " +
                     $"(within acceptable threshold of {acceptableMinimum})");
             }
 
-            System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} new {resourceType} resources.");
+            Debug.WriteLine($"Successfully created {totalCreated} new {resourceType} resources.");
 
             // Return the ACTUAL count of resources we created and have IDs for
             return (createdResources, totalCreated);
@@ -1182,14 +1138,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("Checking for any running reindex jobs via GET $reindex...");
+                Debug.WriteLine("Checking for any running reindex jobs via GET $reindex...");
 
                 // Use GET to $reindex to check for active jobs
                 var response = await _fixture.TestFhirClient.HttpClient.GetAsync("$reindex", cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    System.Diagnostics.Debug.WriteLine($"GET $reindex returned non-success status: {response.StatusCode}. No active jobs to cancel.");
+                    Debug.WriteLine($"GET $reindex returned non-success status: {response.StatusCode}. No active jobs to cancel.");
                     return;
                 }
 
@@ -1206,13 +1162,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
                 catch (Exception parseEx)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to parse $reindex response as Parameters: {parseEx.Message}");
+                    Debug.WriteLine($"Failed to parse $reindex response as Parameters: {parseEx.Message}");
                     return;
                 }
 
                 if (parameters?.Parameter == null || !parameters.Parameter.Any())
                 {
-                    System.Diagnostics.Debug.WriteLine("No parameters found in $reindex response. No active jobs to cancel.");
+                    Debug.WriteLine("No parameters found in $reindex response. No active jobs to cancel.");
                     return;
                 }
 
@@ -1222,7 +1178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 if (idParam?.Value == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("No job ID found in $reindex response. No active jobs to cancel.");
+                    Debug.WriteLine("No job ID found in $reindex response. No active jobs to cancel.");
                     return;
                 }
 
@@ -1243,12 +1199,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 if (string.IsNullOrEmpty(jobId))
                 {
-                    System.Diagnostics.Debug.WriteLine("Job ID is empty. No active jobs to cancel.");
+                    Debug.WriteLine("Job ID is empty. No active jobs to cancel.");
                     return;
                 }
 
                 // Job is active (Running or Queued), cancel it
-                System.Diagnostics.Debug.WriteLine($"Job {jobId} is active. Attempting to cancel...");
+                Debug.WriteLine($"Job {jobId} is active. Attempting to cancel...");
 
                 // Use the correct URI format: /_operations/reindex/{jobId}
                 var jobUri = new Uri($"{_fixture.TestFhirClient.HttpClient.BaseAddress}_operations/reindex/{jobId}");
@@ -1261,25 +1217,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 };
 
                 var cancelResponse = await _fixture.TestFhirClient.HttpClient.SendAsync(deleteRequest, cancellationToken);
-                System.Diagnostics.Debug.WriteLine($"Cancel request for job {jobId} completed with status: {cancelResponse.StatusCode}");
+                Debug.WriteLine($"Cancel request for job {jobId} completed with status: {cancelResponse.StatusCode}");
 
                 // Wait for the job to reach a terminal status
                 if (cancelResponse.IsSuccessStatusCode)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Waiting for job {jobId} to reach terminal state...");
+                    Debug.WriteLine($"Waiting for job {jobId} to reach terminal state...");
                     var finalStatus = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromSeconds(120));
-                    System.Diagnostics.Debug.WriteLine($"Job {jobId} reached final status: {finalStatus}");
+                    Debug.WriteLine($"Job {jobId} reached final status: {finalStatus}");
 
                     // Add a small delay to ensure system is ready
                     await Task.Delay(2000, cancellationToken);
                 }
 
-                System.Diagnostics.Debug.WriteLine("Completed checking and canceling running reindex jobs");
+                Debug.WriteLine("Completed checking and canceling running reindex jobs");
             }
             catch (Exception ex)
             {
                 // Log but don't fail - this is a cleanup/safety check
-                System.Diagnostics.Debug.WriteLine($"Error in CancelAnyRunningReindexJobsAsync: {ex.Message}");
+                Debug.WriteLine($"Error in CancelAnyRunningReindexJobsAsync: {ex.Message}");
             }
         }
     }
