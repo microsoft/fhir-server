@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
@@ -35,6 +36,9 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Messages.Reindex;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -270,6 +274,475 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _requestContextAccessor.RequestContext.Properties
                 .Received(queryProcessingLogic.HasValue && queryProcessingLogic.Value == ConditionalQueryProcessingLogic.Parallel ? 1 : 0)
                 .TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.NotFound)]
+        [InlineData(HttpStatusCode.MethodNotAllowed)]
+        [InlineData(null)]
+        public async Task GivenHttpStatusCode_WhenProcessingCustomError_ThenCorrectFhirResultShouldBeCreated(
+            HttpStatusCode? statusCode)
+        {
+            var expectedStatusCode = statusCode ?? HttpStatusCode.InternalServerError;
+            var issueTypeMap = new Dictionary<HttpStatusCode, OperationOutcome.IssueType>
+            {
+                [HttpStatusCode.Unauthorized] = OperationOutcome.IssueType.Login,
+                [HttpStatusCode.Forbidden] = OperationOutcome.IssueType.Forbidden,
+                [HttpStatusCode.NotFound] = OperationOutcome.IssueType.NotFound,
+                [HttpStatusCode.MethodNotAllowed] = OperationOutcome.IssueType.NotSupported,
+                [HttpStatusCode.InternalServerError] = OperationOutcome.IssueType.Exception,
+            };
+
+            var diagnosticMap = new Dictionary<HttpStatusCode, string>
+            {
+                [HttpStatusCode.Unauthorized] = Resources.Unauthorized,
+                [HttpStatusCode.Forbidden] = Resources.Forbidden,
+                [HttpStatusCode.NotFound] = Resources.NotFoundException,
+                [HttpStatusCode.MethodNotAllowed] = Resources.OperationNotSupported,
+                [HttpStatusCode.InternalServerError] = Resources.GeneralInternalError,
+            };
+
+            var response = _fhirController.CustomError(statusCode != null ? (int)statusCode.Value : null);
+            var result = response as FhirResult;
+            Assert.NotNull(result);
+            Assert.Equal(expectedStatusCode, result.StatusCode);
+
+            var outcome = (result.Result as ResourceElement)?.ToPoco<OperationOutcome>();
+            Assert.NotNull(outcome);
+            Assert.Single(outcome.Issue);
+
+            var issue = outcome.Issue.First();
+            Assert.Equal(OperationOutcome.IssueSeverity.Error, issue.Severity);
+            Assert.Equal(issueTypeMap[expectedStatusCode], issue.Code);
+            Assert.Equal(diagnosticMap[expectedStatusCode], issue.Diagnostics);
+        }
+
+        [Fact]
+        public async Task GivenCreateRequest_WhenProcessingRequest_ThenCreateResourceRequestShouldBeCreatedCorrectly()
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<UpsertResourceResponse>(
+                Arg.Any<CreateResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
+
+            var request = default(CreateResourceRequest);
+            _mediator.When(
+                x => x.Send<UpsertResourceResponse>(
+                    Arg.Any<CreateResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<CreateResourceRequest>());
+
+            var response = await _fhirController.Create(resource);
+            var result = response as FhirResult;
+            Assert.NotNull(result?.Result);
+            Assert.Equal(resource.TypeName, result.Result.InstanceType);
+            Assert.Equal(resource.Id, result.Result.Id);
+            Assert.Equal(resource.VersionId, result.Result.VersionId);
+
+            Assert.NotNull(request?.Resource);
+            Assert.Equal(resource.TypeName, request.Resource.InstanceType);
+            Assert.Equal(resource.Id, request.Resource.Id);
+            Assert.Equal(resource.VersionId, request.Resource.VersionId);
+
+            await _mediator.Received(1).Send<UpsertResourceResponse>(
+                Arg.Any<CreateResourceRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData(null, true)]
+        [InlineData("ver0", false)]
+        [InlineData("ver1", true)]
+        public async Task GivenUpdateRequest_WhenProcessingRequest_ThenUpsertResourceRequestShouldBeCreatedCorrectly(
+            string versionId,
+            bool metaHistory)
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<UpsertResourceResponse>(
+                Arg.Any<UpsertResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
+
+            var request = default(UpsertResourceRequest);
+            _mediator.When(
+                x => x.Send<UpsertResourceResponse>(
+                    Arg.Any<UpsertResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<UpsertResourceRequest>());
+
+            var response = await _fhirController.Update(
+                resource,
+                versionId != null ? WeakETag.FromVersionId(versionId) : null,
+                metaHistory);
+            var result = response as FhirResult;
+            Assert.NotNull(result?.Result);
+            Assert.Equal(resource.TypeName, result.Result.InstanceType);
+            Assert.Equal(resource.Id, result.Result.Id);
+            Assert.Equal(resource.VersionId, result.Result.VersionId);
+
+            Assert.NotNull(request?.Resource);
+            Assert.Equal(resource.TypeName, request.Resource.InstanceType);
+            Assert.Equal(resource.Id, request.Resource.Id);
+            Assert.Equal(resource.VersionId, request.Resource.VersionId);
+            Assert.Equal(versionId, request.WeakETag?.VersionId);
+            Assert.Equal(metaHistory, request.MetaHistory);
+
+            await _mediator.Received(1).Send<UpsertResourceResponse>(
+                Arg.Any<UpsertResourceRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData("?p=v", null, SaveOutcomeType.Updated)]
+        [InlineData("?p=v", null, SaveOutcomeType.Created)]
+        [InlineData("?p=v", null, SaveOutcomeType.MatchFound)]
+        [InlineData(null, null, SaveOutcomeType.Updated)]
+        [InlineData("?p=v", ConditionalQueryProcessingLogic.Sequential, SaveOutcomeType.Created)]
+        [InlineData("?p=v", ConditionalQueryProcessingLogic.Parallel, SaveOutcomeType.Updated)]
+        [InlineData("?p0=v0&p1=v1&p2=v2", ConditionalQueryProcessingLogic.Parallel, SaveOutcomeType.Updated)]
+        public async Task GivenConditionalUpdateRequest_WhenVariousHeadersAreSpecified_ThenRequestShouldBeHandledCorrectly(
+            string query,
+            ConditionalQueryProcessingLogic? queryProcessingLogic,
+            SaveOutcomeType saveOutcome)
+        {
+            var statusCodeMap = new Dictionary<SaveOutcomeType, HttpStatusCode>
+            {
+                [SaveOutcomeType.Created] = HttpStatusCode.Created,
+                [SaveOutcomeType.Updated] = HttpStatusCode.OK,
+                [SaveOutcomeType.MatchFound] = HttpStatusCode.BadRequest,
+            };
+
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString(query);
+            if (queryProcessingLogic.HasValue)
+            {
+                httpContext.Request.Headers[KnownHeaders.ConditionalQueryProcessingLogic] = queryProcessingLogic.Value.ToString();
+            }
+
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<UpsertResourceResponse>(
+                Arg.Any<ConditionalUpsertResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), saveOutcome)));
+
+            var request = default(ConditionalUpsertResourceRequest);
+            _mediator.When(
+                x => x.Send<UpsertResourceResponse>(
+                    Arg.Any<ConditionalUpsertResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<ConditionalUpsertResourceRequest>());
+
+            var response = await _fhirController.ConditionalUpdate(resource);
+            Assert.IsType<FhirResult>(response);
+            Assert.Equal(statusCodeMap[saveOutcome], ((FhirResult)response).StatusCode);
+
+            var headers = QueryHelpers.ParseQuery(query);
+            Assert.Equal(headers.Count, request?.ConditionalParameters.Count ?? 0);
+            Assert.All(
+                headers,
+                x =>
+                {
+                    Assert.Contains(
+                        request?.ConditionalParameters,
+                        y =>
+                        {
+                            return string.Equals(x.Key, y.Item1, StringComparison.Ordinal)
+                                && string.Equals(x.Value.ToString(), y.Item2, StringComparison.Ordinal);
+                        });
+                });
+
+            await _mediator.Received(1).Send<UpsertResourceResponse>(
+                Arg.Any<ConditionalUpsertResourceRequest>(),
+                Arg.Any<CancellationToken>());
+            _requestContextAccessor.RequestContext.Properties
+                .Received(queryProcessingLogic.HasValue && queryProcessingLogic.Value == ConditionalQueryProcessingLogic.Parallel ? 1 : 0)
+                .TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
+        }
+
+        [Fact]
+        public async Task GivenReadRequest_WhenProcessingRequest_ThenGetResourceRequestShouldBeCreatedCorrectly()
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<GetResourceResponse>(
+                Arg.Any<GetResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new GetResourceResponse(new RawResourceElement(wrapper)));
+
+            var request = default(GetResourceRequest);
+            _mediator.When(
+                x => x.Send<GetResourceResponse>(
+                    Arg.Any<GetResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<GetResourceRequest>());
+
+            var response = await _fhirController.Read(resource.TypeName, resource.Id);
+            var result = response as FhirResult;
+            Assert.NotNull(result?.Result);
+            Assert.Equal(resource.TypeName, result.Result.InstanceType);
+            Assert.Equal(resource.Id, result.Result.Id);
+            Assert.Equal(resource.VersionId, result.Result.VersionId);
+
+            Assert.NotNull(request?.ResourceKey);
+            Assert.Equal(resource.TypeName, request.ResourceKey.ResourceType);
+            Assert.Equal(resource.Id, request.ResourceKey.Id);
+
+            // NOTE: commenting out version check as Read ignores version id.
+            // Assert.Equal(resource.VersionId, request.ResourceKey.VersionId);
+
+            await _mediator.Received(1).Send<GetResourceResponse>(
+                Arg.Any<GetResourceRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenSystemHistoryRequest_WhenProcessingRequest_ThenGetResourceRequestShouldBeCreatedCorrectly()
+        {
+            await RunHistoryTest((model, _, _) => _fhirController.SystemHistory(model));
+        }
+
+        [Fact]
+        public async Task GivenTypeHistoryRequest_WhenProcessingRequest_ThenGetResourceRequestShouldBeCreatedCorrectly()
+        {
+            await RunHistoryTest(
+                (model, type, _) => _fhirController.TypeHistory(type, model),
+                Guid.NewGuid().ToString());
+        }
+
+        [Fact]
+        public async Task GivenHistoryRequest_WhenProcessingRequest_ThenGetResourceRequestShouldBeCreatedCorrectly()
+        {
+            await RunHistoryTest(
+                (model, type, id) => _fhirController.History(type, id, model),
+                Guid.NewGuid().ToString(),
+                Guid.NewGuid().ToString());
+        }
+
+        [Fact]
+        public async Task GivenVReadRequest_WhenProcessingRequest_ThenGetResourceRequestShouldBeCreatedCorrectly()
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<GetResourceResponse>(
+                Arg.Any<GetResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new GetResourceResponse(new RawResourceElement(wrapper)));
+
+            var request = default(GetResourceRequest);
+            _mediator.When(
+                x => x.Send<GetResourceResponse>(
+                    Arg.Any<GetResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<GetResourceRequest>());
+
+            var response = await _fhirController.VRead(
+                resource.TypeName,
+                resource.Id,
+                resource.VersionId);
+            var result = response as FhirResult;
+            Assert.NotNull(result?.Result);
+            Assert.Equal(resource.TypeName, result.Result.InstanceType);
+            Assert.Equal(resource.Id, result.Result.Id);
+            Assert.Equal(resource.VersionId, result.Result.VersionId);
+
+            Assert.NotNull(request?.ResourceKey);
+            Assert.Equal(resource.TypeName, request.ResourceKey.ResourceType);
+            Assert.Equal(resource.Id, request.ResourceKey.Id);
+            Assert.Equal(resource.VersionId, request.ResourceKey.VersionId);
+
+            await _mediator.Received(1).Send<GetResourceResponse>(
+                Arg.Any<GetResourceRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenPurgeHistoryRequest_WhenProcessingRequest_ThenDeleteResourceRequestShouldBeCreatedCorrectly()
+        {
+            var resourceKey = new ResourceKey(
+                KnownResourceTypes.Patient,
+                Guid.NewGuid().ToString(),
+                Guid.NewGuid().ToString());
+            var etag = WeakETag.FromVersionId("ver0");
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<DeleteResourceResponse>(
+                Arg.Any<DeleteResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new DeleteResourceResponse(resourceKey, 1, etag));
+
+            var request = default(DeleteResourceRequest);
+            _mediator.When(
+                x => x.Send<DeleteResourceResponse>(
+                    Arg.Any<DeleteResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<DeleteResourceRequest>());
+
+            var response = await _fhirController.PurgeHistory(
+                resourceKey.ResourceType,
+                resourceKey.Id,
+                true);
+            var result = response as FhirResult;
+            Assert.NotNull(result);
+            Assert.Equal(HttpStatusCode.NoContent, result.StatusCode);
+            Assert.Null(result.Result);
+            Assert.Contains(
+                result.Headers,
+                x =>
+                {
+                    return string.Equals(x.Key, Net.Http.Headers.HeaderNames.ETag, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.Value, etag.ToString(), StringComparison.Ordinal);
+                });
+
+            Assert.NotNull(request?.ResourceKey);
+            Assert.Equal(resourceKey.ResourceType, request.ResourceKey.ResourceType);
+            Assert.Equal(resourceKey.Id, request.ResourceKey.Id);
+            Assert.Equal(DeleteOperation.PurgeHistory, request.DeleteOperation);
+            Assert.True(request.AllowPartialSuccess);
+
+            // NOTE: commenting out version check as PurgeHistory ignores version id.
+            // Assert.Equal(resourceKey.VersionId, request.ResourceKey.VersionId);
+
+            await _mediator.Received(1).Send<DeleteResourceResponse>(
+                Arg.Any<DeleteResourceRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        private async Task RunHistoryTest(
+            Func<HistoryModel, string, string, Task<IActionResult>> func,
+            string typeParameter = null,
+            string idParameter = null)
+        {
+            var resource = new Bundle()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<SearchResourceHistoryResponse>(
+                Arg.Any<SearchResourceHistoryRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new SearchResourceHistoryResponse(resource.ToResourceElement()));
+
+            var request = default(SearchResourceHistoryRequest);
+            _mediator.When(
+                x => x.Send<SearchResourceHistoryResponse>(
+                    Arg.Any<SearchResourceHistoryRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<SearchResourceHistoryRequest>());
+
+            var historyModel = new HistoryModel
+            {
+                Since = new PartialDateTime(DateTimeOffset.UtcNow),
+                Before = new PartialDateTime(DateTimeOffset.UtcNow),
+                At = new PartialDateTime(DateTimeOffset.UtcNow),
+                Count = 1,
+                Summary = Guid.NewGuid().ToString(),
+                ContinuationToken = Guid.NewGuid().ToString(),
+                Sort = Guid.NewGuid().ToString(),
+            };
+
+            var response = await func(
+                historyModel,
+                typeParameter,
+                idParameter);
+            var result = response as FhirResult;
+            Assert.NotNull(result?.Result);
+            Assert.Equal(resource.TypeName, result.Result.InstanceType);
+            Assert.Equal(resource.Id, result.Result.Id);
+            Assert.Equal(resource.VersionId, result.Result.VersionId);
+
+            Assert.NotNull(request);
+            Assert.Equal(typeParameter, request.ResourceType);
+            Assert.Equal(idParameter, request.ResourceId);
+            Assert.Equal(historyModel.Since.ToString(), request.Since?.ToString());
+            Assert.Equal(historyModel.Before.ToString(), request.Before?.ToString());
+            Assert.Equal(historyModel.At.ToString(), request.At?.ToString());
+            Assert.Equal(historyModel.Count, request.Count);
+            Assert.Equal(historyModel.Summary, request.Summary);
+            Assert.Equal(historyModel.ContinuationToken, request.ContinuationToken);
+            Assert.Equal(historyModel.Sort, request.Sort);
+
+            await _mediator.Received(1).Send<SearchResourceHistoryResponse>(
+                Arg.Any<SearchResourceHistoryRequest>(),
+                Arg.Any<CancellationToken>());
         }
 
         private static void TestIfTargetMethodContainsCustomAttribute(Type expectedCustomAttributeType, string methodName, Type targetClassType)
