@@ -282,7 +282,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData(HttpStatusCode.NotFound)]
         [InlineData(HttpStatusCode.MethodNotAllowed)]
         [InlineData(null)]
-        public async Task GivenHttpStatusCode_WhenProcessingCustomError_ThenCorrectFhirResultShouldBeCreated(
+        public void GivenHttpStatusCode_WhenProcessingCustomError_ThenCorrectFhirResultShouldBeCreated(
             HttpStatusCode? statusCode)
         {
             var expectedStatusCode = statusCode ?? HttpStatusCode.InternalServerError;
