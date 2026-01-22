@@ -193,11 +193,11 @@
                 "description": "Tag of the docker image to deploy."
             }
         },
-        "acrPullUserAssignedManagedIdentityAppId": {
+        "acrPullUserAssignedManagedIdentityResourceId": {
             "type": "string",
             "defaultValue": "",
             "metadata": {
-                "description": "App ID of the user-assigned managed identity with ACR pull permissions. If empty, no additional ACR pull identity will be assigned."
+                "description": "Full resource ID of the user-assigned managed identity with ACR pull permissions. If empty, no additional ACR pull identity will be assigned."
             }
         },
         "enableExport": {
@@ -315,8 +315,7 @@
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "sqlServerDerivedName": "[if(empty(parameters('sqlServerName')),variables('serviceName'),parameters('sqlServerName'))]",
         "managedIdentityName": "[concat(if(empty(parameters('sqlServerName')), variables('serviceName'), parameters('sqlServerName')), '-uami')]",
-        "hasAcrPullUami": "[not(empty(parameters('acrPullUserAssignedManagedIdentityAppId')))]",
-        "acrPullUamiResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'acr-pull-uami')]",
+        "hasAcrPullUami": "[not(empty(parameters('acrPullUserAssignedManagedIdentityResourceId')))]",
         "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
@@ -368,7 +367,7 @@
             "location": "[resourceGroup().location]",
             "identity": {
                 "type": "SystemAssigned, UserAssigned",
-                "userAssignedIdentities": "[if(variables('hasAcrPullUami'), json(concat('{\"', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '\":{},\"', variables('acrPullUamiResourceId'), '\":{}}')), json(concat('{\"', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '\":{}}')))]"
+                "userAssignedIdentities": "[if(variables('hasAcrPullUami'), json(concat('{\"', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '\":{},\"', parameters('acrPullUserAssignedManagedIdentityResourceId'), '\":{}}')), json(concat('{\"', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '\":{}}')))]"
             },
             "properties": {
                 "name": "[parameters('serviceName')]",

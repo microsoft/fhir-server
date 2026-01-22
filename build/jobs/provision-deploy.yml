@@ -92,7 +92,7 @@ jobs:
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
-            acrPullUserAssignedManagedIdentityAppId = 'e4acf07d-0124-4373-9ea4-bf5c53af647d'
+            acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
             isNspExisting = $true
         }
 
