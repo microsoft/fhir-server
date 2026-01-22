@@ -56,8 +56,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     var coreConfigurations = serviceProvider.GetRequiredService<IOptions<Core.Configs.CoreFeatureConfiguration>>();
                     if (operationsOptions?.Value?.Reindex != null)
                     {
-                        operationsOptions.Value.Reindex.ReindexDelayMultiplier = 1;
-                        coreConfigurations.Value.SearchParameterCacheRefreshIntervalSeconds = 2;
+                        operationsOptions.Value.Reindex.ReindexDelayMultiplier = 2;
+                        coreConfigurations.Value.SearchParameterCacheRefreshIntervalSeconds = 1;
                     }
 
                     // Override job hosting polling frequency for faster dequeuing
