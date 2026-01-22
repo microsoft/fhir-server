@@ -100,10 +100,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     var startTicks = dateTime.Start.UtcTicks;
                     var endTicks = dateTime.End.UtcTicks;
 
-                    var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
+                    // Calculate the difference safely to avoid overflow
+                    long nowTicks = Clock.UtcNow.Ticks;
+                    long maxTicks = Math.Max(startTicks, endTicks);
 
-                    var approximateStart = dateTime.Start.AddTicks(-differenceTicks);
-                    var approximateEnd = dateTime.End.AddTicks(differenceTicks);
+                    // Use checked arithmetic to detect overflow, but handle it gracefully
+                    long differenceTicks;
+                    try
+                    {
+                        checked
+                        {
+                            long rawDifference = nowTicks - maxTicks;
+                            differenceTicks = (long)(rawDifference * ApproximateMultiplier);
+                        }
+                    }
+                    catch (OverflowException)
+                    {
+                        // If overflow occurs in calculation, use a safe maximum difference
+                        // This represents approximately 10% of the maximum safe tick range
+                        differenceTicks = long.MaxValue / 20;
+                    }
+
+                    // Ensure we don't overflow when adding/subtracting ticks
+                    long ticksToSubtract = differenceTicks;
+                    long ticksToAdd = differenceTicks;
+
+                    // Clamp to prevent overflow before calling AddTicks
+                    if (startTicks - ticksToSubtract < DateTimeOffset.MinValue.Ticks)
+                    {
+                        ticksToSubtract = startTicks - DateTimeOffset.MinValue.Ticks;
+                    }
+
+                    if (endTicks + ticksToAdd > DateTimeOffset.MaxValue.Ticks)
+                    {
+                        ticksToAdd = DateTimeOffset.MaxValue.Ticks - endTicks;
+                    }
+
+                    DateTimeOffset approximateStart = dateTime.Start.AddTicks(-ticksToSubtract);
+                    DateTimeOffset approximateEnd = dateTime.End.AddTicks(ticksToAdd);
 
                     _outputExpression = Expression.And(
                         Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, approximateStart),
