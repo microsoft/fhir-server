@@ -200,6 +200,13 @@
                 "description": "Full resource ID of the user-assigned managed identity with ACR pull permissions. If empty, no additional ACR pull identity will be assigned."
             }
         },
+        "acrPullUserAssignedManagedIdentityClientId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Client ID (App ID) of the user-assigned managed identity with ACR pull permissions. Required when acrPullUserAssignedManagedIdentityResourceId is provided."
+            }
+        },
         "enableExport": {
             "type": "bool",
             "defaultValue": false,
@@ -373,7 +380,7 @@
                 "name": "[parameters('serviceName')]",
                 "siteConfig": {
                     "acrUseManagedIdentityCreds": "[variables('hasAcrPullUami')]",
-                    "acrUserManagedIdentityID": "[if(variables('hasAcrPullUami'), parameters('acrPullUserAssignedManagedIdentityResourceId'), json('null'))]",
+                    "acrUserManagedIdentityID": "[if(variables('hasAcrPullUami'), parameters('acrPullUserAssignedManagedIdentityClientId'), json('null'))]",
                     "appSettings": [
                         {
                             "name": "DOCKER_REGISTRY_SERVER_URL",
