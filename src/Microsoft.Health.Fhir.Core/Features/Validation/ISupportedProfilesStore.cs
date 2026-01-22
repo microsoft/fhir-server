@@ -25,5 +25,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         IReadOnlySet<string> GetProfilesTypes();
 
         void Refresh();
+
+        bool IsSyncRequested();
+
+        void MarkSyncCompleted();
     }
 }

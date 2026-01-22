@@ -75,6 +75,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var validateConfiguration = new ValidateOperationConfiguration();
             configuration["FhirServer:Operations:Validate:CacheDurationInSeconds"] = validateConfiguration.CacheDurationInSeconds.ToString();
             configuration["FhirServer:Operations:Validate:MaxExpansionSize"] = validateConfiguration.MaxExpansionSize.ToString();
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = validateConfiguration.BackgroundProfileStatusCheckIntervalInSeconds.ToString();
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = validateConfiguration.BackgroundProfileStatusDelayedStartInSeconds.ToString();
 
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
