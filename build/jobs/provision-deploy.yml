@@ -92,6 +92,7 @@ jobs:
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
+            acrPullUserAssignedManagedIdentityAppId = 'e4acf07d-0124-4373-9ea4-bf5c53af647d'
             isNspExisting = $true
         }
 
