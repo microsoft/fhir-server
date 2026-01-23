@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var initialLength = context.StringBuilder.ToString().Length;
 
-            var result = CompartmentQueryGenerator.Instance.VisitCompartment(expression, context);
+            CompartmentQueryGenerator.Instance.VisitCompartment(expression, context);
 
             var finalLength = context.StringBuilder.ToString().Length;
             Assert.True(finalLength > initialLength, "StringBuilder should have content added");
@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)
         {
             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
-            var sqlCommand = new SqlCommand();
+            using var sqlCommand = new SqlCommand();
             var sqlParameterManager = new SqlQueryParameterManager(sqlCommand.Parameters);
             var parameters = new HashingSqlQueryParameterManager(sqlParameterManager);
 

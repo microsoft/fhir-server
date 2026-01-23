@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(dataStore);
 
             // Act
-            var maxLastUpdated = await dataStore.GetMaxLastUpdatedAsync(CancellationToken.None);
+            var maxLastUpdated = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
 
             // Assert
             Assert.NotEqual(DateTimeOffset.MinValue, maxLastUpdated);
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             try
             {
                 // Get initial max
-                var maxBefore = await dataStore.GetMaxLastUpdatedAsync(CancellationToken.None);
+                var maxBefore = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
 
                 // Small delay to ensure different timestamp
                 await Task.Delay(100);
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Act - Upsert new status
                 await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
 
-                var maxAfter = await dataStore.GetMaxLastUpdatedAsync(CancellationToken.None);
+                var maxAfter = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
 
                 // Assert - Max should increase
                 Assert.True(maxAfter >= maxBefore, $"Expected maxAfter ({maxAfter}) >= maxBefore ({maxBefore})");
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             };
 
             // Act - Call SyncStatuses (this should not throw)
-            dataStore.SyncStatuses(new[] { status });
+            dataStore!.SyncStatuses(new[] { status });
 
             // Assert - Method completes without exception
             // Note: We can't easily verify the internal state of _fhirModel without exposing it,
@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(dataStore);
 
             // Act
-            var maxLastUpdated = await dataStore.GetMaxLastUpdatedAsync(CancellationToken.None);
+            var maxLastUpdated = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
             var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
             // Assert - MaxLastUpdated should be >= all individual LastUpdated values

@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
             {
-                var service = new SqlServerSearchService(
+                _ = new SqlServerSearchService(
                     null,
                     _fhirDataStore,
                     model,
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
             {
-                var service = new SqlServerSearchService(
+                _ = new SqlServerSearchService(
                     _searchOptionsFactory,
                     _fhirDataStore,
                     model,
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() =>
             {
-                var service = new SqlServerSearchService(
+                _ = new SqlServerSearchService(
                     _searchOptionsFactory,
                     _fhirDataStore,
                     model,

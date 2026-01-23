@@ -306,7 +306,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var batch1 = await resourceChangeDataStore.GetRecordsAsync(1, 2, CancellationToken.None);
 
             // Act - Fetch next batch starting from last ID of first batch
-            long nextStartId = batch1.Count > 0 ? ((System.Collections.Generic.List<Core.Models.ResourceChangeData>)batch1)[batch1.Count - 1].Id + 1 : 1;
+            long nextStartId = batch1.Count > 0 ? batch1.Last().Id + 1 : 1;
             var batch2 = await resourceChangeDataStore.GetRecordsAsync(nextStartId, 2, CancellationToken.None);
 
             // Assert
@@ -316,8 +316,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             // Batches should not overlap
             if (batch1.Count > 0 && batch2.Count > 0)
             {
-                var lastIdInBatch1 = ((System.Collections.Generic.List<Core.Models.ResourceChangeData>)batch1)[batch1.Count - 1].Id;
-                var firstIdInBatch2 = ((System.Collections.Generic.List<Core.Models.ResourceChangeData>)batch2)[0].Id;
+                var lastIdInBatch1 = batch1.Last().Id;
+                var firstIdInBatch2 = batch2.First().Id;
                 Assert.True(firstIdInBatch2 > lastIdInBatch1);
             }
         }

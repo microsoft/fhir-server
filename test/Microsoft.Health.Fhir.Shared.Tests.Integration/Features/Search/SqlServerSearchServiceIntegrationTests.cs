@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act
-            var result = await sqlSearchService.SearchBySurrogateIdRange(
+            var result = await sqlSearchService!.SearchBySurrogateIdRange(
                 "Patient",
                 surrogateIds.First(),
                 surrogateIds.Last(),
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act - Search for resources including history
-            var result = await sqlSearchService.SearchBySurrogateIdRange(
+            var result = await sqlSearchService!.SearchBySurrogateIdRange(
                 "Patient",
                 originalSurrogateId,
                 originalSurrogateId + 100,
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act with a non-matching hash
-            var result = await sqlSearchService.SearchBySurrogateIdRange(
+            var result = await sqlSearchService!.SearchBySurrogateIdRange(
                 "Patient",
                 surrogateId,
                 surrogateId + 100,
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act
-            var ranges = await sqlSearchService.GetSurrogateIdRanges(
+            var ranges = await sqlSearchService!.GetSurrogateIdRanges(
                 "Patient",
                 startId: 1,
                 endId: long.MaxValue,
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act - Get surrogate ID ranges with activeOnly flag
-            var ranges = await sqlSearchService.GetSurrogateIdRanges(
+            var ranges = await sqlSearchService!.GetSurrogateIdRanges(
                 "Patient",
                 startId: patient.ResourceSurrogateId,
                 endId: patient.ResourceSurrogateId + 100,
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act
-            var resourceTypes = await sqlSearchService.GetUsedResourceTypes(CancellationToken.None);
+            var resourceTypes = await sqlSearchService!.GetUsedResourceTypes(CancellationToken.None);
 
             // Assert
             Assert.NotNull(resourceTypes);
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act
-            var stats = await sqlSearchService.GetStatsFromDatabase(CancellationToken.None);
+            var stats = await sqlSearchService!.GetStatsFromDatabase(CancellationToken.None);
 
             // Assert
             Assert.NotNull(stats);
@@ -261,16 +261,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             var sqlSearchService = _searchService as SqlServerSearchService;
             Assert.NotNull(sqlSearchService);
 
-            var originalValue = sqlSearchService.StoredProcedureLayerIsEnabled;
+            var originalValue = sqlSearchService!.StoredProcedureLayerIsEnabled;
 
             // Act
-            sqlSearchService.StoredProcedureLayerIsEnabled = !originalValue;
+            sqlSearchService!.StoredProcedureLayerIsEnabled = !originalValue;
 
             // Assert
-            Assert.Equal(!originalValue, sqlSearchService.StoredProcedureLayerIsEnabled);
+            Assert.Equal(!originalValue, sqlSearchService!.StoredProcedureLayerIsEnabled);
 
             // Cleanup - restore original value
-            sqlSearchService.StoredProcedureLayerIsEnabled = originalValue;
+            sqlSearchService!.StoredProcedureLayerIsEnabled = originalValue;
         }
 
         [Fact]
@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act - Search in a range where no resources exist
-            var result = await sqlSearchService.SearchBySurrogateIdRange(
+            var result = await sqlSearchService!.SearchBySurrogateIdRange(
                 "Patient",
                 999999999,
                 999999999,
@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(sqlSearchService);
 
             // Act
-            var ranges = await sqlSearchService.GetSurrogateIdRanges(
+            var ranges = await sqlSearchService!.GetSurrogateIdRanges(
                 "Patient",
                 startId: 1,
                 endId: long.MaxValue,
