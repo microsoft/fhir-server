@@ -63,13 +63,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                     resource = await UploadUSCore6PatientProfileAsync();
                 }
 
-                var response = await Client.ReadAsync<CapabilityStatement>("metadata");
-                Assert.NotNull(response?.Resource);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
                 await _retryPolicy.ExecuteAsync(
                     async () =>
                     {
+                        var response = await Client.ReadAsync<CapabilityStatement>("metadata");
+                        Assert.NotNull(response?.Resource);
+                        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
                         var instantiates = response.Resource.Instantiates?.ToList() ?? new List<string>();
                         if (uploadUSCore6Profile)
                         {
