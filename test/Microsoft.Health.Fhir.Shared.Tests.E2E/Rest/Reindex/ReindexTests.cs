@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -33,6 +34,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public ReindexTests(ReindexTestFixture fixture)
         {
             _fixture = fixture;
+        }
+
+        [Fact]
+        public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+            var searchParam = new SearchParameter();
+            var testResources = new List<(string resourceType, string resourceId)>();
+            (FhirResponse<Parameters> response, Uri jobUri) value = default;
+
+            try
+            {
+                var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+                var resources = (await SetupTestDataAsync("Person", 20, randomSuffix, CreatePersonResourceAsync)).createdResources;
+                testResources.AddRange(resources);
+                searchParam = await CreateCustomSearchParameterAsync($"custom-person-name-{randomSuffix}", ["Person"], "Person.name.given", SearchParamType.String);
+                Assert.NotNull(searchParam);
+
+                var parameters = new Parameters
+                {
+                    Parameter =
+                    [
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
+                    ],
+                };
+
+                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+
+                var tasks = new[]
+                {
+                    WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300)),
+                    RandomPersonUpdate(testResources),
+                };
+                await Task.WhenAll(tasks);
+
+                // reported in reindex counts should be less than total resources created
+                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, true);
+            }
+            finally
+            {
+                await CleanupTestDataAsync(testResources, searchParam);
+            }
         }
 
         [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
@@ -149,6 +195,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     personSearchParam.Code,
                     expectedResourceType: "Person",
                     shouldFindRecords: true);
+
+                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, false);
             }
             finally
             {
@@ -552,19 +600,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
+        // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
-            var person = new Person
-            {
-                Id = id,
-                Name = new List<HumanName>
-                {
-                    new HumanName { Given = new[] { name } },
-                },
-            };
+            return await Task.FromResult(CreatePersonResource(id, name));
+        }
 
-            // Return the person object without posting - will be posted in parallel batches
-            return await Task.FromResult(person);
+        private Person CreatePersonResource(string id, string name)
+        {
+            return new Person { Id = id, Name = [new() { Given = [name] }] };
         }
 
         /// <summary>
@@ -1170,6 +1214,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Return the ACTUAL count of resources we created and have IDs for
             return (createdResources, totalCreated);
+        }
+
+        private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources)
+        {
+            foreach (var resource in resources.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e6)))
+            {
+                await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString()));
+            }
+        }
+
+        private async Task CheckCounts(Uri jobUri, long expectedTotal, long expectedSuccesses, bool lessThan)
+        {
+            var response = await _fixture.TestFhirClient.HttpClient.GetAsync(jobUri, CancellationToken.None);
+            var content = await response.Content.ReadAsStringAsync();
+            var parameters = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(content);
+            var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
+            if (lessThan)
+            {
+                Assert.True(total < expectedTotal);
+            }
+            else
+            {
+                Assert.Equal(expectedTotal, total);
+            }
+
+            var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
+            if (lessThan)
+            {
+                Assert.True(successes < expectedSuccesses);
+            }
+            else
+            {
+                Assert.Equal(expectedSuccesses, successes);
+            }
+
+            Assert.Equal(total, successes);
         }
 
         /// <summary>
