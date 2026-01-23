@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await Task.WhenAll(tasks);
 
                 // reported in reindex counts should be less than total resources created
-                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, true);
+                await CheckCounts(value.jobUri, testResources.Count, true);
             }
             finally
             {
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     expectedResourceType: "Person",
                     shouldFindRecords: true);
 
-                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, false);
+                await CheckCounts(value.jobUri, testResources.Count, false);
             }
             finally
             {
@@ -1224,32 +1224,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        private async Task CheckCounts(Uri jobUri, long expectedTotal, long expectedSuccesses, bool lessThan)
+        private async Task CheckCounts(Uri jobUri, long expected, bool lessThan)
         {
             var response = await _fixture.TestFhirClient.HttpClient.GetAsync(jobUri, CancellationToken.None);
             var content = await response.Content.ReadAsStringAsync();
             var parameters = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(content);
             var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
-            if (lessThan)
-            {
-                Assert.True(total < expectedTotal);
-            }
-            else
-            {
-                Assert.Equal(expectedTotal, total);
-            }
-
             var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
+            Assert.Equal(total, successes);
             if (lessThan)
             {
-                Assert.True(successes < expectedSuccesses);
+                Assert.True(total < expected);
             }
             else
             {
-                Assert.Equal(expectedSuccesses, successes);
+                Assert.Equal(expected, total);
             }
-
-            Assert.Equal(total, successes);
         }
 
         /// <summary>
