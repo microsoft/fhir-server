@@ -596,6 +596,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
+        /// <summary>
+        /// Returns true if the include results are truncated.
+        /// The bundle issue being checked is only used in Cosmos DB as the $includes operation isn't supported there.
+        /// In SQL Server the includes continuation token is used to determine if there are more include results.
+        /// </summary>
+        /// <param name="ict">The includes continuation token, also seen as the related link. If this has a value than the include results are truncated.</param>
+        /// <returns>True if the include results are truncated; otherwise, false.</returns>
         private bool AreIncludeResultsTruncated(string ict)
         {
             return _contextAccessor.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase))
