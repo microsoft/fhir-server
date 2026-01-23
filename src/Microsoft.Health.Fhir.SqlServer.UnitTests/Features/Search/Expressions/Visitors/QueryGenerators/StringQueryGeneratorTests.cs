@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)
         {
             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
-            var sqlCommand = new SqlCommand();
+            using var sqlCommand = new SqlCommand();
             var sqlParameterManager = new SqlQueryParameterManager(sqlCommand.Parameters);
             var parameters = new HashingSqlQueryParameterManager(sqlParameterManager);
 
