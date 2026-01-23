@@ -17,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
@@ -149,6 +150,12 @@ namespace Microsoft.Extensions.DependencyInjection
             }
 
             AddMetricEmitter(services);
+
+            // Register FHIR request context accessor so it is available early in the startup process
+            services.Add<FhirRequestContextAccessor>()
+                .Singleton()
+                .AsSelf()
+                .AsService<RequestContextAccessor<IFhirRequestContext>>();
 
             return new FhirServerBuilder(services);
         }
