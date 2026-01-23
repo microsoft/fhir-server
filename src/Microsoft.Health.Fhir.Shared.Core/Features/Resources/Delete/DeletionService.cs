@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             // If there is more than one page of results included then delete all included results for the first page of resources.
-            if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
+            if (!request.IsIncludesRequest && AreIncludeResultsTruncated(ict))
             {
                 try
                 {
@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
 
                         // If the next page of results has more than one page of included results, delete all pages of included results before deleting the primary results.
-                        if (!request.IsIncludesRequest && AreIncludeResultsTruncated())
+                        if (!request.IsIncludesRequest && AreIncludeResultsTruncated(ict))
                         {
                             try
                             {
@@ -596,11 +596,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
         }
 
-        private bool AreIncludeResultsTruncated()
+        private bool AreIncludeResultsTruncated(string ict)
         {
-            return _contextAccessor.RequestContext.BundleIssues.Any(
-                x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase));
+            return _contextAccessor.RequestContext.BundleIssues.Any(x => string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessage, StringComparison.OrdinalIgnoreCase))
+                || !string.IsNullOrEmpty(ict);
         }
 
         private static Dictionary<string, long> AppendDeleteResults(Dictionary<string, long> results, IEnumerable<Dictionary<string, long>> newResults)
