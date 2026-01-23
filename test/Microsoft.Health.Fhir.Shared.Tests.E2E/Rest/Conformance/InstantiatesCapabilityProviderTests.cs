@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Polly;
+using Polly.Retry;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -29,10 +30,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
         private const string USCore6PatientProfileFileName = "StructureDefinition-us-core-patient-v6";
 
         private readonly HttpIntegrationTestFixture _fixture;
+        private readonly AsyncRetryPolicy _retryPolicy;
 
         public InstantiatesCapabilityProviderTests(HttpIntegrationTestFixture fixture)
         {
             _fixture = fixture;
+            _retryPolicy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(
+                    retryCount: 10,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
         }
 
         private TestFhirClient Client => _fixture.TestFhirClient;
@@ -60,20 +67,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 Assert.NotNull(response?.Resource);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-                var instantiates = response.Resource.Instantiates?.ToList() ?? new List<string>();
-                if (uploadUSCore6Profile)
-                {
-                    Assert.Contains(
-                        instantiates,
-                        x =>
+                await _retryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        var instantiates = response.Resource.Instantiates?.ToList() ?? new List<string>();
+                        if (uploadUSCore6Profile)
                         {
-                            return string.Equals(x, USCore6CapabilityStatementUrl, StringComparison.OrdinalIgnoreCase);
-                        });
-                }
-                else
-                {
-                    Assert.Empty(instantiates);
-                }
+                            Assert.Contains(
+                                instantiates,
+                                x =>
+                                {
+                                    return string.Equals(x, USCore6CapabilityStatementUrl, StringComparison.OrdinalIgnoreCase);
+                                });
+                        }
+                        else
+                        {
+                            Assert.Empty(instantiates);
+                        }
+                    });
             }
             finally
             {
@@ -91,12 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             Assert.NotNull(response);
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-            var retryPolicy = Policy
-                .Handle<Exception>()
-                .WaitAndRetryAsync(
-                    retryCount: 10,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
-            await retryPolicy.ExecuteAsync(
+            await _retryPolicy.ExecuteAsync(
                 async () =>
                 {
                     var exists = await USCore6ProfileExists();
