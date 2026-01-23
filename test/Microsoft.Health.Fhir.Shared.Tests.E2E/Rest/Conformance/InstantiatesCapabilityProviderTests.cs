@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                 var exists = await USCore6ProfileExists();
                 Skip.If(
                     !uploadUSCore6Profile && exists,
-                    "USCore 6 profile already uploaded on the server by other tests. Skipping test.");
+                    "US Core 6 profile already uploaded on the server by other tests. Skipping test.");
 
                 if (uploadUSCore6Profile && !exists)
                 {
@@ -70,11 +70,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                         Assert.NotNull(response?.Resource);
                         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-                        var instantiates = response.Resource.Instantiates?.ToList() ?? new List<string>();
+                        var instantiatesUrls = response.Resource.Instantiates?.ToList() ?? new List<string>();
                         if (uploadUSCore6Profile)
                         {
                             Assert.Contains(
-                                instantiates,
+                                instantiatesUrls,
                                 x =>
                                 {
                                     return string.Equals(x, USCore6CapabilityStatementUrl, StringComparison.OrdinalIgnoreCase);
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
                         }
                         else
                         {
-                            Assert.Empty(instantiates);
+                            Assert.Empty(instantiatesUrls);
                         }
                     });
             }
