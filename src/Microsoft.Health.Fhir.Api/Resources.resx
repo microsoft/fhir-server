@@ -226,6 +226,9 @@
   <data name="Unauthorized" xml:space="preserve">
     <value>Authentication failed.</value>
   </data>
+  <data name="UnsupportedMediaType" xml:space="preserve">
+    <value>The content type is not supported.</value>
+  </data>
   <data name="UnsupportedFormatParameter" xml:space="preserve">
     <value>The requested "_format" parameter is not supported.</value>
   </data>

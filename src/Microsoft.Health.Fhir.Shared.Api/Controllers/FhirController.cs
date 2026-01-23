@@ -127,6 +127,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     returnCode = HttpStatusCode.MethodNotAllowed;
                     diagnosticInfo = Resources.OperationNotSupported;
                     break;
+                case (int)HttpStatusCode.UnsupportedMediaType:
+                    issueType = OperationOutcome.IssueType.NotSupported;
+                    returnCode = HttpStatusCode.UnsupportedMediaType;
+                    diagnosticInfo = Resources.UnsupportedMediaType;
+                    break;
                 default:
                     issueType = OperationOutcome.IssueType.Exception;
                     returnCode = HttpStatusCode.InternalServerError;
