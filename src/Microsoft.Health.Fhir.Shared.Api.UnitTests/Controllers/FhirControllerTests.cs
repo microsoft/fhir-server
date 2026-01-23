@@ -34,7 +34,9 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -45,8 +47,11 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
@@ -1205,6 +1210,117 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received(1).Send<GetOperationVersionsResponse>(
                 Arg.Any<GetOperationVersionsRequest>(),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenBatchAndTransactionsRequest_WhenProcessingRequest_ThenBundleRequestShouldBeCreatedCorrectly()
+        {
+            var resource = new Bundle()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var responseInfo = new BundleResponseInfo(
+                TimeSpan.FromSeconds(60),
+                BundleType.BatchResponse,
+                BundleProcessingLogic.Parallel);
+            var httpContext = new DefaultHttpContext();
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<BundleResponse>(
+                Arg.Any<BundleRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new BundleResponse(resource.ToResourceElement(), responseInfo));
+
+            var request = default(BundleRequest);
+            _mediator.When(
+                x => x.Send<BundleResponse>(
+                    Arg.Any<BundleRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<BundleRequest>());
+
+            var response = await _fhirController.BatchAndTransactions(resource);
+            var result = response as FhirResult;
+            Assert.NotNull(result?.Result);
+            Assert.Equal(resource.TypeName, result.Result.InstanceType);
+            Assert.Equal(resource.Id, result.Result.Id);
+            Assert.Equal(resource.VersionId, result.Result.VersionId);
+
+            Assert.NotNull(request?.Bundle);
+            Assert.Equal(resource.TypeName, request.Bundle.InstanceType);
+            Assert.Equal(resource.Id, request.Bundle.Id);
+            Assert.Equal(resource.VersionId, request.Bundle.VersionId);
+
+            await _mediator.Received(1).Send<BundleResponse>(
+                Arg.Any<BundleRequest>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenCreateRequest_WhenHttpBundleInnerRequestExecutionContextIsSpecified_ThenBundleResourceContextShouldBeAddedToRequest(
+            bool addHttpBundleInnerRequestExecutionContextHeader)
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            var bundleResourceContext = new BundleResourceContext(
+                Bundle.BundleType.Batch,
+                BundleProcessingLogic.Parallel,
+                Bundle.HTTPVerb.HEAD,
+                Guid.NewGuid().ToString(),
+                Guid.NewGuid());
+            if (addHttpBundleInnerRequestExecutionContextHeader)
+            {
+                httpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext] =
+                    JsonConvert.SerializeObject(bundleResourceContext);
+            }
+
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            _mediator.Send<UpsertResourceResponse>(
+                Arg.Any<CreateResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
+
+            var request = default(CreateResourceRequest);
+            _mediator.When(
+                x => x.Send<UpsertResourceResponse>(
+                    Arg.Any<CreateResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<CreateResourceRequest>());
+
+            await _fhirController.Create(resource);
+
+            Assert.NotNull(request?.Resource);
+            Assert.Equal(resource.TypeName, request.Resource.InstanceType);
+            Assert.Equal(resource.Id, request.Resource.Id);
+            Assert.Equal(resource.VersionId, request.Resource.VersionId);
+            if (addHttpBundleInnerRequestExecutionContextHeader)
+            {
+                Assert.NotNull(request.BundleResourceContext);
+                Assert.Equal(bundleResourceContext.BundleType, request.BundleResourceContext.BundleType);
+                Assert.Equal(bundleResourceContext.ProcessingLogic, request.BundleResourceContext.ProcessingLogic);
+                Assert.Equal(bundleResourceContext.HttpVerb, request.BundleResourceContext.HttpVerb);
+                Assert.Equal(bundleResourceContext.PersistedId, request.BundleResourceContext.PersistedId);
+                Assert.Equal(bundleResourceContext.BundleOperationId, request.BundleResourceContext.BundleOperationId);
+            }
+            else
+            {
+                Assert.Null(request.BundleResourceContext);
+            }
         }
 
         private async Task RunHistoryTest(
