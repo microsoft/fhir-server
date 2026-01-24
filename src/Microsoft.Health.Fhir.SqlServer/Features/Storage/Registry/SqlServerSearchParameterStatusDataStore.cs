@@ -283,14 +283,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
         public async Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken)
         {
-            // TODO: Use sql retry class
-            using var connectionFactory = _scopedSqlConnectionWrapperFactory.Invoke();
-            using var conn = await connectionFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using var cmd = conn.CreateRetrySqlCommand();
+            // TODO: use sql retry class
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            using SqlCommandWrapper cmd = sqlConnectionWrapper.CreateRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.GetSearchParamMaxLastUpdated";
             var result = await cmd.ExecuteScalarAsync(cancellationToken);
-            return result == DBNull.Value ? DateTimeOffset.MinValue : (DateTimeOffset)result;
+            return (result == null || result == DBNull.Value) ? DateTimeOffset.MinValue : (DateTimeOffset)result;
         }
     }
 }
