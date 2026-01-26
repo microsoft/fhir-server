@@ -75,27 +75,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationTokenSource?.Dispose();
         }
 
-        private ReindexOrchestratorJob CreateReindexOrchestratorJob(
-            IFhirRuntimeConfiguration runtimeConfig = null,
-            int searchParameterCacheRefreshIntervalSeconds = 1,
-            int reindexMaxWaitMultiplier = 1)
+        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null)
         {
             runtimeConfig ??= new AzureHealthDataServicesRuntimeConfiguration();
 
             var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
-            {
-                SearchParameterCacheRefreshIntervalSeconds = searchParameterCacheRefreshIntervalSeconds,
-            });
+            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration());
 
             var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfig.Value.Returns(new OperationsConfiguration
-            {
-                Reindex = new ReindexJobConfiguration
-                {
-                    ReindexMaxWaitMultiplier = reindexMaxWaitMultiplier,
-                },
-            });
+            operationsConfig.Value.Returns(new OperationsConfiguration());
 
             return new ReindexOrchestratorJob(
                 _queueClient,
@@ -308,7 +296,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     new InvalidOperationException("Database error")));
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -345,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Error = new List<OperationOutcomeIssue> { initialError },
             });
 
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -408,7 +396,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -517,7 +505,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -611,7 +599,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -715,9 +703,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 });
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(
-                new AzureHealthDataServicesRuntimeConfiguration(),
-                searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
 
             // Act: Fire off execute asynchronously without awaiting
             var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -769,7 +755,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -816,7 +802,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -844,7 +830,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(new List<SearchParameterInfo>());
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -938,7 +924,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1032,7 +1018,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1082,7 +1068,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             jobRecord.ResourceCounts.Clear();
             jobInfo.Definition = JsonConvert.SerializeObject(jobRecord);
 
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1185,7 +1171,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act - Start the orchestrator
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1376,7 +1362,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // Arrange
             var jobRecord = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobRecord, _cancellationToken);
@@ -1482,7 +1468,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act - Start the orchestrator
             var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1595,14 +1581,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             SetupWaitForResresh(0, _cancellationToken, false);
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
             var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
             Assert.NotNull(jobResult);
             Assert.NotNull(jobResult.Error);
             Assert.True(jobResult.Error.Count > 0);
             Assert.Contains(jobResult.Error, e => e.Severity == OperationOutcomeConstants.IssueSeverity.Error);
-            Assert.Contains(jobResult.Error.First().Diagnostics, "Search param cache refresh did not happen in 0 seconds.");
+            Assert.StartsWith(jobResult.Error.First().Diagnostics, "Search param cache refresh did not happen in 200 seconds.");
         }
 
         [Fact]
@@ -1614,7 +1600,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     new SystemException("Critical error")));
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1706,9 +1692,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord(targetResourceTypes: targetResourceTypes);
-            var orchestrator = CreateReindexOrchestratorJob(
-                new AzureHealthDataServicesRuntimeConfiguration(),
-                searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1755,7 +1739,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1831,7 +1815,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1912,7 +1896,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1978,7 +1962,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupWaitForResresh(0, _cancellationToken);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -2045,7 +2029,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(searchResult);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
