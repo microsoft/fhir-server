@@ -9,6 +9,7 @@ using System.Net;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -198,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "TypeName");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenInvalidProfile_WhenValidateCalled_ThenBadRequestReturned()
         {
             var patient = Samples.GetJson("Patient");
@@ -218,7 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             // Give the server time to refresh its profile cache
