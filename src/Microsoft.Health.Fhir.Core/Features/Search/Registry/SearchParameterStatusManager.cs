@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly IMediator _mediator;
         private readonly ILogger<SearchParameterStatusManager> _logger;
         private DateTimeOffset _latestSearchParams;
+        private DateTimeOffset _lastRefreshed;
         private readonly List<string> enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
 
         public SearchParameterStatusManager(
@@ -50,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _logger = logger;
 
             _latestSearchParams = DateTimeOffset.MinValue;
+            _lastRefreshed = DateTimeOffset.MinValue;
         }
 
         /// <summary>
@@ -81,6 +83,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                         "Search parameter cache is up to date. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}.",
                         _latestSearchParams,
                         maxDbLastUpdated);
+
+                    _lastRefreshed = DateTime.UtcNow;
 
                     return false; // Cache is fresh - no action needed
                 }
@@ -167,6 +171,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             _logger.LogInformation("SearchParameterStatusManager: Search parameter definition manager initialized");
             await EnsureInitializedAsync(cancellationToken);
+        }
+
+        public async Task<bool> WaitForSingleRefresh(int maxWaitSeconds, CancellationToken cancellationToken)
+        {
+            // get current refresh timestamp
+            var current = _lastRefreshed;
+            var endWait = DateTime.UtcNow.AddSeconds(maxWaitSeconds);
+            while (current == _lastRefreshed && DateTime.UtcNow < endWait)
+            {
+                await Task.Delay(500, cancellationToken);
+            }
+
+            return current != _lastRefreshed; // refresh happened
         }
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
@@ -272,6 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 // to reflect that we've successfully synchronized with the database
                 await UpdateCacheTimestampAsync(cancellationToken);
                 _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Updated cache timestamp.");
+                _lastRefreshed = DateTime.UtcNow;
                 return;
             }
 
@@ -303,7 +321,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
             await UpdateCacheTimestampAsync(cancellationToken);
-
+            _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
+            _lastRefreshed = DateTime.UtcNow;
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 

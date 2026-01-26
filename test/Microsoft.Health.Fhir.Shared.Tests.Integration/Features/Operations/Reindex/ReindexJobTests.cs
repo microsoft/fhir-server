@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                         {
                             Reindex = new ReindexJobConfiguration
                             {
-                                ReindexDelayMultiplier = 1, // Use a short multiplier for tests
+                                ReindexMaxWaitMultiplier = 1, // Use a short multiplier for tests
                             },
                         });
 

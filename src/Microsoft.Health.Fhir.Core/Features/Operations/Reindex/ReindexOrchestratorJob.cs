@@ -134,8 +134,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                // before starting anytjing wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
-                await Task.Delay(_operationsConfiguration.Reindex.ReindexDelayMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, cancellationToken);
+                // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
+                var maxWaitSeconds = _operationsConfiguration.Reindex.ReindexMaxWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds;
+                var success = await _searchParameterStatusManager.WaitForSingleRefresh(maxWaitSeconds, cancellationToken);
+                if (!success)
+                {
+                    throw new JobExecutionException($"Search param cache refresh did not happen in {maxWaitSeconds} seconds.", false);
+                }
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
