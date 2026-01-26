@@ -83,6 +83,7 @@ jobs:
 
 - job: 'sqlE2eTests'
   dependsOn: []
+  timeoutInMinutes: 75
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
