@@ -83,6 +83,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
             configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
 
+            configuration["FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds"] = "1";
+
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
                 // Alter the configuration so that the server will create a new, isolated database/container.
