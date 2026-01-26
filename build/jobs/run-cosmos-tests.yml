@@ -101,7 +101,7 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: ${{ parameters.appServiceName }}
       appServiceType: 'CosmosDb'
-      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
+      categoryFilter: 'Category!=ExportLongRunning'
 
 # TODO: Re-enable after testing scenario is complete
 # - job: 'cosmosE2eTests_Reindex'

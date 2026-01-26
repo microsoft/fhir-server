@@ -94,7 +94,7 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: '${{ parameters.appServiceName }}-sql'
       appServiceType: 'SqlServer'
-      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
+      categoryFilter: 'Category!=ExportLongRunning'
 
 # TODO: Re-enable after testing scenario is complete
 # - job: 'sqlE2eTests_Reindex'
