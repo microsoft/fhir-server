@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.WaitForSingleRefresh(Arg.Any<int>(), cancellationToken).Returns(async _ =>
             {
                 await Task.Delay(sleep, cancellationToken);
-                return output;
+                return (output, DateTimeOffset.UtcNow);
             });
         }
 
