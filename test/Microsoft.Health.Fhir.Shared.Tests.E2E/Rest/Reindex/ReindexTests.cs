@@ -81,7 +81,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        ////[RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         [Fact]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
@@ -166,8 +165,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(TimeSpan.FromSeconds(4)); // should be 2 * SearchParameterCacheRefreshIntervalSeconds
-
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
                 await VerifySearchParameterIsWorkingAsync(
@@ -203,7 +200,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        ////[RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         [Fact]
         public async Task GivenReindexJobWithResourceAndAddedAfterSingleCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParameterShouldWork()
         {
@@ -270,7 +266,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        ////[RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         [Fact]
         public async Task GivenReindexJobWithResourceAndAddedAfterMultiCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
@@ -324,8 +319,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                // Add delay to allow search parameter cache to refresh
-
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
                     $"Specimen?{specimenSearchParam.Code}=119295008",
@@ -340,7 +333,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        ////[RetryFact(MaxRetries = 3, RetryOnAssertionFailure = true)]
         [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenBothHaveSameStatus_ThenBothShouldBeProcessedCorrectly()
         {
@@ -411,7 +403,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        ////[RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork()
         {
@@ -467,8 +458,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
-
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
                     $"Specimen?{specimenTypeParam.Code}=119295008",
@@ -484,7 +473,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        ////[RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         [Fact]
         public async Task GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported()
         {
@@ -959,7 +947,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             string searchParameterCode,
             string expectedResourceType = null,
             bool shouldFindRecords = true,
-            int maxRetries = 9,
+            int maxRetries = 2,
             int retryDelayMs = 20000)
         {
             Exception lastException = null;
