@@ -5,6 +5,9 @@
 
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Azure;
 using Azure.Core;
 using Azure.Identity;
 using Azure.Storage;
@@ -12,6 +15,8 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
 using Microsoft.Health.Fhir.Tests.Common;
+using Polly;
+using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Tests.E2E
 {
@@ -19,6 +24,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E
     {
         // Well-know storage emulator account info, not to be used in production (see https://learn.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&bc=%2Fazure%2Fstorage%2Fblobs%2Fbreadcrumb%2Ftoc.json#configure-a-connection-string-for-azurite)
         public const string StorageEmulatorConnectionString = "UseDevelopmentStorage=true";
+
+        private static readonly ResiliencePipeline RetryPipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                ShouldHandle = new PredicateBuilder().Handle<RequestFailedException>(ex => ex.Status == 403),
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromSeconds(2),
+                BackoffType = DelayBackoffType.Exponential,
+            })
+            .Build();
+
+        public static async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> operation)
+        {
+            return await RetryPipeline.ExecuteAsync(
+                async (CancellationToken cancellationToken) => await operation(),
+                CancellationToken.None);
+        }
+
+        public static async Task ExecuteWithRetryAsync(Func<Task> operation)
+        {
+            await RetryPipeline.ExecuteAsync(
+                async (CancellationToken cancellationToken) => { await operation(); },
+                CancellationToken.None);
+        }
 
         public static BlobClient GetBlobClient(Uri storageServiceUri, string blobContainerName, string blobName)
         {

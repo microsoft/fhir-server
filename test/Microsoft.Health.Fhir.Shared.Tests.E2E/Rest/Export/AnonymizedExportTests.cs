@@ -362,9 +362,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var container = await InitializeAnonymizationContainer();
 
             var blob = container.GetBlockBlobClient(blobName);
-            await blob.DeleteIfExistsAsync();
+            await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => blob.DeleteIfExistsAsync());
 
-            var response = await blob.UploadAsync(new MemoryStream(Encoding.UTF8.GetBytes(configurationContent)));
+            var response = await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => blob.UploadAsync(new MemoryStream(Encoding.UTF8.GetBytes(configurationContent))));
 
             return (blobName, response.Value.ETag.ToString());
         }
@@ -374,7 +374,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var storageUri = new Uri(EnvironmentVariables.GetEnvironmentVariable(TestExportStoreUriEnvironmentVariableName));
             BlobServiceClient blobClient = AzureStorageBlobHelper.GetBlobServiceClient(storageUri);
             BlobContainerClient container = blobClient.GetBlobContainerClient("anonymization");
-            await container.CreateIfNotExistsAsync();
+            await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => container.CreateIfNotExistsAsync());
             return container;
         }
 
@@ -415,7 +415,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             foreach (Uri uri in blobUri)
             {
                 var blob = AzureStorageBlobHelper.GetBlobClient(uri);
-                var response = await blob.DownloadContentAsync();
+                var response = await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => blob.DownloadContentAsync());
                 var allData = response.Value.Content.ToString();
                 var splitData = allData.Split("\n");
 

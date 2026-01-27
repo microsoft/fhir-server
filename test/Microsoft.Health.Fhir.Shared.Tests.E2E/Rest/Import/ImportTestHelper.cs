@@ -38,10 +38,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             BlobServiceClient blobClient = GetBlobServiceClient(storageAccount);
             BlobContainerClient container = blobClient.GetBlobContainerClient(containerName);
-            await container.CreateIfNotExistsAsync();
+            await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => container.CreateIfNotExistsAsync());
 
             BlockBlobClient blob = container.GetBlockBlobClient(blobName);
-            var response = await blob.UploadAsync(new MemoryStream(Encoding.UTF8.GetBytes(content)));
+            var response = await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => blob.UploadAsync(new MemoryStream(Encoding.UTF8.GetBytes(content))));
 
             return (blob.Uri, response.Value.ETag.ToString());
         }
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             BlobClient blob = GetBlobClient(new Uri(location), storageAccount);
             using MemoryStream stream = new MemoryStream();
-            await blob.DownloadToAsync(stream, CancellationToken.None);
+            await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => blob.DownloadToAsync(stream, CancellationToken.None));
 
             stream.Position = 0;
             using StreamReader reader = new StreamReader(stream);

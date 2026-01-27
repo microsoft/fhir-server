@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             foreach (Uri uri in blobUri)
             {
                 var blob = AzureStorageBlobHelper.GetBlobClient(uri);
-                var response = await blob.DownloadContentAsync();
+                var response = await AzureStorageBlobHelper.ExecuteWithRetryAsync(() => blob.DownloadContentAsync());
                 var allData = response.Value.Content.ToString();
                 var splitData = allData.Split("\n");
 
