@@ -359,12 +359,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var response = await _fhirController.Create(resource);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
 
-            Assert.NotNull(request?.Resource);
+            Assert.NotNull(request);
+            Assert.NotNull(request.Resource);
             Assert.Equal(resource.TypeName, request.Resource.InstanceType);
             Assert.Equal(resource.Id, request.Resource.Id);
             Assert.Equal(resource.VersionId, request.Resource.VersionId);
@@ -416,12 +418,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 versionId != null ? WeakETag.FromVersionId(versionId) : null,
                 metaHistory);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
 
-            Assert.NotNull(request?.Resource);
+            Assert.NotNull(request);
+            Assert.NotNull(request.Resource);
             Assert.Equal(resource.TypeName, request.Resource.InstanceType);
             Assert.Equal(resource.Id, request.Resource.Id);
             Assert.Equal(resource.VersionId, request.Resource.VersionId);
@@ -547,12 +551,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var response = await _fhirController.Read(resource.TypeName, resource.Id);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
 
-            Assert.NotNull(request?.ResourceKey);
+            Assert.NotNull(request);
+            Assert.NotNull(request.ResourceKey);
             Assert.Equal(resource.TypeName, request.ResourceKey.ResourceType);
             Assert.Equal(resource.Id, request.ResourceKey.Id);
 
@@ -623,12 +629,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resource.Id,
                 resource.VersionId);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
 
-            Assert.NotNull(request?.ResourceKey);
+            Assert.NotNull(request);
+            Assert.NotNull(request.ResourceKey);
             Assert.Equal(resource.TypeName, request.ResourceKey.ResourceType);
             Assert.Equal(resource.Id, request.ResourceKey.Id);
             Assert.Equal(resource.VersionId, request.ResourceKey.VersionId);
@@ -676,7 +684,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         && string.Equals(x.Value, etag.ToString(), StringComparison.Ordinal);
                 });
 
-            Assert.NotNull(request?.ResourceKey);
+            Assert.NotNull(request);
+            Assert.NotNull(request.ResourceKey);
             Assert.Equal(resourceKey.ResourceType, request.ResourceKey.ResourceType);
             Assert.Equal(resourceKey.Id, request.ResourceKey.Id);
             Assert.Equal(DeleteOperation.PurgeHistory, request.DeleteOperation);
@@ -734,12 +743,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 versionId != null ? WeakETag.FromVersionId(versionId) : null,
                 metaHistory);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
 
-            Assert.NotNull(request?.ResourceKey);
+            Assert.NotNull(request);
+            Assert.NotNull(request.ResourceKey);
             Assert.Equal(resource.TypeName, request.ResourceKey.ResourceType);
             Assert.Equal(resource.Id, request.ResourceKey.Id);
             Assert.Equal(versionId, request.WeakETag?.VersionId);
@@ -805,7 +816,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 versionId != null ? WeakETag.FromVersionId(versionId) : null,
                 metaHistory);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
@@ -883,12 +895,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 versionId != null ? WeakETag.FromVersionId(versionId) : null,
                 metaHistory);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
 
-            Assert.NotNull(request?.ResourceKey);
+            Assert.NotNull(request);
+            Assert.NotNull(request.ResourceKey);
             Assert.Equal(resource.TypeName, request.ResourceKey.ResourceType);
             Assert.Equal(resource.Id, request.ResourceKey.Id);
             Assert.Equal(versionId, request.WeakETag?.VersionId);
@@ -954,7 +968,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 versionId != null ? WeakETag.FromVersionId(versionId) : null,
                 metaHistory);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
@@ -1052,7 +1067,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 compartmentId,
                 resourceType);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
@@ -1107,7 +1123,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var response = await _fhirController.Metadata();
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
@@ -1153,7 +1170,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var response = await _fhirController.WellKnownSmartConfiguration();
             var result = response as OperationSmartConfigurationResult;
-            Assert.NotNull(result?.Value);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Value);
 
             var smartResult = result.Value as SmartConfigurationResult;
             Assert.NotNull(smartResult);
@@ -1195,7 +1213,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var response = await _fhirController.Versions();
             var result = response as OperationVersionsResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(defaultVersion, result.Result.DefaultVersion);
             Assert.All(
                 supportedVersions,
@@ -1241,12 +1260,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var response = await _fhirController.BatchAndTransactions(resource);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
 
-            Assert.NotNull(request?.Bundle);
+            Assert.NotNull(request);
+            Assert.NotNull(request.Bundle);
             Assert.Equal(resource.TypeName, request.Bundle.InstanceType);
             Assert.Equal(resource.Id, request.Bundle.Id);
             Assert.Equal(resource.VersionId, request.Bundle.VersionId);
@@ -1304,7 +1325,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await _fhirController.Create(resource);
 
-            Assert.NotNull(request?.Resource);
+            Assert.NotNull(request);
+            Assert.NotNull(request.Resource);
             Assert.Equal(resource.TypeName, request.Resource.InstanceType);
             Assert.Equal(resource.Id, request.Resource.Id);
             Assert.Equal(resource.VersionId, request.Resource.VersionId);
@@ -1364,7 +1386,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter,
                 idParameter);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
@@ -1414,7 +1437,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var response = await func(resourceType);
             var result = response as FhirResult;
-            Assert.NotNull(result?.Result);
+            Assert.NotNull(result);
+            Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
             Assert.Equal(resource.Id, result.Result.Id);
             Assert.Equal(resource.VersionId, result.Result.VersionId);
