@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// </summary>
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [TypeFilter(typeof(OAuth2ExceptionFilterAttribute))]
-    [Authorize]
     [ValidateModelState]
     public class TokenIntrospectionController : Controller
     {
