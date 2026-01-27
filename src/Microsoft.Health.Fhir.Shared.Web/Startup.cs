@@ -273,24 +273,6 @@ namespace Microsoft.Health.Fhir.Web
             // may not be reachable via OIDC metadata (self-referencing HTTPS calls can fail).
             // Provide the signing keys directly to the JWT Bearer handler so it can validate
             // tokens without needing the metadata endpoint.
-            /*
-            services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>>(sp =>
-            {
-                return new PostConfigureOptions<JwtBearerOptions>(
-                    JwtBearerDefaults.AuthenticationScheme,
-                    options =>
-                    {
-                        var serverOptions = sp.GetService<IOptions<OpenIddictServerOptions>>();
-                        var signingKeys = serverOptions?.Value?.SigningCredentials?.Select(c => c.Key).ToList();
-                        if (signingKeys?.Count > 0)
-                        {
-                            options.TokenValidationParameters.IssuerSigningKeys =
-                                (options.TokenValidationParameters.IssuerSigningKeys ?? Array.Empty<SecurityKey>())
-                                .Concat(signingKeys);
-                        }
-                    });
-            });
-            */
         }
 
         /// <summary>
