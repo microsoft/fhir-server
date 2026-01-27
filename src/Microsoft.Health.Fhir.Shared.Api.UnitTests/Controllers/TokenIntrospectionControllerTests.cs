@@ -44,9 +44,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _introspectionService = Substitute.For<ITokenIntrospectionService>();
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
 
-            // Default: allow Smart data action
-            _authorizationService.CheckAccess(DataActions.Smart, Arg.Any<CancellationToken>())
-                .Returns(DataActions.Smart);
+            // Default: allow any data action
+            _authorizationService.CheckAccess(DataActions.All, Arg.Any<CancellationToken>())
+                .Returns(DataActions.Read);
 
             _controller = new TokenIntrospectionController(
                 _introspectionService,
@@ -70,10 +70,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async Task GivenUserWithoutSmartDataAction_WhenIntrospect_ThenReturnsForbidden()
+        public async Task GivenUserWithoutAnyDataAction_WhenIntrospect_ThenReturnsForbidden()
         {
-            // Arrange - User is authenticated but doesn't have Smart data action
-            _authorizationService.CheckAccess(DataActions.Smart, Arg.Any<CancellationToken>())
+            // Arrange - User is authenticated but doesn't have any data actions
+            _authorizationService.CheckAccess(DataActions.All, Arg.Any<CancellationToken>())
                 .Returns(DataActions.None);
 
             // Act

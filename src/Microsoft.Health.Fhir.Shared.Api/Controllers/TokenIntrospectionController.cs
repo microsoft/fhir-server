@@ -60,11 +60,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
         public async Task<IActionResult> Introspect([FromForm] string token)
         {
-            // Verify the caller has the Smart data action (required for SMART on FHIR operations)
-            DataActions permittedActions = await _authorizationService.CheckAccess(DataActions.Smart, HttpContext.RequestAborted);
-            if (!permittedActions.HasFlag(DataActions.Smart))
+            // Verify the caller has any data action (if you can get a token, you can introspect a token)
+            DataActions permittedActions = await _authorizationService.CheckAccess(DataActions.All, HttpContext.RequestAborted);
+            if (permittedActions == DataActions.None)
             {
-                _logger.LogWarning("Token introspection caller does not have required Smart data action");
+                _logger.LogWarning("Token introspection caller does not have any permitted data actions");
                 return StatusCode((int)HttpStatusCode.Forbidden);
             }
 
