@@ -470,7 +470,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(baseUri, request.RequestUri);
             Assert.Equal(id, request.JobId);
 
-            var result = response as ExportResult;
+            var result = Assert.IsType<ExportResult>(response);
             Assert.NotNull(result);
             Assert.Equal(statusCode == HttpStatusCode.OK ? statusCode : HttpStatusCode.Accepted, result.StatusCode);
         }
@@ -496,7 +496,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 });
 
             var id = Guid.NewGuid().ToString();
-            var response = await _exportEnabledController.CancelExport(id);
+            await _exportEnabledController.CancelExport(id);
 
             Assert.NotNull(request);
             Assert.Equal(id, request.JobId);
