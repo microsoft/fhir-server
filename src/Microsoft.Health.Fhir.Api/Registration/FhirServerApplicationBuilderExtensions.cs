@@ -53,6 +53,7 @@ namespace Microsoft.AspNetCore.Builder
 
             app.UseRouting();
             useDevelopmentIdentityProvider?.Invoke(app);
+            app.UseAuthorization();
             useHttpLoggingMiddleware?.Invoke(app);
 
             app.UseEndpoints(

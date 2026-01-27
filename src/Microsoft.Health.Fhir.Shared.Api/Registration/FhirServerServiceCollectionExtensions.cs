@@ -246,8 +246,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     app.UseFhirRequestContextAuthentication();
 
-                    app.UseAuthorization();
-
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
 
                     app.UseInitialImportLock();
