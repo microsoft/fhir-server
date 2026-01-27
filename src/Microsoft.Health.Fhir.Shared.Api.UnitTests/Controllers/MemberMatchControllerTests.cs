@@ -71,6 +71,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenAMemberMatchDataRequest_WhenInvalidParametersSent_ThenRequestNotValidThrown()
+        {
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _memberMatchController.MemberMatch(null));
+        }
+
         private static MemberMatchResponse GetMemberMatchResponse() => new MemberMatchResponse(Samples.GetDefaultPatient());
 
         private static Parameters GetParamsResourceWithWrongNameParam()
