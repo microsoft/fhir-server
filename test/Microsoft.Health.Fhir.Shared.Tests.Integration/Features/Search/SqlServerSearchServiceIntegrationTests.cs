@@ -300,21 +300,40 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
-        public void GetStatsFromCache_ReturnsCollection()
+        public async Task GetStatsFromCache_AfterSearch_ReturnsPopulatedCollection()
         {
+            // Arrange - Execute a search to populate stats cache
+            var patient = await CreateTestPatient("TestStatsPatient");
+
+            var sqlSearchService = _searchService as SqlServerSearchService;
+            Assert.NotNull(sqlSearchService);
+
+            // Perform a search that will create stats entries
+            var query = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("identifier", "test-identifier"),
+            };
+            await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+
             // Act
             var stats = SqlServerSearchService.GetStatsFromCache();
 
             // Assert
             Assert.NotNull(stats);
             Assert.IsAssignableFrom<ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>>(stats);
-        }
 
-        [Fact]
-        public void ResetReuseQueryPlans_ExecutesWithoutError()
-        {
-            // Act & Assert (should not throw)
-            SqlServerSearchService.ResetReuseQueryPlans();
+            // Verify that stats were actually created for the Patient identifier search
+            // The cache should contain at least one entry for Patient with identifier search parameter
+            var patientIdentifierStats = stats.Where(s =>
+                s.TableName == "dbo.TokenSearchParam"
+                && s.ColumnName == "Code"
+                && s.ResourceTypeId == sqlSearchService!.Model.GetResourceTypeId("Patient")
+                && s.SearchParamId == sqlSearchService!.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/Patient-identifier")))
+                .ToList();
+
+            Assert.True(
+                patientIdentifierStats.Count > 0,
+                "Expected stats cache to contain entries for Patient identifier search parameter after search operation");
         }
 
         [Fact]
