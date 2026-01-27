@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _lastRefreshEnd = DateTimeOffset.MinValue;
         }
 
+        public DateTimeOffset SearchParamLastUpdated => _latestSearchParams;
+
         /// <summary>
         /// Ensures the search parameter cache is fresh by validating against the database max LastUpdated timestamp.
         /// Uses configurable time-based intervals to balance freshness with performance.

@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private HashSet<long> _processedJobIds = new HashSet<long>();
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
         private List<JobInfo> _jobsToProcess;
+        private DateTimeOffset _searchParamLastUpdated;
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -135,12 +136,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             try
             {
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
-                var maxWaitSeconds = _operationsConfiguration.Reindex.ReindexMaxWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds;
-                var refresh = await _searchParameterStatusManager.WaitForSingleRefresh(maxWaitSeconds, cancellationToken);
-                if (!refresh.Success)
-                {
-                    throw new JobExecutionException($"Search param cache refresh did not happen in {maxWaitSeconds} seconds.", false);
-                }
+                await WaitForSingleRefresh(cancellationToken);
+                _searchParamLastUpdated = await WaitForSingleRefresh(cancellationToken);
+                _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
@@ -180,6 +178,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _currentResult.CreatedJobs = queryReindexProcessingJobs.Count;
 
                 await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
+
+                //// this should enable tests running without any retries
+                await WaitForSingleRefresh(cancellationToken);
+                await WaitForSingleRefresh(cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -199,27 +201,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_currentResult);
         }
 
-        ////private async Task RefreshSearchParameterCache(CancellationToken cancellationToken)
-        ////{
-        ////    try
-        ////    {
-        ////        _logger.LogJobInformation(_jobInfo, "Performing full SearchParameter database refresh and hash recalculation for reindex job.");
+        private async Task<DateTimeOffset> WaitForSingleRefresh(CancellationToken cancellationToken)
+        {
+            var maxWaitSeconds = _operationsConfiguration.Reindex.ReindexMaxWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds;
+            var refresh = await _searchParameterStatusManager.WaitForSingleRefresh(maxWaitSeconds, cancellationToken);
+            if (!refresh.Success)
+            {
+                throw new JobExecutionException($"Search param cache refresh did not happen in {maxWaitSeconds} seconds.", false);
+            }
 
-        ////        // Use the enhanced method with forceFullRefresh flag
-        ////        // Wrapped with retry policy for SQL timeouts and Cosmos DB 429 errors
-        ////        await _searchParameterStatusRetries.ExecuteAsync(async () => await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true));
-
-        ////        // Update the reindex job record with the latest hash map
-        ////        _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
-
-        ////        _logger.LogJobInformation(_jobInfo, "Completed full SearchParameter refresh. Hash map updated with {ResourceTypeCount} resource types.", _reindexJobRecord.ResourceTypeSearchParameterHashMap.Count);
-        ////    }
-        ////    catch (Exception ex)
-        ////    {
-        ////        _logger.LogJobError(ex, _jobInfo, "Failed to refresh SearchParameter cache.");
-        ////        throw;
-        ////    }
-        ////}
+            return refresh.LastUpdated;
+        }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
         {
@@ -591,6 +583,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 var reindexJobPayload = new ReindexProcessingJobDefinition()
                 {
+                    SearchParamLastUpdated = _searchParamLastUpdated,
                     TypeId = (int)JobType.ReindexProcessing,
                     GroupId = _jobInfo.GroupId,
                     ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
@@ -1251,21 +1244,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var jobDefinition = ParseJobDefinition(j);
                     return jobDefinition != null &&
                            jobDefinition.SearchParameterUrls.Contains(searchParamUrl);
-                })
-                .ToList();
-        }
-
-        /// <summary>
-        /// Gets jobs that contain any of the specified search parameters
-        /// </summary>
-        private List<JobInfo> GetJobsForSearchParameters(List<JobInfo> jobs, List<string> searchParameterUrls)
-                    {
-            return jobs
-                .Where(job =>
-                {
-                    var jobDefinition = ParseJobDefinition(job);
-                    return jobDefinition != null &&
-                           jobDefinition.SearchParameterUrls.Any(url => searchParameterUrls.Contains(url));
                 })
                 .ToList();
         }
