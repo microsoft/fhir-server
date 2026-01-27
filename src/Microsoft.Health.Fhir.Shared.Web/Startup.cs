@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
@@ -37,7 +38,9 @@ using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
+using OpenIddict.Server;
 using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
@@ -257,7 +260,37 @@ namespace Microsoft.Health.Fhir.Web
                 options.MapInboundClaims = false;
                 options.RequireHttpsMetadata = true;
                 options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
+
+                // Accept issuer with or without trailing slash to handle common OpenIddict/OIDC variations.
+                var normalizedAuthority = securityConfiguration.Authentication.Authority?.TrimEnd('/');
+                if (!string.IsNullOrEmpty(normalizedAuthority))
+                {
+                    options.TokenValidationParameters.ValidIssuers = new[] { normalizedAuthority, normalizedAuthority + "/" };
+                }
             });
+
+            // When the development identity provider (OpenIddict) is active, its signing keys
+            // may not be reachable via OIDC metadata (self-referencing HTTPS calls can fail).
+            // Provide the signing keys directly to the JWT Bearer handler so it can validate
+            // tokens without needing the metadata endpoint.
+            /*
+            services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>>(sp =>
+            {
+                return new PostConfigureOptions<JwtBearerOptions>(
+                    JwtBearerDefaults.AuthenticationScheme,
+                    options =>
+                    {
+                        var serverOptions = sp.GetService<IOptions<OpenIddictServerOptions>>();
+                        var signingKeys = serverOptions?.Value?.SigningCredentials?.Select(c => c.Key).ToList();
+                        if (signingKeys?.Count > 0)
+                        {
+                            options.TokenValidationParameters.IssuerSigningKeys =
+                                (options.TokenValidationParameters.IssuerSigningKeys ?? Array.Empty<SecurityKey>())
+                                .Concat(signingKeys);
+                        }
+                    });
+            });
+            */
         }
 
         /// <summary>
