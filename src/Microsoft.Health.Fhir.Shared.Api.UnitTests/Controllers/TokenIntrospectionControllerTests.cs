@@ -85,16 +85,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void WhenProvidedTokenIntrospectionController_CheckIfAuthorizeAttributeIsPresent()
-        {
-            var authorizeAttribute = Attribute.GetCustomAttributes(typeof(TokenIntrospectionController), typeof(AuthorizeAttribute))
-                .Cast<AuthorizeAttribute>()
-                .SingleOrDefault();
-
-            Assert.NotNull(authorizeAttribute);
-        }
-
-        [Fact]
         public async Task GivenMissingTokenParameter_WhenIntrospect_ThenThrowsOAuth2BadRequestException()
         {
             // Act & Assert

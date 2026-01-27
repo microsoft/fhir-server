@@ -1,11 +1,36 @@
 ### Token Introspection Examples (SMART v2)
+# For local testing, set:
+# FhirServer:Security:Authorization:ScopesClaim = "scope"
+# (in-memory IdP uses "scope" as the claim name)
 
-# Introspect access token
+@hostname = localhost:44348
+
+### Test rest client - verify server is running
+https://{{hostname}}/metadata
+
+### Get an access token to use for introspection
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Introspect access token
 # @name introspect-token
-POST {{baseUrl}}/connect/introspect
-Authorization: Bearer {{accessToken}}
-Content-Type: application/x-www-form-urlencoded
+POST https://{{hostname}}/connect/introspect
+Authorization: Bearer {{bearer.response.body.access_token}}
+content-type: application/x-www-form-urlencoded
 
-# The token to introspect must be sent as form data
-# token={{accessToken}}
+token={{bearer.response.body.access_token}}
+
+### Introspect an invalid token (RFC 7662: active=false)
+# @name introspect-invalid-token
+POST https://{{hostname}}/connect/introspect
+Authorization: Bearer {{bearer.response.body.access_token}}
+content-type: application/x-www-form-urlencoded
+
+token=invalid.jwt.token
 
