@@ -65,6 +65,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateIdSegmentAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\OAuth2BadRequestException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OAuth2ExceptionFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\WeakETagBinder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatter.cs" />

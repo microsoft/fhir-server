@@ -3,13 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -19,21 +25,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// Supports introspection for both development (OpenIddict) and production (external IdP) tokens.
     /// </summary>
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
-    [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
+    [TypeFilter(typeof(OAuth2ExceptionFilterAttribute))]
+    [Authorize]
     [ValidateModelState]
     public class TokenIntrospectionController : Controller
     {
+        private const string FormUrlEncodedContentType = "application/x-www-form-urlencoded";
+
         private readonly ITokenIntrospectionService _introspectionService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ILogger<TokenIntrospectionController> _logger;
 
         public TokenIntrospectionController(
             ITokenIntrospectionService introspectionService,
+            IAuthorizationService<DataActions> authorizationService,
             ILogger<TokenIntrospectionController> logger)
         {
             EnsureArg.IsNotNull(introspectionService, nameof(introspectionService));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _introspectionService = introspectionService;
+            _authorizationService = authorizationService;
             _logger = logger;
         }
 
@@ -44,15 +57,31 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <returns>Token introspection response with active status and claims.</returns>
         [HttpPost]
         [Route("/connect/introspect")]
-        [Consumes("application/x-www-form-urlencoded")]
         [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
         public async Task<IActionResult> Introspect([FromForm] string token)
         {
-            // Validate token parameter is present
+            // Verify the caller has the Smart data action (required for SMART on FHIR operations)
+            DataActions permittedActions = await _authorizationService.CheckAccess(DataActions.Smart, HttpContext.RequestAborted);
+            if (!permittedActions.HasFlag(DataActions.Smart))
+            {
+                _logger.LogWarning("Token introspection caller does not have required Smart data action");
+                return StatusCode((int)HttpStatusCode.Forbidden);
+            }
+
+            // Validate content-type per RFC 7662 Section 2.1
+            // Must be application/x-www-form-urlencoded
+            if (Request.ContentType == null ||
+                !Request.ContentType.StartsWith(FormUrlEncodedContentType, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Token introspection request has invalid Content-Type: {ContentType}", Request.ContentType);
+                throw new OAuth2BadRequestException("invalid_request", "Content-Type must be application/x-www-form-urlencoded");
+            }
+
+            // Validate token parameter is present per RFC 7662 Section 2.1
             if (string.IsNullOrWhiteSpace(token))
             {
                 _logger.LogWarning("Token introspection request missing token parameter");
-                return BadRequest(new { error = "invalid_request", error_description = "token parameter is required" });
+                throw new OAuth2BadRequestException("invalid_request", "token parameter is required");
             }
 
             // Delegate to introspection service

@@ -1,0 +1,11 @@
+### Token Introspection Examples (SMART v2)
+
+# Introspect access token
+# @name introspect-token
+POST {{baseUrl}}/connect/introspect
+Authorization: Bearer {{accessToken}}
+Content-Type: application/x-www-form-urlencoded
+
+# The token to introspect must be sent as form data
+# token={{accessToken}}
+

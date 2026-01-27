@@ -210,11 +210,23 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
 
                                 return default;
                             }));
+                    })
+                    .AddValidation(options =>
+                    {
+                        // Use the local OpenIddict server for token validation (avoids self-referencing HTTP calls).
+                        options.UseLocalServer();
+
+                        // Register the ASP.NET Core integration.
+                        options.UseAspNetCore();
                     });
 
                 services.AddAuthentication(options =>
                 {
+                    // Override all authentication defaults so that the OpenIddict validation handler
+                    // is used instead of the JWT Bearer handler for locally-issued tokens.
                     options.DefaultScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                    options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
                 });
 
                 services.AddHostedService<OpenIddictApplicationCreater>();

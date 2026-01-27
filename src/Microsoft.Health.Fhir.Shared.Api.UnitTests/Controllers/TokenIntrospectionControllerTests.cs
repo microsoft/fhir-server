@@ -3,16 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -24,56 +32,127 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class TokenIntrospectionControllerTests
     {
+        private const string FormUrlEncodedContentType = "application/x-www-form-urlencoded";
+
         private readonly TokenIntrospectionController _controller;
         private readonly ITokenIntrospectionService _introspectionService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly DefaultHttpContext _httpContext;
 
         public TokenIntrospectionControllerTests()
         {
             _introspectionService = Substitute.For<ITokenIntrospectionService>();
+            _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+
+            // Default: allow Smart data action
+            _authorizationService.CheckAccess(DataActions.Smart, Arg.Any<CancellationToken>())
+                .Returns(DataActions.Smart);
 
             _controller = new TokenIntrospectionController(
                 _introspectionService,
+                _authorizationService,
                 NullLogger<TokenIntrospectionController>.Instance);
 
             // Set up ControllerContext with HttpContext
+            _httpContext = new DefaultHttpContext();
+            _httpContext.Request.ContentType = FormUrlEncodedContentType;
+
+            // Set up authenticated user by default
+            var claims = new List<Claim> { new Claim(ClaimTypes.Name, "testuser") };
+            var identity = new ClaimsIdentity(claims, "TestAuth");
+            _httpContext.User = new ClaimsPrincipal(identity);
+
             _controller.ControllerContext = new ControllerContext(
                 new ActionContext(
-                    new DefaultHttpContext(),
+                    _httpContext,
                     new RouteData(),
                     new ControllerActionDescriptor()));
         }
 
         [Fact]
-        public async Task GivenMissingTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
+        public async Task GivenUserWithoutSmartDataAction_WhenIntrospect_ThenReturnsForbidden()
         {
+            // Arrange - User is authenticated but doesn't have Smart data action
+            _authorizationService.CheckAccess(DataActions.Smart, Arg.Any<CancellationToken>())
+                .Returns(DataActions.None);
+
             // Act
-            var result = await _controller.Introspect(token: null);
+            var result = await _controller.Introspect(token: "some.token");
 
             // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            var statusResult = Assert.IsType<StatusCodeResult>(result);
+            Assert.Equal((int)HttpStatusCode.Forbidden, statusResult.StatusCode);
         }
 
         [Fact]
-        public async Task GivenEmptyTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
+        public void WhenProvidedTokenIntrospectionController_CheckIfAuthorizeAttributeIsPresent()
         {
-            // Act
-            var result = await _controller.Introspect(token: string.Empty);
+            var authorizeAttribute = Attribute.GetCustomAttributes(typeof(TokenIntrospectionController), typeof(AuthorizeAttribute))
+                .Cast<AuthorizeAttribute>()
+                .SingleOrDefault();
 
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            Assert.NotNull(authorizeAttribute);
         }
 
         [Fact]
-        public async Task GivenWhitespaceTokenParameter_WhenIntrospect_ThenReturnsBadRequest()
+        public async Task GivenMissingTokenParameter_WhenIntrospect_ThenThrowsOAuth2BadRequestException()
         {
-            // Act
-            var result = await _controller.Introspect(token: "   ");
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<OAuth2BadRequestException>(
+                () => _controller.Introspect(token: null));
 
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            Assert.Equal("invalid_request", exception.Error);
+            Assert.Equal("token parameter is required", exception.ErrorDescription);
+        }
+
+        [Fact]
+        public async Task GivenEmptyTokenParameter_WhenIntrospect_ThenThrowsOAuth2BadRequestException()
+        {
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<OAuth2BadRequestException>(
+                () => _controller.Introspect(token: string.Empty));
+
+            Assert.Equal("invalid_request", exception.Error);
+            Assert.Equal("token parameter is required", exception.ErrorDescription);
+        }
+
+        [Fact]
+        public async Task GivenWhitespaceTokenParameter_WhenIntrospect_ThenThrowsOAuth2BadRequestException()
+        {
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<OAuth2BadRequestException>(
+                () => _controller.Introspect(token: "   "));
+
+            Assert.Equal("invalid_request", exception.Error);
+            Assert.Equal("token parameter is required", exception.ErrorDescription);
+        }
+
+        [Fact]
+        public async Task GivenInvalidContentType_WhenIntrospect_ThenThrowsOAuth2BadRequestException()
+        {
+            // Arrange
+            _httpContext.Request.ContentType = "application/json";
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<OAuth2BadRequestException>(
+                () => _controller.Introspect(token: "some.token"));
+
+            Assert.Equal("invalid_request", exception.Error);
+            Assert.Equal("Content-Type must be application/x-www-form-urlencoded", exception.ErrorDescription);
+        }
+
+        [Fact]
+        public async Task GivenMissingContentType_WhenIntrospect_ThenThrowsOAuth2BadRequestException()
+        {
+            // Arrange
+            _httpContext.Request.ContentType = null;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<OAuth2BadRequestException>(
+                () => _controller.Introspect(token: "some.token"));
+
+            Assert.Equal("invalid_request", exception.Error);
+            Assert.Equal("Content-Type must be application/x-www-form-urlencoded", exception.ErrorDescription);
         }
 
         [Fact]
@@ -299,6 +378,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             // Assert
             await _introspectionService.Received(1).IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenFormUrlEncodedContentTypeWithCharset_WhenIntrospect_ThenSucceeds()
+        {
+            // Arrange - Content-Type with charset parameter should still work
+            _httpContext.Request.ContentType = "application/x-www-form-urlencoded; charset=utf-8";
+            var validToken = "test.token";
+            _introspectionService.IntrospectTokenAsync(validToken, Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, object> { { "active", true } });
+
+            // Act
+            var result = await _controller.Introspect(validToken);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.NotNull(okResult.Value);
         }
     }
 }
