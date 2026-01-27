@@ -940,18 +940,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// <param name="searchParameterCode">The search parameter code for error messaging</param>
         /// <param name="expectedResourceType">The resource type being searched for (e.g., "Patient")</param>
         /// <param name="shouldFindRecords">Whether we expect to find records. True if data should be returned, false if expecting empty result</param>
-        /// <param name="maxRetries">Maximum number of retry attempts if the search parameter is not ready</param>
-        /// <param name="retryDelayMs">Delay in milliseconds between retry attempts</param>
         private async Task VerifySearchParameterIsWorkingAsync(
             string searchQuery,
             string searchParameterCode,
             string expectedResourceType = null,
-            bool shouldFindRecords = true,
-            int maxRetries = 2,
-            int retryDelayMs = 20000)
+            bool shouldFindRecords = true)
         {
             Exception lastException = null;
 
+            var maxRetries = 1;
+            var retryDelayMs = 20000;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
