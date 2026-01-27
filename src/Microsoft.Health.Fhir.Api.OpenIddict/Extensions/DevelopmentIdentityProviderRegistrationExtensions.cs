@@ -233,13 +233,9 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Extensions
         public static IApplicationBuilder UseDevelopmentIdentityProviderIfConfigured(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));
-            var devIdpConfig = app.ApplicationServices.GetService<IOptions<DevelopmentIdentityProviderConfiguration>>();
 
-            if (devIdpConfig?.Value?.Enabled == true)
-            {
-                app.UseAuthentication();
-                app.UseAuthorization();
-            }
+            // Note: UseAuthentication() and UseAuthorization() are registered unconditionally
+            // in the main pipeline (FhirServerStartupFilter) so they don't need to be added here.
 
             return app;
         }

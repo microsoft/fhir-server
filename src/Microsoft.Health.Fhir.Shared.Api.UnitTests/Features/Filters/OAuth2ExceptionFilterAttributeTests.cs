@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -34,11 +35,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenOAuth2BadRequestException_WhenOnActionExecuted_ThenReturnsBadRequest()
         {
-            var actionContext = new ActionContext
-            {
-                RouteData = new RouteData(),
-                ActionDescriptor = new ControllerActionDescriptor(),
-            };
+            var httpContext = new DefaultHttpContext();
+            var actionContext = new ActionContext(
+                httpContext,
+                new RouteData(),
+                new ControllerActionDescriptor());
 
             var context = new ActionExecutedContext(actionContext, new IFilterMetadata[0], new object())
             {
