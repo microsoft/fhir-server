@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -254,8 +255,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             // Arrange
             var sqlRoot = new SqlRootExpression(
-                new System.Collections.Generic.List<SearchParamTableExpression>(),
-                new System.Collections.Generic.List<SearchParameterExpressionBase>());
+                new List<SearchParamTableExpression>(),
+                new List<SearchParameterExpressionBase>());
 
             // Act
             var result = (SqlRootExpression)sqlRoot.AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);

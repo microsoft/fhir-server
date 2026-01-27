@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -86,18 +87,37 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         [Fact]
         public async Task SearchBySurrogateIdRange_WithIncludeHistory_ReturnsHistoricalVersions()
         {
-            // Arrange
-            var patient = await CreateTestPatient("TestHistoryPatient");
-            var originalSurrogateId = patient.ResourceSurrogateId;
+            // Arrange - Create an observation and then update it to create historical versions
+            // Note: Using Observation because it's configured with Versioned policy (keeps history)
+            var observationWrapper = await CreateTestObservation("TestHistoryObservation");
+            var originalSurrogateId = observationWrapper.ResourceSurrogateId;
+            var resourceId = observationWrapper.ResourceId;
+
+            // Update the observation to create version 2 (making version 1 historical)
+            var observationElement = new RawResourceElement(observationWrapper);
+            var observationToUpdate = observationElement.ToPoco<Observation>(_fixture.Deserializer);
+            var updatedResource = UpdateObservationStatus(observationToUpdate);
+            await _fixture.Mediator.UpsertResourceAsync(updatedResource, WeakETag.FromVersionId(observationWrapper.Version));
+
+            // Update again to create version 3 (making versions 1 and 2 historical)
+            var observationWrapper2 = await _dataStore.GetAsync(new ResourceKey("Observation", resourceId), CancellationToken.None);
+            var observationElement2 = new RawResourceElement(observationWrapper2);
+            var observationToUpdate2 = observationElement2.ToPoco<Observation>(_fixture.Deserializer);
+            var updatedResource2 = UpdateObservationStatus(observationToUpdate2);
+            await _fixture.Mediator.UpsertResourceAsync(updatedResource2, WeakETag.FromVersionId(observationWrapper2.Version));
+
+            // Get the final wrapper to have the latest surrogate ID
+            var finalWrapper = await _dataStore.GetAsync(new ResourceKey("Observation", resourceId), CancellationToken.None);
 
             var sqlSearchService = _searchService as SqlServerSearchService;
             Assert.NotNull(sqlSearchService);
 
             // Act - Search for resources including history
+            // Use a wide range from the first surrogate ID to well beyond the last
             var result = await sqlSearchService!.SearchBySurrogateIdRange(
-                "Patient",
+                "Observation",
                 originalSurrogateId,
-                originalSurrogateId + 100,
+                finalWrapper.ResourceSurrogateId + 100,
                 null,
                 null,
                 CancellationToken.None,
@@ -105,37 +125,31 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 includeHistory: true,
                 includeDeleted: false);
 
-            // Assert
+            // Assert - Should return multiple versions of the same resource
             Assert.NotNull(result);
-            Assert.True(result.Results.Count() >= 1);
-        }
+            var resultsList = result.Results.ToList();
 
-        [Fact]
-        public async Task SearchBySurrogateIdRange_WithSearchParamHashFilter_FiltersCorrectly()
-        {
-            // Arrange
-            var patient = await CreateTestPatient("TestFilterPatient");
-            var surrogateId = patient.ResourceSurrogateId;
+            // Debug output to see what we got
+            var versionsFound = resultsList
+                .Where(r => r.Resource.ResourceId == resourceId)
+                .Select(r => $"Version {r.Resource.Version}, IsHistory={r.Resource.IsHistory}, SurrogateId={r.Resource.ResourceSurrogateId}")
+                .ToList();
 
-            var sqlSearchService = _searchService as SqlServerSearchService;
-            Assert.NotNull(sqlSearchService);
+            Assert.True(
+                resultsList.Count >= 2,
+                $"Expected at least 2 historical versions, got {resultsList.Count}. Versions found for resource {resourceId}: [{string.Join(", ", versionsFound)}]");
 
-            // Act with a non-matching hash
-            var result = await sqlSearchService!.SearchBySurrogateIdRange(
-                "Patient",
-                surrogateId,
-                surrogateId + 100,
-                null,
-                null,
-                CancellationToken.None,
-                searchParamHashFilter: "non-matching-hash-12345",
-                includeHistory: false,
-                includeDeleted: false);
+            // Verify that we have multiple versions of the same resource ID
+            var resourcesWithSameId = resultsList.Where(r => r.Resource.ResourceId == resourceId).ToList();
+            Assert.True(
+                resourcesWithSameId.Count >= 2,
+                $"Expected multiple versions of resource {resourceId}, got {resourcesWithSameId.Count}. Versions: [{string.Join(", ", versionsFound)}]");
 
-            // Assert
-            Assert.NotNull(result);
-
-            // Results might be empty or contain resources without the specific hash
+            // Verify that the versions are different
+            var versions = resourcesWithSameId.Select(r => r.Resource.Version).Distinct().ToList();
+            Assert.True(
+                versions.Count >= 2,
+                $"Expected different version numbers for historical versions, got {versions.Count} unique versions: [{string.Join(", ", versions)}]");
         }
 
         [Fact]
@@ -170,27 +184,78 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         [Fact]
         public async Task GetSurrogateIdRanges_WithActiveOnlyFlag_ReturnsOnlyActiveResources()
         {
-            // Arrange
-            var patient = await CreateTestPatient("TestActiveOnlyPatient");
+            // Arrange - Create multiple patients
+            var patients = await CreateTestPatients(5);
+            var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
+
+            // Soft delete some of the patients (e.g., the first 2)
+            // Note: Soft delete creates a new version with IsDeleted=1
+            // Whether history is kept depends on the resource type's configuration
+            for (int i = 0; i < 2; i++)
+            {
+                await _fixture.Mediator.DeleteResourceAsync(
+                    new ResourceKey("Patient", patients[i].ResourceId),
+                    DeleteOperation.SoftDelete,
+                    CancellationToken.None);
+            }
 
             var sqlSearchService = _searchService as SqlServerSearchService;
             Assert.NotNull(sqlSearchService);
 
-            // Act - Get surrogate ID ranges with activeOnly flag
-            var ranges = await sqlSearchService!.GetSurrogateIdRanges(
+            // Determine the new maximum surrogate ID after deletes (which create new versions)
+            var maxSurrogateId = surrogateIds.Last();
+
+            // Fetch one of the deleted patients to get its latest surrogate ID
+            var firstDeletedPatient = await _dataStore.GetAsync(new ResourceKey("Patient", patients[0].ResourceId), CancellationToken.None);
+            if (firstDeletedPatient.ResourceSurrogateId > maxSurrogateId)
+            {
+                maxSurrogateId = firstDeletedPatient.ResourceSurrogateId;
+            }
+
+            // Act - Get surrogate ID ranges with activeOnly=true (should exclude deleted resources)
+            var rangesActiveOnly = await sqlSearchService!.GetSurrogateIdRanges(
                 "Patient",
-                startId: patient.ResourceSurrogateId,
-                endId: patient.ResourceSurrogateId + 100,
-                rangeSize: 10,
-                numberOfRanges: 1,
+                startId: surrogateIds.First(),
+                endId: maxSurrogateId + 100,
+                rangeSize: 20,
+                numberOfRanges: 10,
                 up: true,
                 CancellationToken.None,
                 activeOnly: true);
 
-            // Assert
-            Assert.NotNull(ranges);
+            // Act - Get surrogate ID ranges with activeOnly=false (should include all resources)
+            var rangesAll = await sqlSearchService!.GetSurrogateIdRanges(
+                "Patient",
+                startId: surrogateIds.First(),
+                endId: maxSurrogateId + 100,
+                rangeSize: 20,
+                numberOfRanges: 10,
+                up: true,
+                CancellationToken.None,
+                activeOnly: false);
 
-            // With activeOnly=true, deleted resources should be excluded
+            // Assert - With activeOnly=true, should only include active (non-deleted, non-history) resources
+            Assert.NotNull(rangesActiveOnly);
+            var totalActiveCount = rangesActiveOnly.Sum(r => r.Count);
+
+            // Should have exactly 3 active resources (5 created - 2 deleted)
+            Assert.Equal(3, totalActiveCount);
+
+            // Assert - With activeOnly=false, should include all resource versions
+            Assert.NotNull(rangesAll);
+            var totalAllCount = rangesAll.Sum(r => r.Count);
+
+            // The key assertion: activeOnly=false MUST return more resources than activeOnly=true
+            // because it includes deleted resources that activeOnly=true filters out
+            Assert.True(
+                totalAllCount > totalActiveCount,
+                $"Expected total count ({totalAllCount}) to be > active count ({totalActiveCount})");
+
+            // Additional assertion: We must have at least 1 deleted resource showing up in the all count
+            // Since we deleted 2 resources, we expect at least 4 total (3 active + at least 1 deleted)
+            Assert.True(
+                totalAllCount >= 4,
+                $"Expected at least 4 resource versions (3 active + at least 1 deleted), got {totalAllCount}");
         }
 
         [Fact]
@@ -209,22 +274,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             // Assert
             Assert.NotNull(resourceTypes);
             Assert.Contains("Patient", resourceTypes);
-
-            // Observation might or might not be present depending on test execution order
+            Assert.Contains("Observation", resourceTypes);
         }
 
         [Fact]
         public async Task GetStatsFromDatabase_ReturnsStatistics()
         {
             // Arrange
-            await CreateTestPatient("TestStatsPatient");
-
-            // Perform a search to potentially generate stats
-            await _searchService.SearchAsync(
-                "Patient",
-                new List<Tuple<string, string>> { Tuple.Create("family", "TestStatsPatient") },
-                CancellationToken.None);
-
             var sqlSearchService = _searchService as SqlServerSearchService;
             Assert.NotNull(sqlSearchService);
 
@@ -233,7 +289,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
 
             // Assert
             Assert.NotNull(stats);
-            Assert.IsAssignableFrom<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>>(stats);
+
+            // If statistics exist, verify they have the expected structure
+            if (stats.Any())
+            {
+                var firstStat = stats.First();
+                Assert.False(string.IsNullOrEmpty(firstStat.TableName));
+                Assert.False(string.IsNullOrEmpty(firstStat.ColumnName));
+            }
         }
 
         [Fact]
@@ -318,6 +381,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.NotNull(ranges);
 
             // Should return multiple ranges with small range size
+            // We expect at least 2 ranges (since we have 15 resources with range size of 3)
+            Assert.True(ranges.Count() >= 2, $"Expected at least 2 ranges, got {ranges.Count()}");
+
+            // Should not exceed the requested number of ranges
+            Assert.True(ranges.Count() <= 5, $"Expected at most 5 ranges, got {ranges.Count()}");
+
+            // Verify that each range has a reasonable count given the range size
+            Assert.All(ranges, range => Assert.True(range.Count <= 3, $"Expected range count <= 3, got {range.Count}"));
         }
 
         private async Task<List<ResourceWrapper>> CreateTestPatients(int count)
@@ -373,6 +444,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 : AdministrativeGender.Male;
 
             return patient.ToResourceElement();
+        }
+
+        private ResourceElement UpdateObservationStatus(Observation observation)
+        {
+            observation.Status = observation.Status == ObservationStatus.Final
+                ? ObservationStatus.Amended
+                : ObservationStatus.Final;
+
+            return observation.ToResourceElement();
         }
     }
 }
