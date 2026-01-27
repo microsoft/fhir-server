@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "TypeName");
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenInvalidProfile_WhenValidateCalled_ThenBadRequestReturned()
         {
             var patient = Samples.GetJson("Patient");
@@ -219,11 +219,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             // Give the server time to refresh its profile cache
-            await Task.Delay(TimeSpan.FromSeconds(30));
+            await Task.Delay(TimeSpan.FromSeconds(2));
 
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
 #if !Stu3
