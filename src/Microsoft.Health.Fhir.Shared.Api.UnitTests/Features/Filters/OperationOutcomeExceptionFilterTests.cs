@@ -5,24 +5,30 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Reflection;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -266,6 +272,168 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new System.OperationCanceledException(), HttpStatusCode.RequestTimeout);
         }
 
+        [Fact]
+        public void GivenAFhirTransactionCancelledException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(
+                new FhirTransactionCancelledException(
+                    Guid.NewGuid().ToString(),
+                    new List<OperationOutcomeIssue>()),
+                HttpStatusCode.RequestTimeout);
+        }
+
+        [Fact]
+        public void GivenAnAzureContainerRegistryTokenException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(
+                new AzureContainerRegistryTokenException(
+                    Guid.NewGuid().ToString(),
+                    HttpStatusCode.Unauthorized),
+                HttpStatusCode.Unauthorized);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest, true)]
+        [InlineData(HttpStatusCode.InternalServerError, false)]
+        public void GivenAnEverythingOperationException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(
+            HttpStatusCode statusCode,
+            bool addContentLocation)
+        {
+            var contentLocation = default(string);
+            if (addContentLocation)
+            {
+                contentLocation = "http://example.com/fhir/location";
+            }
+
+            var result = ValidateOperationOutcome(
+                new EverythingOperationException(
+                    Guid.NewGuid().ToString(),
+                    statusCode,
+                    contentLocation),
+                statusCode);
+            if (addContentLocation)
+            {
+                Assert.Contains(
+                    result.Headers,
+                    x =>
+                    {
+                        return string.Equals(x.Key, HeaderNames.ContentLocation, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(x.Value, contentLocation, StringComparison.OrdinalIgnoreCase);
+                    });
+            }
+            else
+            {
+                Assert.DoesNotContain(
+                    result.Headers,
+                    x =>
+                    {
+                        return string.Equals(x.Key, HeaderNames.ContentLocation, StringComparison.OrdinalIgnoreCase);
+                    });
+            }
+        }
+
+        [Theory]
+        [InlineData(true, "Validate", HttpStatusCode.OK)]
+        [InlineData(true, "Fhir", HttpStatusCode.BadRequest)]
+        [InlineData(false, null, HttpStatusCode.BadRequest)]
+        public void GivenAResourceNotValidException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(
+            bool controllerDescriptor,
+            string controllerName,
+            HttpStatusCode statusCode)
+        {
+            _context.Exception = new ResourceNotValidException(new List<ValidationFailure>());
+            if (controllerDescriptor)
+            {
+                _context.ActionDescriptor = new ControllerActionDescriptor
+                {
+                    ControllerName = controllerName,
+                };
+            }
+
+            var filter = new OperationOutcomeExceptionFilterAttribute(
+                _fhirRequestContextAccessor,
+                _logger);
+            filter.OnActionExecuted(_context);
+
+            var result = Assert.IsType<OperationOutcomeResult>(_context.Result);
+            Assert.NotNull(result);
+            Assert.Equal(statusCode, result.StatusCode);
+            Assert.Equal(_correlationId, result.Result.Id);
+        }
+
+        [Fact]
+        public void GivenAFhirException_WhenHandling_ThenTheResponseShouldHaveTheCorrectStatusCode()
+        {
+            var exceptionsToStatusCodes = new Dictionary<Type, HttpStatusCode>
+            {
+                [typeof(UnauthorizedFhirActionException)] = HttpStatusCode.Forbidden,
+                [typeof(ResourceGoneException)] = HttpStatusCode.Gone,
+                [typeof(ResourceNotFoundException)] = HttpStatusCode.NotFound,
+                [typeof(JobNotFoundException)] = HttpStatusCode.NotFound,
+                [typeof(JobConflictException)] = HttpStatusCode.Conflict,
+                [typeof(MethodNotAllowedException)] = HttpStatusCode.MethodNotAllowed,
+                [typeof(OpenIdConfigurationException)] = HttpStatusCode.ServiceUnavailable,
+                [typeof(ResourceNotValidException)] = HttpStatusCode.BadRequest,
+                [typeof(IncompleteDeleteException)] = HttpStatusCode.RequestEntityTooLarge,
+                [typeof(BadRequestException)] = HttpStatusCode.BadRequest,
+                [typeof(RequestNotValidException)] = HttpStatusCode.BadRequest,
+                [typeof(BundleEntryLimitExceededException)] = HttpStatusCode.BadRequest,
+                [typeof(ProvenanceHeaderException)] = HttpStatusCode.BadRequest,
+                [typeof(RequestTooCostlyException)] = HttpStatusCode.BadRequest,
+                [typeof(TransactionDeadlockException)] = HttpStatusCode.Conflict,
+                [typeof(ResourceConflictException)] = HttpStatusCode.Conflict,
+                [typeof(PreconditionFailedException)] = HttpStatusCode.PreconditionFailed,
+                [typeof(InvalidSearchOperationException)] = HttpStatusCode.Forbidden,
+                [typeof(SearchOperationNotSupportedException)] = HttpStatusCode.Forbidden,
+                [typeof(CustomerManagedKeyException)] = HttpStatusCode.Forbidden,
+                [typeof(ServerSideRequestForgeryException)] = HttpStatusCode.Forbidden,
+                [typeof(UnsupportedConfigurationException)] = HttpStatusCode.InternalServerError,
+                [typeof(OperationNotImplementedException)] = HttpStatusCode.MethodNotAllowed,
+                [typeof(NotAcceptableException)] = HttpStatusCode.NotAcceptable,
+                [typeof(RequestEntityTooLargeException)] = HttpStatusCode.RequestEntityTooLarge,
+                [typeof(ResourceSqlException)] = HttpStatusCode.InternalServerError,
+                [typeof(ResourceSqlTruncateException)] = HttpStatusCode.BadRequest,
+                [typeof(ConvertDataFailedException)] = HttpStatusCode.BadRequest,
+                [typeof(FetchTemplateCollectionFailedException)] = HttpStatusCode.InternalServerError,
+                [typeof(ConvertDataUnhandledException)] = HttpStatusCode.InternalServerError,
+                [typeof(ConvertDataTimeoutException)] = HttpStatusCode.GatewayTimeout,
+                [typeof(ConfigureCustomSearchException)] = HttpStatusCode.FailedDependency,
+                [typeof(MemberMatchMatchingException)] = HttpStatusCode.UnprocessableEntity,
+                [typeof(RequestTimeoutException)] = HttpStatusCode.RequestTimeout,
+                [typeof(LoginFailedForUserException)] = HttpStatusCode.Unauthorized,
+            };
+
+            foreach (var type in exceptionsToStatusCodes.Keys)
+            {
+                var exception = (Exception)CreateObject(
+                    type,
+                    type == typeof(RequestNotValidException) ? "Invalid" : null);
+                ValidateOperationOutcome(exception, exceptionsToStatusCodes[type]);
+            }
+        }
+
+        [Fact]
+        public void GivenAHealthException_WhenHandling_ThenTheResponseShouldHaveTheCorrectStatusCode()
+        {
+            var exceptionsToStatusCodes = new Dictionary<Type, HttpStatusCode>
+            {
+                [typeof(RequestRateExceededException)] = HttpStatusCode.TooManyRequests,
+                [typeof(UnsupportedMediaTypeException)] = HttpStatusCode.UnsupportedMediaType,
+                [typeof(ServiceUnavailableException)] = HttpStatusCode.ServiceUnavailable,
+                [typeof(TransactionFailedException)] = HttpStatusCode.InternalServerError,
+                [typeof(AuditException)] = HttpStatusCode.BadRequest,
+                [typeof(AuditHeaderCountExceededException)] = HttpStatusCode.RequestHeaderFieldsTooLarge,
+                [typeof(AuditHeaderTooLargeException)] = HttpStatusCode.RequestHeaderFieldsTooLarge,
+                [typeof(MicrosoftHealthException)] = HttpStatusCode.InternalServerError,
+            };
+
+            foreach (var type in exceptionsToStatusCodes.Keys)
+            {
+                var exception = (Exception)CreateObject(type);
+                ValidateOperationOutcome(exception, exceptionsToStatusCodes[type]);
+            }
+        }
+
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
@@ -283,6 +451,60 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.IsType<OperationOutcomeResult>(result);
 
             return result;
+        }
+
+        private static object CreateObject(Type type, string defaultStringValue = null)
+        {
+            if (type == null)
+            {
+                return null;
+            }
+
+            switch (type)
+            {
+                case Type t when t == typeof(string):
+                    return defaultStringValue ?? Guid.NewGuid().ToString();
+
+                case Type t when t == typeof(ResourceKey):
+                    return new ResourceKey(KnownResourceTypes.Parameters, Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
+
+                case Type t when t.IsArray:
+                    return Array.CreateInstance(t.GetElementType(), 0);
+
+                case Type t when t.IsGenericType && t.GetInterfaces().Any(x => x.GetGenericTypeDefinition() == typeof(IEnumerable<>)):
+                    var parameters = new List<object>();
+                    foreach (var p in t.GetGenericArguments())
+                    {
+                        parameters.Add(CreateObject(p, defaultStringValue));
+                    }
+
+                    var listType = typeof(List<>).MakeGenericType(t.GetGenericArguments());
+                    return Activator.CreateInstance(listType);
+
+                default:
+                    break;
+            }
+
+            var bindingFlags = BindingFlags.Instance | BindingFlags.Public;
+            var ctors = type.GetConstructors().OrderBy(x => x.GetParameters().Length).ToList();
+            if (!ctors.Any())
+            {
+                bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+                ctors = type.GetConstructors(bindingFlags).OrderBy(x => x.GetParameters().Length).ToList();
+            }
+
+            foreach (var ctor in ctors)
+            {
+                var parameters = new List<object>();
+                foreach (var p in ctor.GetParameters())
+                {
+                    parameters.Add(CreateObject(p.ParameterType, defaultStringValue));
+                }
+
+                return Activator.CreateInstance(type, bindingFlags, null, parameters.ToArray(), null);
+            }
+
+            return null;
         }
     }
 }
