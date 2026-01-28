@@ -137,6 +137,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
                 await WaitForSingleRefresh(cancellationToken);
+                await WaitForSingleRefresh(cancellationToken);
+                await WaitForSingleRefresh(cancellationToken);
                 _searchParamLastUpdated = await WaitForSingleRefresh(cancellationToken);
                 _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
 
@@ -180,6 +182,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
 
                 //// this should enable tests running without any retries
+                await WaitForSingleRefresh(cancellationToken);
+                await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
             }
