@@ -113,10 +113,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (_reindexProcessingJobDefinition.SearchParamLastUpdated < _searchParameterStatusManager.SearchParamLastUpdated)
             {
                 _logger.LogJobWarning(jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken);
             }
             else
             {
                 _logger.LogJobInformation(jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken);
             }
 
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
@@ -584,6 +586,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
+            await store.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
         private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)
