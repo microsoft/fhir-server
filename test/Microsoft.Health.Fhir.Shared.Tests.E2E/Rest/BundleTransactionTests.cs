@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Extensions.Xunit;
@@ -718,6 +719,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(patientId, bundleResponse2.Resource.Entry[0].Resource.Id);
             Assert.Equal("2", bundleResponse2.Resource.Entry[0].Resource.Meta.VersionId);
             ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionWithAllowedParameter_WhenExecuted_ThenNoExceptionsAreThrown()
+        {
+            // Create resource
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var bundleAsString = Samples.GetJson("Bundle-TransactionWithMetaHistory");
+            var requestBundle = parser.Parse<Bundle>(bundleAsString);
+
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+            Assert.True("201".Equals(fhirResponse.Resource.Entry[0].Response.Status), "Create");
+
+            // Update resource
+            bundleAsString = bundleAsString.Replace("\"metaHistoryTestTag\"", "\"metaHistoryTestTag2\"");
+
+            requestBundle = parser.Parse<Bundle>(bundleAsString);
+
+            using FhirResponse<Bundle> fhirResponse2 = await _client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse2);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse2.StatusCode);
+            Assert.True("200".Equals(fhirResponse2.Resource.Entry[0].Response.Status), "Update");
+
+            // Check history
+            var historyBundle = await _client.ReadHistoryAsync(ResourceType.MedicationRequest, fhirResponse.Resource.Entry[0].Resource.Id);
+            Assert.True(historyBundle.Resource.Entry.Count == 1, "History count");
         }
 
         private static void ValidateReferenceToPatient(

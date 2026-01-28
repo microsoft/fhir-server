@@ -164,6 +164,7 @@
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\capabilitystatement-example.json" />

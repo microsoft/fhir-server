@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -105,6 +106,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var requestBundle = Samples.GetDefaultTransaction();
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundle_WhenContainsMetaHistoryEntry_ThenNoExceptionShouldBeThrown()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMetaHistory");
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
         }
 
         [Theory]
