@@ -81,14 +81,14 @@ jobs:
     displayName: 'Aggregate Cosmos integration test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(System.ArtifactsDirectory)/TestResults_*/*/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
+      targetdir: '$(System.ArtifactsDirectory)/coverage'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Cosmos integration test coverage'
     inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      pathToPublish: '$(System.ArtifactsDirectory)/coverage'
       artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
       artifactType: 'container'
 
@@ -97,8 +97,8 @@ jobs:
     condition: always()
     inputs:
       codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      reportDirectory: '$(Agent.TempDirectory)/coverage'
+      summaryFileLocation: '$(System.ArtifactsDirectory)/coverage/Cobertura.xml'
+      reportDirectory: '$(System.ArtifactsDirectory)/coverage'
 
 - job: 'cosmosE2eTests'
   dependsOn: []
