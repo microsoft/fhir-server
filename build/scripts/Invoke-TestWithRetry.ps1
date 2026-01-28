@@ -76,23 +76,42 @@ function Invoke-DotNetTest {
     $trxFileName = "TestResults_${RunName}_Attempt${AttemptNumber}.trx"
     $trxPath = Join-Path $resultsDir $trxFileName
     
-    $testArgs = "test $Assemblies --logger `"trx;LogFileName=$trxPath`""
+    $testArgs = @(
+        "test"
+        $Assemblies
+        "--logger"
+        "trx;LogFileName=$trxPath"
+    )
     
     if ($TestFilter) {
-        $testArgs += " --filter `"$TestFilter`""
+        $testArgs += @("--filter", $TestFilter)
     }
     
     if ($AdditionalArgs) {
-        $testArgs += " $AdditionalArgs"
+        # Split additional args by space, preserving quoted strings
+        $testArgs += $AdditionalArgs.Split(' ')
     }
     
-    Write-Host "##[command]dotnet $testArgs"
+    Write-Host "##[command]dotnet $($testArgs -join ' ')"
     
-    # Run the test and capture exit code
-    $process = Start-Process -FilePath "dotnet" -ArgumentList $testArgs -WorkingDirectory $WorkingDirectory -Wait -PassThru -NoNewWindow
+    # Save current location
+    $currentLocation = Get-Location
+    
+    try {
+        # Change to working directory
+        Set-Location $WorkingDirectory
+        
+        # Run the test using & operator which inherits environment variables
+        & dotnet $testArgs
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        # Restore location
+        Set-Location $currentLocation
+    }
     
     return @{
-        ExitCode = $process.ExitCode
+        ExitCode = $exitCode
         TrxPath = $trxPath
         AttemptNumber = $AttemptNumber
     }
