@@ -68,6 +68,14 @@ jobs:
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
+  - task: reportgenerator@5
+    displayName: 'Aggregate Cosmos integration test coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(System.ArtifactsDirectory)/TestResults_*/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(System.ArtifactsDirectory)/coverage'
+
   - task: PublishTestResults@2
     displayName: 'Publish Cosmos Integration Test Results'
     condition: always()
@@ -76,14 +84,6 @@ jobs:
       testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       mergeTestResults: true
-
-  - task: reportgenerator@5
-    displayName: 'Aggregate Cosmos integration test coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(System.ArtifactsDirectory)/TestResults_*/*/coverage.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(System.ArtifactsDirectory)/coverage'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Cosmos integration test coverage'

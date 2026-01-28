@@ -61,6 +61,14 @@ jobs:
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
+  - task: reportgenerator@5
+    displayName: 'Aggregate SQL integration test coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(System.ArtifactsDirectory)/TestResults_*/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(System.ArtifactsDirectory)/coverage'
+
   - task: PublishTestResults@2
     displayName: 'Publish SQL Integration Test Results'
     condition: always()
@@ -69,14 +77,6 @@ jobs:
       testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       mergeTestResults: true
-
-  - task: reportgenerator@5
-    displayName: 'Aggregate SQL integration test coverage'
-    condition: succeededOrFailed()
-    inputs:
-      reports: '$(System.ArtifactsDirectory)/TestResults_*/*/coverage.cobertura.xml'
-      reporttypes: 'Cobertura'
-      targetdir: '$(System.ArtifactsDirectory)/coverage'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish SQL integration test coverage'
