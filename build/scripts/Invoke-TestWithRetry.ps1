@@ -146,8 +146,30 @@ function Invoke-DotNetTest {
     }
     
     if ($AdditionalArgs) {
-        # Split additional args by space, preserving quoted strings
-        $testArgs += $AdditionalArgs.Split(' ')
+        # Parse additional args respecting quoted strings (single and double quotes)
+        # This regex matches:
+        # - Sequences of non-whitespace, non-quote characters
+        # - Single-quoted strings (with the quotes)
+        # - Double-quoted strings (with the quotes)
+        $regex = @'
+(?x)                    # Allow whitespace and comments in regex
+[^\s"']+                # Match unquoted arguments (no spaces, no quotes)
+|                       # OR
+"[^"]*"                 # Match double-quoted strings (including quotes)
+|                       # OR
+'[^']*'                 # Match single-quoted strings (including quotes)
+'@
+        $matches = [regex]::Matches($AdditionalArgs, $regex)
+        
+        foreach ($match in $matches) {
+            $arg = $match.Value
+            # Remove surrounding quotes if present (both single and double)
+            if (($arg.StartsWith("'") -and $arg.EndsWith("'")) -or 
+                ($arg.StartsWith('"') -and $arg.EndsWith('"'))) {
+                $arg = $arg.Substring(1, $arg.Length - 2)
+            }
+            $testArgs += $arg
+        }
     }
     
     Write-Host "##[command]dotnet $($testArgs -join ' ')"
