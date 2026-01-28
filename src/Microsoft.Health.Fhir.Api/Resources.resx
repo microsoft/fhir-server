@@ -424,10 +424,10 @@
     <value>The export parameter "includeAssociatedData" contains an invalid value. Supported values are: {0}. </value>
   </data>
   <data name="OAuth2ContentTypeMustBeFormUrlEncoded" xml:space="preserve">
-    <value>Content-Type must be application/x-www-form-urlencoded</value>
+    <value>Content-Type must be application/x-www-form-urlencoded.</value>
   </data>
   <data name="OAuth2TokenParameterRequired" xml:space="preserve">
-    <value>token parameter is required</value>
+    <value>token parameter is required.</value>
   </data>
   <data name="NotAbleToCreateTheFinalResultsOfAnOperation" xml:space="preserve">
     <value>Not able to create final result. Retry the operation.</value>
