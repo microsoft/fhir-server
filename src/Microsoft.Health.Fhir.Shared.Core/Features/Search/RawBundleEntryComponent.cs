@@ -27,16 +27,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
 
         public RawResourceElement ResourceElement { get; set; }
 
-        public override IDeepCopyable DeepCopy()
-        {
-            if (Resource != null)
-            {
-                return base.DeepCopy();
-            }
-
-            throw new NotSupportedException();
-        }
-
         /// <summary>
         /// Gets a value indicating whether or not the resource has been deleted.
         /// </summary>

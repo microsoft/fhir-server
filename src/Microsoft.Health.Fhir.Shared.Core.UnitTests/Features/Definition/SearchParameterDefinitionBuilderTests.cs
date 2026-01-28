@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable SDK0001 // Type is for evaluation purposes only
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -31,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
     [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterDefinitionBuilderTests
     {
-        private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
+        private readonly FhirJsonDeserializer _jsonParser = new FhirJsonDeserializer();
 
         private readonly string _invalidEntriesFile = "SearchParametersWithInvalidEntries.json";
         private readonly string _invalidDefinitionsFile = "SearchParametersWithInvalidDefinitions.json";

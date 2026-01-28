@@ -1625,7 +1625,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                     FhirDateTime currentDate = (FhirDateTime)currentObservation.Effective;
 
-                    Assert.True(currentDate >= date, $"Observation // Results were supposed to be returned in desc order. Effective date is greater than the expected. '{date}' was supposed to be returned first than '{currentDate}'.");
+                    Assert.True(currentDate.ToDateTimeOffset(TimeSpan.Zero) >= date.ToDateTimeOffset(TimeSpan.Zero), $"Observation // Results were supposed to be returned in desc order. Effective date is greater than the expected. '{date}' was supposed to be returned first than '{currentDate}'.");
                     date = currentDate;
                 }
             }
@@ -1645,7 +1645,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                     FhirDateTime currentDate = (FhirDateTime)currentObservation.Effective;
 
-                    Assert.True(currentDate <= date, $"Observation // Results were supposed to be returned in desc order. Effective date is greater than the expected. '{date}' was supposed to be returned first than '{currentDate}'.");
+                    Assert.True(currentDate.ToDateTimeOffset(TimeSpan.Zero) >= date.ToDateTimeOffset(TimeSpan.Zero), $"Observation // Results were supposed to be returned in desc order. Effective date is greater than the expected. '{date}' was supposed to be returned first than '{currentDate}'.");
                     date = currentDate;
                 }
             }

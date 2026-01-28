@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public ITypedElement Resolve(string reference)
+        public PocoNode Resolve(string reference)
         {
             if (string.IsNullOrWhiteSpace(reference))
             {
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         id = parsed.ResourceId,
                     }));
 
-            return node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+            return node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPocoNode();
         }
     }
 }

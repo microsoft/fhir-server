@@ -82,11 +82,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // Test case #1
             // Create resources that directly referenced by the Patient resource
-            Organization = await TestFhirClient.CreateAsync(Samples.GetJsonSample<Organization>("Organization"));
+            Organization = await TestFhirClient.CreateAsync(Samples.GetJsonFhirSample<Organization>("Organization"));
             string organizationReference = $"Organization/{Organization.Id}";
 
             // Create Patient resource
-            Patient patientToCreate = Samples.GetJsonSample<Patient>("Patient-f001");
+            Patient patientToCreate = Samples.GetJsonFhirSample<Patient>("Patient-f001");
             patientToCreate.ManagingOrganization.Reference = organizationReference;
             patientToCreate.GeneralPractitioner = new List<ResourceReference>
             {
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patientReference = $"Patient/{Patient.Id}";
 
             // Create resources that references the Patient resource
-            Device deviceToCreate = Samples.GetJsonSample<Device>("Device-d1");
+            Device deviceToCreate = Samples.GetJsonFhirSample<Device>("Device-d1");
 
 #if Stu3 || R4 || R4B
             deviceToCreate.AssignPatient(new ResourceReference(patientReference));
@@ -108,15 +108,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
 
             // Create Patient compartment resources
-            Observation observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
+            Observation observationToCreate = Samples.GetJsonFhirSample<Observation>("Observation-For-Patient-f001");
             observationToCreate.Subject.Reference = patientReference;
             Observation = await TestFhirClient.CreateAsync(observationToCreate);
 
-            Encounter encounterToCreate = Samples.GetJsonSample<Encounter>("Encounter-For-Patient-f001");
+            Encounter encounterToCreate = Samples.GetJsonFhirSample<Encounter>("Encounter-For-Patient-f001");
             encounterToCreate.Subject.Reference = patientReference;
             Encounter = await TestFhirClient.CreateAsync(encounterToCreate);
 
-            Appointment appointmentToCreate = Samples.GetJsonSample<Appointment>("Appointment");
+            Appointment appointmentToCreate = Samples.GetJsonFhirSample<Appointment>("Appointment");
             appointmentToCreate.Participant = new List<Appointment.ParticipantComponent>
             {
                 new()
@@ -148,25 +148,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Test case #3
             // Create patients to be referenced by links
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             PatientReferencedBySeeAlsoLink = await TestFhirClient.CreateAsync(patientToCreate);
 
             PatientsReferencedBySeeAlsoLink = new List<Patient>();
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             PatientsReferencedBySeeAlsoLink.Add(await TestFhirClient.CreateAsync(patientToCreate));
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             PatientsReferencedBySeeAlsoLink.Add(await TestFhirClient.CreateAsync(patientToCreate));
 
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             PatientReferencedByRemovedSeeAlsoLink = await TestFhirClient.CreateAsync(patientToCreate);
 
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             PatientReferencedByReplacedByLink = await TestFhirClient.CreateAsync(patientToCreate);
 
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             PatientReferencedByReplacesLink = await TestFhirClient.CreateAsync(patientToCreate);
 
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             PatientReferencedByReferLink = await TestFhirClient.CreateAsync(patientToCreate);
 
             // Create patients with different types of links
@@ -178,18 +178,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             PatientWithReferLink = await CreatePatientWithLinks(Patient.LinkType.Refer, new List<Patient> { PatientReferencedByReferLink });
 
             // Create Patient compartment resource
-            observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
+            observationToCreate = Samples.GetJsonFhirSample<Observation>("Observation-For-Patient-f001");
             observationToCreate.Subject.Reference = $"Patient/{PatientReferencedBySeeAlsoLink.Id}";
             ObservationOfPatientReferencedBySeeAlsoLink = await TestFhirClient.CreateAsync(observationToCreate);
 
-            observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
+            observationToCreate = Samples.GetJsonFhirSample<Observation>("Observation-For-Patient-f001");
             observationToCreate.Subject.Reference = $"Patient/{PatientWithSeeAlsoLinkToRemove.Id}";
             ObservationOfPatientWithSeeAlsoLinkToRemove = await TestFhirClient.CreateAsync(observationToCreate);
         }
 
         private async Task<Patient> CreatePatientWithLinks(Patient.LinkType linkType, List<Patient> patientsReferencedByLink)
         {
-            Patient patientWithLink = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            Patient patientWithLink = Samples.GetJsonFhirSample<Patient>("PatientWithMinimalData");
             patientWithLink.Link = new List<Patient.LinkComponent>();
 
             foreach (Patient patientReferencedByLink in patientsReferencedByLink)

@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 T result = await TestFhirClient.CreateResourcesAsync<T>(() =>
                 {
-                    T resource = Samples.GetJsonSample<T>(testFileName);
+                    T resource = Samples.GetJsonFhirSample<T>(testFileName);
 
                     switch (resource)
                     {

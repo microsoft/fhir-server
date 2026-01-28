@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -75,9 +76,9 @@ namespace Microsoft.Health.Fhir.Client
 
                 _serialize = (resource, summary) => jsonSerializer.SerializeToString(resource, summary);
 
-                var jsonParser = new FhirJsonParser();
+                var jsonParser = new FhirJsonDeserializer();
 
-                _deserialize = jsonParser.Parse<Resource>;
+                _deserialize = jsonParser.DeserializeResource;
 
                 _contentType = ContentType.JSON_CONTENT_HEADER;
             }
@@ -87,9 +88,9 @@ namespace Microsoft.Health.Fhir.Client
 
                 _serialize = (resource, summary) => xmlSerializer.SerializeToString(resource, summary);
 
-                var xmlParser = new FhirXmlParser();
+                var xmlParser = new FhirXmlDeserializer();
 
-                _deserialize = xmlParser.Parse<Resource>;
+                _deserialize = xmlParser.DeserializeResource;
 
                 _contentType = ContentType.XML_CONTENT_HEADER;
             }

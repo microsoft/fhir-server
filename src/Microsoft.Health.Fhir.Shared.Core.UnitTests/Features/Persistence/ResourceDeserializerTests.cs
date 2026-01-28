@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var rawString = await SerializeToJsonString(new RawResourceElement(wrapper), pretty);
             Assert.NotNull(rawString);
 
-            var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
+            var deserialized = new FhirJsonDeserializer().Deserialize<Patient>(rawString);
 
             Assert.Equal(wrapper.Version, deserialized.VersionId);
             Assert.Equal(wrapper.LastModified, deserialized.Meta.LastUpdated);
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var rawString = await SerializeToJsonString(new RawResourceElement(wrapper), pretty);
             Assert.NotNull(rawString);
 
-            var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
+            var deserialized = new FhirJsonDeserializer().Deserialize<Patient>(rawString);
 
             Assert.NotEqual(wrapper.Version, deserialized.VersionId);
             Assert.Equal(lastUpdated, deserialized.Meta.LastUpdated);

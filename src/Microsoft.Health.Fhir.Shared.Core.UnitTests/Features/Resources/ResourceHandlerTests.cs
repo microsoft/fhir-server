@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ResourceDeserializer _deserializer;
         private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
-        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly FhirJsonDeserializer _fhirJsonParser = new FhirJsonDeserializer();
         private IAuthorizationService<DataActions> _authorizationService;
 
         public ResourceHandlerTests()
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _conformanceProvider.GetCapabilityStatementOnStartup(Arg.Any<CancellationToken>()).Returns((x) =>
             {
-                var typedElement = _conformanceStatement.ToTypedElement();
+                var typedElement = _conformanceStatement.ToPocoNode();
                 return Task.FromResult(typedElement.ToResourceElement());
             });
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
@@ -126,11 +126,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
+            var fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+            var resourceDeserializer = Substitute.For<IResourceDeserializer>();
 
-            _deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
-
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), Substitute.For<ISearchParameterOperations>(), _deserializer, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), fhirRuntimeConfiguration, searchParameterOperations, resourceDeserializer, logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();
@@ -147,6 +147,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);
+
+            _deserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.DeserializeResource(str).ToResourceElement())));
         }
 
         [Fact]
@@ -199,6 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.Equal("id2", deserializedResource.Id);
         }
 
+#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenLastUpdatedShouldBeSet()
         {
@@ -217,6 +221,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), deserializedResource.LastUpdated);
             }
         }
+#endif
 
         [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenVersionShouldBeSet()

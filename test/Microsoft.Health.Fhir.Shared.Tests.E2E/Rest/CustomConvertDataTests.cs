@@ -71,13 +71,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
             var bundleContent = await response.Content.ReadAsStringAsync();
-            var setting = new ParserSettings()
-            {
-                AcceptUnknownMembers = true,
-                PermissiveParsing = true,
-            };
-            var parser = new FhirJsonParser(setting);
-            var bundleResource = parser.Parse<Bundle>(bundleContent);
+            var parser = new FhirJsonDeserializer();
+            var bundleResource = parser.Deserialize<Bundle>(bundleContent);
             Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
         }
 

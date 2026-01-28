@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
         public async Task GivenProfileResourcesBehaviour_WhenExecutedOutOfBundleContext_ThenCallProfileResolverRefresh()
         {
             ValueSet valueSet = new ValueSet();
-            ResourceElement resourceElement = new ResourceElement(valueSet.ToTypedElement());
+            ResourceElement resourceElement = new ResourceElement(valueSet.ToPocoNode());
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                 bundleOperationId: Guid.NewGuid());
 
             ValueSet valueSet = new ValueSet();
-            ResourceElement resourceElement = new ResourceElement(valueSet.ToTypedElement());
+            ResourceElement resourceElement = new ResourceElement(valueSet.ToPocoNode());
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 

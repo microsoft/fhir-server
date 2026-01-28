@@ -3,11 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable CS0618 // FhirJsonParser is obsolete
+#pragma warning disable SDK0001 // ToTypedElement is experimental
+
 using System;
 using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -339,12 +343,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenContainsDate_ThenShouldParseWithoutTimeAndOffset()
         {
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
 
             string adJson = "{\"resourceType\":\"ActivityDefinition\",\"status\":\"active\"}";
             var poco = parser.
-                Parse<Resource>(adJson).
-                ToTypedElement().
+                DeserializeResource(adJson).
+                ToPocoNode().
                 ToResourceElement().
                 ToPoco<ActivityDefinition>();
 
@@ -367,12 +371,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // FHIR Date type can NOT contain any time information, with or without offset
             // Ensure that a RequestNotValidException is thrown if time is included, so that model does not enter invalid state
 
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var parser = new Hl7.Fhir.Serialization.FhirJsonDeserializer();
 
             string adJson = "{\"resourceType\":\"ActivityDefinition\",\"status\":\"active\"}";
             var poco = parser.
-                Parse<Resource>(adJson).
-                ToTypedElement().
+                DeserializeResource(adJson).
+                ToPocoNode().
                 ToResourceElement().
                 ToPoco<ActivityDefinition>();
 
