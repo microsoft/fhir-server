@@ -19,6 +19,7 @@ ON dbo.QuantitySearchParam
     ResourceSurrogateId,
     SearchParamId
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_QuantityCodeId_SingleValue_INCLUDE_SystemId_WHERE_SingleValue_NOT_NULL
@@ -33,6 +34,7 @@ INCLUDE
     SystemId
 )
 WHERE SingleValue IS NOT NULL
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_QuantityCodeId_LowValue_HighValue_INCLUDE_SystemId
@@ -47,6 +49,7 @@ INCLUDE
 (
     SystemId
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_QuantityCodeId_HighValue_LowValue_INCLUDE_SystemId
@@ -61,5 +64,6 @@ INCLUDE
 (
     SystemId
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
