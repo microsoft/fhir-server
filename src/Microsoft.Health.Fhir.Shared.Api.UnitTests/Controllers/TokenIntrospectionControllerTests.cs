@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Security;
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 () => _controller.Introspect(token: null));
 
             Assert.Equal("invalid_request", exception.Error);
-            Assert.Equal("token parameter is required", exception.ErrorDescription);
+            Assert.Equal(Resources.OAuth2TokenParameterRequired, exception.ErrorDescription);
         }
 
         [Fact]
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 () => _controller.Introspect(token: string.Empty));
 
             Assert.Equal("invalid_request", exception.Error);
-            Assert.Equal("token parameter is required", exception.ErrorDescription);
+            Assert.Equal(Resources.OAuth2TokenParameterRequired, exception.ErrorDescription);
         }
 
         [Fact]
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 () => _controller.Introspect(token: "   "));
 
             Assert.Equal("invalid_request", exception.Error);
-            Assert.Equal("token parameter is required", exception.ErrorDescription);
+            Assert.Equal(Resources.OAuth2TokenParameterRequired, exception.ErrorDescription);
         }
 
         [Fact]
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 () => _controller.Introspect(token: "some.token"));
 
             Assert.Equal("invalid_request", exception.Error);
-            Assert.Equal("Content-Type must be application/x-www-form-urlencoded", exception.ErrorDescription);
+            Assert.Equal(Resources.OAuth2ContentTypeMustBeFormUrlEncoded, exception.ErrorDescription);
         }
 
         [Fact]
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 () => _controller.Introspect(token: "some.token"));
 
             Assert.Equal("invalid_request", exception.Error);
-            Assert.Equal("Content-Type must be application/x-www-form-urlencoded", exception.ErrorDescription);
+            Assert.Equal(Resources.OAuth2ContentTypeMustBeFormUrlEncoded, exception.ErrorDescription);
         }
 
         [Fact]
