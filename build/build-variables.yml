@@ -2,6 +2,8 @@
 # Variables used during builds.
 
 variables:
+  # Default timeout for jobs (in minutes) - increased from 60 to allow for retries on longer runs
+  jobTimeoutInMinutes: 75
   buildConfiguration: 'Release' 
   publicDockerImagePlatforms: 'linux/amd64,linux/arm64'
   testDockerImagePlatforms: 'linux/amd64'

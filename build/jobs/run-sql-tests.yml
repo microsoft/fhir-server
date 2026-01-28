@@ -10,6 +10,7 @@ parameters:
 jobs:
 
 - job: "SqlIntegrationTests"
+  timeoutInMinutes: $(jobTimeoutInMinutes)
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
@@ -82,6 +83,7 @@ jobs:
       reportDirectory: '$(Agent.TempDirectory)/coverage'
 
 - job: 'sqlE2eTests'
+  timeoutInMinutes: $(jobTimeoutInMinutes)
   dependsOn: []
   pool:
     name: '$(SharedLinuxPool)'
@@ -96,6 +98,7 @@ jobs:
       categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
 
 - job: 'sqlE2eTests_Reindex'
+  timeoutInMinutes: $(jobTimeoutInMinutes)
   dependsOn: []
   pool:
     name: '$(SharedLinuxPool)'
@@ -111,6 +114,7 @@ jobs:
       testRunTitleSuffix: ' Reindex'
 
 - job: 'sqlE2eTests_BulkUpdate'
+  timeoutInMinutes: $(jobTimeoutInMinutes)
   dependsOn: []
   pool:
     name: '$(SharedLinuxPool)'
