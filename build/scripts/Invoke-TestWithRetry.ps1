@@ -27,6 +27,17 @@ HOW IT WORKS:
 4. Retries with the filtered set (up to MaxRetries times)
 5. Generates new TRX for each retry attempt
 6. Sets TestResultsDirectory variable for PublishTestResults@2 task
+7. Azure DevOps detects retry attempts and shows tests as "Passed with Retry"
+
+RETRY-AWARE TEST PUBLISHING:
+Azure DevOps automatically detects retry attempts when multiple TRX files are published
+from the same test run. Tests that fail initially but pass on retry are shown as 
+"Passed with Retry" in the test blade, providing full visibility into flaky tests.
+
+This requires the AllowPtrToDetectTestRunRetryFiles variable to be set to true at the
+pipeline level (configured in build-variables.yml). 
+
+Reference: https://devblogs.microsoft.com/dotnet/microsoft-testing-platform-azure-retry/
 
 CODE COVERAGE SUPPORT:
 Pass code coverage arguments via AdditionalArgs parameter:
@@ -73,6 +84,10 @@ Title for the test run in Azure DevOps.
 This script outputs TRX files that can be consumed by Azure DevOps test result publishing.
 Use with PublishTestResults@2 task with mergeTestResults: true to combine all attempts.
 Environment variables are inherited via PowerShell & operator for proper test execution.
+
+When AllowPtrToDetectTestRunRetryFiles is enabled (set in build-variables.yml), Azure DevOps
+will automatically show tests as "Passed with Retry" instead of "Failed" when they pass on
+retry attempts. This provides better visibility into test reliability without hiding failures.
 #>
 param(
     [Parameter(Mandatory = $true)]

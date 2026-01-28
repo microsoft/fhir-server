@@ -9,6 +9,10 @@ variables:
   azureSubscriptionEndpoint: 'docker-build'
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
+  # Enable Azure DevOps retry-aware test result publishing
+  # This allows the test blade to properly show tests as "Passed with Retry" instead of "Failed"
+  # when tests fail initially but pass on retry attempts
+  AllowPtrToDetectTestRunRetryFiles: true
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
