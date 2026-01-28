@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Security;
@@ -73,14 +74,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 !Request.ContentType.StartsWith(FormUrlEncodedContentType, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("Token introspection request has invalid Content-Type");
-                throw new OAuth2BadRequestException("invalid_request", "Content-Type must be application/x-www-form-urlencoded");
+                throw new OAuth2BadRequestException("invalid_request", Resources.OAuth2ContentTypeMustBeFormUrlEncoded);
             }
 
             // Validate token parameter is present per RFC 7662 Section 2.1
             if (string.IsNullOrWhiteSpace(token))
             {
                 _logger.LogWarning("Token introspection request missing token parameter");
-                throw new OAuth2BadRequestException("invalid_request", "token parameter is required");
+                throw new OAuth2BadRequestException("invalid_request", Resources.OAuth2TokenParameterRequired);
             }
 
             // Delegate to introspection service

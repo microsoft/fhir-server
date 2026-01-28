@@ -637,6 +637,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Content-Type must be application/x-www-form-urlencoded.
+        /// </summary>
+        public static string OAuth2ContentTypeMustBeFormUrlEncoded {
+            get {
+                return ResourceManager.GetString("OAuth2ContentTypeMustBeFormUrlEncoded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to token parameter is required.
+        /// </summary>
+        public static string OAuth2TokenParameterRequired {
+            get {
+                return ResourceManager.GetString("OAuth2TokenParameterRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested route was not found..
         /// </summary>
         public static string NotFoundException {
