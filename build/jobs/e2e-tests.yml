@@ -21,14 +21,18 @@ steps:
     parameters:
       appServiceName: ${{ parameters.appServiceName }}
 
-  - task: DotNetCoreCLI@2
+  - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
-    retryCountOnTaskFailure: 1
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 15m --filter "FullyQualifiedName~${{parameters.appServiceType}}&${{ parameters.categoryFilter }}"'
+      filePath: '$(Build.SourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
+      arguments: >
+        -TestAssemblies "$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"
+        -Filter "FullyQualifiedName~${{parameters.appServiceType}}&${{ parameters.categoryFilter }}"
+        -MaxRetries 1
+        -WorkingDirectory "$(System.ArtifactsDirectory)"
+        -AdditionalArgs "--blame-hang-timeout 15m"
+        -TestRunTitle "${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}"
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -67,3 +71,12 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish E2E Test Results'
+    condition: always()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
+      mergeTestResults: true

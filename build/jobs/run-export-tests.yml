@@ -64,7 +64,6 @@ jobs:
 
   - task: DotNetCoreCLI@2
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
-    retryCountOnTaskFailure: 1
     inputs:
       command: test
       arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
@@ -158,7 +157,6 @@ jobs:
 
   - task: DotNetCoreCLI@2
     displayName: 'Export E2E ${{ parameters.version }} SQL'
-    retryCountOnTaskFailure: 1
     inputs:
       command: test
       arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
