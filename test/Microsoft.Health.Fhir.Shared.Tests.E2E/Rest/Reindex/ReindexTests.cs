@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -35,6 +36,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _fixture = fixture;
         }
 
+        [Fact]
+        public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+            var searchParam = new SearchParameter();
+            var testResources = new List<(string resourceType, string resourceId)>();
+            (FhirResponse<Parameters> response, Uri jobUri) value = default;
+
+            try
+            {
+                var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+                var resources = (await SetupTestDataAsync("Person", 20, randomSuffix, CreatePersonResourceAsync)).createdResources;
+                testResources.AddRange(resources);
+                searchParam = await CreateCustomSearchParameterAsync($"custom-person-name-{randomSuffix}", ["Person"], "Person.name.given", SearchParamType.String);
+                Assert.NotNull(searchParam);
+
+                var parameters = new Parameters
+                {
+                    Parameter =
+                    [
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
+                    ],
+                };
+
+                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+
+                var tasks = new[]
+                {
+                    WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300)),
+                    RandomPersonUpdate(testResources),
+                };
+                await Task.WhenAll(tasks);
+
+                // reported in reindex counts should be less than total resources created
+                await CheckCounts(value.jobUri, testResources.Count, true);
+            }
+            finally
+            {
+                await CleanupTestDataAsync(testResources, searchParam);
+            }
+        }
+
         [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
@@ -47,14 +93,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personSearchParam = new SearchParameter();
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var testResources = new List<(string resourceType, string resourceId)>();
-            var supplyDeliveryCount = 2000;
-            var personCount = 1000;
+            var supplyDeliveryCount = 40;
+            var personCount = 20;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
             {
                 // Set up test data using the common setup method
-                System.Diagnostics.Debug.WriteLine($"Setting up test data for SupplyDelivery and Person resources...");
+                Debug.WriteLine($"Setting up test data for SupplyDelivery and Person resources...");
 
                 // Setup Persons first, then SupplyDeliveries sequentially (not in parallel)
                 // This ensures Persons are fully created before SupplyDeliveries start
@@ -74,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     finalSupplyDeliveryCount >= supplyDeliveryCount,
                     $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {finalSupplyDeliveryCount}");
 
-                System.Diagnostics.Debug.WriteLine($"Test data setup complete - SupplyDelivery: {finalSupplyDeliveryCount}, Person: {finalPersonCount}");
+                Debug.WriteLine($"Test data setup complete - SupplyDelivery: {finalSupplyDeliveryCount}, Person: {finalPersonCount}");
 
                 // Create a single search parameter that applies to BOTH SupplyDelivery and Immunization
                 // This allows us to test the scenario where one resource type has data and another has none
@@ -103,12 +149,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(500),
+                            Value = new Integer(10),
                         },
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(500),
+                            Value = new Integer(10),
                         },
                     },
                 };
@@ -124,7 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(TimeSpan.FromMinutes(1));
+                await Task.Delay(TimeSpan.FromSeconds(4)); // should be 2 * SearchParameterCacheRefreshIntervalSeconds
 
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
@@ -149,13 +195,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     personSearchParam.Code,
                     expectedResourceType: "Person",
                     shouldFindRecords: true);
+
+                await CheckCounts(value.jobUri, testResources.Count, false);
             }
             finally
             {
                 // Cleanup all test data including resources and search parameters
-                System.Diagnostics.Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
+                Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
                 await CleanupTestDataAsync(testResources, mixedBaseSearchParam, personSearchParam);
-                System.Diagnostics.Debug.WriteLine("Cleanup completed");
+                Debug.WriteLine("Cleanup completed");
             }
         }
 
@@ -552,19 +600,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
+        // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
-            var person = new Person
-            {
-                Id = id,
-                Name = new List<HumanName>
-                {
-                    new HumanName { Given = new[] { name } },
-                },
-            };
+            return await Task.FromResult(CreatePersonResource(id, name));
+        }
 
-            // Return the person object without posting - will be posted in parallel batches
-            return await Task.FromResult(person);
+        private Person CreatePersonResource(string id, string name)
+        {
+            return new Person { Id = id, Name = [new() { Given = [name] }] };
         }
 
         /// <summary>
@@ -1027,19 +1071,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         /// <summary>
-        /// Gets the current count of resources for a specific resource type.
-        /// </summary>
-        /// <param name="resourceType">The FHIR resource type to count (e.g., "Person", "Specimen")</param>
-        /// <returns>The total count of resources matching the criteria</returns>
-        private async Task<int> GetResourceCountAsync(string resourceType)
-        {
-            string query = $"{resourceType}?_summary=count";
-
-            Bundle bundle = await _fixture.TestFhirClient.SearchAsync(query);
-            return bundle.Total ?? 0;
-        }
-
-        /// <summary>
         /// Sets up test data by creating the specified number of resources.
         /// Returns the list of created resource IDs for cleanup.
         /// Uses parallel individual creates for improved performance with retry logic.
@@ -1183,6 +1214,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Return the ACTUAL count of resources we created and have IDs for
             return (createdResources, totalCreated);
+        }
+
+        private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources)
+        {
+            foreach (var resource in resources.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e6)))
+            {
+                await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString()));
+            }
+        }
+
+        private async Task CheckCounts(Uri jobUri, long expected, bool lessThan)
+        {
+            var response = await _fixture.TestFhirClient.HttpClient.GetAsync(jobUri, CancellationToken.None);
+            var content = await response.Content.ReadAsStringAsync();
+            var parameters = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(content);
+            var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
+            var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
+            Assert.Equal(total, successes);
+            if (lessThan)
+            {
+                Assert.True(total < expected);
+            }
+            else
+            {
+                Assert.Equal(expected, total);
+            }
         }
 
         /// <summary>

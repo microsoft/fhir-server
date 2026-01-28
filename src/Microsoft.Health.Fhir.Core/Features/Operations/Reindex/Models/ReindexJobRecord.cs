@@ -93,7 +93,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// </summary>
         [JsonProperty(JobRecordProperties.QueryList)]
         [JsonConverter(typeof(ReindexJobQueryStatusConverter))]
-
         public ConcurrentDictionary<ReindexJobQueryStatus, byte> QueryList { get; private set; } = new ConcurrentDictionary<ReindexJobQueryStatus, byte>();
 
         [JsonProperty(JobRecordProperties.ResourceCounts)]
@@ -115,6 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.FailureCount)]
         public long FailureCount { get; set; }
 
+        // TODO: Resources is an incorrect name as it realy holds resource types.
         [JsonProperty(JobRecordProperties.Resources)]
         public ICollection<string> Resources { get; private set; } = new List<string>();
 

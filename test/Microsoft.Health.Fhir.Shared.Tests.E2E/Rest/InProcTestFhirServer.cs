@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
+            configuration["FhirServer:Operations:Reindex:PollingFrequencyInSeconds"] = "1";
 
             // enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
