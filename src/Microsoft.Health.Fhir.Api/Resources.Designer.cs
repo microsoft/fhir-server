@@ -871,15 +871,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The content type is not supported..
-        /// </summary>
-        public static string UnsupportedMediaType {
-            get {
-                return ResourceManager.GetString("UnsupportedMediaType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_format&quot; parameter is not supported..
         /// </summary>
         public static string UnsupportedFormatParameter {
