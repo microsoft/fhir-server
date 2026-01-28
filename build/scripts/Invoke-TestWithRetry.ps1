@@ -176,7 +176,13 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
             
             # Build filter for failed tests
             # Create an OR filter for all failed test names
-            $retryFilter = ($failedTests | ForEach-Object { "FullyQualifiedName~$_" }) -join "|"
+            # Note: Test names are matched as-is. If test names contain special characters
+            # like parentheses, they should still work with the ~ (contains) operator
+            $retryFilter = ($failedTests | ForEach-Object { 
+                # Escape any special characters that might cause issues in the filter
+                $escapedName = $_ -replace '\|', '\|'
+                "FullyQualifiedName~$escapedName" 
+            }) -join "|"
             
             # Combine with original filter if it exists
             if ($Filter) {
