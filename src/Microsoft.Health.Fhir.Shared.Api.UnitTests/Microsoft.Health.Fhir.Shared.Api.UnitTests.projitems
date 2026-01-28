@@ -52,6 +52,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteDataPopulatingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FilterTestsHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OAuth2ExceptionFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateContentTypeFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateExportRequestFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateIdSegmentAttributeTests.cs" />
