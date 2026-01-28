@@ -15,6 +15,15 @@ This script runs .NET tests with automatic retry of only the failed tests, rathe
 - **Works with Azure DevOps**: Results are published correctly to the test blade
 - **Handles transient failures**: Automatically retries flaky tests without manual intervention
 
+### Where It's Used
+
+This retry mechanism is applied to:
+- **E2E Tests**: All E2E test jobs (Cosmos, SQL, various test categories)
+- **Integration Tests**: Both Cosmos and SQL integration tests with code coverage
+- **Export Tests**: Long-running export tests
+
+The script is NOT used for infrastructure tasks (deployment, provisioning, AAD setup) which retain `retryCountOnTaskFailure`.
+
 ### Benefits over retryCountOnTaskFailure
 
 The previous approach used Azure DevOps' `retryCountOnTaskFailure` on the `DotNetCoreCLI@2` task, which had several limitations:
@@ -32,6 +41,7 @@ The new approach addresses these issues by:
 
 ### Usage
 
+**Example 1: E2E Tests**
 ```yaml
 - task: PowerShell@2
   displayName: 'Run E2E Tests with Retry'
@@ -55,6 +65,32 @@ The new approach addresses these issues by:
     testResultsFormat: 'VSTest'
     testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
     testRunTitle: 'E2E Tests'
+    mergeTestResults: true
+```
+
+**Example 2: Integration Tests with Code Coverage**
+```yaml
+- task: PowerShell@2
+  displayName: 'Run Integration Tests with Coverage and Retry'
+  inputs:
+    filePath: '$(Build.SourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
+    arguments: >
+      -TestAssemblies "$(Agent.TempDirectory)/IntegrationTests/**/*.Tests.Integration*.dll"
+      -Filter "DisplayName!~SqlServer"
+      -MaxRetries 1
+      -WorkingDirectory "$(System.ArtifactsDirectory)"
+      -AdditionalArgs "--collect 'XPlat Code Coverage' -s '$(Pipeline.Workspace)/source/CodeCoverage.runsettings' -v normal"
+      -TestRunTitle "Cosmos Integration Tests"
+  env:
+    'CosmosDb__Host': $(CosmosDb--Host)
+
+- task: PublishTestResults@2
+  displayName: 'Publish Integration Test Results'
+  condition: always()
+  inputs:
+    testResultsFormat: 'VSTest'
+    testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
+    testRunTitle: 'Cosmos Integration Tests'
     mergeTestResults: true
 ```
 
