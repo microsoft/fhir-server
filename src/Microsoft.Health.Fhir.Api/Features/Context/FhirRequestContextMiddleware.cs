@@ -9,6 +9,8 @@ using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -19,6 +21,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
     public class FhirRequestContextMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly ILogger<FhirRequestContextMiddleware> _logger;
+
         internal const string XContentTypeOptions = "X-Content-Type-Options";
         private const string XContentTypeOptionsValue = "nosniff";
 
@@ -28,11 +32,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
         internal const string ContentSecurityPolicy = "Content-Security-Policy";
         private const string ContentSecurityPolicyValue = "frame-src 'self';";
 
-        public FhirRequestContextMiddleware(RequestDelegate next)
+        public FhirRequestContextMiddleware(
+            RequestDelegate next,
+            ILogger<FhirRequestContextMiddleware> logger)
         {
             EnsureArg.IsNotNull(next, nameof(next));
 
             _next = next;
+            _logger = logger;
         }
 
         public async Task Invoke(
@@ -57,6 +64,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.QueryString);
 
             string correlationId = correlationIdProvider.Invoke();
+
+            // The correlation ID is returned as the request ID for the response. This value can be provided by the client to help link a request to internal logs.
+            _logger.LogInformation("Request ID for the response is {CorrelationId}", correlationId);
 
             try
             {
