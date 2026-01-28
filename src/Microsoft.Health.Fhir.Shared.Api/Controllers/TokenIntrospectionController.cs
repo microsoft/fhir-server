@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (Request.ContentType == null ||
                 !Request.ContentType.StartsWith(FormUrlEncodedContentType, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("Token introspection request has invalid Content-Type: {ContentType}", Request.ContentType);
+                _logger.LogWarning("Token introspection request has invalid Content-Type");
                 throw new OAuth2BadRequestException("invalid_request", "Content-Type must be application/x-www-form-urlencoded");
             }
 
