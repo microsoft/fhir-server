@@ -66,16 +66,58 @@ For each E2E test job (cosmosE2eTests, sqlE2eTests, etc.):
 For integration test jobs (CosmosIntegrationTests, SqlIntegrationTests):
 
 - [ ] **Cosmos Integration Tests**
-  - Verify tests run with `--filter DisplayName!~SqlServer`
-  - Check that code coverage is collected
-  - Confirm coverage is published
-  - Verify NO automatic retry happens (we removed retryCountOnTaskFailure)
+  - **Initial Run Logging**
+    - Look for `##[section]Starting test run: [Version] Cosmos Integration Tests`
+    - Verify test assemblies pattern: `**/IntegrationTests/**/*[Version].Tests.Integration*.dll`
+    - Check filter: `DisplayName!~SqlServer`
+    - Confirm MaxRetries is set to 1
+  
+  - **Test Execution**
+    - Look for `##[command]dotnet test ...` with proper arguments
+    - Verify `--collect 'XPlat Code Coverage'` is present
+    - Check that environment variables are available (CosmosDb__Host, etc.)
+  
+  - **Retry Behavior (if tests fail)**
+    - Look for `##[warning]Found N failed test(s)` message
+    - Verify retry attempt shows only failed test names in filter
+    - Confirm code coverage is still collected on retry
+  
+  - **Test Results Publishing**
+    - Verify `Publish Cosmos Integration Test Results` task runs
+    - Check that test results appear in Azure DevOps Test tab
+    - Confirm `mergeTestResults: true` combined initial + retry results
+  
+  - **Code Coverage**
+    - Verify `reportgenerator@5` task aggregates coverage
+    - Check coverage artifacts are published
+    - Confirm `PublishCodeCoverageResults@1` runs successfully
   
 - [ ] **SQL Integration Tests**
-  - Verify tests run with `--filter DisplayName!~CosmosDb`
-  - Check that code coverage is collected
-  - Confirm coverage is published
-  - Verify NO automatic retry happens (we removed retryCountOnTaskFailure)
+  - **Initial Run Logging**
+    - Look for `##[section]Starting test run: [Version] SQL Integration Tests`
+    - Verify test assemblies pattern: `**/IntegrationTests/**/*[Version].Tests.Integration*.dll`
+    - Check filter: `DisplayName!~CosmosDb`
+    - Confirm MaxRetries is set to 1
+  
+  - **Test Execution**
+    - Look for `##[command]dotnet test ...` with proper arguments
+    - Verify `--collect 'XPlat Code Coverage'` is present
+    - Check SQL connection string is available in environment
+  
+  - **Retry Behavior (if tests fail)**
+    - Look for `##[warning]Found N failed test(s)` message
+    - Verify retry attempt shows only failed test names in filter
+    - Confirm code coverage is still collected on retry
+  
+  - **Test Results Publishing**
+    - Verify `Publish SQL Integration Test Results` task runs
+    - Check that test results appear in Azure DevOps Test tab
+    - Confirm `mergeTestResults: true` combined initial + retry results
+  
+  - **Code Coverage**
+    - Verify `reportgenerator@5` task aggregates coverage
+    - Check coverage artifacts are published
+    - Confirm `PublishCodeCoverageResults@1` runs successfully
 
 ### 4. Export Test Validation
 
@@ -133,6 +175,8 @@ Total TRX files generated: 1
 ```
 
 ### Retry Scenario (Some Tests Fail, Then Pass)
+
+**E2E Test Example:**
 ```
 ##[section]Starting test run: R4 SqlServer
 [... initial run ...]
@@ -152,6 +196,32 @@ Total TRX files generated: 2
 ##[section]Test run completed successfully
 
 [Publish Test Results task merges both TRX files]
+```
+
+**Integration Test with Coverage Example:**
+```
+##[section]Starting test run: R4 Cosmos Integration Tests
+Test assemblies: **/IntegrationTests/**/*R4.Tests.Integration*.dll
+Initial filter: DisplayName!~SqlServer
+Max retries: 1
+Results directory: /home/vsts/work/1/a/TestResults_20260128_184500
+
+##[command]dotnet test ... --filter "DisplayName!~SqlServer" --collect 'XPlat Code Coverage' ...
+[Test execution with coverage collection]
+
+##[section]Initial test run completed with exit code: 1
+##[warning]Found 2 failed test(s). Will retry up to 1 time(s).
+
+##[section]Retry attempt 1 of 1
+Retrying 2 failed test(s)
+##[command]dotnet test ... --filter "(DisplayName!~SqlServer)&(FullyQualifiedName~FailedTest1|FullyQualifiedName~FailedTest2)" --collect 'XPlat Code Coverage' ...
+
+##[section]All previously failed tests passed on retry attempt 1
+##[section]Test run completed successfully
+
+[Publish Test Results task publishes TRX files]
+[reportgenerator@5 aggregates coverage from both attempts]
+[PublishCodeCoverageResults@1 publishes combined coverage]
 ```
 
 ### Failure Scenario (Tests Fail After Retry)
