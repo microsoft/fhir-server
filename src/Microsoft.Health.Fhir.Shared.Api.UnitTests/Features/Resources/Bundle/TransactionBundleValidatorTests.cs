@@ -115,6 +115,89 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
         }
 
+        [Fact]
+        public async Task GivenATransactionBundle_WhenContainsEntryWithHardDelete_ThenNoExceptionShouldBeThrown()
+        {
+            // Arrange
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Hl7.Fhir.Model.Bundle.BundleType.Transaction,
+                Entry = new List<Hl7.Fhir.Model.Bundle.EntryComponent>
+                {
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new Hl7.Fhir.Model.Bundle.RequestComponent
+                        {
+                            Method = Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE,
+                            Url = "Patient/123?_hardDelete=true",
+                        },
+                        Resource = new Hl7.Fhir.Model.Patient { Id = "123" },
+                    },
+                },
+            };
+
+            // Act & Assert - Should not throw
+            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+        }
+
+        [Theory]
+        [InlineData("Patient?identifier=123456", "Requested operation 'Patient?identifier=123456' is not supported using DELETE.")]
+        [InlineData("Patient?name=John", "Requested operation 'Patient?name=John' is not supported using DELETE.")]
+        [InlineData("Observation?code=12345", "Requested operation 'Observation?code=12345' is not supported using DELETE.")]
+        public async Task GivenATransactionBundle_WhenContainsConditionalDelete_ThenRequestNotValidExceptionShouldBeThrown(string requestUrl, string expectedMessage)
+        {
+            // Arrange
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Hl7.Fhir.Model.Bundle.BundleType.Transaction,
+                Entry = new List<Hl7.Fhir.Model.Bundle.EntryComponent>
+                {
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new Hl7.Fhir.Model.Bundle.RequestComponent
+                        {
+                            Method = Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE,
+                            Url = requestUrl,
+                        },
+                        Resource = new Hl7.Fhir.Model.Patient(),
+                    },
+                },
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(
+                () => _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
+            Assert.Equal(expectedMessage, exception.Message);
+        }
+
+        [Theory]
+        [InlineData("Patient/123?_hardDelete=true")]
+        [InlineData("Observation/456?_purge=true")]
+        [InlineData("Patient/789?_hardDelete=true&_cascade=delete")]
+        public async Task GivenATransactionBundle_WhenContainsDeleteWithResourceIdAndQueryParams_ThenNoExceptionShouldBeThrown(string requestUrl)
+        {
+            // Arrange - These are hard deletes with resource IDs and query parameters
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Hl7.Fhir.Model.Bundle.BundleType.Transaction,
+                Entry = new List<Hl7.Fhir.Model.Bundle.EntryComponent>
+                {
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new Hl7.Fhir.Model.Bundle.RequestComponent
+                        {
+                            Method = Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE,
+                            Url = requestUrl,
+                        },
+                        Resource = new Hl7.Fhir.Model.Patient(),
+                    },
+                },
+            };
+
+            // Act & Assert - Should not throw
+            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+        }
+
         [Theory]
         [InlineData("Patient?")]
         [InlineData("")]

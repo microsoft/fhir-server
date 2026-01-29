@@ -90,6 +90,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return entry.Request.Method == HTTPVerb.POST ? entry.FullUrl : entry.Request.Url;
             }
 
+            // DELETE requests with query parameters (e.g., hard delete) are not conditional operations
+            // They should be treated as regular deletes with the full URL
+            if (entry.Request.Method == HTTPVerb.DELETE && entry.Request.Url.Contains('?', StringComparison.Ordinal))
+            {
+                return entry.Request.Url;
+            }
+
             string resourceType = null;
             StringValues conditionalQueries = string.Empty;
 
@@ -149,11 +156,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             HTTPVerb? requestMethod = entry.Request?.Method;
 
             // Search operations using _search and POST endpoint is not supported for bundle.
-            // Conditional Delete operation is also not currently not supported.
-            if ((requestMethod == HTTPVerb.POST && requestUrl.Contains(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
-                || (requestMethod == HTTPVerb.DELETE && requestUrl.Contains('?', StringComparison.Ordinal)))
+            if (requestMethod == HTTPVerb.POST && requestUrl.Contains(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
+            }
+
+            // Conditional Delete operation is not currently supported.
+            // However, hard deletes (DELETE {type}/{id}?_hardDelete=true) are allowed.
+            // Conditional deletes have the pattern: DELETE {type}?{query} (no resource ID).
+            if (requestMethod == HTTPVerb.DELETE && requestUrl.Contains('?', StringComparison.Ordinal))
+            {
+                int questionMarkIndex = requestUrl.IndexOf('?', StringComparison.Ordinal);
+                string pathBeforeQuery = requestUrl.Substring(0, questionMarkIndex);
+
+                // If there's no '/' in the path before '?', it's a conditional delete (not allowed)
+                if (!pathBeforeQuery.Contains('/', StringComparison.Ordinal))
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
+                }
             }
 
             // Resource type bundle is not supported.within a bundle.

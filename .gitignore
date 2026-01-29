@@ -29,6 +29,9 @@ bld/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+# Generated test runsettings (contains secrets)
+test/remote.runsettings
+
 # NUNIT
 *.VisualState.xml
 TestResult.xml

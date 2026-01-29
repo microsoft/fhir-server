@@ -311,6 +311,7 @@
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-patient-v6.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-race.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-detailed-ethnicity.json" />
@@ -492,6 +493,7 @@
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-ethnicity.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-patient-v6.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-race.json" />
     <EmbeddedResource Include="TestFiles\R5\Profile-Organization-uscore-endpoint.json" />
     <EmbeddedResource Include="TestFiles\R5\Profile-Organization-uscore.json" />
@@ -588,6 +590,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-patient-v6.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-race.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
