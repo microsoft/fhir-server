@@ -123,6 +123,39 @@ Write-Host "Initial filter: $Filter"
 Write-Host "Max retries: $MaxRetries"
 Write-Host "Results directory: $resultsDir"
 
+# Function to expand glob patterns to actual file paths
+# dotnet test doesn't expand globs on Windows, so we need to do it ourselves
+function Expand-GlobPattern {
+    param(
+        [string]$Pattern,
+        [string]$BaseDirectory
+    )
+    
+    # Check if this looks like a glob pattern (contains * or ?)
+    if ($Pattern -match '[\*\?]') {
+        $originalLocation = Get-Location
+        try {
+            Set-Location $BaseDirectory
+            $expandedPaths = Get-ChildItem -Path $Pattern -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            if ($expandedPaths -and $expandedPaths.Count -gt 0) {
+                Write-Host "Expanded glob pattern '$Pattern' to $($expandedPaths.Count) file(s)"
+                return $expandedPaths
+            }
+            else {
+                Write-Host "##[warning]Glob pattern '$Pattern' matched no files, using as-is"
+                return @($Pattern)
+            }
+        }
+        finally {
+            Set-Location $originalLocation
+        }
+    }
+    else {
+        # Not a glob, return as-is
+        return @($Pattern)
+    }
+}
+
 # Function to run tests and return exit code
 function Invoke-DotNetTest {
     param(
@@ -132,26 +165,17 @@ function Invoke-DotNetTest {
         [int]$AttemptNumber
     )
     
-    $trxFileName = "TestResults_${RunName}_Attempt${AttemptNumber}.trx"
-    $trxPath = Join-Path $resultsDir $trxFileName
+    # Create a subdirectory for this attempt to collect all TRX files
+    $attemptDir = Join-Path $resultsDir "${RunName}_Attempt${AttemptNumber}"
+    New-Item -ItemType Directory -Path $attemptDir -Force | Out-Null
     
-    $testArgs = @(
-        "test"
-        $Assemblies
-        "--logger"
-        "trx;LogFileName=$trxPath"
-    )
+    # Expand glob patterns if present
+    $expandedAssemblies = Expand-GlobPattern -Pattern $Assemblies -BaseDirectory $WorkingDirectory
     
-    if ($TestFilter) {
-        $testArgs += @("--filter", $TestFilter)
-    }
-    
+    # Parse additional args once for reuse
+    $parsedAdditionalArgs = @()
     if ($AdditionalArgs) {
         # Parse additional args respecting quoted strings (single and double quotes)
-        # This regex matches:
-        # - Sequences of non-whitespace, non-quote characters
-        # - Single-quoted strings (with the quotes)
-        # - Double-quoted strings (with the quotes)
         $regex = @'
 (?x)                    # Allow whitespace and comments in regex
 [^\s"']+                # Match unquoted arguments (no spaces, no quotes)
@@ -169,22 +193,46 @@ function Invoke-DotNetTest {
                 ($arg.StartsWith('"') -and $arg.EndsWith('"'))) {
                 $arg = $arg.Substring(1, $arg.Length - 2)
             }
-            $testArgs += $arg
+            $parsedAdditionalArgs += $arg
         }
     }
     
-    Write-Host "##[command]dotnet $($testArgs -join ' ')"
-    
     # Save current location
     $currentLocation = Get-Location
+    $overallExitCode = 0
     
     try {
         # Change to working directory
         Set-Location $WorkingDirectory
         
-        # Run the test using & operator which inherits environment variables
-        & dotnet $testArgs
-        $exitCode = $LASTEXITCODE
+        # Run dotnet test for each assembly separately (dotnet test doesn't accept multiple csproj files)
+        foreach ($assembly in $expandedAssemblies) {
+            $testArgs = @(
+                "test"
+                $assembly
+                "--results-directory"
+                $attemptDir
+                "--logger"
+                "trx"
+            )
+            
+            if ($TestFilter) {
+                $testArgs += @("--filter", $TestFilter)
+            }
+            
+            $testArgs += $parsedAdditionalArgs
+            
+            Write-Host "##[command]dotnet $($testArgs -join ' ')"
+            
+            # Run the test using & operator which inherits environment variables
+            & dotnet $testArgs
+            $exitCode = $LASTEXITCODE
+            
+            # Track if any project failed
+            if ($exitCode -ne 0) {
+                $overallExitCode = $exitCode
+            }
+        }
     }
     finally {
         # Restore location
@@ -192,71 +240,91 @@ function Invoke-DotNetTest {
     }
     
     return @{
-        ExitCode = $exitCode
-        TrxPath = $trxPath
+        ExitCode = $overallExitCode
+        TrxDirectory = $attemptDir
         AttemptNumber = $AttemptNumber
     }
 }
 
-# Function to parse TRX file and extract failed test names
-function Get-FailedTestsFromTrx {
+# Function to get all TRX files from a directory
+function Get-TrxFilesFromDirectory {
     param(
-        [string]$TrxPath
+        [string]$Directory
     )
     
-    if (-not (Test-Path $TrxPath)) {
-        Write-Warning "TRX file not found: $TrxPath"
+    if (-not (Test-Path $Directory)) {
         return @()
     }
     
-    try {
-        [xml]$trxContent = Get-Content $TrxPath
-        $ns = New-Object System.Xml.XmlNamespaceManager($trxContent.NameTable)
-        $ns.AddNamespace("ns", "http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
-        
-        # Find all failed test results
-        $failedResults = $trxContent.SelectNodes("//ns:UnitTestResult[@outcome='Failed']", $ns)
-        
-        $failedTests = @()
-        foreach ($result in $failedResults) {
-            $testName = $result.testName
-            if ($testName) {
-                $failedTests += $testName
-            }
-        }
-        
-        return $failedTests
-    }
-    catch {
-        Write-Warning "Error parsing TRX file: $_"
-        return @()
-    }
+    return Get-ChildItem -Path $Directory -Filter "*.trx" -File | Select-Object -ExpandProperty FullName
 }
 
-# Function to count total executed tests from TRX file
-function Get-ExecutedTestCountFromTrx {
+# Function to parse TRX files and extract failed test names
+function Get-FailedTestsFromTrx {
     param(
-        [string]$TrxPath
+        [string]$TrxDirectory
     )
     
-    if (-not (Test-Path $TrxPath)) {
-        Write-Warning "TRX file not found: $TrxPath"
+    $trxFiles = Get-TrxFilesFromDirectory -Directory $TrxDirectory
+    if ($trxFiles.Count -eq 0) {
+        Write-Warning "No TRX files found in: $TrxDirectory"
+        return @()
+    }
+    
+    $allFailedTests = @()
+    foreach ($trxPath in $trxFiles) {
+        try {
+            [xml]$trxContent = Get-Content $trxPath
+            $ns = New-Object System.Xml.XmlNamespaceManager($trxContent.NameTable)
+            $ns.AddNamespace("ns", "http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
+            
+            # Find all failed test results
+            $failedResults = $trxContent.SelectNodes("//ns:UnitTestResult[@outcome='Failed']", $ns)
+            
+            foreach ($result in $failedResults) {
+                $testName = $result.testName
+                if ($testName -and $allFailedTests -notcontains $testName) {
+                    $allFailedTests += $testName
+                }
+            }
+        }
+        catch {
+            Write-Warning "Error parsing TRX file $trxPath : $_"
+        }
+    }
+    
+    return $allFailedTests
+}
+
+# Function to count total executed tests from TRX files in a directory
+function Get-ExecutedTestCountFromTrx {
+    param(
+        [string]$TrxDirectory
+    )
+    
+    $trxFiles = Get-TrxFilesFromDirectory -Directory $TrxDirectory
+    if ($trxFiles.Count -eq 0) {
+        Write-Warning "No TRX files found in: $TrxDirectory"
         return 0
     }
     
-    try {
-        [xml]$trxContent = Get-Content $TrxPath
-        $ns = New-Object System.Xml.XmlNamespaceManager($trxContent.NameTable)
-        $ns.AddNamespace("ns", "http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
-        
-        # Count all test results (executed tests)
-        $allResults = $trxContent.SelectNodes("//ns:UnitTestResult", $ns)
-        return $allResults.Count
+    $totalCount = 0
+    foreach ($trxPath in $trxFiles) {
+        try {
+            [xml]$trxContent = Get-Content $trxPath
+            $ns = New-Object System.Xml.XmlNamespaceManager($trxContent.NameTable)
+            $ns.AddNamespace("ns", "http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
+            
+            # Count all test results (executed tests)
+            $allResults = $trxContent.SelectNodes("//ns:UnitTestResult", $ns)
+            $totalCount += $allResults.Count
+        }
+        catch {
+            Write-Warning "Error parsing TRX file $trxPath : $_"
+        }
     }
-    catch {
-        Write-Warning "Error parsing TRX file: $_"
-        return 0
-    }
+    
+    return $totalCount
 }
 
 # Function to extract unique method names from full test names for retry filtering
@@ -321,14 +389,14 @@ function Get-MethodNamesFromTestNames {
 $attempt = 0
 $initialResult = Invoke-DotNetTest -Assemblies $TestAssemblies -TestFilter $Filter -RunName "Initial" -AttemptNumber $attempt
 
-$allTrxFiles = @($initialResult.TrxPath)
+$allTrxDirectories = @($initialResult.TrxDirectory)
 $finalExitCode = $initialResult.ExitCode
 
 Write-Host "##[section]Initial test run completed with exit code: $finalExitCode"
 
 # If initial run failed and retries are enabled, retry failed tests
 if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
-    $failedTests = Get-FailedTestsFromTrx -TrxPath $initialResult.TrxPath
+    $failedTests = Get-FailedTestsFromTrx -TrxDirectory $initialResult.TrxDirectory
     
     if ($failedTests.Count -eq 0) {
         Write-Host "##[warning]Tests failed but no failed tests found in TRX. This may indicate a crash or infrastructure issue."
@@ -365,13 +433,13 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
             Write-Host "Retrying with filter: $retryFilter"
             
             $retryResult = Invoke-DotNetTest -Assemblies $TestAssemblies -TestFilter $retryFilter -RunName "Retry" -AttemptNumber $retryAttempt
-            $allTrxFiles += $retryResult.TrxPath
+            $allTrxDirectories += $retryResult.TrxDirectory
             
             # Check if retry succeeded
             if ($retryResult.ExitCode -eq 0) {
                 # Verify that we actually ran the expected number of tests
                 # If filter didn't match, dotnet test returns 0 but runs no tests
-                $executedCount = Get-ExecutedTestCountFromTrx -TrxPath $retryResult.TrxPath
+                $executedCount = Get-ExecutedTestCountFromTrx -TrxDirectory $retryResult.TrxDirectory
                 $expectedCount = $failedTests.Count
                 
                 if ($executedCount -eq 0) {
@@ -390,7 +458,7 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
             }
             else {
                 # Get the still-failing tests for next retry
-                $stillFailedTests = Get-FailedTestsFromTrx -TrxPath $retryResult.TrxPath
+                $stillFailedTests = Get-FailedTestsFromTrx -TrxDirectory $retryResult.TrxDirectory
                 
                 if ($stillFailedTests.Count -eq 0) {
                     Write-Host "##[warning]Retry failed but no failed tests found in TRX. Stopping retries."
@@ -407,6 +475,14 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
 
 # Output summary
 Write-Host "##[section]Test Execution Summary"
+
+# Collect all TRX files from all attempt directories
+$allTrxFiles = @()
+foreach ($dir in $allTrxDirectories) {
+    $trxFiles = Get-TrxFilesFromDirectory -Directory $dir
+    $allTrxFiles += $trxFiles
+}
+
 Write-Host "Total TRX files generated: $($allTrxFiles.Count)"
 foreach ($trx in $allTrxFiles) {
     Write-Host "  - $trx"
