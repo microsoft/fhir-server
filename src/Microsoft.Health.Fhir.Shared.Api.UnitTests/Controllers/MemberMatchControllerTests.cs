@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetParamsResourceWithMissingParams(),
                 GetParamsResourceWithWrongNameParam(),
                 GetParamsResourceWithWrongContent(),
+                GetParamsResourceWithMissingPatientParams(),
             };
 
         public static TheoryData<Parameters> ValidBody =>
@@ -96,6 +97,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
             AddParamComponent(parametersResource, MemberMatchController.Coverage, string.Empty);
+
+            return parametersResource;
+        }
+
+        private static Parameters GetParamsResourceWithMissingPatientParams()
+        {
+            var parametersResource = new Parameters();
+            parametersResource.Parameter = new List<Parameters.ParameterComponent>
+            {
+                new Parameters.ParameterComponent()
+                {
+                    Name = MemberMatchController.Coverage,
+                    Resource = new Coverage(),
+                },
+            };
 
             return parametersResource;
         }

@@ -292,6 +292,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 HttpStatusCode.Unauthorized);
         }
 
+        [Fact]
+        public void GivenAnOverflowException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(
+                new OverflowException(Guid.NewGuid().ToString()),
+                HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public void GivenANullException_WhenExecutingAnAction_ThenTheResponseShouldBeNull()
+        {
+            var filter = new OperationOutcomeExceptionFilterAttribute(
+                _fhirRequestContextAccessor,
+                _logger);
+            _context.Exception = null;
+            _context.Result = null;
+
+            filter.OnActionExecuted(_context);
+            Assert.Null(_context.Result);
+        }
+
         [Theory]
         [InlineData(HttpStatusCode.BadRequest, true)]
         [InlineData(HttpStatusCode.InternalServerError, false)]
