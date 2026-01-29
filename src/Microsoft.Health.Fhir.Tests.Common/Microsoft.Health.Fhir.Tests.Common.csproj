@@ -162,6 +162,8 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example-with-base64.json" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+    <None Remove="TestFiles\R5\Bundle-TransactionWithMetaHistory.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
@@ -611,6 +613,7 @@
     <EmbeddedResource Include="DefinitionFiles\R4B\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="TestFiles\R4B\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4B\MedicinalProductDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithMetaHistory.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" />
