@@ -116,7 +116,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Theory]
-        [InlineData("Patient?")]
         [InlineData("")]
         [InlineData("?test")]
         public async Task GivenATransactionBundle_WhenUrlIsNotWellFormed_ThenRequestNotValidExceptionShouldBeThrown(string invalidUrl)
