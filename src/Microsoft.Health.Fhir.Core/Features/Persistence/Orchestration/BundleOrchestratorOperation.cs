@@ -387,15 +387,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     // Bundle Orchestrator operations will not enlist to C# transactions.
                     // The database will be responsible for handling it internally.
+                    // For Transaction, atomicity will be ensured based on the 'ensureAtomicOperations' flag.
                     MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false, ensureAtomicOperations: _ensureAtomicOperations);
 
                     // 2 - Merge all resources in the database.
-                    MergeOutcome response = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
+                    MergeOutcome mergeOutcome = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
 
+                    if (mergeOutcome.State == MergeOutcomeFinalState.CompletedWithFailures)
+                    {
+                        _logger.LogWarning("Bundle Operation {Id}. Bundle Orchestrator Operation completed with failures before merging resources. No changes at the data layer are expected.", Id);
+                    }
+
                     // 3 - Return all resources processed during the operation.
-                    return response;
+                    return mergeOutcome;
                 }
             }
             catch (OperationCanceledException oce)

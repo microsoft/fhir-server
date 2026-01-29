@@ -7,8 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
+using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -127,6 +129,76 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Validate that transaction has rolledback
             Bundle bundle = await _client.SearchAsync(ResourceType.Patient, "family=TransactionRollback");
             Assert.Empty(bundle.Entry);
+        }
+
+        [RetryTheory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        public async Task GivenATransactionBundleWithDelete_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndNoOperationCompletes(FhirBundleProcessingLogic processingLogic)
+        {
+            // TODO: After fixing sequential, add it back to the InlineData.
+
+            CancellationToken cancellationToken = CancellationToken.None;
+
+            // 1 - Load information from sample.
+            var bundleJson = Samples.GetJsonSample("Bundle-TransactionForRollBackWithDelete");
+            Bundle bundle = bundleJson.ToPoco<Bundle>();
+
+            string patientId0 = bundle.Entry[0].Request.Url.Split("/")[1];
+            string patientId1 = bundle.Entry[1].Resource.Id;
+            string observationId1 = bundle.Entry[2].Resource.Id;
+
+            // 2 - Create resource that will be attempted to be deleted in the transaction.
+            Patient patient = new Patient
+            {
+                Id = patientId0,
+                Active = true,
+                Name = new List<HumanName>
+                {
+                    new HumanName
+                    {
+                        Family = "Doe",
+                        Given = new[] { "John" },
+                    },
+                },
+                Identifier = new List<Identifier>
+                {
+                    new Identifier
+                    {
+                        System = "http://example.org/fhir/ids",
+                        Value = patientId0,
+                    },
+                },
+            };
+
+            FhirResponse<Patient> putPatientResponse = await _client.UpdateAsync($"Patient/{patientId0}", patient, cancellationToken: cancellationToken);
+            DateTimeOffset? creationTime = putPatientResponse.Resource.Meta.LastUpdated;
+            Assert.True(putPatientResponse.Response.IsSuccessStatusCode, "The creation of the Patient is expected, as this patient is used as part of the validations.");
+            Assert.True(patientId0 == putPatientResponse.Resource.Id, $"Patient ID is expected to be created as '{patientId0}'.");
+
+            // 3 - Execute transaction that is expected to fail.
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () => await _client.PostBundleAsync(
+                    bundle,
+                    new FhirBundleOptions() { BundleProcessingLogic = processingLogic },
+                    cancellationToken));
+            Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
+
+            // 4 - Validate if Patient still exists.
+            FhirResponse<Patient> getPatientResponse = null;
+            try
+            {
+                getPatientResponse = await _client.ReadAsync<Patient>($"Patient/{patientId0}", cancellationToken: cancellationToken);
+            }
+            catch (FhirClientException e)
+            {
+                Assert.Fail($"The Patient is expected to still exist, as the transaction is expected to be rolled back. Exception: {e.Message}");
+            }
+
+            Assert.True(getPatientResponse.Response.IsSuccessStatusCode, "The Patient is expected to still exist, as the transaction is expected to be rolled back.");
+            DateTimeOffset? lastUpdated = getPatientResponse.Resource.Meta.LastUpdated;
+            Assert.True(patientId0 == putPatientResponse.Resource.Id, $"Patient ID is expected to be created as '{patientId0}'.");
+            Assert.True(creationTime == lastUpdated, $"Meta.LastUpdate is expected to be the same. Left: '{creationTime?.ToString("o")}'. Right: '{creationTime?.ToString("o")}'");
         }
 
         [Fact]
