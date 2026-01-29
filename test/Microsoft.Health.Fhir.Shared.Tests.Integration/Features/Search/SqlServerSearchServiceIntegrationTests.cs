@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         public async Task GetStatsFromCache_AfterSearch_ReturnsPopulatedCollection()
         {
             // Arrange - Execute a search to populate stats cache
-            var patient = await CreateTestPatient("TestStatsPatient");
+            await CreateTestPatient("TestStatsPatient");
 
             var sqlSearchService = _searchService as SqlServerSearchService;
             Assert.NotNull(sqlSearchService);
