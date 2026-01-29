@@ -258,6 +258,64 @@ function Get-ExecutedTestCountFromTrx {
     }
 }
 
+# Function to extract unique method names from full test names for retry filtering
+# 
+# WHY THIS IS NEEDED:
+# The FHIR Server E2E tests use xUnit fixtures (IClassFixture) that append fixture info to test names.
+# TRX files contain test names in this format:
+#   ClassName(FixtureName, Format).MethodName(param1: value, param2: "string with special chars"...)
+# 
+# Example from actual test output:
+#   FhirPathPatchTests(CosmosDb, Json).GivenAServerThatSupportsIt_WhenSubmittingInvalidFhirPatch_ThenServerShouldBadRequest(patchRequest: [···], expectedError: "Patch replace operations must have the 'path' part"···)
+#
+# These test names contain characters that break dotnet test --filter expressions:
+#   - Parentheses: ( )
+#   - Brackets: [ ]
+#   - Quotes: " '
+#   - Ellipses: ···
+#   - Colons: :
+#   - Commas in unexpected places
+#
+# When we try to use FullyQualifiedName~<full test name>, the filter silently fails to match
+# and dotnet test returns exit code 0 with 0 tests run (false success).
+#
+# SOLUTION:
+# Extract just the method name (e.g., "GivenAServerThatSupportsIt_WhenSubmittingInvalidFhirPatch_ThenServerShouldBadRequest")
+# and use DisplayName~MethodName for filtering. This is reliable because method names only contain
+# alphanumeric characters and underscores.
+#
+# TRADE-OFF:
+# This may retry slightly more tests if the same method name exists in multiple test classes,
+# but this is acceptable to ensure failed tests actually get retried.
+function Get-MethodNamesFromTestNames {
+    param(
+        [string[]]$TestNames
+    )
+    
+    $methodNames = @()
+    foreach ($testName in $TestNames) {
+        # Pattern: Find the method name after the fixture parentheses
+        # Example: "FhirPathPatchTests(CosmosDb, Json).MethodName(patchRequest: ...)"
+        # The regex looks for: closing paren, dot, then captures word characters until ( or end
+        if ($testName -match '\)\.([\w_]+)(?:\(|$)') {
+            $methodName = $Matches[1]
+            if ($methodName -and $methodNames -notcontains $methodName) {
+                $methodNames += $methodName
+            }
+        }
+        elseif ($testName -match '\.([\w_]+)(?:\(|$)') {
+            # Fallback for simpler test names without fixture parentheses
+            # Example: "SimpleTestClass.TestMethod" or "SimpleTestClass.TestMethod(params)"
+            $methodName = $Matches[1]
+            if ($methodName -and $methodNames -notcontains $methodName) {
+                $methodNames += $methodName
+            }
+        }
+    }
+    
+    return $methodNames
+}
+
 # Initial test run
 $attempt = 0
 $initialResult = Invoke-DotNetTest -Assemblies $TestAssemblies -TestFilter $Filter -RunName "Initial" -AttemptNumber $attempt
@@ -280,14 +338,22 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
         for ($retryAttempt = 1; $retryAttempt -le $MaxRetries; $retryAttempt++) {
             Write-Host "##[section]Retry attempt $retryAttempt of $MaxRetries"
             
-            # Build filter for failed tests
-            # Create an OR filter for all failed test names
-            # Note: Test names are matched as-is. If test names contain special characters
-            # like parentheses, they should still work with the ~ (contains) operator
-            $retryFilter = ($failedTests | ForEach-Object { 
-                # Escape any special characters that might cause issues in the filter
-                $escapedName = $_ -replace '\|', '\|'
-                "FullyQualifiedName~$escapedName" 
+            # Extract method names for reliable filtering (see Get-MethodNamesFromTestNames for details)
+            $methodNames = Get-MethodNamesFromTestNames -TestNames $failedTests
+            
+            if ($methodNames.Count -eq 0) {
+                Write-Host "##[warning]Could not extract method names from failed tests. Using full test names."
+                $methodNames = $failedTests
+            }
+            
+            Write-Host "Extracted $($methodNames.Count) unique method name(s) for retry filter:"
+            foreach ($name in $methodNames) {
+                Write-Host "  - $name"
+            }
+            
+            # Build filter using DisplayName which works better for method name matching
+            $retryFilter = ($methodNames | ForEach-Object { 
+                "DisplayName~$_" 
             }) -join "|"
             
             # Combine with original filter if it exists
@@ -295,7 +361,7 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
                 $retryFilter = "($Filter)&($retryFilter)"
             }
             
-            Write-Host "Retrying $($failedTests.Count) failed test(s)"
+            Write-Host "Retrying with filter: $retryFilter"
             
             $retryResult = Invoke-DotNetTest -Assemblies $TestAssemblies -TestFilter $retryFilter -RunName "Retry" -AttemptNumber $retryAttempt
             $allTrxFiles += $retryResult.TrxPath
@@ -309,7 +375,7 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
                 
                 if ($executedCount -eq 0) {
                     Write-Host "##[error]Retry ran 0 tests but expected $expectedCount. Filter may not have matched any tests."
-                    Write-Host "##[warning]This usually indicates special characters in test names prevented the filter from matching."
+                    Write-Host "##[warning]The filter used was: $retryFilter"
                     # Keep the original failure exit code since tests didn't actually pass
                     break
                 }
