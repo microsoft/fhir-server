@@ -209,7 +209,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, _exportJobRecord.GlobalStartSurrogateId));
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
                 }
 
@@ -592,10 +591,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         }
 
                         sharedQueryParametersList = sharedQueryParametersList
-                                .Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.GlobalStartSurrogateId, StringComparison.OrdinalIgnoreCase)
-                                    && !string.Equals(x.Item1, KnownQueryParameterNames.GlobalEndSurrogateId, StringComparison.OrdinalIgnoreCase)
-                                    && !string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase)
-                                    && !string.Equals(x.Item1, KnownQueryParameterNames.EndSurrogateId, StringComparison.OrdinalIgnoreCase))
+                                .Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.GlobalEndSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                            && !string.Equals(x.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase)
+                                            && !string.Equals(x.Item1, KnownQueryParameterNames.EndSurrogateId, StringComparison.OrdinalIgnoreCase))
                                 .ToList();
 
                         uint resultIndex = 0;

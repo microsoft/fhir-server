@@ -14,29 +14,81 @@ jobs:
       Inline: |
         $deploymentEnvName = "$(DeploymentEnvironmentName)"
         $keyVaultBaseName = "$(KeyVaultBaseName)"
+        $resourceGroupName = "$(UniqueResourceGroupName)"
         
-        Get-AzResourceGroup -Name $(UniqueResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
+        # Function to clean up Network Security Perimeter resources
+        # NSP associations block resource group deletion if not removed first
+        function Remove-NspResources {
+          param([string]$RgName)
+          
+          Write-Host "Cleaning up Network Security Perimeters in $RgName"
+          try {
+            $nsps = Get-AzResource -ResourceGroupName $RgName -ResourceType "Microsoft.Network/networkSecurityPerimeters" -ErrorAction SilentlyContinue
+            
+            if ($nsps) {
+              foreach ($nsp in $nsps) {
+                Write-Host "  Found NSP: $($nsp.Name)"
+                $nspResourceId = $nsp.ResourceId
+                
+                # Remove associations first
+                $associations = Get-AzResource -ResourceId "$nspResourceId/resourceAssociations" -ApiVersion "2023-08-01-preview" -ErrorAction SilentlyContinue
+                if ($associations) {
+                  foreach ($assoc in $associations) {
+                    Write-Host "    Removing association: $($assoc.Name)"
+                    Remove-AzResource -ResourceId $assoc.ResourceId -ApiVersion "2023-08-01-preview" -Force -ErrorAction SilentlyContinue
+                  }
+                }
+                
+                # Delete the NSP itself
+                Write-Host "  Deleting NSP: $($nsp.Name)"
+                Remove-AzResource -ResourceId $nspResourceId -ApiVersion "2023-08-01-preview" -Force -ErrorAction SilentlyContinue
+              }
+              return $true
+            }
+          }
+          catch {
+            Write-Warning "Error cleaning up NSPs: $($_.Exception.Message)"
+          }
+          return $false
+        }
+        
+        Get-AzResourceGroup -Name $resourceGroupName -ErrorVariable notPresent -ErrorAction SilentlyContinue 
         if ($notPresent) {
-          Write-Host "Resource group $(UniqueResourceGroupName) not found"
+          Write-Host "Resource group $resourceGroupName not found"
         } else {
-          Write-Host "Deleting resource group $(UniqueResourceGroupName)"
+          Write-Host "Deleting resource group $resourceGroupName"
           $maxRetries = 3
           $retryCount = 0
           $deleted = $false
+          $nspCleanupAttempted = $false
           
           while (-not $deleted -and $retryCount -lt $maxRetries) {
             try {
-              Remove-AzResourceGroup -Name $(UniqueResourceGroupName) -Force -Verbose -ErrorAction Stop
+              Remove-AzResourceGroup -Name $resourceGroupName -Force -Verbose -ErrorAction Stop
               $deleted = $true
-              Write-Host "Successfully deleted resource group $(UniqueResourceGroupName)"
+              Write-Host "Successfully deleted resource group $resourceGroupName"
             }
             catch {
+              $errorMessage = $_.Exception.Message
+              
+              # Check if failure is due to Network Security Perimeter
+              if ((-not $nspCleanupAttempted) -and ($errorMessage -match "networkSecurityPerimeter" -or $errorMessage -match "ResourceGroupDeletionBlocked")) {
+                Write-Warning "Resource group deletion blocked, likely due to NSP. Attempting NSP cleanup..."
+                $nspCleanupAttempted = $true
+                $nspFound = Remove-NspResources -RgName $resourceGroupName
+                if ($nspFound) {
+                  Write-Host "NSP cleanup completed. Retrying resource group deletion..."
+                  # Don't increment retry count for NSP cleanup retry
+                  continue
+                }
+              }
+              
               $retryCount++
               if ($retryCount -lt $maxRetries) {
-                Write-Warning "Failed to delete resource group (attempt $retryCount of $maxRetries). Retrying in 30 seconds... Error: $($_.Exception.Message)"
+                Write-Warning "Failed to delete resource group (attempt $retryCount of $maxRetries). Retrying in 30 seconds... Error: $errorMessage"
                 Start-Sleep -Seconds 30
               } else {
-                Write-Warning "Failed to delete resource group after $maxRetries attempts. Error: $($_.Exception.Message)"
+                Write-Warning "Failed to delete resource group after $maxRetries attempts. Error: $errorMessage"
               }
             }
           }
