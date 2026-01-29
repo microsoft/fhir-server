@@ -65,7 +65,7 @@ jobs:
     displayName: 'Aggregate SQL integration test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(System.ArtifactsDirectory)/TestResults_*/*/coverage.cobertura.xml'
+      reports: '$(System.ArtifactsDirectory)/TestResults_*/**/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(System.ArtifactsDirectory)/coverage'
 
