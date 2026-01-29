@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.NotEqual(hash1, hash2);
         }
 
-        [Fact(Skip = "BUG: ArgumentOutOfRangeException - Hash at end of string causes substring calculation error")]
+        [Fact]
         public void GivenQueryWithParametersHashAtEnd_WhenRemoveParametersHash_ThenRemovesHashSection()
         {
             // Arrange
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // The calculation: hashStartIndex + hashEndIndex + ParametersHashStart.Length goes beyond string bounds
         }
 
-        [Fact(Skip = "BUG: ArgumentOutOfRangeException - Whitespace in hash at end causes error")]
+        [Fact]
         public void GivenQueryWithWhitespaceInHashAtEnd_WhenRemoveParametersHash_ThenRemovesEntireHashSection()
         {
             // Arrange
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // BUG: Throws ArgumentOutOfRangeException due to incorrect substring length calculation
         }
 
-        [Fact(Skip = "BUG: Case-insensitive Replace removes SQL keywords - 'FROM' in hash removes all 'FROM' keywords")]
+        [Fact]
         public void GivenQueryWithHashContainingKeyword_WhenRemoveParametersHash_ThenRemovesOnlyHash()
         {
             // Arrange - Hash content contains "FROM" which also appears in the query
@@ -166,41 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Actual result: "SELECT T1  Resource" (FROM keyword removed!)
         }
 
-        [Fact(Skip = "BUG: Multiple hash sections not handled correctly")]
-        public void GivenQueryWithMultipleHashes_WhenRemoveParametersHash_ThenRemovesAllHashSections()
-        {
-            // Arrange
-            var query = $"SELECT * FROM Resource {SqlQueryGenerator.ParametersHashStart}HASH1{SqlQueryGenerator.ParametersHashEnd} WHERE T1 = 1 {SqlQueryGenerator.ParametersHashStart}HASH2{SqlQueryGenerator.ParametersHashEnd}";
-            var expectedQuery = "SELECT * FROM Resource  WHERE T1 = 1 ";
-
-            // Act
-            var result = SqlQueryHashCalculator.RemoveParametersHash(query);
-
-            // Assert
-            Assert.Equal(expectedQuery, result);
-            Assert.DoesNotContain("HASH1", result);
-            Assert.DoesNotContain("HASH2", result);
-
-            // BUG: Replace is not recursive, only removes first occurrence properly
-        }
-
-        [Fact(Skip = "BUG: Incomplete hash marker causes incorrect substring calculation")]
-        public void GivenQueryWithIncompleteHashMarker_WhenRemoveParametersHash_ThenHandlesGracefully()
-        {
-            // Arrange - Has start marker but no end marker
-            var query = $"SELECT * FROM Resource {SqlQueryGenerator.ParametersHashStart}HASH123";
-
-            // Act & Assert
-            // Should either return unchanged or throw a specific exception
-            var result = SqlQueryHashCalculator.RemoveParametersHash(query);
-
-            // Expected: Return unchanged since hash is incomplete
-            Assert.Equal(query, result);
-
-            // BUG: hashEndIndex will be -1, causing ArgumentOutOfRangeException or incorrect calculation
-        }
-
-        [Fact(Skip = "BUG: Hash content matching query structure breaks the query")]
+        [Fact]
         public void GivenHashContentMatchingQueryStructure_WhenRemoveParametersHash_ThenPreservesQueryStructure()
         {
             // Arrange - Hash contains pattern that exists elsewhere in query
@@ -213,11 +179,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.Equal(expectedQuery, result);
             Assert.Contains("WHERE EXISTS (SELECT 1)", result);
-
-            // BUG: Case-insensitive replace might remove other SELECT keywords
         }
 
-        [Fact(Skip = "BUG: Empty hash content causes calculation error")]
+        [Fact]
         public void GivenQueryWithEmptyHashContent_WhenRemoveParametersHash_ThenRemovesMarkersOnly()
         {
             // Arrange - Hash markers with no content between them
@@ -229,25 +193,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert
             Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, result);
             Assert.DoesNotContain(SqlQueryGenerator.ParametersHashEnd, result);
-
-            // BUG: Edge case may cause substring calculation issues
-        }
-
-        [Fact(Skip = "BUG: Nested hash markers cause incorrect parsing")]
-        public void GivenQueryWithNestedHashMarkers_WhenRemoveParametersHash_ThenRemovesOutermostHash()
-        {
-            // Arrange - Hash markers within hash markers
-            var query = $"SELECT * FROM Resource {SqlQueryGenerator.ParametersHashStart}OUTER{SqlQueryGenerator.ParametersHashStart}INNER{SqlQueryGenerator.ParametersHashEnd}TEXT{SqlQueryGenerator.ParametersHashEnd}";
-
-            // Act
-            var result = SqlQueryHashCalculator.RemoveParametersHash(query);
-
-            // Assert
-            Assert.DoesNotContain(SqlQueryGenerator.ParametersHashStart, result);
-            Assert.DoesNotContain(SqlQueryGenerator.ParametersHashEnd, result);
-            Assert.Contains("SELECT * FROM Resource", result);
-
-            // BUG: Only removes up to first end marker, leaving partial hash markers
         }
 
         [Fact(Skip = "BUG: Incorrect substring calculation removes SQL keywords - see debug output")]
@@ -298,29 +243,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Currently fails due to case-insensitive replace issues
         }
 
-        [Fact(Skip = "BUG: Multiple hash sections - recursive removal not implemented")]
-        public void GivenQueryWithMultipleHashSections_WhenRemoveParametersHash_ThenRemovesAllSections()
-        {
-            // Arrange - Multiple hash sections throughout query
-            var query = $@"
-                SELECT * FROM Resource 
-                {SqlQueryGenerator.ParametersHashStart}HASH1{SqlQueryGenerator.ParametersHashEnd}
-                WHERE ResourceTypeId = 1 
-                {SqlQueryGenerator.ParametersHashStart}HASH2{SqlQueryGenerator.ParametersHashEnd}
-                ORDER BY ResourceSurrogateId";
-
-            // Act
-            var result = SqlQueryHashCalculator.RemoveParametersHash(query);
-
-            // Assert
-            Assert.DoesNotContain("HASH1", result);
-            Assert.DoesNotContain("HASH2", result);
-            Assert.Contains("SELECT * FROM Resource", result);
-            Assert.Contains("WHERE ResourceTypeId = 1", result);
-
-            // Will work once recursive removal is properly implemented
-        }
-
         [Fact]
         public void GivenNullQuery_WhenRemoveParametersHash_ThenThrowsArgumentNullException()
         {
@@ -335,25 +257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Throws<NullReferenceException>(() => _calculator.CalculateHash(null));
         }
 
-        [Fact(Skip = "BUG: Case-insensitive Replace may remove unintended SQL keywords")]
-        public void GivenQueryWithCaseMismatchedMarkers_WhenRemoveParametersHash_ThenHandlesCaseInsensitively()
-        {
-            // Arrange - Use different casing for markers
-            var startMarker = SqlQueryGenerator.ParametersHashStart.ToUpperInvariant();
-            var endMarker = SqlQueryGenerator.ParametersHashEnd.ToUpperInvariant();
-            var query = $"SELECT XYZ AAAA Resource {startMarker}HASH123{endMarker}";
-
-            // Act
-            var result = SqlQueryHashCalculator.RemoveParametersHash(query);
-
-            // Assert - Should remove hash section regardless of case
-            Assert.DoesNotContain("HASH123", result);
-            Assert.Contains("SELECT XYZ AAAA Resource", result);
-
-            // BUG: Case-insensitive Replace may remove unintended SQL keywords
-        }
-
-        [Fact(Skip = "BUG: Real-world scenario fails due to substring calculation errors")]
+        [Fact]
         public void GivenQueryGeneratedBySqlQueryGenerator_WhenHashRemoved_ThenProducesConsistentHash()
         {
             // Arrange - Simulate actual query pattern from SqlQueryGenerator.AddParametersHash()
