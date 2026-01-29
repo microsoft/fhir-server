@@ -112,15 +112,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var current = _searchParameterStatusManager.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fffff");
             var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fffff");
             var msg = $"SearchParamLastUpdated: Current: {current} Requested by orchestrator: {requested}";
-            if (_reindexProcessingJobDefinition.SearchParamLastUpdated < _searchParameterStatusManager.SearchParamLastUpdated)
+            if (_reindexProcessingJobDefinition.SearchParamLastUpdated < _searchParameterStatusManager.SearchParamLastUpdated) // bad
             {
                 _logger.LogJobWarning(jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken);
+                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
-            else
+            else // normal
             {
                 _logger.LogJobInformation(jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken);
+                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
 
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
