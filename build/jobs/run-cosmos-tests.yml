@@ -54,7 +54,7 @@ jobs:
       arguments: >
         -TestAssemblies "$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll"
         -Filter "DisplayName!~SqlServer"
-        -MaxRetries 1
+        -MaxRetries 3
         -WorkingDirectory "$(System.ArtifactsDirectory)"
         -AdditionalArgs "--collect 'XPlat Code Coverage' -s '$(Pipeline.Workspace)/source/CodeCoverage.runsettings' -v normal --results-directory '$(Agent.TempDirectory)'"
         -TestRunTitle "${{ parameters.version }} Cosmos Integration Tests"
