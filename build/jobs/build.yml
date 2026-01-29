@@ -60,7 +60,7 @@ steps:
         -TestAssemblies "**/*UnitTests/*.csproj"
         -MaxRetries 1
         -WorkingDirectory "$(System.DefaultWorkingDirectory)"
-        -AdditionalArgs "--configuration $(buildConfiguration) --no-build --collect 'XPlat Code Coverage' -s '$(build.sourcesDirectory)/CodeCoverage.runsettings' -v normal --results-directory '$(Agent.TempDirectory)' -f ${{parameters.targetBuildFramework}}"
+        -AdditionalArgs "--configuration $(buildConfiguration) --no-build --collect 'XPlat Code Coverage' -s '$(build.sourcesDirectory)/CodeCoverage.runsettings' -v normal -f ${{parameters.targetBuildFramework}}"
         -TestRunTitle "Unit Tests"
       workingDirectory: "$(System.DefaultWorkingDirectory)"
 
@@ -77,7 +77,7 @@ steps:
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+      reports: '$(System.DefaultWorkingDirectory)/**/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
   
