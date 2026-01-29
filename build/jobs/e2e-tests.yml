@@ -80,4 +80,5 @@ steps:
       testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
       mergeTestResults: true
-      failTaskOnFailedTests: true
+      # Enable once PublishTestResults is updated to deal with multiple trx files: https://github.com/microsoft/testfx/issues/7167
+      # failTaskOnFailedTests: true

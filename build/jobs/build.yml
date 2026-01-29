@@ -30,29 +30,54 @@ steps:
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.unitTest, 'true') }}:
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet test'
-    retryCountOnTaskFailure: 1
+  - task: PowerShell@2
+    displayName: 'Run Unit Tests with retry'
     inputs:
-      command: test
-      projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
+      filePath: '$(build.sourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
+      arguments: >
+        -TestAssemblies "**/*UnitTests/*.csproj"
+        -MaxRetries 1
+        -WorkingDirectory "$(System.DefaultWorkingDirectory)"
+        -AdditionalArgs "--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}"
+        -TestRunTitle "Unit Tests"
+      workingDirectory: "$(System.DefaultWorkingDirectory)"
+
+  - task: PublishTestResults@2
+    displayName: 'Publish Unit Test Results'
+    condition: always()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: 'Unit Tests'
+      mergeTestResults: true
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet test with coverage'
-    retryCountOnTaskFailure: 1
+  - task: PowerShell@2
+    displayName: 'Run Unit Tests with coverage and retry'
     inputs:
-      command: test
-      projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
+      filePath: '$(build.sourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
+      arguments: >
+        -TestAssemblies "**/*UnitTests/*.csproj"
+        -MaxRetries 1
+        -WorkingDirectory "$(System.DefaultWorkingDirectory)"
+        -AdditionalArgs "--configuration $(buildConfiguration) --no-build --collect 'XPlat Code Coverage' -s '$(build.sourcesDirectory)/CodeCoverage.runsettings' -v normal --results-directory '$(Agent.TempDirectory)' -f ${{parameters.targetBuildFramework}}"
+        -TestRunTitle "Unit Tests"
+      workingDirectory: "$(System.DefaultWorkingDirectory)"
+
+  - task: PublishTestResults@2
+    displayName: 'Publish Unit Test Results'
+    condition: always()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: 'Unit Tests'
+      mergeTestResults: true
+
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
   

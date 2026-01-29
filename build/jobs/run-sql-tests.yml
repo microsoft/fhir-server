@@ -77,7 +77,8 @@ jobs:
       testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       mergeTestResults: true
-      failTaskOnFailedTests: true
+      # Enable once PublishTestResults is updated to deal with multiple trx files: https://github.com/microsoft/testfx/issues/7167
+      # failTaskOnFailedTests: true
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish SQL integration test coverage'

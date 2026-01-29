@@ -8,6 +8,7 @@ preserving test results and publishing them correctly to Azure DevOps.
 It uses TRX result files to identify failed tests and re-runs them with --filter.
 
 WHERE IT'S USED:
+- Unit Tests: All unit test jobs (build.yml) with optional code coverage
 - E2E Tests: All E2E test jobs (Cosmos, SQL, various test categories)
 - Integration Tests: Both Cosmos and SQL integration tests with code coverage
 - Export Tests: Long-running export tests
