@@ -1,0 +1,83 @@
+﻿{
+    "resourceType": "Bundle",
+    "type": "transaction",
+    "entry": [
+        {
+            "request": {
+                "method": "DELETE",
+                "url": "Patient/patient-rollback-0"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "patient-rollback-1",
+                "identifier": [
+                    {
+                        "use": "official",
+                        "system": "https://github.com/synthetichealth/synthea",
+                        "value": "patient-rollback-1"
+                    }
+                ],
+                "name": [
+                    {
+                        "use": "official",
+                        "family": "Foo",
+                        "given": [ "Bar patient-rollback-1" ]
+                    }
+                ],
+                "telecom": [
+                    {
+                        "system": "phone",
+                        "value": "555-106-9045",
+                        "use": "work"
+                    }
+                ],
+                "gender": "male",
+                "birthDate": "2005-02-05",
+                "address": [
+                    {
+                        "line": [ "426 Fadel Approach" ],
+                        "city": "Redmond",
+                        "state": "WA",
+                        "country": "USA"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/patient-rollback-1",
+                "ifMatch": "W/\"2112\""
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "observation-rollback-1",
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "55284-4"
+                        }
+                    ],
+                    "text": "Blood pressure"
+                },
+                "subject": { "reference": "Patient/patient-rollback-1" },
+                "effectiveDateTime": "2026-01-29T16:30:23.8621387-05:00",
+                "valueQuantity": {
+                    "value": 120,
+                    "unit": "mmHg",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmHg"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/observation-rollback-1",
+                "ifMatch": "W/\"2112\""
+            }
+        }
+    ]
+}

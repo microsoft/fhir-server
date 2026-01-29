@@ -51,21 +51,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var observationWrapper = GetResourceWrapper(Samples.GetDefaultObservation().UpdateId(observationId));
 
             // create both
-            var mergeResults = await _store.MergeAsync(
+            var mergeOutcome = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
                     new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
                     new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
-            Assert.NotNull(mergeResults);
-            Assert.Equal(2, mergeResults.Count);
-            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
-            var patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
+            Assert.NotNull(mergeOutcome);
+            Assert.Equal(2, mergeOutcome.Count);
+            Assert.Equal(2, mergeOutcome.Results.Count(r => r.Value.IsOperationSuccessful));
+            var patientOutcome = mergeOutcome.Results.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Created, patientOutcome.OutcomeType);
             Assert.Equal("1", patientOutcome.Wrapper.Version);
-            var observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
+            var observationOutcome = mergeOutcome.Results.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
             Assert.NotNull(observationOutcome);
             Assert.Equal(SaveOutcomeType.Created, observationOutcome.OutcomeType);
             Assert.Equal("1", observationOutcome.Wrapper.Version);
@@ -79,21 +79,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update patient
             _logger.LogInformation($"update patient");
             UpdateResource(patientWrapper);
-            mergeResults = await _store.MergeAsync(
+            mergeOutcome = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
                     new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
                     new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
-            Assert.NotNull(mergeResults);
-            Assert.Equal(2, mergeResults.Count);
-            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
-            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
+            Assert.NotNull(mergeOutcome);
+            Assert.Equal(2, mergeOutcome.Count);
+            Assert.Equal(2, mergeOutcome.Results.Count(r => r.Value.IsOperationSuccessful));
+            patientOutcome = mergeOutcome.Results.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
             Assert.Equal("2", patientOutcome.Wrapper.Version);
-            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
+            observationOutcome = mergeOutcome.Results.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
             Assert.NotNull(observationOutcome);
             Assert.Equal(SaveOutcomeType.Updated, observationOutcome.OutcomeType);
             Assert.Equal("1", observationOutcome.Wrapper.Version);
@@ -101,21 +101,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update observation
             _logger.LogInformation($"update observation");
             UpdateResource(observationWrapper);
-            mergeResults = await _store.MergeAsync(
+            mergeOutcome = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
                     new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
                     new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
-            Assert.NotNull(mergeResults);
-            Assert.Equal(2, mergeResults.Count);
-            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
-            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
+            Assert.NotNull(mergeOutcome);
+            Assert.Equal(2, mergeOutcome.Count);
+            Assert.Equal(2, mergeOutcome.Results.Count(r => r.Value.IsOperationSuccessful));
+            patientOutcome = mergeOutcome.Results.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
             Assert.Equal("2", patientOutcome.Wrapper.Version);
-            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
+            observationOutcome = mergeOutcome.Results.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
             Assert.NotNull(observationOutcome);
             Assert.Equal(SaveOutcomeType.Updated, observationOutcome.OutcomeType);
             Assert.Equal("2", observationOutcome.Wrapper.Version);

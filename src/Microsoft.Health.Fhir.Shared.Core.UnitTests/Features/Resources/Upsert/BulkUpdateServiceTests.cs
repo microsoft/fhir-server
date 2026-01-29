@@ -749,13 +749,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                             { new DataStoreOperationIdentifier("OrganizationAId" + mergeCallCount, "Organization", "1", true, false, null, false), new DataStoreOperationOutcome(new MicrosoftHealthException("Success")) },
                             { new DataStoreOperationIdentifier("OrganizationBId" + mergeCallCount, "Organization", "1", true, false, null, false), new DataStoreOperationOutcome(new MicrosoftHealthException("Success")) },
                         };
-                        return Task.FromResult<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(successResult);
+
+                        return Task.FromResult(new MergeOutcome(MergeOutcomeFinalState.Completed, successResult));
                     }
                     else
                     {
                         // Return the exception as before
-                        return Task.FromException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(
-                            new IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(innerException, partialResults));
+                        return Task.FromException<MergeOutcome>(
+                            new IncompleteOperationException<MergeOutcome>(
+                                innerException,
+                                new MergeOutcome(MergeOutcomeFinalState.Completed, partialResults)));
                     }
                 });
 
@@ -828,10 +831,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                         throw new TimeoutException();
                     }
 
-                    return Task.FromResult<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>
+                    var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>()
                     {
                         { new DataStoreOperationIdentifier(Guid.NewGuid().ToString(), "Patient", "1", true, false, null, false), new DataStoreOperationOutcome(new MicrosoftHealthException("Error message")) },
-                    });
+                    };
+
+                    return Task.FromResult(new MergeOutcome(MergeOutcomeFinalState.Completed, results));
                 });
 
             // Act & Assert
@@ -883,7 +888,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
 
             // Simulate MergeAsync throwing an exception
             fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
-                .Returns<Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>>(callInfo =>
+                .Returns<Task<MergeOutcome>>(callInfo =>
                 {
                     throw new InvalidOperationException("Simulated failure");
                 });
@@ -950,10 +955,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                         throw new OperationCanceledException(token);
                     }
 
-                    return Task.FromResult<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>
+                    var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>()
                     {
                         { new DataStoreOperationIdentifier(Guid.NewGuid().ToString(), "Patient", "1", true, false, null, false), new DataStoreOperationOutcome(new MicrosoftHealthException("Error message")) },
-                    });
+                    };
+
+                    return Task.FromResult(new MergeOutcome(MergeOutcomeFinalState.Completed, results));
                 });
 
             // Act & Assert
