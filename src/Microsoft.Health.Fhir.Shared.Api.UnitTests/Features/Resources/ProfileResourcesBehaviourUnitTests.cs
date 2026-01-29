@@ -6,14 +6,17 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -86,6 +89,95 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             // Under the bundle context, ProfileResourcesBehaviour should not call the profile resolver refresh.
             _profilesResolver.Received(0).Refresh();
+        }
+
+        [Fact]
+        public async Task GivenConditionalUpsertResourceRequest_WhenHandling_ThenRequestShouldBeHandledSuccessfully()
+        {
+            await Run<UpsertResourceResponse>(
+                x =>
+                {
+                    return _profileResourcesBehaviour.Handle(
+                        new ConditionalUpsertResourceRequest(
+                            new ResourceElement(new ValueSet().ToTypedElement()),
+                            new List<Tuple<string, string>>()),
+                        x,
+                        default);
+                });
+        }
+
+        [Fact]
+        public async Task GivenConditionalCreateResourceRequest_WhenHandling_ThenRequestShouldBeHandledSuccessfully()
+        {
+            await Run<UpsertResourceResponse>(
+                x =>
+                {
+                    return _profileResourcesBehaviour.Handle(
+                        new ConditionalCreateResourceRequest(
+                            new ResourceElement(new ValueSet().ToTypedElement()),
+                            new List<Tuple<string, string>>()),
+                        x,
+                        default);
+                });
+        }
+
+        [Fact]
+        public async Task GivenUpsertResourceRequest_WhenHandling_ThenRequestShouldBeHandledSuccessfully()
+        {
+            await Run<UpsertResourceResponse>(
+                x =>
+                {
+                    return _profileResourcesBehaviour.Handle(
+                        new UpsertResourceRequest(new ResourceElement(new ValueSet().ToTypedElement())),
+                        x,
+                        default);
+                });
+        }
+
+        [Fact]
+        public async Task GivenDeleteResourceRequest_WhenHandling_ThenRequestShouldBeHandledSuccessfully()
+        {
+            await Run<DeleteResourceResponse>(
+                x =>
+                {
+                    return _profileResourcesBehaviour.Handle(
+                        new DeleteResourceRequest(
+                            new ResourceKey(KnownResourceTypes.ValueSet, Guid.NewGuid().ToString()),
+                            DeleteOperation.SoftDelete),
+                        x,
+                        default);
+                });
+        }
+
+        [Fact]
+        public async Task GivenRequest_WhenProfilerTypeIsUnknown_ThenRequestShouldBeBypassed()
+        {
+            ResourceElement resourceElement = new ResourceElement(new Patient().ToTypedElement());
+
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
+
+            await _profileResourcesBehaviour.Handle(
+                new CreateResourceRequest(
+                    resourceElement,
+                    bundleResourceContext: null),
+                requestHandlerDelegate,
+                default);
+
+            _profilesResolver.DidNotReceive().Refresh();
+            await requestHandlerDelegate.Received(1).Invoke();
+        }
+
+        private async Task Run<TResponse>(Func<RequestHandlerDelegate<TResponse>, Task<TResponse>> func)
+        {
+            ValueSet valueSet = new ValueSet();
+            ResourceElement resourceElement = new ResourceElement(valueSet.ToTypedElement());
+
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<TResponse>>();
+
+            await func(requestHandlerDelegate);
+
+            // Out of the bundle context, ProfileResourcesBehaviour should call the profile resolver refresh.
+            _profilesResolver.Received(1).Refresh();
         }
     }
 }
