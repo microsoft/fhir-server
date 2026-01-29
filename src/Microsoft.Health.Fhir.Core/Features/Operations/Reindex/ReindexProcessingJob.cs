@@ -109,7 +109,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _jobInfo = jobInfo;
             _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
-            var msg = $"SearchParamLastUpdated: Current: {_searchParameterStatusManager.SearchParamLastUpdated} Requested by orchestrator: {_reindexProcessingJobDefinition.SearchParamLastUpdated}";
+            var current = _searchParameterStatusManager.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fffff");
+            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fffff");
+            var msg = $"SearchParamLastUpdated: Current: {current} Requested by orchestrator: {requested}";
             if (_reindexProcessingJobDefinition.SearchParamLastUpdated < _searchParameterStatusManager.SearchParamLastUpdated)
             {
                 _logger.LogJobWarning(jobInfo, msg);
