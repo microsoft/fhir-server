@@ -83,8 +83,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // ReferenceQueryGenerator should generate SQL for reference resource ID
-            Assert.Contains("ReferenceResourceId", sql);
+            // ReferenceQueryGenerator should generate SQL for reference resource ID with correct component column
+            Assert.Matches(@"ReferenceResourceId1\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -107,8 +107,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // TokenQueryGenerator should generate SQL for token code
-            Assert.Contains("Code", sql);
+            // TokenQueryGenerator should generate SQL for token code on component 2
+            Assert.Matches(@"Code2\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -125,8 +125,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // Should check for NULL base URI
-            Assert.Contains("IS NULL", sql);
+            // Should check for NULL base URI on component 1
+            Assert.Contains("BaseUri1 IS NULL", sql);
         }
 
         [Fact]
@@ -143,8 +143,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // Should check for NULL token system
-            Assert.Contains("IS NULL", sql);
+            // Should check for NULL token system on component 2
+            Assert.Contains("SystemId2 IS NULL", sql);
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

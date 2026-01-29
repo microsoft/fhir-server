@@ -82,8 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains(VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name, sql);
-            Assert.Contains("=", sql);
+            Assert.Contains($"{VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name} = {resourceTypeId}", sql);
             _model.Received(1).GetResourceTypeId(resourceType);
         }
 
@@ -111,8 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains(VLatest.ReferenceSearchParam.BaseUri.Metadata.Name, sql);
-            Assert.Contains("IS NULL", sql);
+            Assert.Contains($"{VLatest.ReferenceSearchParam.BaseUri.Metadata.Name} IS NULL", sql);
         }
 
         [Fact]

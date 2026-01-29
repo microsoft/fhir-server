@@ -399,12 +399,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             // Assert
             Assert.NotNull(ranges);
 
-            // Should return multiple ranges with small range size
-            // We expect at least 2 ranges (since we have 15 resources with range size of 3)
-            Assert.True(ranges.Count() >= 2, $"Expected at least 2 ranges, got {ranges.Count()}");
-
-            // Should not exceed the requested number of ranges
-            Assert.True(ranges.Count() <= 5, $"Expected at most 5 ranges, got {ranges.Count()}");
+            // Should return exactly 5 ranges as requested
+            Assert.Equal(5, ranges.Count());
 
             // Verify that each range has a reasonable count given the range size
             Assert.All(ranges, range => Assert.True(range.Count <= 3, $"Expected range count <= 3, got {range.Count}"));
