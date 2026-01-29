@@ -72,9 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("ResourceSurrogateId", sql);
-            Assert.Contains("=", sql);
-            Assert.Contains("@", sql); // Should use parameterized query
+            Assert.Matches(@"ResourceSurrogateId\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -95,8 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("ResourceSurrogateId", sql);
-            Assert.Contains(">", sql);
+            Assert.Matches(@"ResourceSurrogateId\s*>\s*@\w+", sql);
             Assert.DoesNotContain(">=", sql);
         }
 
@@ -118,8 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("ResourceSurrogateId", sql);
-            Assert.Contains("<", sql);
+            Assert.Matches(@"ResourceSurrogateId\s*<\s*@\w+", sql);
             Assert.DoesNotContain("<=", sql);
         }
 

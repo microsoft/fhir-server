@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name, sql);
-            Assert.Contains(GetOperatorString(binaryOperator), sql);
+            Assert.Matches($@"{VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name}\s*{System.Text.RegularExpressions.Regex.Escape(GetOperatorString(binaryOperator))}\s*@\w+", sql);
             Assert.NotEmpty(sql);
             Assert.True(context.Parameters.HasParametersToHash);
         }
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name, sql);
-            Assert.Contains(GetOperatorString(binaryOperator), sql);
+            Assert.Matches($@"{VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name}\s*{System.Text.RegularExpressions.Regex.Escape(GetOperatorString(binaryOperator))}\s*@\w+", sql);
             Assert.NotEmpty(sql);
             Assert.True(context.Parameters.HasParametersToHash);
         }
@@ -112,8 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.DateTimeSearchParam.IsLongerThanADay.Metadata.Name, sql);
-            Assert.Contains("=", sql);
-            Assert.Contains(isLongerThanADay ? "1" : "0", sql);
+            Assert.Matches($@"{VLatest.DateTimeSearchParam.IsLongerThanADay.Metadata.Name}\s*=\s*{(isLongerThanADay ? "1" : "0")}", sql);
             Assert.NotEmpty(sql);
         }
 

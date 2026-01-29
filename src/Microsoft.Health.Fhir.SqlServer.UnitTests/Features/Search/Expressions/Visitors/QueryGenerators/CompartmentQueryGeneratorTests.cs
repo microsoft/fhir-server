@@ -73,8 +73,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.CompartmentAssignment.CompartmentTypeId.Metadata.Name, sql);
-            Assert.Contains("=", sql);
+            Assert.Matches($@"{VLatest.CompartmentAssignment.CompartmentTypeId.Metadata.Name}\s*=\s*@\w+", sql);
             Assert.Contains(VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name, sql);
+            Assert.Matches($@"{VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name}\s*=\s*@\w+", sql);
             Assert.Contains("AND", sql);
 
             _model.Received(1).GetCompartmentTypeId(compartmentType);
@@ -96,7 +97,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains("=", sql);
+            Assert.Matches($@"{VLatest.CompartmentAssignment.CompartmentTypeId.Metadata.Name}\s*=\s*@\w+", sql);
+            Assert.Matches($@"{VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name}\s*=\s*@\w+", sql);
             Assert.Contains("AND", sql);
             Assert.NotEmpty(sql);
             Assert.True(context.Parameters.HasParametersToHash);

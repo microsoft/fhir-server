@@ -68,9 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("Text", sql);
-            Assert.Contains("=", sql);
-            Assert.Contains("@", sql); // Should use parameterized query
+            Assert.Matches(@"Text\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -92,8 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("Text", sql);
-            Assert.Contains("LIKE", sql);
+            Assert.Matches(@"Text\s+LIKE\s+@\w+", sql);
         }
 
         [Fact]
@@ -115,8 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("Text", sql);
-            Assert.Contains("LIKE", sql);
+            Assert.Matches(@"Text\s+LIKE\s+@\w+", sql);
         }
 
         [Fact]

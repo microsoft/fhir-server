@@ -89,8 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains(VLatest.TokenSearchParam.SystemId.Metadata.Name, sql);
-            Assert.Contains("=", sql);
+            Assert.Matches(@"SystemId\s*=\s*@?\w+", sql);
         }
 
         [Fact]
@@ -108,9 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains(VLatest.TokenSearchParam.SystemId.Metadata.Name, sql);
-            Assert.Contains("IN", sql);
-            Assert.Contains("SELECT", sql);
+            Assert.Matches(@"SystemId\s+IN\s*\(\s*SELECT", sql);
             Assert.Contains(VLatest.System.TableName, sql);
         }
 
@@ -172,9 +169,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
+            // Verify truncation-128 logic structure with OR branch for Code matching
             Assert.Contains("((", sql);
             Assert.Contains("OR", sql);
-            Assert.Contains("))", sql);
+            Assert.Matches(@"Code\s*=\s*@\w+", sql);
         }
 
         [Fact]

@@ -162,12 +162,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             };
 
             // Act - Call SyncStatuses (this should not throw)
-            dataStore!.SyncStatuses(new[] { status });
+            var exception = Record.Exception(() => dataStore!.SyncStatuses(new[] { status }));
 
             // Assert - Method completes without exception
-            // Note: We can't easily verify the internal state of _fhirModel without exposing it,
-            // but we can verify the method executes successfully
-            Assert.True(true);
+            Assert.Null(exception);
         }
 
         [Fact]

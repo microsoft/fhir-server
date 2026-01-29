@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -206,12 +207,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             var concatenationAnd = Assert.IsType<MultiaryExpression>(result.SearchParamTableExpressions[1].Predicate);
 
-            // Verify all expressions have the same component index
-            foreach (var expr in concatenationAnd.Expressions)
-            {
-                var binaryExpr = Assert.IsType<BinaryExpression>(expr);
-                Assert.Equal(componentIndex, binaryExpr.ComponentIndex);
-            }
+            // Verify all expressions have the same component index using Select
+            var componentIndices = concatenationAnd.Expressions
+                .Select(expr => Assert.IsType<BinaryExpression>(expr))
+                .Select(binaryExpr => binaryExpr.ComponentIndex)
+                .ToList();
+
+            Assert.All(componentIndices, idx => Assert.Equal(componentIndex, idx));
         }
 
         [Fact]

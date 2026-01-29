@@ -82,10 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             var sql = context.StringBuilder.ToString();
-            Assert.Contains("ResourceTypeId", sql);
-            Assert.Contains("ResourceSurrogateId", sql);
-            Assert.Contains("=", sql);
-            Assert.Contains(">", sql);
+            Assert.Matches(@"ResourceTypeId\s*=\s*\d+", sql);
+            Assert.Matches(@"ResourceSurrogateId\s*>\s*@\w+", sql);
             Assert.Contains("OR", sql);
             Assert.Contains("IN", sql);
         }

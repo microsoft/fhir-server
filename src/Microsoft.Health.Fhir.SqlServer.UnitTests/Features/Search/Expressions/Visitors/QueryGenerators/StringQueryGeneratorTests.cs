@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains("=", sql);
+            Assert.Matches($@"{VLatest.StringSearchParam.Text.Metadata.Name}\s*=\s*@\w+", sql);
             Assert.Contains(VLatest.StringSearchParam.Text.Metadata.Name, sql);
         }
 
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains("LIKE", sql);
+            Assert.Matches($@"{VLatest.StringSearchParam.Text.Metadata.Name}\s+LIKE\s+@\w+", sql);
             Assert.Contains(VLatest.StringSearchParam.Text.Metadata.Name, sql);
         }
 
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains("LIKE", sql);
+            Assert.Matches($@"{VLatest.StringSearchParam.Text.Metadata.Name}\s+LIKE\s+@\w+", sql);
             Assert.Contains(VLatest.StringSearchParam.Text.Metadata.Name, sql);
         }
 
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains("LIKE", sql);
+            Assert.Matches($@"{VLatest.StringSearchParam.Text.Metadata.Name}\s+LIKE\s+@\w+", sql);
             Assert.Contains(VLatest.StringSearchParam.Text.Metadata.Name, sql);
         }
 
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         [InlineData("a")]
         [InlineData("test")]
         [InlineData("a very long string value for testing")]
-        [InlineData("unicode: ñéàü")]
+        [InlineData("unicode: ï¿½ï¿½ï¿½ï¿½")]
         public void GivenVariousStringValues_WhenVisited_ThenGeneratesSQL(string value)
         {
             var expression = new StringExpression(StringOperator.Equals, FieldName.String, null, value, true);
