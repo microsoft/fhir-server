@@ -108,11 +108,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             _jobInfo = jobInfo;
-            _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
-            var current = _searchParameterStatusManager.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fffff");
-            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fffff");
-            var msg = $"SearchParamLastUpdated: Current: {current} Requested by orchestrator: {requested}";
-            if (_reindexProcessingJobDefinition.SearchParamLastUpdated < _searchParameterStatusManager.SearchParamLastUpdated) // bad
+            _reindexProcessingJobDefinition = DeserializeJobDefinition(_jobInfo);
+
+            var current = _searchParameterStatusManager.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > _searchParameterStatusManager.SearchParamLastUpdated;
+            var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
+            //// If timestamp from definition (comes from orchestrator) is more recent, then cache on processing VM is stale.
+            //// Cannot just refresh here because we might be missing resources updated via API.
+            if (isBad)
             {
                 _logger.LogJobWarning(jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
