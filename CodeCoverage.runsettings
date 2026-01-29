@@ -14,6 +14,9 @@
           <SingleHit>false</SingleHit>
           <UseSourceLink>true</UseSourceLink>
           <IncludeTestAssembly>false</IncludeTestAssembly>
+          <DeterministicReport>true</DeterministicReport>
+          <SkipAutoProps>true</SkipAutoProps>
+          <InstrumentModulesWithoutLocalSources>true</InstrumentModulesWithoutLocalSources>
         </Configuration>
       </DataCollector>
     </DataCollectors>
