@@ -75,8 +75,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // TokenQueryGenerator should generate SQL for token code
-            Assert.Contains("Code", sql);
+            // TokenQueryGenerator should generate SQL for token code with component index suffix
+            Assert.Matches(@"Code1\s*=\s*@\w+", sql);
         }
 
         [Fact]

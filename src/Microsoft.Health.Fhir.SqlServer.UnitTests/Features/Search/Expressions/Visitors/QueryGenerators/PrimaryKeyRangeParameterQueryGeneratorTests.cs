@@ -82,10 +82,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             var sql = context.StringBuilder.ToString();
-            Assert.Matches(@"ResourceTypeId\s*=\s*\d+", sql);
+
+            // Verify full predicate shape: (ResourceTypeId = X AND ResourceSurrogateId > @...) OR ResourceTypeId IN (...)
+            Assert.Matches(@"ResourceTypeId\s*=\s*1", sql); // Current ResourceTypeId
             Assert.Matches(@"ResourceSurrogateId\s*>\s*@\w+", sql);
             Assert.Contains("OR", sql);
-            Assert.Contains("IN", sql);
+            Assert.Matches(@"ResourceTypeId\s+IN\s*\(", sql);
+
+            // Verify IN clause contains expected next type ids (2 and 3)
+            Assert.Contains("2", sql);
+            Assert.Contains("3", sql);
         }
 
         [Fact]
@@ -107,8 +113,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             var sql = context.StringBuilder.ToString();
-            Assert.Contains("ResourceTypeId", sql);
-            Assert.Contains("IN", sql);
+            Assert.Matches(@"ResourceTypeId\s+IN\s*\(", sql);
+
+            // Verify IN clause contains the expected resource type ids (2, 3, 7)
+            Assert.Contains("2", sql);
+            Assert.Contains("3", sql);
+            Assert.Contains("7", sql);
 
             // Multiple values should be comma-separated
             Assert.Contains(",", sql);

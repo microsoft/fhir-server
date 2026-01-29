@@ -226,6 +226,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.NotEmpty(sql);
             Assert.Contains(VLatest.CompartmentAssignment.CompartmentTypeId.Metadata.Name, sql);
             Assert.Contains(VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name, sql);
+
+            // Verify special characters are parameterized (not raw in SQL)
+            Assert.DoesNotContain(compartmentId, sql);
+            Assert.Matches($@"{VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name}\s*=\s*@\w+", sql);
             Assert.Contains("AND", sql);
             Assert.True(context.Parameters.HasParametersToHash);
         }
