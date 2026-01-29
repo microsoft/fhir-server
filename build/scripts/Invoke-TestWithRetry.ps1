@@ -232,6 +232,32 @@ function Get-FailedTestsFromTrx {
     }
 }
 
+# Function to count total executed tests from TRX file
+function Get-ExecutedTestCountFromTrx {
+    param(
+        [string]$TrxPath
+    )
+    
+    if (-not (Test-Path $TrxPath)) {
+        Write-Warning "TRX file not found: $TrxPath"
+        return 0
+    }
+    
+    try {
+        [xml]$trxContent = Get-Content $TrxPath
+        $ns = New-Object System.Xml.XmlNamespaceManager($trxContent.NameTable)
+        $ns.AddNamespace("ns", "http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
+        
+        # Count all test results (executed tests)
+        $allResults = $trxContent.SelectNodes("//ns:UnitTestResult", $ns)
+        return $allResults.Count
+    }
+    catch {
+        Write-Warning "Error parsing TRX file: $_"
+        return 0
+    }
+}
+
 # Initial test run
 $attempt = 0
 $initialResult = Invoke-DotNetTest -Assemblies $TestAssemblies -TestFilter $Filter -RunName "Initial" -AttemptNumber $attempt
@@ -276,7 +302,22 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
             
             # Check if retry succeeded
             if ($retryResult.ExitCode -eq 0) {
-                Write-Host "##[section]All previously failed tests passed on retry attempt $retryAttempt"
+                # Verify that we actually ran the expected number of tests
+                # If filter didn't match, dotnet test returns 0 but runs no tests
+                $executedCount = Get-ExecutedTestCountFromTrx -TrxPath $retryResult.TrxPath
+                $expectedCount = $failedTests.Count
+                
+                if ($executedCount -eq 0) {
+                    Write-Host "##[error]Retry ran 0 tests but expected $expectedCount. Filter may not have matched any tests."
+                    Write-Host "##[warning]This usually indicates special characters in test names prevented the filter from matching."
+                    # Keep the original failure exit code since tests didn't actually pass
+                    break
+                }
+                elseif ($executedCount -lt $expectedCount) {
+                    Write-Host "##[warning]Retry only ran $executedCount of $expectedCount expected tests. Some tests may not have matched the filter."
+                }
+                
+                Write-Host "##[section]All previously failed tests passed on retry attempt $retryAttempt ($executedCount tests executed)"
                 $finalExitCode = 0
                 break
             }

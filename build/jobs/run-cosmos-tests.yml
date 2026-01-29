@@ -84,6 +84,7 @@ jobs:
       testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       mergeTestResults: true
+      failTaskOnFailedTests: true
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Cosmos integration test coverage'

@@ -80,3 +80,4 @@ steps:
       testResultsFiles: '$(TestResultsDirectory)/**/*.trx'
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
       mergeTestResults: true
+      failTaskOnFailedTests: true
