@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), _fhirRuntimeConfiguration, Substitute.For<ISearchParameterOperations>(), Deserializer, logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), _fhirRuntimeConfiguration, Substitute.For<ISearchParameterOperations>(), Deserializer, logger);
 
             var collection = new ServiceCollection();
 
