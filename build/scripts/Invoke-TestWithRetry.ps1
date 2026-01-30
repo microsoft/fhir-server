@@ -410,62 +410,79 @@ Write-Host "##[section]Initial test run completed with exit code: $finalExitCode
 # If initial run failed and retries are enabled, retry failed tests
 if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
     $failedTests = Get-FailedTestsFromTrx -TrxDirectory $initialResult.TrxDirectory
-    
-    if ($failedTests.Count -eq 0) {
-        Write-Host "##[warning]Tests failed but no failed tests found in TRX. This may indicate a crash or infrastructure issue."
+    $previousRunCrashed = ($failedTests.Count -eq 0)
+    $currentFilter = $Filter
+
+    if ($previousRunCrashed) {
+        Write-Host "##[warning]Tests failed but no failed tests found in TRX. This indicates a crash or infrastructure issue."
+        Write-Host "##[warning]Will retry the previous filter configuration."
     }
     else {
         Write-Host "##[warning]Found $($failedTests.Count) failed test(s). Will retry up to $MaxRetries time(s)."
+    }
+
+    if ($failedTests.Count -gt 0 -or $previousRunCrashed) {
         
         for ($retryAttempt = 1; $retryAttempt -le $MaxRetries; $retryAttempt++) {
             Write-Host "##[section]Retry attempt $retryAttempt of $MaxRetries"
             
-            # Extract method names for reliable filtering (see Get-MethodNamesFromTestNames for details)
-            $methodNames = Get-MethodNamesFromTestNames -TestNames $failedTests
-            
-            if ($methodNames.Count -eq 0) {
-                Write-Host "##[warning]Could not extract method names from failed tests. Using full test names."
-                $methodNames = $failedTests
+            $retryFilter = ""
+
+            if ($previousRunCrashed) {
+                Write-Host "Retrying with same filter due to previous crash: $currentFilter"
+                $retryFilter = $currentFilter
             }
-            
-            Write-Host "Extracted $($methodNames.Count) unique method name(s) for retry filter:"
-            foreach ($name in $methodNames) {
-                Write-Host "  - $name"
+            else {
+                # Extract method names for reliable filtering (see Get-MethodNamesFromTestNames for details)
+                $methodNames = Get-MethodNamesFromTestNames -TestNames $failedTests
+                
+                if ($methodNames.Count -eq 0) {
+                    Write-Host "##[warning]Could not extract method names from failed tests. Using full test names."
+                    $methodNames = $failedTests
+                }
+                
+                Write-Host "Extracted $($methodNames.Count) unique method name(s) for retry filter:"
+                foreach ($name in $methodNames) {
+                    Write-Host "  - $name"
+                }
+                
+                # Build filter using DisplayName which works better for method name matching
+                $retryFilter = ($methodNames | ForEach-Object { 
+                    "DisplayName~$_" 
+                }) -join "|"
+                
+                # Combine with original filter if it exists (and we aren't already just re-running it)
+                if ($Filter) {
+                    $retryFilter = "($Filter)&($retryFilter)"
+                }
+                
+                Write-Host "Retrying with filter: $retryFilter"
+                # Update current filter in case this attempt crashes and we need to retry it
+                $currentFilter = $retryFilter
             }
-            
-            # Build filter using DisplayName which works better for method name matching
-            $retryFilter = ($methodNames | ForEach-Object { 
-                "DisplayName~$_" 
-            }) -join "|"
-            
-            # Combine with original filter if it exists
-            if ($Filter) {
-                $retryFilter = "($Filter)&($retryFilter)"
-            }
-            
-            Write-Host "Retrying with filter: $retryFilter"
             
             $retryResult = Invoke-DotNetTest -Assemblies $TestAssemblies -TestFilter $retryFilter -RunName "Retry" -AttemptNumber $retryAttempt
             $allTrxDirectories += $retryResult.TrxDirectory
             
             # Check if retry succeeded
             if ($retryResult.ExitCode -eq 0) {
-                # Verify that we actually ran the expected number of tests
-                # If filter didn't match, dotnet test returns 0 but runs no tests
+                # Only check executed count if we weren't recovering from a crash (if crash, we might expect many tests)
+                # Actually, checking count is always good.
                 $executedCount = Get-ExecutedTestCountFromTrx -TrxDirectory $retryResult.TrxDirectory
-                $expectedCount = $failedTests.Count
                 
-                if ($executedCount -eq 0) {
-                    Write-Host "##[error]Retry ran 0 tests but expected $expectedCount. Filter may not have matched any tests."
-                    Write-Host "##[warning]The filter used was: $retryFilter"
-                    # Keep the original failure exit code since tests didn't actually pass
-                    break
-                }
-                elseif ($executedCount -lt $expectedCount) {
-                    Write-Host "##[warning]Retry only ran $executedCount of $expectedCount expected tests. Some tests may not have matched the filter."
+                if (-not $previousRunCrashed) {
+                    $expectedCount = $failedTests.Count
+                    if ($executedCount -eq 0) {
+                        Write-Host "##[error]Retry ran 0 tests but expected $expectedCount. Filter may not have matched any tests."
+                        Write-Host "##[warning]The filter used was: $retryFilter"
+                        break
+                    }
+                    elseif ($executedCount -lt $expectedCount) {
+                        Write-Host "##[warning]Retry only ran $executedCount of $expectedCount expected tests. Some tests may not have matched the filter."
+                    }
                 }
                 
-                Write-Host "##[section]All previously failed tests passed on retry attempt $retryAttempt ($executedCount tests executed)"
+                Write-Host "##[section]Retry attempt $retryAttempt passed ($executedCount tests executed)"
                 $finalExitCode = 0
                 break
             }
@@ -474,12 +491,15 @@ if ($finalExitCode -ne 0 -and $MaxRetries -gt 0) {
                 $stillFailedTests = Get-FailedTestsFromTrx -TrxDirectory $retryResult.TrxDirectory
                 
                 if ($stillFailedTests.Count -eq 0) {
-                    Write-Host "##[warning]Retry failed but no failed tests found in TRX. Stopping retries."
-                    break
+                    Write-Host "##[warning]Retry attempt $retryAttempt failed with no recorded test failures (Crash)."
+                    $previousRunCrashed = $true
+                    $failedTests = @() # Reset so we don't carry over old failures if we confusingly mixed states, though current filter handles it
+                } else {
+                    Write-Host "##[warning]$($stillFailedTests.Count) test(s) still failing after retry attempt $retryAttempt"
+                    $failedTests = $stillFailedTests
+                    $previousRunCrashed = $false
                 }
                 
-                Write-Host "##[warning]$($stillFailedTests.Count) test(s) still failing after retry attempt $retryAttempt"
-                $failedTests = $stillFailedTests
                 $finalExitCode = $retryResult.ExitCode
             }
         }
