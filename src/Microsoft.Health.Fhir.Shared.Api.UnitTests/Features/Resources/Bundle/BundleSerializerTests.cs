@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
         {
             var patientResource = Samples.GetDefaultPatient();
 
-            var (rawBundle, bundle) = CreateBundle(patientResource);
+            var (rawBundle, _) = CreateBundle(patientResource);
             var url = "https://localhost/Patient";
             rawBundle.SelfLink = new Uri(url);
             rawBundle.NextLink = new Uri($"{url}/next");
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
         {
             var patientResource = Samples.GetDefaultPatient();
 
-            var (rawBundle, bundle) = CreateBundle(patientResource);
+            var (rawBundle, _) = CreateBundle(patientResource);
             rawBundle.Meta = new Hl7.Fhir.Model.Meta
             {
                 LastUpdated = DateTimeOffset.UtcNow,
