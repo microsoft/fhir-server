@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -45,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly bool _isSurrogateIdRangingSupported;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly OperationsConfiguration _operationsConfiguration;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
 
         private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
@@ -92,7 +94,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILoggerFactory loggerFactory,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            IOptions<OperationsConfiguration> operationsConfiguration)
+            IOptions<OperationsConfiguration> operationsConfiguration,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
@@ -105,6 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(coreFeatureConfiguration.Value, nameof(coreFeatureConfiguration.Value));
             EnsureArg.IsNotNull(operationsConfiguration, nameof(operationsConfiguration));
             EnsureArg.IsNotNull(operationsConfiguration.Value, nameof(operationsConfiguration.Value));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
 
             _queueClient = queueClient;
             _searchServiceFactory = searchServiceFactory;
@@ -115,6 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterOperations = searchParameterOperations;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _operationsConfiguration = operationsConfiguration.Value;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
@@ -136,13 +141,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             try
             {
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
-                await WaitForSingleRefresh(cancellationToken);
-                await WaitForSingleRefresh(cancellationToken);
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, cancellationToken); // elevate in SQL to log w/o extra settings
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
                 _searchParamLastUpdated = await WaitForSingleRefresh(cancellationToken);
                 _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
@@ -184,11 +189,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
 
                 //// this should enable tests running without any retries
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started wait for refresh", null, cancellationToken); // elevate in SQL to log w/o extra settings
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
-                await WaitForSingleRefresh(cancellationToken);
+                _searchParamLastUpdated = await WaitForSingleRefresh(cancellationToken);
+                _logger.LogInformation("Reindex job with Id: {Id} completed with SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"Completed. SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -1392,6 +1400,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return readySearchParameters;
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
+            await store.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
     }
 }

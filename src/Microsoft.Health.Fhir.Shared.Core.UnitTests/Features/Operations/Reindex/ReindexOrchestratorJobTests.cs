@@ -14,6 +14,7 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -95,7 +96,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 runtimeConfig,
                 NullLoggerFactory.Instance,
                 coreFeatureConfig,
-                operationsConfig);
+                operationsConfig,
+                Substitute.For<Func<IScoped<IFhirDataStore>>>());
         }
 
         private async Task<JobInfo> CreateReindexJobRecord(
