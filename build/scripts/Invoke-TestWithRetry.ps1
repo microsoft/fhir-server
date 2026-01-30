@@ -123,6 +123,43 @@ Write-Host "Initial filter: $Filter"
 Write-Host "Max retries: $MaxRetries"
 Write-Host "Results directory: $resultsDir"
 
+# Resolve wildcard patterns (including **) to full paths with a scoped search root.
+function Resolve-AssemblyPathsFromPattern {
+    param(
+        [string]$Pattern,
+        [string]$WorkingDirectory
+    )
+    
+    $patternRooted = if ([System.IO.Path]::IsPathRooted($Pattern)) { $Pattern } else { Join-Path -Path $WorkingDirectory -ChildPath $Pattern }
+    $normalizedPattern = $patternRooted -replace '\\', '/'
+    $wildcardIndex = $normalizedPattern.IndexOfAny(@('*', '?'))
+    if ($wildcardIndex -lt 0) {
+        return @($patternRooted)
+    }
+    
+    $separatorIndex = $normalizedPattern.LastIndexOf('/', $wildcardIndex)
+    $searchRootNormalized = if ($separatorIndex -ge 0) { $normalizedPattern.Substring(0, $separatorIndex) } else { ($WorkingDirectory -replace '\\', '/') }
+    if (-not $searchRootNormalized) {
+        $searchRootNormalized = ($WorkingDirectory -replace '\\', '/')
+    }
+    
+    $searchRoot = $searchRootNormalized -replace '/', [System.IO.Path]::DirectorySeparatorChar
+    if (-not (Test-Path $searchRoot)) {
+        return @()
+    }
+    
+    $relativePattern = $normalizedPattern.Substring($searchRootNormalized.Length).TrimStart('/')
+    
+    Write-Host "##[warning]Standard glob failed. Recursively searching for matches to pattern '$Pattern' under '$searchRoot'"
+    
+    return Get-ChildItem -Path $searchRoot -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            $relativePath = [System.IO.Path]::GetRelativePath($searchRoot, $_.FullName) -replace '\\', '/'
+            $relativePath -like $relativePattern
+        } |
+        Select-Object -ExpandProperty FullName
+}
+
 # Function to run tests and return exit code
 function Invoke-DotNetTest {
     param(
@@ -147,14 +184,9 @@ function Invoke-DotNetTest {
             # 1. Try standard glob resolution first
             $expandedAssemblies = Get-ChildItem -Path $Assemblies -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
             
-            # 2. Fallback: Recursive search for filename if standard glob failed
+            # 2. Fallback: Recursive search matching the full pattern if standard glob failed
             if (-not $expandedAssemblies) {
-                $fileName = Split-Path $Assemblies -Leaf
-                # Strip directory separators just in case Split-Path didn't catch everything on regex glob
-                $fileName = $fileName -replace '^.*[\\/]', ''
-                
-                Write-Host "##[warning]Standard glob failed. Recursively searching for matching files named '$fileName'"
-                $expandedAssemblies = Get-ChildItem -Path . -Filter $fileName -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+                $expandedAssemblies = Resolve-AssemblyPathsFromPattern -Pattern $Assemblies -WorkingDirectory $WorkingDirectory
             }
             
             if ($expandedAssemblies) {
