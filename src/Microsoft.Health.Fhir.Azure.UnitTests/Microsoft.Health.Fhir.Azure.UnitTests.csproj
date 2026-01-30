@@ -4,7 +4,6 @@
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="xunit.v3" />
-    <PackageReference Include="Xunit.SkippableFact" />
   </ItemGroup>
 
   <ItemGroup>

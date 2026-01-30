@@ -134,7 +134,6 @@
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
     <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="2.0.2" />
-    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
     <PackageVersion Include="System.Drawing.Common" Version="8.0.8" />
     <PackageVersion Include="Moq" Version="4.20.69" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />

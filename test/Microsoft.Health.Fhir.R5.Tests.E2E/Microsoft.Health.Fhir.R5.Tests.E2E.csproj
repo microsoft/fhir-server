@@ -18,7 +18,6 @@
     <PackageReference Include="Microsoft.Azure.ContainerRegistry" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="xunit.v3" />
-    <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
   </ItemGroup>

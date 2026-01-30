@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
         /// </summary>
-        [SkippableFact]
+        [Fact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful()
         {
             Skip.If(SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion < SchemaVersionConstants.Min, "Schema version required for this test is not supported");

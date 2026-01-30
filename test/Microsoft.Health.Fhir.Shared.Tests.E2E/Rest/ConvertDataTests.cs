@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenACcdaValidRequestWithDefaultTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
         {
             Skip.IfNot(_convertDataEnabled);
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAJsonValidRequestWithDefaultTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
         {
             Skip.IfNot(_convertDataEnabled);
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(patientResource.Id);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAFhirValidRequestWithDefaultTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
         {
             Skip.IfNot(_convertDataEnabled);

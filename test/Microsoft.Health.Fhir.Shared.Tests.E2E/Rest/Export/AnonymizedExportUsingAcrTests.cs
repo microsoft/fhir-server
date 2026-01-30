@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidConfigurationWithAcrReference_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
             var registry = GetTestContainerRegistryInfo();
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains($"Image Not Found.", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenInvalidConfigurationNotInAcr_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains("Failed to parse configuration file", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAConfigurationNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains("Anonymization configuration 'not-exist.json' not found.", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenALargeConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();

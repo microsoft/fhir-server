@@ -40,7 +40,7 @@ public class ProfileValidatorTests
         _options = Options.Create(config);
     }
 
-    [SkippableFact]
+    [Fact]
     public void GivenR4OrR4BFhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsIgnored()
     {
         Skip.If(
@@ -58,7 +58,7 @@ public class ProfileValidatorTests
         Assert.Contains("cid-0", internalValidator.Settings.ConstraintsToIgnore ?? []);
     }
 
-    [SkippableFact]
+    [Fact]
     public void GivenStu3OrR5FhirVersion_WhenCreatingValidator_ThenCid0ConstraintIsNotIgnored()
     {
         Skip.If(

@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             await tokenProvider.Received(1).GetTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidConfigName_WithValidAcrReference_WhenFetchAnonymizedConfig_TheConfigContentInAcrShouldBeRerturn()
         {
             var registry = GetTestContainerRegistryInfo();
@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidAcrReference_WithInvalidConfigName_WhenFetchAnonymizedConfig_ExceptionShouldBeThrown()
         {
             var registry = GetTestContainerRegistryInfo();

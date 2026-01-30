@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUriVersionFragment_Then1ExpectedResultIsFound()
         {
             Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUri_ThenExpectedResultsAreFound()
         {
             Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUriVersion_Then1ExpectedResultIsFound()
         {
             Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUriMultipleProfiles_Then1ExpectedResultIsFound()
         {
             Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);

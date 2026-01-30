@@ -250,7 +250,7 @@ END CATCH
             await Task.Delay(1000);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             await ClearProcedureCache();

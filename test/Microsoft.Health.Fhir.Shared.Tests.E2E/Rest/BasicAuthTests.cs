@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await tempClient.CancelExport(contentLocation);
         }
 
-        [SkippableFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoConvertDataPermissions_WhenConvertData_TheServerShouldReturnForbidden()
         {
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.ConvertDataAsync(parameters));
         }
 
-        [SkippableFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithConvertDataPermissions_WhenConvertData_TheServerShouldReturnSuccess()
         {
