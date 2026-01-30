@@ -27,7 +27,7 @@ CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamLis
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Uri='+(SELECT TOP 1 Uri FROM @SearchParams)
+       ,@Mode varchar(200) = 'Uri.Status='+(SELECT TOP 1 Uri+'.'+Status COLLATE Latin1_General_100_CS_AS FROM @SearchParams)
        ,@st datetime = getUTCdate()
        ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
        ,@msg varchar(4000)
@@ -88,4 +88,6 @@ GO
 IF EXISTS (SELECT * FROM systypes WHERE name = 'SearchParamTableType_2') DROP TYPE dbo.SearchParamTableType_2
 GO
 IF EXISTS (SELECT * FROM systypes WHERE name = 'BulkReindexResourceTableType_1') DROP TYPE dbo.BulkReindexResourceTableType_1
+GO
+INSERT INTO Parameters (Id,Char) SELECT 'EnqueueJobs','LogEvent'
 GO

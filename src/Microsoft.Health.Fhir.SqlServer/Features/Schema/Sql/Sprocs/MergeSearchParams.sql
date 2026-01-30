@@ -2,7 +2,7 @@
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Uri='+(SELECT TOP 1 Uri FROM @SearchParams)
+       ,@Mode varchar(200) = 'Uri.Status='+(SELECT TOP 1 Uri+'.'+Status COLLATE Latin1_General_100_CS_AS FROM @SearchParams)
        ,@st datetime = getUTCdate()
        ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
        ,@msg varchar(4000)

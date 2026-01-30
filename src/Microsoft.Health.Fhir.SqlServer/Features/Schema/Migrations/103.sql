@@ -2142,6 +2142,12 @@ BEGIN CATCH
     THROW;
 END CATCH
 
+
+GO
+INSERT INTO Parameters (Id, Char)
+SELECT 'EnqueueJobs',
+       'LogEvent';
+
 GO
 CREATE PROCEDURE dbo.ExecuteCommandForRebuildIndexes
 @Tbl VARCHAR (100), @Ind VARCHAR (1000), @Cmd VARCHAR (MAX)
@@ -4517,8 +4523,8 @@ CREATE PROCEDURE dbo.MergeSearchParams
 @SearchParams dbo.SearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Uri=' + (SELECT TOP 1 Uri
-                                                                                         FROM   @SearchParams), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Uri.Status=' + (SELECT TOP 1 Uri + '.' + Status COLLATE Latin1_General_100_CS_AS
+                                                                                                FROM   @SearchParams), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT;
 DECLARE @SummaryOfChanges TABLE (
     Uri       VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Operation VARCHAR (20)  NOT NULL);
