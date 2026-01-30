@@ -969,14 +969,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append(VLatest.Resource.ResourceTypeId, table).Append(" AS T1, ")
                 .Append(VLatest.Resource.ResourceSurrogateId, table);
-            if (!context.IsIncludesOperation)
-            {
-                StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch ");
-            }
-            else
-            {
-                StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch, 0 AS IsPartial ");
-            }
+
+            // Always project IsPartial to maintain consistent column count across UNION branches
+            StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch, 0 AS IsPartial ");
 
             StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                 .Append(_joinShift).Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
