@@ -10,7 +10,6 @@ using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
@@ -85,6 +84,62 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             var (rawBundle, bundle) = CreateBundle(patientResource, observationResource.ToResourceElement(), organizationResource.ToResourceElement());
 
             await Validate(rawBundle, bundle);
+        }
+
+        [Fact]
+        public async Task GivenBundleWithLinks_WhenSerialized_ThenLinksShouldBeSerializedSuccessfully()
+        {
+            var patientResource = Samples.GetDefaultPatient();
+
+            var (rawBundle, _) = CreateBundle(patientResource);
+            var url = "https://localhost/Patient";
+            rawBundle.SelfLink = new Uri(url);
+            rawBundle.NextLink = new Uri($"{url}/next");
+            rawBundle.PreviousLink = new Uri($"{url}/previous");
+            rawBundle.FirstLink = new Uri($"{url}/first");
+            rawBundle.LastLink = new Uri($"{url}/last");
+
+            var parser = new FhirJsonParser(DefaultParserSettings.Settings);
+            using (var stream = new MemoryStream())
+            {
+                await _bundleSerializer.Serialize(rawBundle, stream);
+                stream.Seek(0, SeekOrigin.Begin);
+                using (var reader = new StreamReader(stream))
+                {
+                    var serialized = await reader.ReadToEndAsync();
+                    var actual = parser.Parse<Hl7.Fhir.Model.Bundle>(serialized);
+                    Assert.Equal(rawBundle.SelfLink.ToString(), actual.SelfLink?.ToString());
+                    Assert.Equal(rawBundle.NextLink.ToString(), actual.NextLink?.ToString());
+                    Assert.Equal(rawBundle.PreviousLink.ToString(), actual.PreviousLink?.ToString());
+                    Assert.Equal(rawBundle.FirstLink.ToString(), actual.FirstLink?.ToString());
+                    Assert.Equal(rawBundle.LastLink.ToString(), actual.LastLink?.ToString());
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenBundleWithMetadata_WhenSerialized_ThenMetadataShouldBeSerializedSuccessfully()
+        {
+            var patientResource = Samples.GetDefaultPatient();
+
+            var (rawBundle, _) = CreateBundle(patientResource);
+            rawBundle.Meta = new Hl7.Fhir.Model.Meta
+            {
+                LastUpdated = DateTimeOffset.UtcNow,
+            };
+
+            var parser = new FhirJsonParser(DefaultParserSettings.Settings);
+            using (var stream = new MemoryStream())
+            {
+                await _bundleSerializer.Serialize(rawBundle, stream);
+                stream.Seek(0, SeekOrigin.Begin);
+                using (var reader = new StreamReader(stream))
+                {
+                    var serialized = await reader.ReadToEndAsync();
+                    var actual = parser.Parse<Hl7.Fhir.Model.Bundle>(serialized);
+                    Assert.Equal(rawBundle.Meta.LastUpdated, actual.Meta?.LastUpdated);
+                }
+            }
         }
 
         private async Task Validate(Hl7.Fhir.Model.Bundle rawBundle, Hl7.Fhir.Model.Bundle bundle)

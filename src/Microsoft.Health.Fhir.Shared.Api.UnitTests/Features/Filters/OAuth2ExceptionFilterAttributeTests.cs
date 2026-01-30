@@ -52,5 +52,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal((int)HttpStatusCode.BadRequest, result.StatusCode);
             Assert.True(context.ExceptionHandled);
         }
+
+        [Fact]
+        public void GivenUnknownException_WhenOnActionExecuted_ThenReturnsInternalServerError()
+        {
+            var httpContext = new DefaultHttpContext();
+            var actionContext = new ActionContext(
+                httpContext,
+                new RouteData(),
+                new ControllerActionDescriptor());
+
+            var context = new ActionExecutedContext(actionContext, new IFilterMetadata[0], new object())
+            {
+                Exception = new System.Exception("unknown"),
+            };
+
+            _filter.OnActionExecuted(context);
+
+            var result = Assert.IsType<ObjectResult>(context.Result);
+            Assert.Equal((int)HttpStatusCode.InternalServerError, result.StatusCode);
+            Assert.True(context.ExceptionHandled);
+        }
+
+        [Fact]
+        public void GivenNullException_WhenOnActionExecuted_ThenNoActionShouldBeExecuted()
+        {
+            var httpContext = new DefaultHttpContext();
+            var actionContext = new ActionContext(
+                httpContext,
+                new RouteData(),
+                new ControllerActionDescriptor());
+
+            var context = new ActionExecutedContext(actionContext, new IFilterMetadata[0], new object())
+            {
+                Exception = null,
+            };
+
+            _filter.OnActionExecuted(context);
+
+            Assert.Null(context.Result);
+            Assert.False(context.ExceptionHandled);
+        }
     }
 }
