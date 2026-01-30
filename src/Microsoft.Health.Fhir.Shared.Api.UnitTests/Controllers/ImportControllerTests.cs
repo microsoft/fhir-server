@@ -138,11 +138,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     request = callInfo.ArgAt<CreateImportRequest>(0);
                 });
 
-            var expectedMode = Enum.TryParse<ImportMode>(mode, ignoreCase: true, out var x)
-                ? x
-                : ImportMode.InitialLoad;
             var valid = string.IsNullOrEmpty(mode)
-                || (Enum.TryParse<ImportMode>(mode, ignoreCase: true, out x)
+                || (Enum.TryParse<ImportMode>(mode, ignoreCase: true, out var x)
                 && !(x == ImportMode.InitialLoad && !force && !initialImportMode));
             try
             {
@@ -156,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Assert.True(valid);
                 Assert.NotNull(response);
 
-                var result = response as ImportResult;
+                var result = Assert.IsType<ImportResult>(response);
                 Assert.NotNull(result);
                 Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
 
@@ -211,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 });
 
             var id = int.MaxValue;
-            var response = await controller.CancelImport(id);
+            await controller.CancelImport(id);
 
             Assert.NotNull(request);
             Assert.Equal(id, request.JobId);
@@ -275,7 +272,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(id, request.JobId);
             Assert.False(request.ReturnDetails);
 
-            var result = response as ImportResult;
+            var result = Assert.IsType<ImportResult>(response);
             Assert.NotNull(result);
             Assert.Equal(statusCode == HttpStatusCode.OK ? statusCode : HttpStatusCode.Accepted, result.StatusCode);
             Assert.Equal(returnDetails, result.Result != null);

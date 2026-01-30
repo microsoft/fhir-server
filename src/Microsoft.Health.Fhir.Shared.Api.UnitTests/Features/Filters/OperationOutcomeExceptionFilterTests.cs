@@ -493,12 +493,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                     return Array.CreateInstance(t.GetElementType(), 0);
 
                 case Type t when t.IsGenericType && t.GetInterfaces().Any(x => x.GetGenericTypeDefinition() == typeof(IEnumerable<>)):
-                    var parameters = new List<object>();
-                    foreach (var p in t.GetGenericArguments())
-                    {
-                        parameters.Add(CreateObject(p, defaultStringValue));
-                    }
-
                     var listType = typeof(List<>).MakeGenericType(t.GetGenericArguments());
                     return Activator.CreateInstance(listType);
 

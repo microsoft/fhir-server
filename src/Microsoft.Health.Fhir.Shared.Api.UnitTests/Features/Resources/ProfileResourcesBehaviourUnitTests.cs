@@ -169,9 +169,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
         private async Task Run<TResponse>(Func<RequestHandlerDelegate<TResponse>, Task<TResponse>> func)
         {
-            ValueSet valueSet = new ValueSet();
-            ResourceElement resourceElement = new ResourceElement(valueSet.ToTypedElement());
-
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<TResponse>>();
 
             await func(requestHandlerDelegate);
