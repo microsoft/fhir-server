@@ -123,39 +123,6 @@ Write-Host "Initial filter: $Filter"
 Write-Host "Max retries: $MaxRetries"
 Write-Host "Results directory: $resultsDir"
 
-# Function to expand glob patterns to actual file paths
-# dotnet test doesn't expand globs on Windows, so we need to do it ourselves
-function Expand-GlobPattern {
-    param(
-        [string]$Pattern,
-        [string]$BaseDirectory
-    )
-    
-    # Check if this looks like a glob pattern (contains * or ?)
-    if ($Pattern -match '[\*\?]') {
-        $originalLocation = Get-Location
-        try {
-            Set-Location $BaseDirectory
-            $expandedPaths = Get-ChildItem -Path $Pattern -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-            if ($expandedPaths -and $expandedPaths.Count -gt 0) {
-                Write-Host "Expanded glob pattern '$Pattern' to $($expandedPaths.Count) file(s)"
-                return $expandedPaths
-            }
-            else {
-                Write-Host "##[warning]Glob pattern '$Pattern' matched no files, using as-is"
-                return @($Pattern)
-            }
-        }
-        finally {
-            Set-Location $originalLocation
-        }
-    }
-    else {
-        # Not a glob, return as-is
-        return @($Pattern)
-    }
-}
-
 # Function to run tests and return exit code
 function Invoke-DotNetTest {
     param(
@@ -169,8 +136,39 @@ function Invoke-DotNetTest {
     $attemptDir = Join-Path $resultsDir "${RunName}_Attempt${AttemptNumber}"
     New-Item -ItemType Directory -Path $attemptDir -Force | Out-Null
     
-    # Expand glob patterns if present
-    $expandedAssemblies = Expand-GlobPattern -Pattern $Assemblies -BaseDirectory $WorkingDirectory
+    # Resolve assembly paths
+    $expandedAssemblies = @()
+    $pushLocation = Get-Location
+    
+    try {
+        Set-Location $WorkingDirectory
+
+        if ($Assemblies -match '[\*\?]') {
+            # 1. Try standard glob resolution first
+            $expandedAssemblies = Get-ChildItem -Path $Assemblies -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            
+            # 2. Fallback: Recursive search for filename if standard glob failed
+            if (-not $expandedAssemblies) {
+                $fileName = Split-Path $Assemblies -Leaf
+                # Strip directory separators just in case Split-Path didn't catch everything on regex glob
+                $fileName = $fileName -replace '^.*[\\/]', ''
+                
+                Write-Host "##[warning]Standard glob failed. Recursively searching for matching files named '$fileName'"
+                $expandedAssemblies = Get-ChildItem -Path . -Filter $fileName -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            }
+            
+            if ($expandedAssemblies) {
+                Write-Host "Resolved '$Assemblies' to $($expandedAssemblies.Count) file(s)"
+            }
+        } else {
+             # No wildcards, treat as literal path (relative to WD if not rooted)
+             $fullPath = if ([System.IO.Path]::IsPathRooted($Assemblies)) { $Assemblies } else { Join-Path $WorkingDirectory $Assemblies }
+             $expandedAssemblies = @($fullPath)
+        }
+    }
+    finally {
+        Set-Location $pushLocation
+    }
     
     # Parse additional args once for reuse
     $parsedAdditionalArgs = @()
@@ -197,15 +195,13 @@ function Invoke-DotNetTest {
         }
     }
     
-    # Save current location
-    $currentLocation = Get-Location
     $overallExitCode = 0
+    $currentLocation = Get-Location
     
     try {
-        # Change to working directory
         Set-Location $WorkingDirectory
         
-        # Run dotnet test for each assembly separately (dotnet test doesn't accept multiple csproj files)
+        # Run dotnet test for each assembly separately
         foreach ($assembly in $expandedAssemblies) {
             $testArgs = @(
                 "test"
@@ -235,7 +231,6 @@ function Invoke-DotNetTest {
         }
     }
     finally {
-        # Restore location
         Set-Location $currentLocation
     }
     
