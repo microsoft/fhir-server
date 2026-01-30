@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
     /// Compatibility shim for Xunit.SkippableFact migration to xUnit v3.
     /// In xUnit v3, dynamic skipping is done via Assert.Skip() instead of Skip.If()/Skip.IfNot().
     /// </summary>
-    public static class Skip
+    public static class SkipCompatibility
     {
         /// <summary>
         /// Skips the current test if the specified condition is true.
