@@ -61,6 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Insert failed due to the constraint violation for token search parameter. Details: {0}..
+        /// </summary>
+        internal static string ConstraintDetailsOfConstraintViolationInImport {
+            get {
+                return ResourceManager.GetString("ConstraintDetailsOfConstraintViolationInImport", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
         /// </summary>
         internal static string CyclicIncludeIterateNotSupported {
@@ -79,6 +88,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;Something went wrong while validating resource at index {0}&quot;..
+        /// </summary>
+        internal static string ExceptionWhileResourceValidation {
+            get {
+                return ResourceManager.GetString("ExceptionWhileResourceValidation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The execution timeout expired from SQL Server..
         /// </summary>
         internal static string ExecutionTimeoutExpired {
@@ -93,6 +111,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string FailedToImportConflictingVersion {
             get {
                 return ResourceManager.GetString("FailedToImportConflictingVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error on batch with offset {0} rows from {1} to {2}. {3}.
+        /// </summary>
+        internal static string FailedToImportDueToConstraintViolationInBatch {
+            get {
+                return ResourceManager.GetString("FailedToImportDueToConstraintViolationInBatch", resourceCulture);
             }
         }
         

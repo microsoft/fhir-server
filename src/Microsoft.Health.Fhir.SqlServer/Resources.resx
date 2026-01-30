@@ -173,4 +173,13 @@
   <data name="InvalidIncludesContinuationToken" xml:space="preserve">
     <value>The provided continuation token for $includes operation is not valid.</value>
   </data>
+  <data name="FailedToImportDueToConstraintViolationInBatch" xml:space="preserve">
+    <value>Error on batch with offset {0} rows from {1} to {2}. {3}</value>
+  </data>
+  <data name="ConstraintDetailsOfConstraintViolationInImport" xml:space="preserve">
+    <value>Insert failed due to the constraint violation for token search parameter. Details: {0}.</value>
+  </data>
+  <data name="ExceptionWhileResourceValidation" xml:space="preserve">
+    <value>"Something went wrong while validating resource at index {0}".</value>
+  </data>
 </root>
