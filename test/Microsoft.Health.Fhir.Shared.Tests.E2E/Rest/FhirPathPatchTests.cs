@@ -76,8 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
 
-            // Temp for test
-            Assert.Equal(HttpStatusCode.OK, exception.Response.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             var responseObject = exception.Response.ToT();
             Assert.Equal(expectedError, responseObject.Issue[0].Diagnostics);
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
