@@ -2,11 +2,23 @@
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Uri.Status='+(SELECT TOP 1 Uri+'.'+Status COLLATE Latin1_General_100_CS_AS FROM @SearchParams)
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
        ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
        ,@msg varchar(4000)
        ,@Rows int
+       ,@Uri varchar(4000)
+       ,@Status varchar(20)
+
+DECLARE @SearchParamsCopy dbo.SearchParamList
+INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
+WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
+BEGIN
+  SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
+  SET @msg = 'Uri='+@Uri+' Status='+@Status
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
+  DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
+END
 
 DECLARE @SummaryOfChanges TABLE (Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL, Operation varchar(20) NOT NULL)
 
@@ -62,8 +74,10 @@ GO
 --INSERT INTO @SearchParams
 --  --SELECT 'http://example.org/fhir/SearchParameter/custom-mixed-base-d9e18fc8', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
 --  SELECT 'Test', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--INSERT INTO @SearchParams
+--  SELECT 'Test2', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
 --SELECT * FROM @SearchParams
 --EXECUTE dbo.MergeSearchParams @SearchParams
 --SELECT TOP 100 * FROM SearchParam ORDER BY SearchParamId DESC
---DELETE FROM SearchParam WHERE Uri = 'Test'
+--DELETE FROM SearchParam WHERE Uri LIKE 'Test%'
 --SELECT TOP 10 * FROM EventLog ORDER BY EventDate DESC

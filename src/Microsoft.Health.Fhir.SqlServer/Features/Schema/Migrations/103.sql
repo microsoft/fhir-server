@@ -4523,8 +4523,23 @@ CREATE PROCEDURE dbo.MergeSearchParams
 @SearchParams dbo.SearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Uri.Status=' + (SELECT TOP 1 Uri + '.' + Status COLLATE Latin1_General_100_CS_AS
-                                                                                                FROM   @SearchParams), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
+DECLARE @SearchParamsCopy AS dbo.SearchParamList;
+INSERT INTO @SearchParamsCopy
+SELECT *
+FROM   @SearchParams;
+WHILE EXISTS (SELECT *
+              FROM   @SearchParamsCopy)
+    BEGIN
+        SELECT TOP 1 @Uri = Uri,
+                     @Status = Status
+        FROM   @SearchParamsCopy;
+        SET @msg = 'Uri=' + @Uri + ' Status=' + @Status;
+        EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @msg;
+        DELETE @SearchParamsCopy
+        WHERE  Uri = @Uri;
+    END
 DECLARE @SummaryOfChanges TABLE (
     Uri       VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Operation VARCHAR (20)  NOT NULL);
