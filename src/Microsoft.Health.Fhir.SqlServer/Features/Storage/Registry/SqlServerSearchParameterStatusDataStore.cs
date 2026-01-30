@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -31,9 +32,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
     internal class SqlServerSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
         private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
-        private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
-        private readonly VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsWithOptimisticConcurrencyTvpGenerator;
-        private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SchemaInformation _schemaInformation;
         private readonly SqlServerSortingValidator _sortingValidator;
         private readonly ISqlServerFhirModel _fhirModel;
@@ -42,9 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
         public SqlServerSearchParameterStatusDataStore(
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
-            VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator,
-            VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsWithOptimisticConcurrencyTvpGenerator,
-            FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
             SqlServerSortingValidator sortingValidator,
             ISqlServerFhirModel fhirModel,
@@ -52,8 +47,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             ILogger<SqlServerSearchParameterStatusDataStore> logger)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
-            EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
@@ -61,9 +54,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
-            _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
-            _updateSearchParamsWithOptimisticConcurrencyTvpGenerator = updateSearchParamsWithOptimisticConcurrencyTvpGenerator;
-            _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
             _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
@@ -73,22 +63,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            // If the search parameter table in SQL does not yet contain status columns
-            if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
-            {
-                // Get status information from file.
-                return await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            }
-
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            using (SqlCommandWrapper cmd = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                VLatest.GetSearchParamStatuses.PopulateCommand(sqlCommandWrapper);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.CommandText = "dbo.GetSearchParamStatuses";
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                // TODO: Bad reader use SQL retry
+                using (SqlDataReader sqlDataReader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
@@ -106,13 +91,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             VLatest.SearchParam.Status,
                             VLatest.SearchParam.LastUpdated,
                             VLatest.SearchParam.IsPartiallySupported);
-
-                        if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
-                        {
-                            // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
-                            // They should be populated as soon as they are added to the table and should never be null.
-                            throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
-                        }
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
@@ -219,18 +197,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            using (SqlCommandWrapper cmd = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency)
+                cmd.CommandType = CommandType.StoredProcedure;
+                if (_schemaInformation.Current >= 103)
                 {
-                    VLatest.UpsertSearchParamsWithOptimisticConcurrency.PopulateCommand(sqlCommandWrapper, _updateSearchParamsWithOptimisticConcurrencyTvpGenerator.Generate(statuses.ToList()));
+                    cmd.CommandText = "dbo.MergeSearchParams";
                 }
                 else
                 {
-                    VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
+                    cmd.CommandText = "dbo.UpsertSearchParamsWithOptimisticConcurrency";
                 }
 
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
+
+                // TODO: Reader is not propagating failures to code
+                using (SqlDataReader sqlDataReader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {

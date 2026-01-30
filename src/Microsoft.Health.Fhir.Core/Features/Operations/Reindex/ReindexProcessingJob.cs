@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > _searchParameterStatusManager.SearchParamLastUpdated;
             var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
-            //// If timestamp from definition (comes from orchestrator) is more recent, then cache on processing VM is stale.
+            //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
             //// Cannot just refresh here because we might be missing resources updated via API.
             if (isBad)
             {
