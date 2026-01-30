@@ -733,7 +733,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-            Assert.True("201".Equals(fhirResponse.Resource.Entry[0].Response.Status), "Create");
+
+            // Status could be 201 (Created) or 200 (OK) based on whether the resource is created or updated.
+            var status = int.Parse(fhirResponse.Resource.Entry[0].Response.Status);
+            Assert.True(status == 201 || status == 200, "Create");
 
             // Update resource
             bundleAsString = bundleAsString.Replace("\"metaHistoryTestTag\"", "\"metaHistoryTestTag2\"");
