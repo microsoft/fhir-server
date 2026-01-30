@@ -142,10 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, cancellationToken); // elevate in SQL to log w/o extra settings
-                await WaitForSingleRefresh(cancellationToken);
-                await WaitForSingleRefresh(cancellationToken);
-                await WaitForSingleRefresh(cancellationToken);
-                _searchParamLastUpdated = await WaitForSingleRefresh(cancellationToken);
+                _searchParamLastUpdated = await WaitForRefresh(3, cancellationToken);
                 _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
 
@@ -190,11 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 //// this should enable tests running without any retries
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started wait for refresh", null, cancellationToken); // elevate in SQL to log w/o extra settings
-                await WaitForSingleRefresh(cancellationToken);
-                await WaitForSingleRefresh(cancellationToken);
-                await WaitForSingleRefresh(cancellationToken);
-                await WaitForSingleRefresh(cancellationToken);
-                _searchParamLastUpdated = await WaitForSingleRefresh(cancellationToken);
+                _searchParamLastUpdated = await WaitForRefresh(100, cancellationToken);
                 _logger.LogInformation("Reindex job with Id: {Id} completed with SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"Completed. SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
@@ -214,6 +207,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return JsonConvert.SerializeObject(_currentResult);
+        }
+
+        private async Task<DateTimeOffset> WaitForRefresh(int numberOfRefreshes, CancellationToken cancellationToken)
+        {
+            for (int i = 0; i < numberOfRefreshes - 1; i++)
+            {
+                await WaitForSingleRefresh(cancellationToken);
+            }
+
+            return await WaitForSingleRefresh(cancellationToken);
         }
 
         private async Task<DateTimeOffset> WaitForSingleRefresh(CancellationToken cancellationToken)
