@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             string patientId0 = bundle.Entry[0].Request.Url.Split("/")[1];
             string patientId1 = bundle.Entry[1].Resource.Id;
-            string observationId1 = bundle.Entry[2].Resource.Id;
+            string observationId0 = bundle.Entry[2].Resource.Id;
 
             // 2 - Create resource that will be attempted to be deleted in the transaction.
             Patient patient = new Patient
@@ -180,23 +180,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     bundle,
                     new FhirBundleOptions() { BundleProcessingLogic = processingLogic },
                     cancellationToken));
-            Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             // 4 - Validate if Patient still exists.
-            FhirResponse<Patient> getPatientResponse = null;
+            FhirResponse<Patient> getPatient0Response = null;
             try
             {
-                getPatientResponse = await _client.ReadAsync<Patient>($"Patient/{patientId0}", cancellationToken: cancellationToken);
+                getPatient0Response = await _client.ReadAsync<Patient>($"Patient/{patientId0}", cancellationToken: cancellationToken);
             }
             catch (FhirClientException e)
             {
                 Assert.Fail($"The Patient is expected to still exist, as the transaction is expected to be rolled back. Exception: {e.Message}");
             }
 
-            Assert.True(getPatientResponse.Response.IsSuccessStatusCode, "The Patient is expected to still exist, as the transaction is expected to be rolled back.");
-            DateTimeOffset? lastUpdated = getPatientResponse.Resource.Meta.LastUpdated;
-            Assert.True(patientId0 == putPatientResponse.Resource.Id, $"Patient ID is expected to be created as '{patientId0}'.");
-            Assert.True(creationTime == lastUpdated, $"Meta.LastUpdate is expected to be the same. Left: '{creationTime?.ToString("o")}'. Right: '{creationTime?.ToString("o")}'");
+            if (getPatient0Response == null)
+            {
+                Assert.Fail($"The response of '{nameof(getPatient0Response)}' is null.");
+            }
+            else
+            {
+                Assert.True(getPatient0Response.Response.IsSuccessStatusCode, "The Patient is expected to still exist, as the transaction is expected to be rolled back.");
+                DateTimeOffset? lastUpdated = getPatient0Response.Resource.Meta.LastUpdated;
+                Assert.True(patientId0 == putPatientResponse.Resource.Id, $"Patient ID is expected to be created as '{patientId0}'.");
+                Assert.True(creationTime == lastUpdated, $"Meta.LastUpdate is expected to be the same. Left: '{creationTime?.ToString("o")}'. Right: '{creationTime?.ToString("o")}'");
+            }
+
+            // 5 - Validate if other resources do not exist.
+            try
+            {
+                FhirResponse<Patient> getPatient1Response = await _client.ReadAsync<Patient>($"Patient/{patientId1}", cancellationToken: cancellationToken);
+                Assert.Fail($"The Patient '{patientId1}' is not expected to exist, as the transaction is expected to be rolled back.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.True(e.StatusCode == HttpStatusCode.NotFound, $"The Patient is not expected to exist, as the transaction is expected to be rolled back.");
+            }
+
+            try
+            {
+                FhirResponse<Observation> getObservation0Response = await _client.ReadAsync<Observation>($"Observation/{observationId0}", cancellationToken: cancellationToken);
+                Assert.Fail($"The Observation '{observationId0}' is not expected to exist, as the transaction is expected to be rolled back.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.True(e.StatusCode == HttpStatusCode.NotFound, $"The Observation is not expected to exist, as the transaction is expected to be rolled back.");
+            }
         }
 
         [Fact]

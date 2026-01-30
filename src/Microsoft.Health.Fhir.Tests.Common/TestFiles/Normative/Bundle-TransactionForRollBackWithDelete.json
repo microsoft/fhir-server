@@ -53,7 +53,7 @@
         {
             "resource": {
                 "resourceType": "Observation",
-                "id": "observation-rollback-1",
+                "id": "observation-rollback-0",
                 "status": "final",
                 "code": {
                     "coding": [
