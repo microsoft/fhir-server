@@ -41,9 +41,15 @@
       <PropertyGroup>
         <IsPackable>false</IsPackable>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
+        <!-- Microsoft.Testing.Platform support for xUnit v3 -->
+        <OutputType>Exe</OutputType>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
       </PropertyGroup>
       <ItemGroup>
         <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
+        <!-- Microsoft.Testing.Platform retry extension for built-in test retries -->
+        <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
       </ItemGroup>
     </When>
     <Otherwise>

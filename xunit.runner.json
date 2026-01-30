@@ -1,4 +1,5 @@
 {
-    "$schema": "https://xunit.net/schema/current/xunit.runner.schema.json",
-    "parallelizeAssembly": true
+    "$schema": "https://xunit.net/schema/v3/xunit.runner.schema.json",
+    "parallelizeAssembly": true,
+    "parallelAlgorithm": "aggressive"
 }
