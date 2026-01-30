@@ -139,6 +139,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
+                await WaitForSingleRefresh(cancellationToken);
+                await WaitForSingleRefresh(cancellationToken);
                 _searchParamLastUpdated = await WaitForSingleRefresh(cancellationToken);
                 _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
 
@@ -186,6 +188,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
                 await WaitForSingleRefresh(cancellationToken);
+                await WaitForSingleRefresh(cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -215,6 +218,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return refresh.LastUpdated;
+        }
+
+        private async Task RefreshSearchParameterCache(CancellationToken cancellationToken)
+        {
+            try
+            {
+                _logger.LogJobInformation(_jobInfo, "Performing full SearchParameter database refresh and hash recalculation for reindex job.");
+
+                // Use the enhanced method with forceFullRefresh flag
+                // Wrapped with retry policy for SQL timeouts and Cosmos DB 429 errors
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, forceFullRefresh: true));
+
+                // Update the reindex job record with the latest hash map
+                _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+
+                _logger.LogJobInformation(
+                    _jobInfo,
+                    "Completed full SearchParameter refresh. Hash map updated with {ResourceTypeCount} resource types.",
+                    _reindexJobRecord.ResourceTypeSearchParameterHashMap.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogJobError(ex, _jobInfo, "Failed to refresh SearchParameter cache.");
+                throw;
+            }
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
