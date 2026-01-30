@@ -124,6 +124,20 @@ Write-Host "Max retries: $MaxRetries"
 Write-Host "Results directory: $resultsDir"
 
 # Resolve wildcard patterns (including **) to full paths with a scoped search root.
+function Get-RelativePathFromRoot {
+    param(
+        [string]$BasePath,
+        [string]$TargetPath
+    )
+    
+    $baseFullPath = [System.IO.Path]::GetFullPath($BasePath)
+    $targetFullPath = [System.IO.Path]::GetFullPath($TargetPath)
+    $baseUri = New-Object System.Uri(($baseFullPath.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar))
+    $targetUri = New-Object System.Uri($targetFullPath)
+    $relativeUri = $baseUri.MakeRelativeUri($targetUri)
+    return [Uri]::UnescapeDataString($relativeUri.ToString()).Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+}
+
 function Resolve-AssemblyPathsFromPattern {
     param(
         [string]$Pattern,
@@ -154,7 +168,7 @@ function Resolve-AssemblyPathsFromPattern {
     
     return Get-ChildItem -Path $searchRoot -Recurse -File -ErrorAction SilentlyContinue |
         Where-Object {
-            $relativePath = [System.IO.Path]::GetRelativePath($searchRoot, $_.FullName) -replace '\\', '/'
+            $relativePath = (Get-RelativePathFromRoot -BasePath $searchRoot -TargetPath $_.FullName) -replace '\\', '/'
             $relativePath -like $relativePattern
         } |
         Select-Object -ExpandProperty FullName
