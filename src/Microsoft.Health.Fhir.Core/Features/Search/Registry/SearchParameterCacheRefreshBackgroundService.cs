@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             try
             {
                 var timeSinceLastForceRefresh = DateTime.UtcNow - _lastForceRefreshTime;
-                var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1);
+                var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1) || true;
 
                 if (shouldForceRefresh)
                 {
