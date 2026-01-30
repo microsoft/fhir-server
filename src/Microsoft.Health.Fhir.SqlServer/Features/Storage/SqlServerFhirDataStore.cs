@@ -138,12 +138,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
         {
             var retries = 0;
             while (true)
@@ -152,7 +152,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, retries == 0, false, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(
+                        resources,
+                        keepLastUpdated: false,
+                        keepAllDeleted: false,
+                        mergeOptions.EnlistInTransaction,
+                        retries == 0,
+                        eventualConsistency: false,
+                        ensureAtomicOperations: mergeOptions.EnsureAtomicOperations,
+                        cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -175,12 +183,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, CancellationToken cancellationToken)
+        private async Task<MergeOutcome> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, bool eventualConsistency, bool ensureAtomicOperations, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
             {
-                return results;
+                return MergeOutcome.Empty;
             }
 
             var singleTransaction = enlistInTransaction || !eventualConsistency;
@@ -357,6 +365,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
+            // In case the operation is atomic and there are validation errors, then nothing should be persisted at the database.
+            // Instead, the errors should be reported and ensure the operation is atomic.
+            if (ensureAtomicOperations && results.Where(r => !r.Value.IsOperationSuccessful).Any())
+            {
+                return new MergeOutcome(MergeOutcomeFinalState.CompletedWithFailures, results);
+            }
+
             // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
             // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
             // Sort them in groups by resource id and order by version.
@@ -418,7 +433,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
             }
 
-            return results;
+            // If this is not an atomic operations, even if there are unsuccessful results, the operation state will be set as 'Completed'.
+            // For atomic operations, reaching this level means that all results are successful.
+            return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
         }
 
         internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
@@ -731,7 +748,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
             {
                 var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-                await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, cancellationToken);
+                await MergeInternalAsync(
+                    resources: input,
+                    keepLastUpdated,
+                    keepAllDeleted: true,
+                    enlistInTransaction: false,
+                    useReplicasForReads,
+                    eventualConsistency,
+                    ensureAtomicOperations: false,
+                    cancellationToken);
             }
         }
 
@@ -782,9 +807,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
             bool isBundleParallelOperation =
-                _bundleOrchestrator.IsEnabled &&
                 resource.BundleResourceContext != null &&
                 resource.BundleResourceContext.IsParallelBundle;
+
+            bool isBundleTransaction =
+                resource.BundleResourceContext != null &&
+                resource.BundleResourceContext.IsTransactionalBundle;
 
             if (isBundleParallelOperation)
             {
@@ -793,10 +821,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                // For regular upserts and sequential bundle operations, we need to use C# transactions hence setting enlistTransaction to true.
-                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true);
+                // For regular upserts and sequential bundle operations, enlistTransaction is set to true.
+                MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true, ensureAtomicOperations: isBundleTransaction);
                 var mergeOutcome = await MergeAsync(new[] { resource }, mergeOptions, cancellationToken);
-                DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
+                DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.Results.First().Value;
 
                 if (dataStoreOperationOutcome.IsOperationSuccessful)
                 {
