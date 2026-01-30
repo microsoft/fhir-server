@@ -169,6 +169,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBackWithDelete.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\capabilitystatement-example.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\codesystem-abstract-types.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Flag.json" />

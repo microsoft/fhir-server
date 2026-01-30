@@ -253,15 +253,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 selectingFromResourceTable = true;
 
-                StringBuilder.Append("SELECT * FROM (");
+                // When there are no SearchParamTableExpressions, we need TOP on the outer SELECT (after ORDER BY)
+                // to ensure pagination works correctly. Previously TOP was in the inner subquery without ORDER BY,
+                // causing SQL Server to return arbitrary rows before the outer ORDER BY reordered them.
+                // Fix for pagination bug introduced in commit 6dd540c7d.
+                if (expression.SearchParamTableExpressions.Count == 0)
+                {
+                    StringBuilder.Append("SELECT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") * FROM (");
+                }
+                else
+                {
+                    StringBuilder.Append("SELECT * FROM (");
+                }
 
                 // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
                 StringBuilder.Append("SELECT DISTINCT ");
-
-                if (expression.SearchParamTableExpressions.Count == 0)
-                {
-                    StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ");
-                }
 
                 StringBuilder.Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(", ")
                     .Append(VLatest.Resource.ResourceId, resourceTableAlias).Append(", ")

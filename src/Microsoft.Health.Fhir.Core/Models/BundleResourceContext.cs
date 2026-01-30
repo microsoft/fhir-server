@@ -49,5 +49,10 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             get { return ProcessingLogic == BundleProcessingLogic.Parallel; }
         }
+
+        public bool IsTransactionalBundle
+        {
+            get { return BundleType == Bundle.BundleType.Transaction; }
+        }
     }
 }
