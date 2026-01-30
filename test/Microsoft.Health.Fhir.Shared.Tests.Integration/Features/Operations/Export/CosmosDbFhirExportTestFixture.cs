@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 
@@ -35,6 +36,16 @@ public class CosmosDbFhirExportTestFixture : CosmosDbFhirStorageTestsFixture, IA
     {
         await CleanupTestResourceDocuments();
         await base.DisposeAsync();
+    }
+
+    async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.InitializeAsync()
+    {
+        await InitializeAsync();
+    }
+
+    async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.DisposeAsync()
+    {
+        await DisposeAsync();
     }
 
     private async Task PrepareData(int numberOfResourcesToGenerate)

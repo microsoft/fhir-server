@@ -26,6 +26,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             _testHelper = fixture.TestHelper;
         }
 
-        public async Task InitializeAsync()
+        private async Task InitializeAsync()
         {
             await _testHelper.DeleteAllReindexJobRecordsAsync();
             await CancelActiveReindexJobIfExists();
@@ -55,9 +56,19 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             await AssertNoReindexJobsExist();
         }
 
-        public Task DisposeAsync()
+        private Task DisposeAsync()
         {
             return Task.CompletedTask;
+        }
+
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         private async Task AssertNoReindexJobsExist()

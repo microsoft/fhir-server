@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
@@ -39,15 +40,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             _testHelper = fixture.TestHelper;
         }
 
-        public async Task InitializeAsync()
+        private async Task InitializeAsync()
         {
             await _testHelper.DeleteAllExportJobRecordsAsync();
             GetTestQueueClient().ClearJobs();
         }
 
-        public Task DisposeAsync()
+        private Task DisposeAsync()
         {
             return Task.CompletedTask;
+        }
+
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         [Fact]

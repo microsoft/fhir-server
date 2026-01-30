@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 using Task = System.Threading.Tasks.Task;
 
@@ -158,6 +159,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchParameterDataStoreValidator,
                 () => searchService.CreateMockScope(),
                 NullLogger<SearchParameterOperations>.Instance);
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         public async Task InitializeAsync()

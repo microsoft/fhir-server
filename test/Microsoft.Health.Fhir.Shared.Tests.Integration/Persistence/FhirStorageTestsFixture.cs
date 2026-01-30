@@ -59,6 +59,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 using ResourceType = Hl7.Fhir.Model.ResourceType;
 using Task = System.Threading.Tasks.Task;
 
@@ -229,6 +230,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider services = collection.BuildServiceProvider();
 
             Mediator = new Mediator(services);
+        }
+
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         public async Task DisposeAsync()

@@ -24,9 +24,9 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Antlr4.Runtime.Atn.SemanticContext;
+using ITestOutputHelper = Xunit.ITestOutputHelper;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence

@@ -48,7 +48,8 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
+using ITestOutputHelper = Xunit.ITestOutputHelper;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _output = output;
         }
 
-        public async Task InitializeAsync()
+        private async Task InitializeAsync()
         {
             // Initialize critical fields first before cleanup
             _fhirOperationDataStore = _fixture.OperationDataStore;
@@ -168,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await InitializeJobHosting();
         }
 
-        public async Task DisposeAsync()
+        private async Task DisposeAsync()
         {
             // Clean up resources before finishing test class
             await DeleteTestResources();
@@ -176,6 +177,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await StopJobHostingBackgroundServiceAsync();
 
             return;
+        }
+
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously

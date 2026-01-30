@@ -41,6 +41,7 @@ using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _testHelper = _fixture.TestHelper;
         }
 
-        public async Task InitializeAsync()
+        private async Task InitializeAsync()
         {
             if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
                 ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
@@ -154,9 +155,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             }
         }
 
-        public Task DisposeAsync()
+        private Task DisposeAsync()
         {
             return Task.CompletedTask;
+        }
+
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         [Fact]

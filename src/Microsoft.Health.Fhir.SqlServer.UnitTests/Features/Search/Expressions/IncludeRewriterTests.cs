@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
@@ -39,12 +40,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
         }
 
-        public async Task InitializeAsync()
+        private async Task InitializeAsync()
         {
             await _fixture.Start();
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        private Task DisposeAsync() => Task.CompletedTask;
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
+        }
 
         // Basic Queries with 0-2 include search parameters with all the pair combinations
 

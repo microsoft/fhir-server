@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             _exportClientInitializer.GetAuthorizedClient(Arg.Any<ExportJobConfiguration>()).Returns<BlobServiceClient>(x => throw new ExportClientInitializerException(message, statusCode));
 
             // Act
-            var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(TestContext.Current.CancellationToken));
 
             // Assert
             Assert.Contains(message, exception.Message);
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 
             // Act
             var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() =>
-                _exportDestinationClient.ConnectAsync(customConfig, CancellationToken.None));
+                _exportDestinationClient.ConnectAsync(customConfig, TestContext.Current.CancellationToken));
 
             // Assert
             Assert.Contains(message, exception.Message);

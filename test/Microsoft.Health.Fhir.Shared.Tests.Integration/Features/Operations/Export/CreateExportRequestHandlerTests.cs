@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 {
@@ -297,14 +298,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             }
         }
 
-        public Task InitializeAsync()
+        private Task InitializeAsync()
         {
             return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync(_cancellationToken);
         }
 
-        public Task DisposeAsync()
+        private Task DisposeAsync()
         {
             return Task.CompletedTask;
+        }
+
+        async Task IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         [Theory]

@@ -27,7 +27,6 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Polly;
 using Xunit;
-using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Encounter;
 using Task = System.Threading.Tasks.Task;
 
@@ -41,9 +40,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly HttpClient _httpClient;
         private readonly TestFhirClient _fhirClient;
-        private readonly ITestOutputHelper _output;
+        private readonly Xunit.ITestOutputHelper _output;
 
-        public BulkDeleteTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
+        public BulkDeleteTests(HttpIntegrationTestFixture fixture, Xunit.ITestOutputHelper output)
         {
             _fixture = fixture;
             _httpClient = fixture.HttpClient;

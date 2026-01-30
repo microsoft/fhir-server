@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -38,13 +38,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _metricHandler = _fixture?.MetricHandler;
         }
 
-        public async Task InitializeAsync()
+        async Task IAsyncLifetime.InitializeAsync()
         {
             // Send an empty request to guarantee that there is a bearer token set and the call isn't recorded in the metric handler.
             await _client.HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, string.Empty));
         }
 
-        public Task DisposeAsync()
+        Task IAsyncLifetime.DisposeAsync()
         {
             return Task.CompletedTask;
         }

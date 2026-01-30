@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -34,6 +34,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// When --retry-failed-tests is used, failed fixtures need to be re-created.
         /// </summary>
         private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Exception> _failedInitializations = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Exception>();
+
+        Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
+
+        Task IAsyncLifetime.DisposeAsync() => Task.CompletedTask;
 
         public async Task<TestFhirServer> GetTestFhirServerAsync(DataStore dataStore, Type startupType)
         {

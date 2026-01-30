@@ -11,22 +11,33 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SearchParameterSupportResolverTests : IAsyncLifetime
-    {
+public class SearchParameterSupportResolverTests : IAsyncLifetime
+{
         private SearchParameterSupportResolver _resolver;
 
-        public async Task InitializeAsync()
-        {
-            _resolver = new SearchParameterSupportResolver(
-                await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync());
-        }
+    public async Task InitializeAsync()
+    {
+        _resolver = new SearchParameterSupportResolver(
+            await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync());
+    }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.InitializeAsync()
+    {
+        await InitializeAsync();
+    }
+
+    async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.DisposeAsync()
+    {
+        await DisposeAsync();
+    }
 
         [Fact]
         public void GivenASupportedSearchParameter_WhenResolvingSupport_ThenTrueIsReturned()

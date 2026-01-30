@@ -29,11 +29,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var executionCount = 0;
 
             // Act
-            var result = await SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, () =>
-            {
-                executionCount++;
-                return Task.FromResult(expectedResult);
-            });
+            var result = await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                TestUri1,
+                () =>
+                {
+                    executionCount++;
+                    return Task.FromResult(expectedResult);
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
             Assert.Equal(expectedResult, result);
@@ -47,11 +50,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var executionCount = 0;
 
             // Act
-            await SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, () =>
-            {
-                executionCount++;
-                return Task.CompletedTask;
-            });
+            await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                TestUri1,
+                () =>
+                {
+                    executionCount++;
+                    return Task.CompletedTask;
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
             Assert.Equal(1, executionCount);
@@ -82,21 +88,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 var entryBarrier = entryBarriers[i];
                 var continueSignal = continueSignals[i];
 
-                tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, async () =>
-                {
-                    lock (lockObject)
+                tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                    TestUri1,
+                    async () =>
                     {
-                        executionOrder.Add(operationId);
-                    }
+                        lock (lockObject)
+                        {
+                            executionOrder.Add(operationId);
+                        }
 
-                    // Signal that this operation has entered the critical section
-                    entryBarrier.SetResult(true);
+                        // Signal that this operation has entered the critical section
+                        entryBarrier.SetResult(true);
 
-                    // Wait for permission to continue (controlled by test)
-                    await continueSignal.Task;
+                        // Wait for permission to continue (controlled by test)
+                        await continueSignal.Task;
 
-                    return operationId;
-                }));
+                        return operationId;
+                    },
+                    cancellationToken: TestContext.Current.CancellationToken));
             }
 
             // Verify operations execute sequentially by controlling their execution
@@ -147,53 +156,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Add operations for first URI
             for (int i = 0; i < operationsPerUri; i++)
             {
-                tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, async () =>
-                {
-                    bool shouldSignal = false;
-                    lock (lockObject)
+                tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                    TestUri1,
+                    async () =>
                     {
-                        uri1StartedCount++;
-
-                        // Signal when both URIs have at least one operation started
-                        if (uri1StartedCount > 0 && uri2StartedCount > 0)
+                        bool shouldSignal = false;
+                        lock (lockObject)
                         {
-                            shouldSignal = true;
+                            uri1StartedCount++;
+
+                            // Signal when both URIs have at least one operation started
+                            if (uri1StartedCount > 0 && uri2StartedCount > 0)
+                            {
+                                shouldSignal = true;
+                            }
                         }
-                    }
 
-                    if (shouldSignal)
-                    {
-                        bothUrisStarted.TrySetResult(true);
-                    }
+                        if (shouldSignal)
+                        {
+                            bothUrisStarted.TrySetResult(true);
+                        }
 
-                    await canContinue.Task;
-                }));
+                        await canContinue.Task;
+                    },
+                    cancellationToken: TestContext.Current.CancellationToken));
             }
 
             // Add operations for second URI
             for (int i = 0; i < operationsPerUri; i++)
             {
-                tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri2, async () =>
-                {
-                    bool shouldSignal = false;
-                    lock (lockObject)
+                tasks.Add(SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                    TestUri2,
+                    async () =>
                     {
-                        uri2StartedCount++;
-
-                        // Signal when both URIs have at least one operation started
-                        if (uri1StartedCount > 0 && uri2StartedCount > 0)
+                        bool shouldSignal = false;
+                        lock (lockObject)
                         {
-                            shouldSignal = true;
+                            uri2StartedCount++;
+
+                            // Signal when both URIs have at least one operation started
+                            if (uri1StartedCount > 0 && uri2StartedCount > 0)
+                            {
+                                shouldSignal = true;
+                            }
                         }
-                    }
 
-                    if (shouldSignal)
-                    {
-                        bothUrisStarted.TrySetResult(true);
-                    }
+                        if (shouldSignal)
+                        {
+                            bothUrisStarted.TrySetResult(true);
+                        }
 
-                    await canContinue.Task;
-                }));
+                        await canContinue.Task;
+                    },
+                    cancellationToken: TestContext.Current.CancellationToken));
             }
 
             // Wait for operations on both URIs to start concurrently
@@ -232,17 +247,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var task2CanContinue = new TaskCompletionSource<bool>();
 
             // Act - Start two operations on different URIs
-            var task1 = SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, async () =>
-            {
-                task1Started.SetResult(true);
-                await task1CanContinue.Task;
-            });
+            var task1 = SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                TestUri1,
+                async () =>
+                {
+                    task1Started.SetResult(true);
+                    await task1CanContinue.Task;
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
 
-            var task2 = SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri2, async () =>
-            {
-                task2Started.SetResult(true);
-                await task2CanContinue.Task;
-            });
+            var task2 = SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                TestUri2,
+                async () =>
+                {
+                    task2Started.SetResult(true);
+                    await task2CanContinue.Task;
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // Wait for both operations to start
             await task1Started.Task;
@@ -260,7 +281,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var attempts = 0;
             while (activeLockCount != 1 && attempts < 10)
             {
-                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                await Task.Delay(
+                    10 * (int)Math.Pow(2, attempts),
+                    TestContext.Current.CancellationToken);
                 activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
                 attempts++;
             }
@@ -277,7 +300,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             attempts = 0;
             while (activeLockCount != 0 && attempts < 10)
             {
-                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                await Task.Delay(
+                    10 * (int)Math.Pow(2, attempts),
+                    TestContext.Current.CancellationToken);
                 activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
                 attempts++;
             }
@@ -294,10 +319,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             // Act & Assert
             var actualException = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, () =>
-                {
-                    throw expectedException;
-                }));
+                SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                    TestUri1,
+                    () =>
+                    {
+                        throw expectedException;
+                    },
+                    cancellationToken: TestContext.Current.CancellationToken));
 
             Assert.Same(expectedException, actualException);
 
@@ -306,18 +334,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var attempts = 0;
             while (activeLockCount != 0 && attempts < 10)
             {
-                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                await Task.Delay(
+                    10 * (int)Math.Pow(2, attempts),
+                    TestContext.Current.CancellationToken);
                 activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
                 attempts++;
             }
 
             // Verify lock is released by ensuring a subsequent operation can execute
             var subsequentExecuted = false;
-            await SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, () =>
-            {
-                subsequentExecuted = true;
-                return Task.CompletedTask;
-            });
+            await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                TestUri1,
+                () =>
+                {
+                    subsequentExecuted = true;
+                    return Task.CompletedTask;
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.True(subsequentExecuted);
             Assert.Equal(0, SearchParameterConcurrencyManager.ActiveLockCount);
@@ -331,11 +364,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             using var cts = new CancellationTokenSource();
 
             // Act
-            var operationTask = SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, async () =>
-            {
-                operationStarted.SetResult(true);
-                await Task.Delay(10000, cts.Token); // Long delay that will be cancelled
-            });
+            var operationTask = SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                TestUri1,
+                async () =>
+                {
+                    operationStarted.SetResult(true);
+                    using CancellationTokenSource linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, TestContext.Current.CancellationToken);
+                    await Task.Delay(10000, linkedTokenSource.Token); // Long delay that will be cancelled
+                },
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // Wait for operation to start, then cancel it
             await operationStarted.Task;
@@ -349,7 +386,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var attempts = 0;
             while (activeLockCount != 0 && attempts < 10)
             {
-                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                await Task.Delay(
+                    10 * (int)Math.Pow(2, attempts),
+                    TestContext.Current.CancellationToken);
                 activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
                 attempts++;
             }
@@ -366,10 +405,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Act - Execute many operations sequentially
             for (int i = 0; i < iterations; i++)
             {
-                await SearchParameterConcurrencyManager.ExecuteWithLockAsync($"{TestUri1}_{i}", async () =>
-                {
-                    await Task.Delay(1); // Minimal work
-                });
+                await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                    $"{TestUri1}_{i}",
+                    async () =>
+                    {
+                        await Task.Delay(
+                            1,
+                            TestContext.Current.CancellationToken); // Minimal work
+                    },
+                    cancellationToken: TestContext.Current.CancellationToken);
             }
 
             // Wait for cleanup with exponential backoff instead of fixed delay
@@ -377,7 +421,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var attempts = 0;
             while (activeLockCount >= 10 && attempts < 10)
             {
-                await Task.Delay(10 * (int)Math.Pow(2, attempts));
+                await Task.Delay(
+                    10 * (int)Math.Pow(2, attempts),
+                    TestContext.Current.CancellationToken);
                 activeLockCount = SearchParameterConcurrencyManager.ActiveLockCount;
                 attempts++;
             }
@@ -400,17 +446,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var tasks = new Task[threadCount];
             for (int i = 0; i < threadCount; i++)
             {
-                tasks[i] = Task.Run(async () =>
-                {
-                    barrier.SignalAndWait(); // Ensure all threads start simultaneously
-
-                    await SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, async () =>
+                tasks[i] = Task.Run(
+                    async () =>
                     {
-                        var currentCount = Interlocked.Increment(ref executionCount);
-                        await Task.Delay(10); // Simulate work
-                        return currentCount;
-                    });
-                });
+                        barrier.SignalAndWait(); // Ensure all threads start simultaneously
+
+                        await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                            TestUri1,
+                            async () =>
+                            {
+                                var currentCount = Interlocked.Increment(ref executionCount);
+                                await Task.Delay(10, TestContext.Current.CancellationToken); // Simulate work
+                                return currentCount;
+                            },
+                            cancellationToken: TestContext.Current.CancellationToken);
+                    },
+                    TestContext.Current.CancellationToken);
             }
 
             await Task.WhenAll(tasks);
@@ -427,7 +478,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             // Act & Assert
             await Assert.ThrowsAsync<ArgumentException>(() =>
-                SearchParameterConcurrencyManager.ExecuteWithLockAsync(invalidUri, () => Task.FromResult(1)));
+                SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                    invalidUri,
+                    () => Task.FromResult(1),
+                    cancellationToken: TestContext.Current.CancellationToken));
         }
 
         [Fact]
@@ -435,10 +489,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             // Act & Assert
             await Assert.ThrowsAsync<ArgumentNullException>(() =>
-                SearchParameterConcurrencyManager.ExecuteWithLockAsync<int>(TestUri1, null));
+                SearchParameterConcurrencyManager.ExecuteWithLockAsync<int>(
+                    TestUri1,
+                    null,
+                    cancellationToken: TestContext.Current.CancellationToken));
 
             await Assert.ThrowsAsync<ArgumentNullException>(() =>
-                SearchParameterConcurrencyManager.ExecuteWithLockAsync(TestUri1, null));
+                SearchParameterConcurrencyManager.ExecuteWithLockAsync(
+                    TestUri1,
+                    null,
+                    cancellationToken: TestContext.Current.CancellationToken));
         }
 
         [Fact]

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             CustomQueries.CheckQueryHash(connection, "hash", logger);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
-            await Task.Delay(1100);
+            await Task.Delay(1100, TestContext.Current.CancellationToken);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
 
             connection.Received(2).CreateCommand();
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             CustomQueries.WaitTime = 1;
 
             // Wait long enough to ensure we query the DB
-            await Task.Delay(1100);
+            await Task.Delay(1100, TestContext.Current.CancellationToken);
 
             var connection = Substitute.For<IDbConnection>();
             var command = Substitute.For<IDbCommand>();

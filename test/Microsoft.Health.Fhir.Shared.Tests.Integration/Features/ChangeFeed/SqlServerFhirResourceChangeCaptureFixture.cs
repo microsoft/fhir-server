@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 {
@@ -47,17 +48,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 
-        public async Task InitializeAsync()
+        private async Task InitializeAsync()
         {
             await _storageFixture.InitializeAsync();
         }
 
-        public async Task DisposeAsync()
+        private async Task DisposeAsync()
         {
             if (_storageFixture != null)
             {
                 await _storageFixture.DisposeAsync();
             }
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
     }
 }

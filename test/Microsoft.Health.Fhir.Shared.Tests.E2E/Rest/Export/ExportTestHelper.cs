@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,7 +17,6 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
@@ -64,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             TestFhirClient testFhirClient,
             Uri requestUri,
             FhirJsonParser fhirJsonParser,
-            ITestOutputHelper outputHelper)
+            Xunit.ITestOutputHelper outputHelper)
         {
             var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
 
@@ -87,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             TestFhirClient testFhirClient,
             Uri requestUri,
             FhirJsonParser fhirJsonParser,
-            ITestOutputHelper outputHelper)
+            Xunit.ITestOutputHelper outputHelper)
         {
             var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
 

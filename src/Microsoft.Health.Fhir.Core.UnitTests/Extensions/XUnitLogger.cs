@@ -9,7 +9,7 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using NSubstitute;
-using Xunit.Abstractions;
+using ITestOutputHelper = Xunit.ITestOutputHelper;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 

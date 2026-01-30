@@ -49,6 +49,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Storage;
 using NSubstitute;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -327,6 +328,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         public async Task DisposeAsync()

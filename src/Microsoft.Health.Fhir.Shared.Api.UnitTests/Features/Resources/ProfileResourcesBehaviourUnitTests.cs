@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                     resourceElement,
                     bundleResourceContext: null),
                 requestHandlerDelegate,
-                default);
+                TestContext.Current.CancellationToken);
 
             // Out of the bundle context, ProfileResourcesBehaviour should call the profile resolver refresh.
             _profilesResolver.Received(1).Refresh();
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                     resourceElement,
                     bundleResourceContext: bundleResourceContext),
                 requestHandlerDelegate,
-                default);
+                TestContext.Current.CancellationToken);
 
             // Under the bundle context, ProfileResourcesBehaviour should not call the profile resolver refresh.
             _profilesResolver.Received(0).Refresh();

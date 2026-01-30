@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -48,8 +48,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             string errorMessage = "error";
             using MemoryStream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
-            await writer.WriteLineAsync("test");
-            await writer.FlushAsync();
+            await writer.WriteLineAsync("test".AsMemory(), TestContext.Current.CancellationToken);
+            await writer.FlushAsync(TestContext.Current.CancellationToken);
 
             stream.Position = 0;
 
@@ -74,10 +74,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             var loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, TestContext.Current.CancellationToken);
 
             int errorCount = 0;
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync(TestContext.Current.CancellationToken))
             {
                 Assert.Equal(errorMessage, resource.ImportError);
                 ++errorCount;
@@ -94,8 +94,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             string errorMessage = "Resource type not match.";
             using MemoryStream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
-            await writer.WriteLineAsync("test");
-            await writer.FlushAsync();
+            await writer.WriteLineAsync("test".AsMemory(), TestContext.Current.CancellationToken);
+            await writer.FlushAsync(TestContext.Current.CancellationToken);
 
             stream.Position = 0;
 
@@ -122,10 +122,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, "DummyType", ImportMode.InitialLoad, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, "DummyType", ImportMode.InitialLoad, TestContext.Current.CancellationToken);
 
             int errorCount = 0;
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync(TestContext.Current.CancellationToken))
             {
                 Assert.Equal(errorMessage, resource.ImportError);
                 ++errorCount;
@@ -142,8 +142,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             string errorMessage = "SearchParameter resources cannot be processed by import.";
             using MemoryStream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
-            await writer.WriteLineAsync("test");
-            await writer.FlushAsync();
+            await writer.WriteLineAsync("test".AsMemory(), TestContext.Current.CancellationToken);
+            await writer.FlushAsync(TestContext.Current.CancellationToken);
 
             stream.Position = 0;
 
@@ -183,10 +183,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, TestContext.Current.CancellationToken);
 
             int errorCount = 0;
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync(TestContext.Current.CancellationToken))
             {
                 Assert.Equal(errorMessage, resource.ImportError);
                 ++errorCount;
@@ -203,11 +203,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             string errorMessage = "error";
             using MemoryStream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
-            await writer.WriteLineAsync("test");
-            await writer.WriteLineAsync("test");
-            await writer.WriteLineAsync("test");
-            await writer.WriteLineAsync("test");
-            await writer.FlushAsync();
+            await writer.WriteLineAsync("test".AsMemory(), TestContext.Current.CancellationToken);
+            await writer.WriteLineAsync("test".AsMemory(), TestContext.Current.CancellationToken);
+            await writer.WriteLineAsync("test".AsMemory(), TestContext.Current.CancellationToken);
+            await writer.WriteLineAsync("test".AsMemory(), TestContext.Current.CancellationToken);
+            await writer.FlushAsync(TestContext.Current.CancellationToken);
 
             stream.Position = 0;
 
@@ -240,13 +240,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, cancellationTokenSource.Token);
+            CancellationToken testToken = TestContext.Current.CancellationToken;
+            using CancellationTokenSource linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token, testToken);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, linkedTokenSource.Token);
 
             resetEvent1.WaitOne();
             cancellationTokenSource.Cancel();
             resetEvent2.Set();
 
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync(TestContext.Current.CancellationToken))
             {
                 // do nothing.
             }
@@ -290,11 +292,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             for (int i = 0; i < resources.Length; ++i)
             {
-                await writer.WriteAsync(resources[i]);
-                await writer.WriteAsync("\r\n");
+                await writer.WriteAsync(resources[i].AsMemory(), TestContext.Current.CancellationToken);
+                await writer.WriteAsync("\r\n".AsMemory(), TestContext.Current.CancellationToken);
             }
 
-            await writer.FlushAsync();
+            await writer.FlushAsync(TestContext.Current.CancellationToken);
             stream.Position = startIndex == 0 ? 0 : startIndex - 1;
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -310,10 +312,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             // should be 120 bytes
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", startIndex, bytesToLoad, null, ImportMode.InitialLoad, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", startIndex, bytesToLoad, null, ImportMode.InitialLoad, TestContext.Current.CancellationToken);
 
             long actualResourceCount = 0;
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync(TestContext.Current.CancellationToken))
             {
                 actualResourceCount++;
             }
@@ -347,18 +349,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             for (int i = 0; i < resources.Length; i++)
             {
-                await writer.WriteAsync(resources[i]);
+                await writer.WriteAsync(resources[i].AsMemory(), TestContext.Current.CancellationToken);
                 if (i % 2 == 0)
                 {
-                    await writer.WriteAsync("\r\n");
+                    await writer.WriteAsync("\r\n".AsMemory(), TestContext.Current.CancellationToken);
                 }
                 else
                 {
-                    await writer.WriteAsync("\n");
+                    await writer.WriteAsync("\n".AsMemory(), TestContext.Current.CancellationToken);
                 }
             }
 
-            await writer.FlushAsync();
+            await writer.FlushAsync(TestContext.Current.CancellationToken);
             stream.Position = startIndex == 0 ? 0 : startIndex - 1;
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -374,10 +376,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             // should be 120 bytes
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", startIndex, bytesToLoad, null, ImportMode.InitialLoad, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", startIndex, bytesToLoad, null, ImportMode.InitialLoad, TestContext.Current.CancellationToken);
 
             long actualResourceCount = 0;
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync(TestContext.Current.CancellationToken))
             {
                 actualResourceCount++;
             }
@@ -397,10 +399,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             {
                 string content = (i + startId).ToString();
                 inputStrings.Add(content);
-                await writer.WriteLineAsync(content);
+                await writer.WriteLineAsync(content.AsMemory(), TestContext.Current.CancellationToken);
             }
 
-            await writer.FlushAsync();
+            await writer.FlushAsync(TestContext.Current.CancellationToken);
             stream.Position = 0;
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -432,10 +434,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, TestContext.Current.CancellationToken);
 
             long currentIndex = startIndex;
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync(TestContext.Current.CancellationToken))
             {
                 string content = (currentIndex++).ToString();
             }

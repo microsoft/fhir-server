@@ -54,6 +54,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using NSubstitute;
 using Xunit;
+using IAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -306,6 +307,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLoggerFactory.Instance);
 
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container, queueClient);
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.InitializeAsync()
+        {
+            await InitializeAsync();
+        }
+
+        async Task Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime.DisposeAsync()
+        {
+            await DisposeAsync();
         }
 
         public virtual async Task DisposeAsync()

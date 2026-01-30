@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,7 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Xunit;
+using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected internal TestFhirServer TestFhirServer { get; private set; }
 
-        public async Task InitializeAsync()
+        async Task IAsyncLifetime.InitializeAsync()
         {
             Exception lastException = null;
 
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 lastException);
         }
 
-        public async Task DisposeAsync()
+        async Task IAsyncLifetime.DisposeAsync()
         {
             await OnDisposedAsync();
         }

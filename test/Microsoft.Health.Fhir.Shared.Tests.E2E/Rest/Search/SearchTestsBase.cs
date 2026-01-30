@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Hl7.Fhir.Model.OperationOutcome;
 
@@ -30,9 +29,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         where TFixture : HttpIntegrationTestFixture
     {
         private Regex _continuationToken = new Regex("[?&]ct");
-        private ITestOutputHelper _output;
+        private Xunit.ITestOutputHelper _output;
 
-        protected SearchTestsBase(TFixture fixture, ITestOutputHelper output = null)
+        protected SearchTestsBase(TFixture fixture, Xunit.ITestOutputHelper output = null)
         {
             Fixture = fixture;
             _output = output;

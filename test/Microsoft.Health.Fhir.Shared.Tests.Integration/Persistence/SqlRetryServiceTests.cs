@@ -18,7 +18,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
+using ITestOutputHelper = Xunit.ITestOutputHelper;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {

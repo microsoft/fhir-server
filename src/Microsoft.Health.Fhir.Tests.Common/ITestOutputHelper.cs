@@ -3,6 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Extensions.Xunit
+using Xunit;
+
+namespace Xunit.Abstractions
 {
+    /// <summary>
+    /// Compatibility shim for legacy Xunit.Abstractions usage.
+    /// </summary>
+    public interface ITestOutputHelper : Xunit.ITestOutputHelper
+    {
+    }
 }

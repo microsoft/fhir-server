@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -32,13 +32,14 @@ using Xunit;
 
 // import just the type, as Model namespace collides with System.Threading.Tasks
 using OperationOutcome = Hl7.Fhir.Model.OperationOutcome;
+using TestAsyncLifetime = Microsoft.Health.Fhir.Tests.Common.IAsyncLifetime;
 
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Throttling)]
     [Trait(Traits.Category, Categories.Web)]
-    public class ThrottlingMiddlewareTests : IAsyncLifetime
+    public class ThrottlingMiddlewareTests : TestAsyncLifetime
     {
         private HttpContext _httpContext = new DefaultHttpContext();
         private Lazy<ThrottlingMiddleware> _middleware;
@@ -316,8 +317,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             return output;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        Task TestAsyncLifetime.InitializeAsync() => Task.CompletedTask;
 
-        async Task IAsyncLifetime.DisposeAsync() => await _middleware.Value.DisposeAsync();
+        async Task TestAsyncLifetime.DisposeAsync() => await _middleware.Value.DisposeAsync();
     }
 }

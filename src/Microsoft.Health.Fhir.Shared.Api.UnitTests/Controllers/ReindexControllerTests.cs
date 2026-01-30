@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenACreateReindexRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var reindexController = GetController(new ReindexJobConfiguration() { Enabled = false });
+            reindexController.ControllerContext.HttpContext.RequestAborted = TestContext.Current.CancellationToken;
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => reindexController.CreateReindexJob(null));
         }
@@ -77,6 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenAGetReindexRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
         {
             var reindexController = GetController(new ReindexJobConfiguration() { Enabled = false });
+            reindexController.ControllerContext.HttpContext.RequestAborted = TestContext.Current.CancellationToken;
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => reindexController.GetReindexJob("id"));
         }
@@ -84,12 +86,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenAGetReindexRequest_WhenJobExists_ThenParammetersResourceReturned()
         {
-            _mediator.Send(Arg.Any<GetReindexRequest>()).Returns(Task.FromResult(GetReindexJobResponse()));
+            _mediator.Send(Arg.Any<GetReindexRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetReindexJobResponse()));
 
+            _httpContext.RequestAborted = TestContext.Current.CancellationToken;
             var result = await _reindexEnabledController.GetReindexJob("id");
 
             await _mediator.Received().Send(
-                Arg.Is<GetReindexRequest>(r => r.JobId == "id"), Arg.Any<CancellationToken>());
+                Arg.Is<GetReindexRequest>(r => r.JobId == "id"), TestContext.Current.CancellationToken);
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
             Assert.Equal(OperationStatus.Queued.ToString(), parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Status).First().Value.ToString());
@@ -100,9 +103,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenJobIsCreatedSuccessfully(Parameters body)
         {
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
-            _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
+            _mediator.Send(Arg.Any<CreateReindexRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetCreateReindexResponse()));
 
             // Should NOT throw an exception - invalid parameters are now logged but don't cause failures
+            _httpContext.RequestAborted = TestContext.Current.CancellationToken;
             var result = await _reindexEnabledController.CreateReindexJob(body);
 
             // Verify that the job was created successfully despite invalid parameters
@@ -116,12 +120,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenACreateReindexRequest_WithValidBody_ThenCreateReindexJobCalledWithCorrectParams(Parameters body)
         {
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
-            _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
+            _mediator.Send(Arg.Any<CreateReindexRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetCreateReindexResponse()));
+            _httpContext.RequestAborted = TestContext.Current.CancellationToken;
             var result = await _reindexEnabledController.CreateReindexJob(body);
             await _mediator.Received().Send(
                 Arg.Is<CreateReindexRequest>(
                     r => true),
-                Arg.Any<CancellationToken>());
+                TestContext.Current.CancellationToken);
             _mediator.ClearReceivedCalls();
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
