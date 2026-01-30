@@ -65,9 +65,9 @@ jobs:
     displayName: 'Aggregate SQL integration test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+      reports: '$(TestResultsDirectory)/**/coverage.cobertura.xml'
       reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
+      targetdir: '$(TestResultsDirectory)/coverage'
 
   - task: PublishTestResults@2
     displayName: 'Publish SQL Integration Test Results'
@@ -83,7 +83,7 @@ jobs:
   - task: PublishBuildArtifacts@1
     displayName: 'Publish SQL integration test coverage'
     inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      pathToPublish: '$(TestResultsDirectory)/coverage'
       artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
       artifactType: 'container'
 
@@ -92,8 +92,8 @@ jobs:
     condition: always()
     inputs:
       codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      reportDirectory: '$(Agent.TempDirectory)/coverage'
+      summaryFileLocation: '$(TestResultsDirectory)/coverage/Cobertura.xml'
+      reportDirectory: '$(TestResultsDirectory)/coverage'
 
 - job: 'sqlE2eTests'
   dependsOn: []

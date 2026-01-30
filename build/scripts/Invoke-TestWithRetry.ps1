@@ -259,6 +259,19 @@ function Get-TrxFilesFromDirectory {
     return Get-ChildItem -Path $Directory -Filter "*.trx" -File | Select-Object -ExpandProperty FullName
 }
 
+# Function to get coverage files from a directory
+function Get-CoverageFilesFromDirectory {
+    param(
+        [string]$Directory
+    )
+
+    if (-not (Test-Path $Directory)) {
+        return @()
+    }
+
+    return Get-ChildItem -Path $Directory -Recurse -Filter "coverage.cobertura.xml" -File | Select-Object -ExpandProperty FullName
+}
+
 # Function to parse TRX files and extract failed test names
 function Get-FailedTestsFromTrx {
     param(
@@ -486,6 +499,13 @@ foreach ($dir in $allTrxDirectories) {
 Write-Host "Total TRX files generated: $($allTrxFiles.Count)"
 foreach ($trx in $allTrxFiles) {
     Write-Host "  - $trx"
+}
+
+# Coverage file discovery
+$coverageFiles = Get-CoverageFilesFromDirectory -Directory $resultsDir
+Write-Host "Coverage files found: $($coverageFiles.Count)"
+foreach ($coverageFile in $coverageFiles) {
+    Write-Host "  - $coverageFile"
 }
 
 # Set output variable for Azure DevOps
