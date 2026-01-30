@@ -24,6 +24,7 @@ steps:
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
     inputs:
+      pwsh: true
       filePath: '$(Build.SourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
       arguments: >
         -TestAssemblies "$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"

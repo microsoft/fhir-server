@@ -33,6 +33,7 @@ steps:
   - task: PowerShell@2
     displayName: 'Run Unit Tests with retry'
     inputs:
+      pwsh: true
       filePath: '$(build.sourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
       arguments: >
         -TestAssemblies "**/*UnitTests/*.csproj"
@@ -55,6 +56,7 @@ steps:
   - task: PowerShell@2
     displayName: 'Run Unit Tests with coverage and retry'
     inputs:
+      pwsh: true
       filePath: '$(build.sourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
       arguments: >
         -TestAssemblies "**/*UnitTests/*.csproj"

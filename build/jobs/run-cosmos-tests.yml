@@ -50,6 +50,7 @@ jobs:
   - task: PowerShell@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
+      pwsh: true
       filePath: '$(Build.SourcesDirectory)/build/scripts/Invoke-TestWithRetry.ps1'
       arguments: >
         -TestAssemblies "$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll"
