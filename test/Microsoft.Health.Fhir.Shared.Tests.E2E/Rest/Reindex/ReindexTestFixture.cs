@@ -32,42 +32,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             : base(dataStore, format, testFhirServerFactory)
         {
         }
-
-        /// <summary>
-        /// Override configuration settings for faster reindex testing.
-        /// Sets the ReindexDelayMultiplier to 1 (minimum) to reduce delay while maintaining
-        /// the SearchParameterCacheRefreshIntervalSeconds for consistency with production behavior.
-        /// Also initializes the test fixture by cleaning up test data resources.
-        /// </summary>
-        protected override async Task OnInitializedAsync()
-        {
-            await base.OnInitializedAsync();
-
-            // Override the reindex delay configuration if the server is in-process
-            if (IsUsingInProcTestServer && TestFhirServer is InProcTestFhirServer inProcServer)
-            {
-                var serviceProvider = inProcServer.Server.Services;
-
-                try
-                {
-                    // Update OperationsConfiguration for ReindexDelayMultiplier
-                    // Setting to 1 uses the minimum delay while maintaining the sync interval
-                    var operationsOptions = serviceProvider.GetRequiredService<IOptions<OperationsConfiguration>>();
-                    var coreConfigurations = serviceProvider.GetRequiredService<IOptions<Core.Configs.CoreFeatureConfiguration>>();
-                    if (operationsOptions?.Value?.Reindex != null)
-                    {
-                        operationsOptions.Value.Reindex.ReindexDelayMultiplier = 1;
-                        coreConfigurations.Value.SearchParameterCacheRefreshIntervalSeconds = 2;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var logger = serviceProvider.GetService<ILogger<ReindexTestFixture>>();
-                    logger?.LogWarning(ex, "Failed to configure reindex delay multiplier, using default values");
-
-                    // Continue with default configuration if override fails
-                }
-            }
-        }
     }
 }

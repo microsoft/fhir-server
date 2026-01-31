@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
-            // Get refresh interval from configuration (default 60 seconds, minimum 1 second)
+            // Get refresh interval from configuration (default 20 seconds, minimum 1 second)
             var refreshIntervalSeconds = Math.Max(1, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds);
             _refreshInterval = TimeSpan.FromSeconds(refreshIntervalSeconds);
 
@@ -125,26 +125,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             try
             {
                 var timeSinceLastForceRefresh = DateTime.UtcNow - _lastForceRefreshTime;
-                var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1);
+                var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1) || true;
 
                 if (shouldForceRefresh)
                 {
                     _logger.LogInformation("Performing full SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
 
-                    // Get ALL search parameters from database to ensure complete synchronization
-                    var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, forceFullRefresh: true);
 
-                    // Check if shutdown was requested after the async call
-                    if (_stoppingToken.IsCancellationRequested)
-                    {
-                        _logger.LogDebug("SearchParameter cache refresh was cancelled during database fetch.");
-                        return;
-                    }
+                    ////// Get ALL search parameters from database to ensure complete synchronization
+                    ////var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
 
-                    _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
+                    ////// Check if shutdown was requested after the async call
+                    ////if (_stoppingToken.IsCancellationRequested)
+                    ////{
+                    ////    _logger.LogDebug("SearchParameter cache refresh was cancelled during database fetch.");
+                    ////    return;
+                    ////}
 
-                    // Apply all search parameters (this will recalculate the hash)
-                    await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
+                    ////_logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
+
+                    ////// Apply all search parameters (this will recalculate the hash)
+                    ////await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
 
                     _lastForceRefreshTime = DateTime.UtcNow;
 

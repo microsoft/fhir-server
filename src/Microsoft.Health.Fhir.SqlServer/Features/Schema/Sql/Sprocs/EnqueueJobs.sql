@@ -82,6 +82,8 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+INSERT INTO Parameters (Id,Char) SELECT 'EnqueueJobs','LogEvent'
+GO
 --DECLARE @Definitions StringList
 --INSERT INTO @Definitions SELECT 'Test'
 --EXECUTE dbo.EnqueueJobs 2, @Definitions, @ForceOneActiveJobGroup = 1

@@ -219,16 +219,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
-            var upsertSearchParamsWithOptimisticConcurrencyTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>>>();
-
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
 
             SqlServerSearchParameterStatusDataStore = new SqlServerSearchParameterStatusDataStore(
                 SqlConnectionWrapperFactory.CreateMockScopeProvider(),
-                upsertSearchParamsTvpGenerator,
-                upsertSearchParamsWithOptimisticConcurrencyTvpGenerator,
-                () => _filebasedSearchParameterStatusDataStore,
                 SchemaInformation,
                 sqlSortingValidator,
                 sqlServerFhirModel,

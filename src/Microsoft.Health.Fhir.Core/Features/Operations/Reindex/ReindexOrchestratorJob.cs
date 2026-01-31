@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -45,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly bool _isSurrogateIdRangingSupported;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly OperationsConfiguration _operationsConfiguration;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
 
         private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
@@ -80,6 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private HashSet<long> _processedJobIds = new HashSet<long>();
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
         private List<JobInfo> _jobsToProcess;
+        private DateTimeOffset _searchParamLastUpdated;
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -91,7 +94,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILoggerFactory loggerFactory,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            IOptions<OperationsConfiguration> operationsConfiguration)
+            IOptions<OperationsConfiguration> operationsConfiguration,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
@@ -104,6 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(coreFeatureConfiguration.Value, nameof(coreFeatureConfiguration.Value));
             EnsureArg.IsNotNull(operationsConfiguration, nameof(operationsConfiguration));
             EnsureArg.IsNotNull(operationsConfiguration.Value, nameof(operationsConfiguration.Value));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
 
             _queueClient = queueClient;
             _searchServiceFactory = searchServiceFactory;
@@ -114,6 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterOperations = searchParameterOperations;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _operationsConfiguration = operationsConfiguration.Value;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
@@ -134,15 +140,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                await Task.Delay(1000, cancellationToken);
+                // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, cancellationToken); // elevate in SQL to log w/o extra settings
+                _searchParamLastUpdated = await WaitForRefresh(3, cancellationToken);
+                _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
                     throw new OperationCanceledException("Reindex operation cancelled by customer.");
                 }
-
-                // Attempt to get and apply the latest search parameter updates
-                await RefreshSearchParameterCache(cancellationToken);
 
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
@@ -178,7 +185,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
 
-                await RefreshSearchParameterCache(cancellationToken);
+                //// this should enable tests running without any retries
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started wait for refresh", null, cancellationToken); // elevate in SQL to log w/o extra settings
+                _searchParamLastUpdated = await WaitForRefresh(3, cancellationToken);
+                _logger.LogInformation("Reindex job with Id: {Id} completed with SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"Completed. SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -196,6 +207,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return JsonConvert.SerializeObject(_currentResult);
+        }
+
+        private async Task<DateTimeOffset> WaitForRefresh(int numberOfRefreshes, CancellationToken cancellationToken)
+        {
+            for (int i = 0; i < numberOfRefreshes - 1; i++)
+            {
+                await WaitForSingleRefresh(cancellationToken);
+            }
+
+            return await WaitForSingleRefresh(cancellationToken);
+        }
+
+        private async Task<DateTimeOffset> WaitForSingleRefresh(CancellationToken cancellationToken)
+        {
+            var maxWaitSeconds = _operationsConfiguration.Reindex.ReindexMaxWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds;
+            var refresh = await _searchParameterStatusManager.WaitForSingleRefresh(maxWaitSeconds, cancellationToken);
+            if (!refresh.Success)
+            {
+                throw new JobExecutionException($"Search param cache refresh did not happen in {maxWaitSeconds} seconds.", false);
+            }
+
+            return refresh.LastUpdated;
         }
 
         private async Task RefreshSearchParameterCache(CancellationToken cancellationToken)
@@ -378,9 +411,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     // Update the SearchParameterStatus to Enabled so they can be used once data is loaded
                     await UpdateSearchParameterStatus(null, zeroCountParams.Select(p => p.Url.ToString()).ToList(), cancellationToken);
-
-                    // Attempt to get and apply the latest search parameter updates
-                    await RefreshSearchParameterCache(cancellationToken);
 
                     _logger.LogJobInformation(
                         _jobInfo,
@@ -597,6 +627,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 var reindexJobPayload = new ReindexProcessingJobDefinition()
                 {
+                    SearchParamLastUpdated = _searchParamLastUpdated,
                     TypeId = (int)JobType.ReindexProcessing,
                     GroupId = _jobInfo.GroupId,
                     ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
@@ -1262,21 +1293,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         }
 
         /// <summary>
-        /// Gets jobs that contain any of the specified search parameters
-        /// </summary>
-        private List<JobInfo> GetJobsForSearchParameters(List<JobInfo> jobs, List<string> searchParameterUrls)
-                    {
-            return jobs
-                .Where(job =>
-                {
-                    var jobDefinition = ParseJobDefinition(job);
-                    return jobDefinition != null &&
-                           jobDefinition.SearchParameterUrls.Any(url => searchParameterUrls.Contains(url));
-                })
-                .ToList();
-        }
-
-        /// <summary>
         /// Gets the search parameter URLs that are valid for the specified resource type.
         /// Filters the reindex job's search parameters to only include those that apply to the given resource type.
         /// </summary>
@@ -1387,6 +1403,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return readySearchParameters;
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
+            await store.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
     }
 }

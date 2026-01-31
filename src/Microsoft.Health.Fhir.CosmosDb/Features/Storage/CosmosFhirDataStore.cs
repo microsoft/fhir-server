@@ -119,6 +119,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask; // no event log table
+        }
+
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
             var results = new List<ResourceWrapper>();

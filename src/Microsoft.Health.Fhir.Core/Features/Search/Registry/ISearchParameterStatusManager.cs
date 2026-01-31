@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public interface ISearchParameterStatusManager
     {
+        DateTimeOffset SearchParamLastUpdated { get; }
+
         Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken);
 
         Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken);
@@ -33,5 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>True if cache was stale and needs full refresh, false if cache is up to date</returns>
         Task<bool> EnsureCacheFreshnessAsync(CancellationToken cancellationToken = default);
+
+        Task<(bool Success, DateTimeOffset LastUpdated)> WaitForSingleRefresh(int maxWaitSeconds, CancellationToken cancellationToken);
     }
 }

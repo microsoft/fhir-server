@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -60,8 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ILogger<ReindexProcessingJob> _logger;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
@@ -85,18 +86,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
+            ISearchParameterStatusManager searchParameterStatusManager,
             ILogger<ReindexProcessingJob> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
-            _searchParameterOperations = searchParameterOperations;
+            _searchParameterStatusManager = searchParameterStatusManager;
             _logger = logger;
         }
 
@@ -105,7 +108,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             _jobInfo = jobInfo;
-            _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
+            _reindexProcessingJobDefinition = DeserializeJobDefinition(_jobInfo);
+
+            var current = _searchParameterStatusManager.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > _searchParameterStatusManager.SearchParamLastUpdated;
+            var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
+            //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
+            //// Cannot just refresh here because we might be missing resources updated via API.
+            if (isBad)
+            {
+                _logger.LogJobWarning(jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+            else // normal
+            {
+                _logger.LogJobInformation(jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
             // Initialize effective batch size to configured value - may be reduced on OOM
@@ -571,6 +592,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
+            await store.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
         private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)
