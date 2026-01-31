@@ -143,8 +143,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, cancellationToken); // elevate in SQL to log w/o extra settings
                 _searchParamLastUpdated = await WaitForRefresh(3, cancellationToken);
-                _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
-                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
+                _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+                _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}", _jobInfo.Id, _searchParamLastUpdated);
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}, SearchParameterHashMap.Count={_reindexJobRecord.ResourceTypeSearchParameterHashMap.Count}", null, cancellationToken); // elevate in SQL to log w/o extra settings
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
