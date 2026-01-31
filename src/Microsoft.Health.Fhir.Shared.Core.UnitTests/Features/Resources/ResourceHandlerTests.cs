@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
 
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), Substitute.For<ISearchParameterOperations>(), _deserializer, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _fhirDataStore.CreateMockScopeProvider(), _searchService.CreateMockScopeProvider(), _resourceIdProvider, contextAccessor, auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), Substitute.For<IFhirRuntimeConfiguration>(), Substitute.For<ISearchParameterOperations>(), _deserializer, logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();

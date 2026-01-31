@@ -132,10 +132,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
         public async Task GivenATransactionBundleWithDelete_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndNoOperationCompletes(FhirBundleProcessingLogic processingLogic)
         {
-            // TODO: After fixing sequential, add it back to the InlineData.
-
             CancellationToken cancellationToken = CancellationToken.None;
 
             // 1 - Load information from sample.
@@ -180,7 +179,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     bundle,
                     new FhirBundleOptions() { BundleProcessingLogic = processingLogic },
                     cancellationToken));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            // Bug 182314: Standardize status code returned when a bundle fails.
+            if (processingLogic == FhirBundleProcessingLogic.Sequential)
+            {
+                Assert.Equal(HttpStatusCode.NotFound, fhirException.Response.StatusCode);
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, fhirException.Response.StatusCode);
+            }
 
             // 4 - Validate if Patient still exists.
             FhirResponse<Patient> getPatient0Response = null;
