@@ -131,20 +131,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     _logger.LogInformation("Performing full SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
 
-                    // Get ALL search parameters from database to ensure complete synchronization
-                    var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, forceFullRefresh: true);
 
-                    // Check if shutdown was requested after the async call
-                    if (_stoppingToken.IsCancellationRequested)
-                    {
-                        _logger.LogDebug("SearchParameter cache refresh was cancelled during database fetch.");
-                        return;
-                    }
+                    ////// Get ALL search parameters from database to ensure complete synchronization
+                    ////var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
 
-                    _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
+                    ////// Check if shutdown was requested after the async call
+                    ////if (_stoppingToken.IsCancellationRequested)
+                    ////{
+                    ////    _logger.LogDebug("SearchParameter cache refresh was cancelled during database fetch.");
+                    ////    return;
+                    ////}
 
-                    // Apply all search parameters (this will recalculate the hash)
-                    await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
+                    ////_logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
+
+                    ////// Apply all search parameters (this will recalculate the hash)
+                    ////await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
 
                     _lastForceRefreshTime = DateTime.UtcNow;
 
