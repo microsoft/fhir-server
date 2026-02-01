@@ -165,6 +165,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
+                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, false);
+
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
                 await VerifySearchParameterIsWorkingAsync(
@@ -188,8 +190,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     personSearchParam.Code,
                     expectedResourceType: "Person",
                     shouldFindRecords: true);
-
-                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, false);
             }
             finally
             {
