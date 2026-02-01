@@ -136,18 +136,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var reindexJobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(jobInfo.Definition);
             _jobInfo = jobInfo;
             _reindexJobRecord = reindexJobRecord;
-            _cancellationToken = cancellationToken;
+            _cancellationToken = cancellationToken; // TODO: Do we need _cancel?
 
             try
             {
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
-                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, cancellationToken); // elevate in SQL to log w/o extra settings
-                _searchParamLastUpdated = await WaitForRefresh(3, cancellationToken);
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, _cancellationToken); // elevate in SQL to log w/o extra settings
+                await RefreshSearchParameterCache(_cancellationToken);
+                _searchParamLastUpdated = await WaitForRefresh(3, _cancellationToken);
                 _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
                 _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}", _jobInfo.Id, _searchParamLastUpdated);
-                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}, SearchParameterHashMap.Count={_reindexJobRecord.ResourceTypeSearchParameterHashMap.Count}", null, cancellationToken); // elevate in SQL to log w/o extra settings
+                await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}, SearchParameterHashMap.Count={_reindexJobRecord.ResourceTypeSearchParameterHashMap.Count}", null, _cancellationToken); // elevate in SQL to log w/o extra settings
 
-                if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
+                if (_cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
                     throw new OperationCanceledException("Reindex operation cancelled by customer.");
                 }
