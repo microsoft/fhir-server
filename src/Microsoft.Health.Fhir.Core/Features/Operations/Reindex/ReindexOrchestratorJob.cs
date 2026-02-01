@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 //// this should enable tests running without any retries
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started wait for refresh", null, cancellationToken); // elevate in SQL to log w/o extra settings
-                _searchParamLastUpdated = await WaitForRefresh(3, cancellationToken);
+                _searchParamLastUpdated = await WaitForRefresh(6, cancellationToken);
                 _logger.LogInformation("Reindex job with Id: {Id} completed with SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"Completed. SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
