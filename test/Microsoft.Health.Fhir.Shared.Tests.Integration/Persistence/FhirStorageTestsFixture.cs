@@ -164,6 +164,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 
+            IDeletionServiceDataStoreFactory deletionServiceDataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
+            deletionServiceDataStoreFactory.GetDataStore().Returns(DataStore);
+
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
             var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
             observationResource.UpdateCreate = true;
@@ -215,7 +218,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), _fhirRuntimeConfiguration, Substitute.For<ISearchParameterOperations>(), Deserializer, logger);
+            var deleter = new DeletionService(
+                resourceWrapperFactory,
+                new Lazy<IConformanceProvider>(() => ConformanceProvider),
+                deletionServiceDataStoreFactory,
+                SearchService.CreateMockScopeProvider(),
+                _resourceIdProvider,
+                new FhirRequestContextAccessor(),
+                auditLogger,
+                new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration),
+                _fhirRuntimeConfiguration,
+                Substitute.For<ISearchParameterOperations>(),
+                Deserializer,
+                logger);
 
             var collection = new ServiceCollection();
 
