@@ -106,23 +106,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 // Setup Persons first, then SupplyDeliveries sequentially (not in parallel)
                 // This ensures Persons are fully created before SupplyDeliveries start
-                var (personResources, finalPersonCount) = await SetupTestDataAsync("Person", personCount, randomSuffix, CreatePersonResourceAsync);
+                var personResources = await SetupTestDataAsync("Person", personCount, randomSuffix, CreatePersonResourceAsync);
                 testResources.AddRange(personResources);
 
                 // CRITICAL: Verify we got what we expected
-                Assert.True(
-                    finalPersonCount >= personCount,
-                    $"Failed to create sufficient Person resources. Expected: {personCount}, Got: {finalPersonCount}");
+                Assert.True(personResources.Count == personCount, $"Failed to create sufficient Person resources. Expected: {personCount}, Got: {personResources.Count}");
 
-                var (supplyDeliveryResources, finalSupplyDeliveryCount) = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, randomSuffix, CreateSupplyDeliveryResourceAsync);
+                var supplyDeliveryResources = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, randomSuffix, CreateSupplyDeliveryResourceAsync);
                 testResources.AddRange(supplyDeliveryResources);
 
                 // CRITICAL: Verify we got what we expected
-                Assert.True(
-                    finalSupplyDeliveryCount >= supplyDeliveryCount,
-                    $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {finalSupplyDeliveryCount}");
+                Assert.True(supplyDeliveryResources.Count == supplyDeliveryCount, $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {supplyDeliveryResources.Count}");
 
-                Debug.WriteLine($"Test data setup complete - SupplyDelivery: {finalSupplyDeliveryCount}, Person: {finalPersonCount}");
+                Debug.WriteLine($"Test data setup complete - SupplyDelivery: {supplyDeliveryCount}, Person: {personCount}");
 
                 // Create a single search parameter that applies to BOTH SupplyDelivery and Immunization
                 // This allows us to test the scenario where one resource type has data and another has none
@@ -1066,8 +1062,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// <param name="desiredCount">The number of resources to create</param>
         /// <param name="randomSuffix">Random suffix for unique resource IDs</param>
         /// <param name="createResourceFunc">Function to create a single resource given an ID and name</param>
-        /// <returns>A tuple containing the list of created resource IDs and the count of successfully created resources</returns>
-        private async Task<(List<(string resourceType, string resourceId)> createdResources, int finalCount)> SetupTestDataAsync<T>(
+        /// <returns>List of created resource IDs</returns>
+        private async Task<List<(string resourceType, string resourceId)>> SetupTestDataAsync<T>(
             string resourceType,
             int desiredCount,
             string randomSuffix,
@@ -1128,7 +1124,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                             if (success && resource != null && !string.IsNullOrEmpty(resource.Id))
                             {
                                 createdResources.Add((resourceType, resource.Id));
-                                totalCreated++;
                             }
                             else
                             {
@@ -1149,7 +1144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                         System.Diagnostics.Debug.WriteLine(
                             $"Batch {(batchStart / batchSize) + 1} attempt {retryAttempt + 1}: " +
-                            $"{totalCreated} total created, {resourcesToCreateInBatch.Count} pending retry, " +
+                            $"{createdResources.Count} total created, {resourcesToCreateInBatch.Count} pending retry, " +
                             $"{failedIds.Count} permanently failed");
                     }
                     catch (Exception ex)
@@ -1200,7 +1195,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} new {resourceType} resources.");
 
             // Return the ACTUAL count of resources we created and have IDs for
-            return (createdResources, totalCreated);
+            return createdResources;
         }
 
         private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources)
