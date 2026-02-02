@@ -15,13 +15,10 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
-    path: source
 
-  - template: integration-setup.yml
-
-  - template: integration-tests-extract.yml
-    parameters:
-      version: ${{ parameters.version }}
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
@@ -48,12 +45,19 @@ jobs:
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
   - task: DotNetCoreCLI@2
+    displayName: 'Build integration test projects'
+    inputs:
+      command: build
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
-      workingDirectory: '$(System.ArtifactsDirectory)'
+      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true
     env:
