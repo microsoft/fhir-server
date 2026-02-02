@@ -377,28 +377,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        private async Task<ITypedElement> GetSearchParameterByUrl(string url, CancellationToken cancellationToken)
-        {
-            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
-            var queryParams = new List<Tuple<string, string>>();
-
-            queryParams.Add(new Tuple<string, string>("url", url));
-            var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-
-            if (result.Results.Any())
-            {
-                if (result.Results.Count() > 1)
-                {
-                    _logger.LogWarning("More than one SearchParameter found with url {Url}. This may cause unpredictable behavior.", url);
-                }
-
-                // There should be only one SearchParameter per url
-                return result.Results.First().Resource.RawResource.ToITypedElement(_modelInfoProvider);
-            }
-
-            return null;
-        }
-
         private async Task<Dictionary<string, ITypedElement>> GetSearchParametersByUrls(List<string> urls, CancellationToken cancellationToken)
         {
             if (!urls.Any())
