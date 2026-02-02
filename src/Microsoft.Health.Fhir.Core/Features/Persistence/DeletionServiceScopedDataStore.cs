@@ -65,8 +65,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
 
                 _dataStoreScopeProvider = null;
-                _dataStore = null;
                 _disposed = true;
+
+                // Not disposing _dataStore because we don't own its lifetime.
             }
         }
     }
