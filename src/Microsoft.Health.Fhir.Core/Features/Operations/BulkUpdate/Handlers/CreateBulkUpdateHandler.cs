@@ -117,7 +117,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 _contextAccessor.RequestContext.CorrelationId,
                 parametersString,
                 request.IsParallel,
-                maximumNumberOfResourcesPerQuery: request.MaxCount);
+                maximumNumberOfResourcesPerQuery: request.MaxCount,
+                metaHistory: request.MetaHistory);
 
             IReadOnlyList<JobInfo> jobInfo;
             try
