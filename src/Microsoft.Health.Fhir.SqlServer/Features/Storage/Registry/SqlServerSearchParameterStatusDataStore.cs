@@ -211,40 +211,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
 
-                // TODO: Reader is not propagating failures to code
+                // TODO: Reader is not propagating all failures to the code
                 using (SqlDataReader sqlDataReader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
-                        // The upsert procedure returns the search parameters that were new.
-                        (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(
-                            VLatest.SearchParam.SearchParamId,
-                            VLatest.SearchParam.Uri);
-
-                        // Read LastUpdated for the inserted/updated parameters
-                        DateTimeOffset? lastUpdated = null;
-                        try
-                        {
-                            if (sqlDataReader.FieldCount > 2 && !await sqlDataReader.IsDBNullAsync("LastUpdated", cancellationToken))
-                            {
-                                lastUpdated = (DateTimeOffset)sqlDataReader["LastUpdated"];
-                            }
-                        }
-                        catch (IndexOutOfRangeException)
-                        {
-                            // LastUpdated column doesn't exist yet - this can happen during schema migration
-                            _logger.LogWarning("LastUpdated column not found in UpsertSearchParams result.");
-                            lastUpdated = null;
-                        }
+                        // The procedure returns new search parameters.
+                        (short searchParamId, string searchParamUri, DateTimeOffset lastUpdated) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri, VLatest.SearchParam.LastUpdated);
 
                         // Add the new search parameters to the FHIR model dictionary.
                         _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
 
                         // Update the LastUpdated in our original collection for future operations
+                        // TODO: We are returning only new statuses, do we need update LastUpdated on "old" statuses
                         var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
-                        if (matchingStatus != null && lastUpdated.HasValue)
+                        if (matchingStatus != null)
                         {
-                            matchingStatus.LastUpdated = lastUpdated.Value;
+                            matchingStatus.LastUpdated = lastUpdated;
                         }
                     }
                 }
