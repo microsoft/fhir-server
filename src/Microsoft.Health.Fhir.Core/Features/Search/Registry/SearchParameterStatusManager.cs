@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
         private readonly ILogger<SearchParameterStatusManager> _logger;
-        private DateTimeOffset _latestSearchParams;
+        private DateTimeOffset _searchParamLastUpdated;
         private DateTimeOffset _lastRefreshStart;
         private DateTimeOffset _lastRefreshEnd;
         private readonly List<string> enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
@@ -51,12 +51,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _mediator = mediator;
             _logger = logger;
 
-            _latestSearchParams = DateTimeOffset.MinValue;
+            _searchParamLastUpdated = DateTimeOffset.MinValue;
             _lastRefreshStart = DateTimeOffset.MinValue;
             _lastRefreshEnd = DateTimeOffset.MinValue;
         }
 
-        public DateTimeOffset SearchParamLastUpdated => _latestSearchParams;
+        public DateTimeOffset SearchParamLastUpdated => _searchParamLastUpdated;
 
         /// <summary>
         /// Ensures the search parameter cache is fresh by validating against the database max LastUpdated timestamp.
@@ -74,11 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
 
                 // Check if our cache is stale
-                if (maxDbLastUpdated > _latestSearchParams)
+                if (maxDbLastUpdated > _searchParamLastUpdated)
                 {
                     _logger.LogInformation(
                         "Search parameter cache is stale. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}. Cache refresh needed.",
-                        _latestSearchParams,
+                        _searchParamLastUpdated,
                         maxDbLastUpdated);
 
                     return true; // Cache is stale - caller should perform full refresh
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     _logger.LogDebug(
                         "Search parameter cache is up to date. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}.",
-                        _latestSearchParams,
+                        _searchParamLastUpdated,
                         maxDbLastUpdated);
 
                     _lastRefreshEnd = DateTime.UtcNow;
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var updated = new List<SearchParameterInfo>();
             var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
-            _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
+            _searchParamLastUpdated = parameters.Values.Select(p => p.LastUpdated).Max();
 
             EnsureArg.IsNotNull(_searchParameterDefinitionManager.AllSearchParameters);
             EnsureArg.IsTrue(_searchParameterDefinitionManager.AllSearchParameters.Any());
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 await Task.Delay(500, cancellationToken);
             }
 
-            return (currentEnd != _lastRefreshEnd, _latestSearchParams);
+            return (currentEnd != _lastRefreshEnd, _searchParamLastUpdated);
         }
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
         {
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            ////return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
+            ////return searchParamStatus.Where(p => p.LastUpdated > _searchParamLastUpdated).ToList();
             return searchParamStatus.Take(10).ToList();
         }
 
@@ -355,11 +355,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 // Get the current max LastUpdated from database and update our cache timestamp
                 var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
-                _latestSearchParams = maxDbLastUpdated;
+                _searchParamLastUpdated = maxDbLastUpdated;
 
                 _logger.LogDebug(
                     "Updated SearchParameter cache timestamp to {CacheTimestamp} after successful refresh.",
-                    _latestSearchParams);
+                    _searchParamLastUpdated);
             }
             catch (Exception ex)
             {
