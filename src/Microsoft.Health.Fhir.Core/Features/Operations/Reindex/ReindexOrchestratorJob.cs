@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, _cancellationToken); // elevate in SQL to log w/o extra settings
-                await RefreshSearchParameterCache(_cancellationToken);
+                ////await RefreshSearchParameterCache(_cancellationToken);
                 _searchParamLastUpdated = await WaitForRefresh(3, _cancellationToken);
                 _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
                 _logger.LogInformation("Reindex job with Id: {Id} reported SearchParamLastUpdated {SearchParamLastUpdated}", _jobInfo.Id, _searchParamLastUpdated);
