@@ -1213,24 +1213,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
             if (lessThan)
             {
-                Assert.True(total < expectedTotal);
+                Assert.True(total < expectedTotal, $"total={total} < expected={expectedTotal}");
             }
             else
             {
-                Assert.True(total >= expectedTotal); // some of resources might come for not completed retries
+                Assert.True(total >= expectedTotal, $"total={total} >= expected={expectedTotal}"); // some of resources might come for not completed retries
             }
 
             var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
             if (lessThan)
             {
-                Assert.True(successes < expectedSuccesses);
+                Assert.True(successes < expectedSuccesses, $"successes={successes} < expected={expectedSuccesses}");
             }
             else
             {
-                Assert.True(successes >= expectedSuccesses); // some of resources might come for not completed retries
+                Assert.True(successes >= expectedSuccesses, $"successes={successes} >= expected={expectedSuccesses}"); // some of resources might come for not completed retries
             }
 
-            Assert.Equal(total, successes);
+            Assert.True(total == successes, $"total={total} == successes={successes}");
         }
 
         /// <summary>
