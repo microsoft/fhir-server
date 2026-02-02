@@ -50,7 +50,6 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.Core.UnitTests;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -165,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 
             IDeletionServiceDataStoreFactory deletionServiceDataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
-            deletionServiceDataStoreFactory.GetDataStore().Returns(DataStore);
+            deletionServiceDataStoreFactory.GetDataStore(Arg.Any<Guid>()).Returns(DataStore);
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
             var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));

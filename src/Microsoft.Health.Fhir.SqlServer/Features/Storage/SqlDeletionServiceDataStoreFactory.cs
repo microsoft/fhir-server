@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
@@ -17,9 +18,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _dataStore = EnsureArg.IsNotNull(dataStore, nameof(dataStore));
         }
 
-        public IFhirDataStore GetDataStore()
+        public IFhirDataStore GetDataStore(Guid scopeId)
         {
             return _dataStore;
+        }
+
+        public void ReleaseDataStore(Guid scopeId)
+        {
         }
     }
 }
