@@ -187,9 +187,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
 
-                //// this should enable tests running without any retries
+                //// this should enable searches running without any errors after reindex completion
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started wait for refresh", null, cancellationToken); // elevate in SQL to log w/o extra settings
-                _searchParamLastUpdated = await WaitForRefresh(6, cancellationToken);
+                _searchParamLastUpdated = await WaitForRefresh(3, cancellationToken);
                 _logger.LogInformation("Reindex job with Id: {Id} completed with SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"Completed. SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
@@ -213,12 +213,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<DateTimeOffset> WaitForRefresh(int numberOfRefreshes, CancellationToken cancellationToken)
         {
-            for (int i = 0; i < numberOfRefreshes - 1; i++)
-            {
-                await WaitForSingleRefresh(cancellationToken);
-            }
+            await Task.Delay(numberOfRefreshes * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds, _cancellationToken);
+            return _searchParameterStatusManager.SearchParamLastUpdated;
+            ////for (int i = 0; i < numberOfRefreshes - 1; i++)
+            ////{
+            ////    await WaitForSingleRefresh(cancellationToken);
+            ////}
 
-            return await WaitForSingleRefresh(cancellationToken);
+            ////return await WaitForSingleRefresh(cancellationToken);
         }
 
         private async Task<DateTimeOffset> WaitForSingleRefresh(CancellationToken cancellationToken)
