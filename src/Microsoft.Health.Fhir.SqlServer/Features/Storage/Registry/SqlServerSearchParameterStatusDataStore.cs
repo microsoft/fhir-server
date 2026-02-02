@@ -111,8 +111,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         }
                         catch (SearchParameterNotSupportedException)
                         {
-                            // TODO: This means that definitions are not in sync with statuses
-                            // If we leave it and update high water mark we might miss statuses forever
                         }
 
                         if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
