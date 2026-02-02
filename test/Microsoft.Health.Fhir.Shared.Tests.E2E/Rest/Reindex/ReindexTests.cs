@@ -1077,7 +1077,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Create resources in batches using parallel individual creates for better performance
             const int batchSize = 500; // Process 500 resources at a time in parallel
             const int maxCreateRetries = 3; // Retry failed creates up to 3 times
-            int totalCreated = 0;
             var failedIds = new List<string>();
 
             for (int batchStart = 0; batchStart < desiredCount; batchStart += batchSize)
@@ -1176,23 +1175,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var acceptableMinimum = (int)(desiredCount * 0.95);
 
             // Assert that we created enough resources
-            if (totalCreated < acceptableMinimum)
+            if (createdResources.Count < acceptableMinimum)
             {
                 var errorMsg = $"CRITICAL: Failed to create sufficient {resourceType} resources. " +
                               $"Desired: {desiredCount}, Acceptable minimum: {acceptableMinimum}, " +
-                              $"Successfully created: {totalCreated}, Failed: {failedIds.Count}";
+                              $"Successfully created: {createdResources.Count}, Failed: {failedIds.Count}";
                 System.Diagnostics.Debug.WriteLine(errorMsg);
                 Assert.Fail(errorMsg);
             }
-            else if (totalCreated < desiredCount)
+            else if (createdResources.Count < desiredCount)
             {
                 // Log warning but don't fail
                 System.Diagnostics.Debug.WriteLine(
-                    $"WARNING: Created {totalCreated}/{desiredCount} {resourceType} resources " +
+                    $"WARNING: Created {createdResources.Count}/{desiredCount} {resourceType} resources " +
                     $"(within acceptable threshold of {acceptableMinimum})");
             }
 
-            System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} new {resourceType} resources.");
+            System.Diagnostics.Debug.WriteLine($"Successfully created {createdResources.Count} new {resourceType} resources.");
 
             // Return the ACTUAL count of resources we created and have IDs for
             return createdResources;
@@ -1218,7 +1217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             else
             {
-                Assert.Equal(expectedTotal, total);
+                Assert.True(total >= expectedTotal); // some of resources might come for not completed retries
             }
 
             var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
@@ -1228,7 +1227,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             else
             {
-                Assert.Equal(expectedSuccesses, successes);
+                Assert.True(successes >= expectedSuccesses); // some of resources might come for not completed retries
             }
 
             Assert.Equal(total, successes);
