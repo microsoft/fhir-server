@@ -190,11 +190,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             var sql = context.StringBuilder.ToString();
-            Assert.Contains("IN", sql);
+            Assert.Matches(@"ResourceTypeId\s+IN\s*\(", sql);
 
-            // Should have multiple comma-separated values
-            var commaCount = sql.Split(',').Length - 1;
-            Assert.True(commaCount >= 9, $"Expected at least 9 commas for 10 values, but found {commaCount}");
+            // Verify IN clause contains all expected resource type ids (0-9)
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.Matches($@"\b{i}\b", sql);
+            }
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

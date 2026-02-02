@@ -165,9 +165,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.NotEmpty(sqlAfterBoth);
             Assert.True(sqlAfterBoth.Length > sqlAfterToken1.Length, "Both components should generate SQL");
 
-            // Should contain both Code1 and Code2 for the two token components
-            Assert.Contains("Code1", sqlAfterBoth);
-            Assert.Contains("Code2", sqlAfterBoth);
+            // Should contain both Code1 and Code2 with proper predicate structure for the two token components
+            Assert.Matches(@"Code1\s*=\s*@\w+", sqlAfterBoth);
+            Assert.Matches(@"Code2\s*=\s*@\w+", sqlAfterBoth);
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)
