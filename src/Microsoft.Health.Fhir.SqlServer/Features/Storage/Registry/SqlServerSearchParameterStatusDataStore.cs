@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
-                // TODO: Bad reader use SQL retry
+                // TODO: Bad reader. Use SQL retry
                 using (SqlDataReader sqlDataReader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
@@ -111,6 +111,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         }
                         catch (SearchParameterNotSupportedException)
                         {
+                            // TODO: This means that definitions are not in sync with statuses
+                            // If we leave it and update high water mark we might miss statuses forever
                         }
 
                         if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
@@ -137,15 +139,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             if (!statuses.Any())
             {
                 return;
-            }
-
-            // If the search parameter table in SQL does not yet contain the larger status column we reset back to disabled status
-            if (_schemaInformation.Current < (int)SchemaVersion.V52)
-            {
-                foreach (var status in statuses.Where(s => s.Status == SearchParameterStatus.Unsupported))
-                {
-                    status.Status = SearchParameterStatus.Disabled;
-                }
             }
 
             await UpsertStatusesWithRetry(statuses, 3, cancellationToken);
