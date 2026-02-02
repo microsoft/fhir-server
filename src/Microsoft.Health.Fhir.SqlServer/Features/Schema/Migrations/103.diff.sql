@@ -103,6 +103,4 @@ IF EXISTS (SELECT * FROM systypes WHERE name = 'BulkReindexResourceTableType_1')
 GO
 INSERT INTO Parameters (Id,Char) SELECT 'EnqueueJobs','LogEvent'
 GO
-INSERT INTO Parameters (Id,Char) SELECT 'MergeResources','LogEvent' --TODO: Remove before release
-GO
 

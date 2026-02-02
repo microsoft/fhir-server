@@ -11,7 +11,7 @@ BEGIN TRY
 
   SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)
 
-  SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam
+  SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam ORDER BY LastUpdated DESC -- TODO: Remove before release
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Action='Select',@Target='SearchParam',@Text=@msg
 END TRY

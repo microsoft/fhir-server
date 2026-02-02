@@ -159,7 +159,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     _logger.LogDebug("Starting SearchParameter cache freshness check (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
 
                     // Check if cache is stale using efficient database query
-                    bool cacheIsStale = await _searchParameterStatusManager.EnsureCacheFreshnessAsync(_stoppingToken);
+                    ////bool cacheIsStale = await _searchParameterStatusManager.EnsureCacheFreshnessAsync(_stoppingToken);
+                    bool cacheIsStale = true;
 
                     // Check again if shutdown was requested after the async call
                     if (_stoppingToken.IsCancellationRequested)

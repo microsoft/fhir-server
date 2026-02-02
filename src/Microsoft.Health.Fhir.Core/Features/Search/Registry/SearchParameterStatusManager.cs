@@ -284,7 +284,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
         {
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
+            ////return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
+            return searchParamStatus.Take(10).ToList();
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
