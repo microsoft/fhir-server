@@ -12,10 +12,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public sealed class DeletionServiceScopedDataStore : IDisposable
     {
+        private readonly IFhirDataStore _dataStore;
+        private readonly IScopeProvider<IFhirDataStore> _dataStoreScopeProvider;
+
         private bool _disposed = false;
-        private IFhirDataStore _dataStore;
         private IScoped<IFhirDataStore> _scopedDataStore;
-        private IScopeProvider<IFhirDataStore> _dataStoreScopeProvider;
 
         public DeletionServiceScopedDataStore(IFhirDataStore dataStore)
         {
@@ -64,10 +65,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     _scopedDataStore.Dispose();
                 }
 
-                _dataStoreScopeProvider = null;
                 _disposed = true;
 
-                // Not disposing _dataStore because we don't own its lifetime.
+                // Not disposing _dataStore and _dataStoreScopeProvider because we don't own its lifetime.
+                // Only instances of IScoped<T> created via IScopeProvider<T> are disposed here.
             }
         }
     }
