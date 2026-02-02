@@ -101,32 +101,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             string version = null;
-            Guid scope = Guid.NewGuid();
-            try
+            using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+            var fhirDataStore = scopedDataStore.GetDataStore();
+            switch (request.DeleteOperation)
             {
-                IFhirDataStore fhirDataStore = _dataStoreFactory.GetDataStore(scope);
-                switch (request.DeleteOperation)
-                {
-                    case DeleteOperation.SoftDelete:
-                        ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(key.ResourceType, request.ResourceKey.Id);
+                case DeleteOperation.SoftDelete:
+                    ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(key.ResourceType, request.ResourceKey.Id);
 
-                        bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
+                    bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                        UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
+                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
 
-                        version = result?.Wrapper.Version;
-                        break;
-                    case DeleteOperation.HardDelete:
-                    case DeleteOperation.PurgeHistory:
-                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(request));
-                }
-            }
-            finally
-            {
-                _dataStoreFactory.ReleaseDataStore(scope);
+                    version = result?.Wrapper.Version;
+                    break;
+                case DeleteOperation.HardDelete:
+                case DeleteOperation.PurgeHistory:
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(request));
             }
 
             return new ResourceKey(key.ResourceType, key.Id, version);
@@ -389,33 +382,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var partialResults = new List<(string, string, bool)>();
             try
             {
-                Guid scope = Guid.NewGuid();
-                try
+                using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+                var fhirDataStore = scopedDataStore.GetDataStore();
+
+                // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
+                if (softDeleteIncludes.Any())
                 {
-                    IFhirDataStore fhirDataStore = _dataStoreFactory.GetDataStore(scope);
-
-                    // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
-                    if (softDeleteIncludes.Any())
-                    {
-                        await fhirDataStore.MergeAsync(softDeleteIncludes, cancellationToken);
-                        partialResults.AddRange(softDeleteIncludes.Select(item => (
-                            item.Wrapper.ResourceTypeName,
-                            item.Wrapper.ResourceId,
-                            resourcesToDelete
-                                .Where(resource => resource.Resource.ResourceId == item.Wrapper.ResourceId && resource.Resource.ResourceTypeName == item.Wrapper.ResourceTypeName)
-                                .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
-                    }
-
-                    await DeleteSearchParametersAsync(
-                        resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(),
-                        cancellationToken);
-
-                    await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
+                    await fhirDataStore.MergeAsync(softDeleteIncludes, cancellationToken);
+                    partialResults.AddRange(softDeleteIncludes.Select(item => (
+                        item.Wrapper.ResourceTypeName,
+                        item.Wrapper.ResourceId,
+                        resourcesToDelete
+                            .Where(resource => resource.Resource.ResourceId == item.Wrapper.ResourceId && resource.Resource.ResourceTypeName == item.Wrapper.ResourceTypeName)
+                            .FirstOrDefault().SearchEntryMode == ValueSets.SearchEntryMode.Include)));
                 }
-                finally
-                {
-                    _dataStoreFactory.ReleaseDataStore(scope);
-                }
+
+                await DeleteSearchParametersAsync(
+                    resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(),
+                    cancellationToken);
+
+                await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
             {
@@ -465,34 +451,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                 }
 
-                Guid scope = Guid.NewGuid();
-                try
+                using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+                var fhirDataStore = scopedDataStore.GetDataStore();
+
+                var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
+                var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
+
+                // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
+                // This throws AggrigateExceptions
+                await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
                 {
-                    IFhirDataStore fhirDataStore = _dataStoreFactory.GetDataStore(scope);
+                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
+                });
 
-                    var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
-                    var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
-
-                    // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
-                    // This throws AggrigateExceptions
-                    await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
-                    {
-                        await DeleteSearchParameterAsync(item.Resource, cancellationToken);
-                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
-                        parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                    });
-
-                    await Parallel.ForEachAsync(matchedResources, cancellationToken, async (item, innerCt) =>
-                    {
-                        await DeleteSearchParameterAsync(item.Resource, cancellationToken);
-                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
-                        parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                    });
-                }
-                finally
+                await Parallel.ForEachAsync(matchedResources, cancellationToken, async (item, innerCt) =>
                 {
-                    _dataStoreFactory.ReleaseDataStore(scope);
-                }
+                    await DeleteSearchParameterAsync(item.Resource, cancellationToken);
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
+                });
             }
             catch (Exception ex)
             {
@@ -590,16 +569,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             bundleResourceContext: request.BundleResourceContext));
                     }
 
-                    Guid scope = Guid.NewGuid();
-                    try
-                    {
-                        IFhirDataStore fhirDataStore = _dataStoreFactory.GetDataStore(scope);
-                        await fhirDataStore.MergeAsync(modifiedResources, cancellationToken);
-                    }
-                    finally
-                    {
-                        _dataStoreFactory.ReleaseDataStore(scope);
-                    }
+                    using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+                    var fhirDataStore = scopedDataStore.GetDataStore();
+                    await fhirDataStore.MergeAsync(modifiedResources, cancellationToken);
 
                     if (includesContinuationToken != null)
                     {

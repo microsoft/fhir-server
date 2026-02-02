@@ -17,38 +17,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         // Cosmos DB requires a new fresh instance of the data store for each operation to ensure that long running operations will
         // not have their tokens expire. Therefore, we use a scope provider to create a new instance on each call.
         private readonly IScopeProvider<IFhirDataStore> _dataStore;
-        private readonly ConcurrentDictionary<Guid, IScoped<IFhirDataStore>> _dataStoresByScope;
 
         public CosmosDeletionServiceDataStoreFactory(IScopeProvider<IFhirDataStore> dataStore)
         {
             _dataStore = EnsureArg.IsNotNull(dataStore, nameof(dataStore));
-            _dataStoresByScope = new ConcurrentDictionary<Guid, IScoped<IFhirDataStore>>();
         }
 
-        public IFhirDataStore GetDataStore(Guid scopeId)
+        public DeletionServiceScopedDataStore GetScopedDataStore()
         {
-            IScoped<IFhirDataStore> scopedDataStore = _dataStore.Invoke();
-
-            if (!_dataStoresByScope.TryAdd(scopeId, scopedDataStore))
-            {
-                _dataStoresByScope[scopeId].Dispose();
-
-                if (!_dataStoresByScope.TryAdd(scopeId, scopedDataStore))
-                {
-                    throw new InvalidOperationException($"Failed to create new Data Store for scope '{scopeId}'.");
-                }
-            }
-
-            return scopedDataStore.Value;
-        }
-
-        public void ReleaseDataStore(Guid scopeId)
-        {
-            if (_dataStoresByScope.TryGetValue(scopeId, out IScoped<IFhirDataStore> scopedDataStore))
-            {
-                scopedDataStore.Dispose();
-                _dataStoresByScope.TryRemove(scopeId, out _);
-            }
+            return new DeletionServiceScopedDataStore(_dataStore);
         }
     }
 }

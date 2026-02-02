@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _searchService = Substitute.For<ISearchService>();
 
             IDeletionServiceDataStoreFactory deletionServiceDataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
-            deletionServiceDataStoreFactory.GetDataStore(Arg.Any<Guid>()).Returns(_fhirDataStore);
+            deletionServiceDataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(_fhirDataStore));
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.

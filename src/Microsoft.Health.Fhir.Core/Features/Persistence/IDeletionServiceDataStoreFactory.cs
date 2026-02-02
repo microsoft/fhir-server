@@ -3,14 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface IDeletionServiceDataStoreFactory
     {
-        IFhirDataStore GetDataStore(Guid scopeId);
-
-        void ReleaseDataStore(Guid scopeId);
+        DeletionServiceScopedDataStore GetScopedDataStore();
     }
 }

@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 
             IDeletionServiceDataStoreFactory deletionServiceDataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
-            deletionServiceDataStoreFactory.GetDataStore(Arg.Any<Guid>()).Returns(DataStore);
+            deletionServiceDataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(DataStore));
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
             var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
