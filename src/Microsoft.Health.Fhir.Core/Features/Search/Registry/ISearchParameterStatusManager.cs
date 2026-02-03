@@ -36,7 +36,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>True if cache was stale and needs full refresh, false if cache is up to date</returns>
         Task<bool> EnsureCacheFreshnessAsync(CancellationToken cancellationToken = default);
-
-        Task<(bool Success, DateTimeOffset LastUpdated)> WaitForSingleRefresh(int maxWaitSeconds, CancellationToken cancellationToken);
     }
 }

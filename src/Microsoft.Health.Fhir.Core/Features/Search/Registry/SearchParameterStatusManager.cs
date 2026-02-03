@@ -180,29 +180,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Waits for a single search param cache refresh
-        /// returns a tuple: (bool indicating operation sucesss or failiure, max(UpdatedDate) from search param table).
-        /// </summary>
-        public async Task<(bool Success, DateTimeOffset LastUpdated)> WaitForSingleRefresh(int maxWaitSeconds, CancellationToken cancellationToken)
-        {
-            // get current refresh timestamp
-            var currentStart = _lastRefreshStart;
-            var currentEnd = _lastRefreshEnd;
-            var endWait = DateTime.UtcNow.AddSeconds(maxWaitSeconds);
-            while (currentStart == _lastRefreshStart && DateTime.UtcNow < endWait)
-            {
-                await Task.Delay(500, cancellationToken);
-            }
-
-            while (currentEnd == _lastRefreshEnd && DateTime.UtcNow < endWait)
-            {
-                await Task.Delay(500, cancellationToken);
-            }
-
-            return (currentEnd != _lastRefreshEnd, _searchParamLastUpdated);
-        }
-
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
         {
             EnsureArg.IsNotNull(searchParameterUris);
