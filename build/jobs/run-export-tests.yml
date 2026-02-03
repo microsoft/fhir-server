@@ -62,14 +62,28 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: DotNetCoreCLI@2
+  - task: PowerShell@2
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
-    retryCountOnTaskFailure: 1
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning" -- --retry-failed-tests 3'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $testRoot = "$(Agent.TempDirectory)/E2ETests"
+        $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E"
+        $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+        if (-not $dll) {
+          throw "Could not find $testName.dll under $testRoot"
+        }
+
+        $args = @('--filter', 'FullyQualifiedName~CosmosDb&Category=ExportLongRunning', '--retry-failed-tests', '3', '--report-trx')
+
+        Write-Host "Running dotnet $($dll.FullName)"
+        & dotnet $dll.FullName @args
+
+        if ($LASTEXITCODE -ne 0) {
+          throw "E2E tests failed with exit code $LASTEXITCODE"
+        }
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -98,6 +112,16 @@ jobs:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)    
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
+
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+    condition: succeededOrFailed()
 
 - job: 'sqlE2eTests'
   dependsOn: []
@@ -156,14 +180,28 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: DotNetCoreCLI@2
+  - task: PowerShell@2
     displayName: 'Export E2E ${{ parameters.version }} SQL'
-    retryCountOnTaskFailure: 1
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning" -- --retry-failed-tests 3'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: 'Export ${{ parameters.version }} SQL'
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $testRoot = "$(Agent.TempDirectory)/E2ETests"
+        $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E"
+        $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+        if (-not $dll) {
+          throw "Could not find $testName.dll under $testRoot"
+        }
+
+        $args = @('--filter', 'FullyQualifiedName~SqlServer&Category=ExportLongRunning', '--retry-failed-tests', '3', '--report-trx')
+
+        Write-Host "Running dotnet $($dll.FullName)"
+        & dotnet $dll.FullName @args
+
+        if ($LASTEXITCODE -ne 0) {
+          throw "E2E tests failed with exit code $LASTEXITCODE"
+        }
     env:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
@@ -192,4 +230,14 @@ jobs:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
+  
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+    condition: succeededOrFailed()
       

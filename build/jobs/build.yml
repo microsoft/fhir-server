@@ -32,7 +32,6 @@ steps:
 - ${{ if eq(parameters.unitTest, 'true') }}:
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test'
-    retryCountOnTaskFailure: 1
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
@@ -42,7 +41,6 @@ steps:
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test with coverage'
-    retryCountOnTaskFailure: 1
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'

@@ -57,11 +57,10 @@ jobs:
 
   - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests with coverage'
-    retryCountOnTaskFailure: 1
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
+      arguments: '--filter "FullyQualifiedName!~SqlServer" --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true
     env:
