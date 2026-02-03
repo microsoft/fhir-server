@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         private readonly object _lockObject;
 
+        private readonly BundleConfiguration _bundleConfiguration;
+
         private DateTimeOffset _latestLongRunningOperationStatusCheck;
 
         /// <summary>
@@ -46,10 +48,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <param name="logger">Logging component.</param>
         public BundleOrchestrator(IOptions<BundleConfiguration> bundleConfiguration, ILogger<BundleOrchestrator> logger)
         {
-            EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
+            EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            IsEnabled = bundleConfiguration.Value.SupportsBundleOrchestrator;
+            _bundleConfiguration = bundleConfiguration.Value;
             _maxExecutionTimeInSeconds = bundleConfiguration.Value.MaxExecutionTimeInSeconds;
 
             _logger = logger;
@@ -60,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _lockObject = new object();
         }
 
-        public bool IsEnabled { get; }
+        public bool IsEnabled => _bundleConfiguration.SupportsBundleOrchestrator;
 
         public IBundleOrchestratorOperation CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources)
         {
