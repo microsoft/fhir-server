@@ -557,7 +557,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(resource.Id, request.ResourceKey.Id);
 
             // NOTE: commenting out version check as Read ignores version id.
-            // Assert.Equal(resource.VersionId, request.ResourceKey.VersionId);
+            Assert.Null(request.ResourceKey.VersionId);
 
             await _mediator.Received(1).Send<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
@@ -683,7 +683,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.True(request.AllowPartialSuccess);
 
             // NOTE: commenting out version check as PurgeHistory ignores version id.
-            // Assert.Equal(resourceKey.VersionId, request.ResourceKey.VersionId);
+            Assert.Null(request.ResourceKey.VersionId);
 
             await _mediator.Received(1).Send<DeleteResourceResponse>(
                 Arg.Any<DeleteResourceRequest>(),
@@ -747,7 +747,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request.Payload);
 
             // NOTE: commenting out version check as Patch ignores version id.
-            // Assert.Equal(resource.VersionId, request.ResourceKey.VersionId);
+            Assert.Null(request.ResourceKey.VersionId);
 
             await _mediator.Received(1).Send<UpsertResourceResponse>(
                 Arg.Any<PatchResourceRequest>(),
@@ -896,7 +896,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request.Payload);
 
             // NOTE: commenting out version check as Patch ignores version id.
-            // Assert.Equal(resource.VersionId, request.ResourceKey.VersionId);
+            Assert.Null(request.ResourceKey.VersionId);
 
             await _mediator.Received(1).Send<UpsertResourceResponse>(
                 Arg.Any<PatchResourceRequest>(),
