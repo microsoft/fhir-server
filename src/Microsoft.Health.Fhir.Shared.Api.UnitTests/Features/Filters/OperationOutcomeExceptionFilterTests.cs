@@ -426,9 +426,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             foreach (var type in exceptionsToStatusCodes.Keys)
             {
-                var exception = (Exception)CreateObject(
-                    type,
-                    type == typeof(RequestNotValidException) ? "Invalid" : null);
+                var exception = default(Exception);
+                try
+                {
+                    exception = (Exception)CreateObject(
+                        type,
+                        type == typeof(RequestNotValidException) ? "Invalid" : null);
+                }
+                catch (Exception ex)
+                {
+                    Assert.Fail($"Failed to create an exception of type {type.FullName}: {ex}");
+                }
+
                 ValidateOperationOutcome(exception, exceptionsToStatusCodes[type]);
             }
         }
