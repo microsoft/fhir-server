@@ -48,7 +48,7 @@ jobs:
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal -- --retry-failed-tests 3'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
       workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       publishTestResults: true
@@ -63,7 +63,7 @@ jobs:
     displayName: 'Aggregate SQL integration test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/coverage/*.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
 

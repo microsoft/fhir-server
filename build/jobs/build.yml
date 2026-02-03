@@ -46,13 +46,13 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
       testRunTitle: 'Unit Tests'
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/coverage/*.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
   

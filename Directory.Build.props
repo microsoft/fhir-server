@@ -45,9 +45,9 @@
         <OutputType>Exe</OutputType>
       </PropertyGroup>
       <ItemGroup>
-        <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
         <PackageReference Include="YTest.MTP.XUnit2" />
         <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
+        <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
         <PackageReference Remove="xunit.runner.visualstudio" />
       </ItemGroup>
     </When>
