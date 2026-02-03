@@ -31,12 +31,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlImporterIntegrationTests : IClassFixture<SqlServerFhirStorageTestsFixture>
+    public class SqlServerImporterIntegrationTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _testOutputHelper;
 
-        public SqlImporterIntegrationTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
+        public SqlServerImporterIntegrationTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
             _testOutputHelper = testOutputHelper;
