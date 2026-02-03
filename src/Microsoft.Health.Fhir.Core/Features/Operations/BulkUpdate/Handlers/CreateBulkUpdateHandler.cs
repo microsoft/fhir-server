@@ -31,6 +31,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 {
     public class CreateBulkUpdateHandler : IRequestHandler<CreateBulkUpdateRequest, CreateBulkUpdateResponse>
     {
+        private static readonly List<string> BulkUpdateQueryParameters = new()
+        {
+            KnownQueryParameterNames.IsParallel,
+            KnownQueryParameterNames.MaxCount,
+            KnownQueryParameterNames.MetaHistory,
+        };
+
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -78,14 +85,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 searchParameters.AddRange(request.ConditionalParameters);
             }
 
-            // Remove _isParallel from searchParameters
-            searchParameters = searchParameters.Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.IsParallel, StringComparison.OrdinalIgnoreCase)).ToList();
-
             var dateCurrent = new PartialDateTime(Clock.UtcNow);
             searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
-            // remove maxCount from searchParameters
-            searchParameters.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.MaxCount, StringComparison.OrdinalIgnoreCase));
+            // Remove bulk update specific parameters from search parameters
+            searchParameters.RemoveAll(t => BulkUpdateQueryParameters.Any(param => param.Equals(t.Item1, StringComparison.OrdinalIgnoreCase)));
 
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
