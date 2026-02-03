@@ -37,14 +37,22 @@
   </Choose>
 
   <Choose>
-    <When Condition="$(MSBuildProjectName.Contains('Test'))">
+    <When Condition="$(MSBuildProjectName.Contains('Test')) AND '$(IsTestProject)' != 'false'">
       <PropertyGroup>
         <IsPackable>false</IsPackable>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
       <ItemGroup>
         <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
+        <PackageReference Include="YTest.MTP.XUnit2" />
+        <PackageReference Remove="xunit.runner.visualstudio" />
       </ItemGroup>
+    </When>
+    <When Condition="$(MSBuildProjectName.Contains('Test')) AND '$(IsTestProject)' == 'false'">
+      <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
+      </PropertyGroup>
     </When>
     <Otherwise>
       <PropertyGroup>
