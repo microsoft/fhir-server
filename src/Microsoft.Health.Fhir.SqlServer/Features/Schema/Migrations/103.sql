@@ -3251,21 +3251,22 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
-@LastUpdated DATETIMEOFFSET (7)=NULL OUTPUT
+@StartLastUpdated DATETIMEOFFSET (7)=NULL, @LastUpdated DATETIMEOFFSET (7)=NULL OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetSearchParamStatuses', @Mode AS VARCHAR (100) = '', @st AS DATETIME = getUTCdate(), @msg AS VARCHAR (100);
+DECLARE @SP AS VARCHAR (100) = 'GetSearchParamStatuses', @Mode AS VARCHAR (100) = 'S=' + isnull(CONVERT (VARCHAR, @StartLastUpdated), 'NULL'), @st AS DATETIME = getUTCdate(), @msg AS VARCHAR (100);
 BEGIN TRY
     SET @LastUpdated = (SELECT max(LastUpdated)
                         FROM   dbo.SearchParam);
     SET @msg = 'LastUpdated=' + substring(CONVERT (VARCHAR, @LastUpdated), 1, 23);
-    SELECT   SearchParamId,
-             Uri,
-             Status,
-             LastUpdated,
-             IsPartiallySupported
-    FROM     dbo.SearchParam
-    ORDER BY LastUpdated DESC;
+    SELECT SearchParamId,
+           Uri,
+           Status,
+           LastUpdated,
+           IsPartiallySupported
+    FROM   dbo.SearchParam
+    WHERE  @StartLastUpdated IS NULL
+           OR LastUpdated > @StartLastUpdated;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount, @Action = 'Select', @Target = 'SearchParam', @Text = @msg;
 END TRY
 BEGIN CATCH

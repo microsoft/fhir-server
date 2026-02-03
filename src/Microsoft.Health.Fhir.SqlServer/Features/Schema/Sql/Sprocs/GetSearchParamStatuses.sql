@@ -1,17 +1,16 @@
-﻿CREATE PROCEDURE dbo.GetSearchParamStatuses @LastUpdated datetimeoffset(7) = NULL OUT
+﻿CREATE PROCEDURE dbo.GetSearchParamStatuses @StartLastUpdated datetimeoffset(7) = NULL, @LastUpdated datetimeoffset(7) = NULL OUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetSearchParamStatuses'
-       ,@Mode varchar(100) = ''
+       ,@Mode varchar(100) = 'S='+isnull(convert(varchar,@StartLastUpdated),'NULL')
        ,@st datetime = getUTCdate()
        ,@msg varchar(100)
 
 BEGIN TRY
-  SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
-
+  SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam) -- this should be before main select
   SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)
 
-  SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam ORDER BY LastUpdated DESC -- TODO: Remove before release
+  SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam WHERE @StartLastUpdated IS NULL OR LastUpdated > @StartLastUpdated
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Action='Select',@Target='SearchParam',@Text=@msg
 END TRY
