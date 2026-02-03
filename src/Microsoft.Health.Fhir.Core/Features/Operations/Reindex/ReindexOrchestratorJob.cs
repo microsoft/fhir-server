@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 //// this should enable searches running without any errors after reindex completion
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started wait for refresh", null, cancellationToken); // elevate in SQL to log w/o extra settings
-                await WaitForRefresh(3);
+                await WaitForRefresh();
                 _logger.LogInformation("Reindex job with Id: {Id} completed with SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"Completed. SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
@@ -207,9 +207,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_currentResult);
         }
 
-        private async Task WaitForRefresh(int numberOfRefreshes)
+        private async Task WaitForRefresh()
         {
-            await Task.Delay(numberOfRefreshes * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds, _cancellationToken);
+            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds, _cancellationToken);
         }
 
         private async Task RefreshSearchParameterCache()
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
                 await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, _cancellationToken); // elevate in SQL to log w/o extra settings
-                await WaitForRefresh(3); // wait for 3 cache refresh intervals
+                await WaitForRefresh(); // wait for M * cache refresh intervals
             }
             else
             {

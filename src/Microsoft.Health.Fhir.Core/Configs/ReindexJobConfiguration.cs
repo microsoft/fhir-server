@@ -44,9 +44,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Controls the multiplier applied to the SearchParameterCacheRefreshIntervalSeconds
-        /// to determine max time to wait for search param cache refresh
+        /// to determine time to wait for search param cache refresh
         /// </summary>
-        public int ReindexMaxWaitMultiplier { get; set; } = 10;
+        public int CacheRefreshWaitMultiplier { get; set; } = 3;
 
         /// <summary>
         /// Controls how many surrogate ID ranges are fetched per database call when calculating
