@@ -15,7 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IFhirDataStore _dataStore;
         private readonly IScopeProvider<IFhirDataStore> _dataStoreScopeProvider;
 
-        private bool _disposed = false;
         private IScoped<IFhirDataStore> _scopedDataStore;
 
         public DeletionServiceScopedDataStore(IFhirDataStore dataStore)
@@ -30,8 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public IFhirDataStore GetDataStore()
         {
-            ObjectDisposedException.ThrowIf(_disposed, nameof(DeletionServiceScopedDataStore));
-
             // If we already have a non-scoped data store, return it.
             // This is a valid scenario for services that do not require scoped dependencies, like Gen2.
             if (_dataStore != null)
@@ -58,18 +55,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public void Dispose()
         {
-            if (!_disposed)
+            if (_scopedDataStore != null)
             {
-                if (_scopedDataStore != null)
-                {
-                    _scopedDataStore.Dispose();
-                }
-
-                _disposed = true;
-
-                // Not disposing _dataStore and _dataStoreScopeProvider because we don't own its lifetime.
-                // Only instances of IScoped<T> created via IScopeProvider<T> are disposed here.
+                _scopedDataStore.Dispose();
+                _scopedDataStore = null;
             }
+
+            // Not disposing _dataStore and _dataStoreScopeProvider because we don't own its lifetime.
+            // Only instances of IScoped<T> created via IScopeProvider<T> are disposed here.
         }
     }
 }
