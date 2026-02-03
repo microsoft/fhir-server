@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly IMediator _mediator;
         private readonly ILogger<SearchParameterStatusManager> _logger;
         private DateTimeOffset _searchParamLastUpdated;
+        private DateTimeOffset _storageSearchParamLastUpdated;
         private DateTimeOffset _lastRefreshStart;
         private DateTimeOffset _lastRefreshEnd;
         private readonly List<string> enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
@@ -71,24 +72,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _lastRefreshStart = DateTime.UtcNow;
 
                 // Get max LastUpdated from database efficiently
-                var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
+                _storageSearchParamLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
 
                 // Check if our cache is stale
-                if (maxDbLastUpdated > _searchParamLastUpdated)
+                if (_storageSearchParamLastUpdated > _searchParamLastUpdated)
                 {
                     _logger.LogInformation(
-                        "Search parameter cache is stale. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}. Cache refresh needed.",
+                        "Search parameter cache is stale. LastUpdated: cache={CacheLastUpdated}, database={DbLastUpdated}. Cache refresh needed.",
                         _searchParamLastUpdated,
-                        maxDbLastUpdated);
+                        _storageSearchParamLastUpdated);
 
                     return true; // Cache is stale - caller should perform full refresh
                 }
                 else
                 {
                     _logger.LogDebug(
-                        "Search parameter cache is up to date. Cache timestamp: {CacheTimestamp}, Database max: {DbMaxTimestamp}.",
+                        "Search parameter cache is up to date. LastUpdated: cache={CacheLastUpdated}, database={DbLastUpdated}.",
                         _searchParamLastUpdated,
-                        maxDbLastUpdated);
+                        _storageSearchParamLastUpdated);
 
                     _lastRefreshEnd = DateTime.UtcNow;
 
@@ -284,8 +285,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
         {
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            ////return searchParamStatus.Where(p => p.LastUpdated > _searchParamLastUpdated).ToList();
-            return searchParamStatus.Take(10).ToList();
+            return searchParamStatus.Where(p => p.LastUpdated > _searchParamLastUpdated).ToList();
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
@@ -351,22 +351,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// <param name="cancellationToken">Cancellation token</param>
         private async Task UpdateCacheTimestampAsync(CancellationToken cancellationToken = default)
         {
-            try
-            {
-                // Get the current max LastUpdated from database and update our cache timestamp
-                var maxDbLastUpdated = await _searchParameterStatusDataStore.GetMaxLastUpdatedAsync(cancellationToken);
-                _searchParamLastUpdated = maxDbLastUpdated;
-
-                _logger.LogDebug(
-                    "Updated SearchParameter cache timestamp to {CacheTimestamp} after successful refresh.",
-                    _searchParamLastUpdated);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to update cache timestamp after successful refresh. This may cause unnecessary cache refreshes.");
-
-                // Don't throw - this is not critical for functionality
-            }
+            _searchParamLastUpdated = _storageSearchParamLastUpdated;
+            await Task.CompletedTask;
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
