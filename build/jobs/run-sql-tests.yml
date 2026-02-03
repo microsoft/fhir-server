@@ -44,14 +44,21 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
+    displayName: 'Build Integration Test Projects'
+    inputs:
+      command: build
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
     displayName: 'Run SQL Integration Tests with coverage'
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
-      workingDirectory: '$(System.ArtifactsDirectory)'
-      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      publishTestResults: true
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~CosmosDb --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
+    testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+    publishTestResults: true
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'

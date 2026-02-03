@@ -49,14 +49,21 @@ jobs:
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
   - task: DotNetCoreCLI@2
+    displayName: 'Build Integration Test Projects'
+    inputs:
+      command: build
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
-      workingDirectory: '$(System.ArtifactsDirectory)'
-      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      publishTestResults: true
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
+    testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
+    publishTestResults: true
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
