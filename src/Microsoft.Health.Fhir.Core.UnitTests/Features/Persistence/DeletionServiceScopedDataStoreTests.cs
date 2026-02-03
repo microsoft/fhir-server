@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             var deletionServiceScopedDataStore = new DeletionServiceScopedDataStore(scopeProvider);
 
-            var dataStore = deletionServiceScopedDataStore.GetDataStore();
+            deletionServiceScopedDataStore.GetDataStore();
 
             deletionServiceScopedDataStore.Dispose();
 
