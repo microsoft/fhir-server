@@ -61,13 +61,14 @@ jobs:
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
+      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
       'CosmosDb__UseManagedIdentity': true
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'

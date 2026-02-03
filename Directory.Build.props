@@ -42,6 +42,7 @@
         <IsPackable>false</IsPackable>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+        <TestingPlatformCaptureOutput>false</TestingPlatformCaptureOutput>
         <OutputType>Exe</OutputType>
       </PropertyGroup>
       <ItemGroup>

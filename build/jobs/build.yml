@@ -46,8 +46,10 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} --results-directory "$(Agent.TempDirectory)/coverage" -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
       testRunTitle: 'Unit Tests'
+    env:
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
