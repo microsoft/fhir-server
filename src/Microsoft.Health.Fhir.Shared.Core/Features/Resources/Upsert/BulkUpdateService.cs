@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
 
                     // Group the results based on the resource type and prepare the conditional patch requests
-                    BuildConditionalPatchRequests(conditionalParameters, bundleResourceContext, searchResults, totalResources, resourcesIgnored, commonPatchFailures, conditionalPatchResourceRequests, deserializedFhirPatchParameters, metaHistory);
+                    BuildConditionalPatchRequests(conditionalParameters, bundleResourceContext, searchResults, totalResources, resourcesIgnored, commonPatchFailures, conditionalPatchResourceRequests, deserializedFhirPatchParameters);
 
                     // Filter out the seachResults which are not in resourcesIgnored and commonPatchFailures
                     searchResults = searchResults.Where(result => !resourcesIgnored.ContainsKey(result.Resource.ResourceTypeName) && !commonPatchFailures.ContainsKey(result.Resource.ResourceTypeName)).ToList();
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     // Let's create the update tasks for the patched resources.
                     if (patchedResources.Any())
                     {
-                        updateTasks.Add(UpdateResourcePage(patchedResources, resourceType, bundleResourceContext, searchResults, finalBulkUpdateResult, cancellationTokenSource.Token));
+                        updateTasks.Add(UpdateResourcePage(patchedResources, resourceType, bundleResourceContext, searchResults, finalBulkUpdateResult, metaHistory, cancellationTokenSource.Token));
                         if (!updateTasks.Any((task) => task.IsFaulted || task.IsCanceled))
                         {
                             AppendUpdateResults(finalBulkUpdateResult.ResourcesUpdated as Dictionary<string, long>, updateTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
@@ -362,8 +362,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Dictionary<string, long> resourcesIgnored,
             Dictionary<string, long> commonPatchFailures,
             Dictionary<string, ConditionalPatchResourceRequest> conditionalPatchResourceRequests,
-            Hl7.Fhir.Model.Parameters fhirPatchParameters,
-            bool metaHistory)
+            Hl7.Fhir.Model.Parameters fhirPatchParameters)
         {
             // searchResults could return resources of same resource type or differenet
             // We need to group by resource type and create applicable patchParameters
@@ -433,7 +432,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         Parameter = newListOfFhirPatchParameters,
                     };
 
-                    var conditionalPatchResourceRequestOut = new ConditionalPatchResourceRequest(distinctResourceTypeOnPage, new FhirPathPatchPayload(newParameters), conditionalParameters, bundleResourceContext, metaHistory: metaHistory);
+                    var conditionalPatchResourceRequestOut = new ConditionalPatchResourceRequest(distinctResourceTypeOnPage, new FhirPathPatchPayload(newParameters), conditionalParameters, bundleResourceContext);
                     conditionalPatchResourceRequests[distinctResourceTypeOnPage] = conditionalPatchResourceRequestOut;
                 }
                 else
@@ -554,6 +553,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             BundleResourceContext bundleResourceContext,
             IReadOnlyCollection<SearchResultEntry> resourcesToUpdate,
             BulkUpdateResult bulkUpdateResultsSoFar,
+            bool metaHistory,
             CancellationToken cancellationToken)
         {
             await CreateAuditLog(
@@ -568,7 +568,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // The result is good enough for background work, but can't be used for metadata as the urls aren't formated properly.
                 bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Value.ResourceElement.InstanceType, cancellationToken);
                 ResourceWrapper updateWrapper = CreateUpdateWrapper(patchedResources[item.Key].ResourceElement);
-                return new ResourceWrapperOperation(updateWrapper, true, keepHistory, null, false, false, bundleResourceContext: bundleResourceContext);
+                return new ResourceWrapperOperation(updateWrapper, true, keepHistory, null, false, false, bundleResourceContext: bundleResourceContext, metaHistory: metaHistory);
             }));
 
             ResourceWrapperOperation[] wrapperOperationsMatches = await Task.WhenAll(patchedResources.Where(pr => !pr.Value.IsInclude).Select(async item =>
@@ -578,7 +578,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // The result is good enough for background work, but can't be used for metadata as the urls aren't formated properly.
                 bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(item.Value.ResourceElement.InstanceType, cancellationToken);
                 ResourceWrapper updateWrapper = CreateUpdateWrapper(patchedResources[item.Key].ResourceElement);
-                return new ResourceWrapperOperation(updateWrapper, true, keepHistory, null, false, false, bundleResourceContext: bundleResourceContext);
+                return new ResourceWrapperOperation(updateWrapper, true, keepHistory, null, false, false, bundleResourceContext: bundleResourceContext, metaHistory: metaHistory);
             }));
 
             var partialResults = new List<(string, string, bool)>();
