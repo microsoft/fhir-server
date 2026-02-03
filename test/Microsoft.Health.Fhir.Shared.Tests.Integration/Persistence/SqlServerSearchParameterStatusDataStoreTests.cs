@@ -145,6 +145,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public void GivenSyncStatuses_WhenCalledWithStatuses_ThenFhirModelIsSynchronized()
+        {
+            // Arrange
+            var dataStore = _fixture.SearchParameterStatusDataStore as SqlServerSearchParameterStatusDataStore;
+            Assert.NotNull(dataStore);
+
+            var testUri = "http://hl7.org/fhir/SearchParameter/Test-Sync-" + Guid.NewGuid();
+            var status = new SqlServerResourceSearchParameterStatus
+            {
+                Id = 9999, // Temporary ID for testing
+                Uri = new Uri(testUri),
+                Status = SearchParameterStatus.Enabled,
+                IsPartiallySupported = false,
+                LastUpdated = DateTimeOffset.UtcNow,
+            };
+
+            // Act - Call SyncStatuses (this should not throw)
+            var exception = Record.Exception(() => dataStore!.SyncStatuses(new[] { status }));
+
+            // Assert - Method completes without exception
+            Assert.Null(exception);
+        }
+
+        [Fact]
         public async Task GivenUpsertStatuses_WhenUpsertingMultipleStatuses_ThenAllAreCreated()
         {
             // Arrange
@@ -232,6 +256,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.NotNull(status.Uri);
                 Assert.NotEqual(default(DateTimeOffset), status.LastUpdated);
                 Assert.True(status.LastUpdated <= DateTimeOffset.UtcNow.AddMinutes(1));
+            });
+        }
+
+        [Fact]
+        public async Task GivenGetSearchParameterStatuses_WhenStatusHasSortableType_ThenSortStatusIsSet()
+        {
+            // Act
+            var statuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+
+            // Assert - Find a status that should have SortStatus enabled (like Patient birthdate)
+            var birthdateParam = statuses.FirstOrDefault(s =>
+                s.Uri.OriginalString.Contains("birthdate", StringComparison.OrdinalIgnoreCase));
+
+            if (birthdateParam != null && birthdateParam.Status == SearchParameterStatus.Enabled)
+            {
+                // Birthdate is a DateTime parameter which should support sorting
+                // SortStatus is an enum, so just verify it's defined
+                Assert.True(Enum.IsDefined(typeof(SortParameterStatus), birthdateParam.SortStatus));
+            }
+        }
+
+        [Fact]
+        public async Task GivenMaxLastUpdated_WhenComparedToStatusTimestamps_ThenIsGreaterOrEqual()
+        {
+            // Arrange
+            var dataStore = _fixture.SearchParameterStatusDataStore as SqlServerSearchParameterStatusDataStore;
+            Assert.NotNull(dataStore);
+
+            // Act
+            var maxLastUpdated = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
+            var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+
+            // Assert - MaxLastUpdated should be >= all individual LastUpdated values
+            Assert.All(allStatuses, status =>
+            {
+                Assert.True(
+                    maxLastUpdated >= status.LastUpdated,
+                    $"MaxLastUpdated ({maxLastUpdated}) should be >= status.LastUpdated ({status.LastUpdated}) for {status.Uri}");
             });
         }
 

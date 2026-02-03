@@ -8,6 +8,7 @@ parameters:
 jobs:
 
 - job: "CosmosIntegrationTests"
+  timeoutInMinutes: 75
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
@@ -15,10 +16,13 @@ jobs:
   - checkout: self
     fetchDepth: 1
     fetchTags: false
+    path: source
 
-  - task: UseDotNet@2
-    inputs:
-      useGlobalJson: true
+  - template: integration-setup.yml
+
+  - template: integration-tests-extract.yml
+    parameters:
+      version: ${{ parameters.version }}
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
@@ -45,10 +49,10 @@ jobs:
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
   - task: DotNetCoreCLI@2
-    displayName: 'Build integration test projects'
+    displayName: 'Build Integration Test Projects'
     inputs:
       command: build
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
       arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
   - task: DotNetCoreCLI@2
@@ -56,8 +60,8 @@ jobs:
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      projects: 'test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~SqlServer --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true
     env:
@@ -93,6 +97,7 @@ jobs:
       reportDirectory: '$(Agent.TempDirectory)/coverage'
 
 - job: 'cosmosE2eTests'
+  timeoutInMinutes: 75
   dependsOn: []
   pool:
     name: '$(SharedLinuxPool)'
@@ -107,6 +112,7 @@ jobs:
       categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
 
 - job: 'cosmosE2eTests_Reindex'
+  timeoutInMinutes: 75
   dependsOn: []
   pool:
     name: '$(SharedLinuxPool)'

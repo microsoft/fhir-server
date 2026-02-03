@@ -82,12 +82,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             var sql = context.StringBuilder.ToString();
-            Assert.Contains("ResourceTypeId", sql);
-            Assert.Contains("ResourceSurrogateId", sql);
-            Assert.Contains("=", sql);
-            Assert.Contains(">", sql);
+
+            // Verify full predicate shape: (ResourceTypeId = X AND ResourceSurrogateId > @...) OR ResourceTypeId IN (...)
+            Assert.Matches(@"ResourceTypeId\s*=\s*1", sql); // Current ResourceTypeId
+            Assert.Matches(@"ResourceSurrogateId\s*>\s*@\w+", sql);
             Assert.Contains("OR", sql);
-            Assert.Contains("IN", sql);
+            Assert.Matches(@"ResourceTypeId\s+IN\s*\(", sql);
+
+            // Verify IN clause contains expected next type ids (2 and 3)
+            Assert.Contains("2", sql);
+            Assert.Contains("3", sql);
         }
 
         [Fact]
@@ -109,8 +113,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             var sql = context.StringBuilder.ToString();
-            Assert.Contains("ResourceTypeId", sql);
-            Assert.Contains("IN", sql);
+            Assert.Matches(@"ResourceTypeId\s+IN\s*\(", sql);
+
+            // Verify IN clause contains the expected resource type ids (2, 3, 7)
+            Assert.Contains("2", sql);
+            Assert.Contains("3", sql);
+            Assert.Contains("7", sql);
 
             // Multiple values should be comma-separated
             Assert.Contains(",", sql);
@@ -182,11 +190,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             var sql = context.StringBuilder.ToString();
-            Assert.Contains("IN", sql);
+            Assert.Matches(@"ResourceTypeId\s+IN\s*\(", sql);
 
-            // Should have multiple comma-separated values
-            var commaCount = sql.Split(',').Length - 1;
-            Assert.True(commaCount >= 9, $"Expected at least 9 commas for 10 values, but found {commaCount}");
+            // Verify IN clause contains all expected resource type ids (0-9)
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.Matches($@"\b{i}\b", sql);
+            }
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

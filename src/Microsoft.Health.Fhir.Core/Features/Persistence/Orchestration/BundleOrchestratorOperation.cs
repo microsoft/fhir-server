@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         private static readonly BundleResourceContextComparer _contextComparer = new BundleResourceContextComparer();
 
         private readonly int _maxExecutionTimeInSeconds;
+        private readonly bool _ensureAtomicOperations = false;
 
         /// <summary>
         /// List of resource to be sent to the data layer.
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// Merge async task, only assigned and executed once.
         /// </summary>
-        private Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> _mergeAsyncTask;
+        private Task<MergeOutcome> _mergeAsyncTask;
 
         /// <summary>
         /// Current instance of data store in use.
@@ -91,6 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _dataStore = null;
 
             _maxExecutionTimeInSeconds = maxExecutionTimeInSeconds;
+            _ensureAtomicOperations = type == BundleOrchestratorOperationType.Transaction;
         }
 
         public Guid Id { get; private set; }
@@ -147,27 +149,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 _knownHttpVerbsInOperation.TryAdd(resource.BundleResourceContext.HttpVerb, 0);
 
                 // Await for the merge async task to complete merging all resources.
-                var ingestedResources = await _mergeAsyncTask;
+                MergeOutcome mergeOutcome = await _mergeAsyncTask;
 
                 DataStoreOperationOutcome dataStoreOperationOutcome;
 
                 try
                 {
                     // Attempt 1: Retrieve from the list of merged records, the one with the same identifier from current thread.
-                    if (!ingestedResources.TryGetValue(identifier, out dataStoreOperationOutcome))
+                    if (!mergeOutcome.Results.TryGetValue(identifier, out dataStoreOperationOutcome))
                     {
                         // Attemp 2: Edge case scenario:
                         // Under racing conditions, it's possible that the same record (<resourceType>/<id>) is present in two bundles running at the same time.
                         // One record is updated first than the second, increasing the version of the record, and then updated once more by the second bundle.
                         // As the version is higher than the expected, the local identifier in the current thread does not match, and an alternative search for
                         // the combination <resourceType>/<id> is required.
-                        var ingestedResourcesById = ingestedResources.Where(i => i.Key.ResourceType == identifier.ResourceType && i.Key.Id == identifier.Id).ToList();
+                        var ingestedResourcesById = mergeOutcome.Results.Where(i => i.Key.ResourceType == identifier.ResourceType && i.Key.Id == identifier.Id).ToList();
 
                         int countOfResourcesFound = ingestedResourcesById.Count;
                         if (countOfResourcesFound == 1)
                         {
-                            // Edge Case scenario: resource was updated by another bundle concurrently, but it was also updated by the current bundle, increasing its version.
-                            _logger.LogWarning($"Edge Case scenario: resource was updated by another request concurrently.");
+                            if (mergeOutcome.State == MergeOutcomeFinalState.CompletedWithFailures)
+                            {
+                                _logger.LogWarning($"An error happened while processing the records. The operation on this resource was not completed. Confirm if this is a transaction and if any precondition invalidated the operation.");
+                            }
+                            else
+                            {
+                                // Edge Case scenario: resource was updated by another bundle concurrently, but it was also updated by the current bundle, increasing its version.
+                                _logger.LogWarning($"Edge Case scenario: resource was updated by another request concurrently.");
+                            }
+
                             dataStoreOperationOutcome = ingestedResourcesById[0].Value;
                         }
                         else if (countOfResourcesFound == 0)
@@ -177,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                                 Id,
                                 nameof(DataStoreOperationOutcome),
                                 _resources.Count,
-                                ingestedResources?.Count);
+                                mergeOutcome.Count);
 
                             throw new BundleOrchestratorException($"There wasn't a valid instance of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource. This is not an expected scenario.");
                         }
@@ -188,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                                 Id,
                                 nameof(DataStoreOperationOutcome),
                                 _resources.Count,
-                                ingestedResources?.Count,
+                                mergeOutcome.Count,
                                 countOfResourcesFound);
 
                             throw new BundleOrchestratorException($"More than two instances of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource were found. This is not an expected scenario.");
@@ -308,7 +318,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
         }
 
-        private async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(CancellationToken cancellationToken)
+        private async Task<MergeOutcome> MergeAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -377,15 +387,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     // Bundle Orchestrator operations will not enlist to C# transactions.
                     // The database will be responsible for handling it internally.
-                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false);
+                    // For Transaction, atomicity will be ensured based on the 'ensureAtomicOperations' flag.
+                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false, ensureAtomicOperations: _ensureAtomicOperations);
 
                     // 2 - Merge all resources in the database.
-                    IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
+                    MergeOutcome mergeOutcome = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
 
+                    if (mergeOutcome.State == MergeOutcomeFinalState.CompletedWithFailures)
+                    {
+                        _logger.LogWarning("Bundle Operation {Id}. Bundle Orchestrator Operation completed with failures before merging resources. No changes at the data layer are expected.", Id);
+                    }
+
                     // 3 - Return all resources processed during the operation.
-                    return response;
+                    return mergeOutcome;
                 }
             }
             catch (OperationCanceledException oce)

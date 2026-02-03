@@ -75,8 +75,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // TokenQueryGenerator should generate SQL for token code
-            Assert.Contains("Code", sql);
+            // TokenQueryGenerator should generate SQL for token code on component 1
+            Assert.Matches(@"Code1\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -98,8 +98,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // NumberQueryGenerator should generate SQL for number comparison
-            Assert.Contains(">=", sql);
+            // NumberQueryGenerator should generate SQL for number comparison with null-guard
+            Assert.Contains("SingleValue2 IS NOT NULL", sql);
+            Assert.Matches(@"SingleValue2\s*>=\s*@\w+", sql);
         }
 
         [Fact]
@@ -121,8 +122,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // NumberQueryGenerator should generate SQL for number comparison
-            Assert.Contains("<", sql);
+            // NumberQueryGenerator should generate SQL for number comparison with null-guard
+            Assert.Contains("SingleValue3 IS NOT NULL", sql);
+            Assert.Matches(@"SingleValue3\s*<\s*@\w+", sql);
         }
 
         [Fact]

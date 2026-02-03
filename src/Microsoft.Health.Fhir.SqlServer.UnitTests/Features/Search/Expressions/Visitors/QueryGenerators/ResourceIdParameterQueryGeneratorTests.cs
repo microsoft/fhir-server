@@ -73,9 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("ResourceId", sql);
-            Assert.Contains("=", sql);
-            Assert.Contains("@", sql); // Should use parameterized query
+            Assert.Matches(@"ResourceId\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -97,8 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("ResourceId", sql);
-            Assert.Contains("LIKE", sql);
+            Assert.Matches(@"ResourceId\s+LIKE\s+@\w+", sql);
 
             // Wildcard pattern should be in parameter, not directly in SQL
             Assert.DoesNotContain("pat%", sql);
@@ -123,8 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Assert
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Contains("ResourceId", sql);
-            Assert.Contains("LIKE", sql);
+            Assert.Matches(@"ResourceId\s+LIKE\s+@\w+", sql);
         }
 
         [Fact]

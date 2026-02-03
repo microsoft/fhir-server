@@ -75,8 +75,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // TokenQueryGenerator should generate SQL for token code
-            Assert.Contains("Code", sql);
+            // TokenQueryGenerator should generate SQL for token code with component index suffix
+            Assert.Matches(@"Code1\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -105,8 +105,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // TokenQueryGenerator should generate SQL for token code
-            Assert.Contains("Code", sql);
+            // TokenQueryGenerator should generate SQL for token code on component 2
+            Assert.Matches(@"Code2\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -165,9 +165,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.NotEmpty(sqlAfterBoth);
             Assert.True(sqlAfterBoth.Length > sqlAfterToken1.Length, "Both components should generate SQL");
 
-            // Should contain multiple Code references (one for each component)
-            var codeCount = sqlAfterBoth.Split("Code").Length - 1;
-            Assert.True(codeCount >= 2, "Should have at least 2 Code references for both token components");
+            // Should contain both Code1 and Code2 with proper predicate structure for the two token components
+            Assert.Matches(@"Code1\s*=\s*@\w+", sqlAfterBoth);
+            Assert.Matches(@"Code2\s*=\s*@\w+", sqlAfterBoth);
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

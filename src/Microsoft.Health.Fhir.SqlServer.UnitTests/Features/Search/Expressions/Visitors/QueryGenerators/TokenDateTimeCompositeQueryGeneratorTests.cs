@@ -75,8 +75,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // TokenQueryGenerator should generate SQL for token code
-            Assert.Contains("Code", sql);
+            // TokenQueryGenerator should generate SQL for token code on component 1
+            Assert.Matches(@"Code1\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -99,9 +99,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
 
-            // DateTimeQueryGenerator should generate SQL for datetime comparison
-            Assert.Contains("StartDateTime", sql);
-            Assert.Contains(">=", sql);
+            // DateTimeQueryGenerator should generate SQL for datetime comparison on component 2
+            Assert.Matches(@"StartDateTime2\s*>=\s*@\w+", sql);
         }
 
         [Fact]

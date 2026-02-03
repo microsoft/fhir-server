@@ -69,8 +69,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.QuantitySearchParam.SingleValue.Metadata.Name, sql);
-            Assert.Contains("IS NOT NULL", sql);
-            Assert.Contains(GetOperatorString(binaryOperator), sql);
+            Assert.Contains($"{VLatest.QuantitySearchParam.SingleValue.Metadata.Name} IS NOT NULL", sql);
+            Assert.Matches($@"{VLatest.QuantitySearchParam.SingleValue.Metadata.Name}\s*{System.Text.RegularExpressions.Regex.Escape(GetOperatorString(binaryOperator))}\s*@\w+", sql);
             Assert.True(context.Parameters.HasParametersToHash);
         }
 
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             Assert.Contains(VLatest.QuantitySearchParam.LowValue.Metadata.Name, sql);
             Assert.DoesNotContain("IS NOT NULL", sql);
-            Assert.Contains(">=", sql);
+            Assert.Matches($@"{VLatest.QuantitySearchParam.LowValue.Metadata.Name}\s*>=\s*@\w+", sql);
         }
 
         [Fact]
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             Assert.Contains(VLatest.QuantitySearchParam.HighValue.Metadata.Name, sql);
             Assert.DoesNotContain("IS NOT NULL", sql);
-            Assert.Contains("<=", sql);
+            Assert.Matches($@"{VLatest.QuantitySearchParam.HighValue.Metadata.Name}\s*<=\s*@\w+", sql);
         }
 
         [Fact]
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.QuantitySearchParam.QuantityCodeId.Metadata.Name, sql);
-            Assert.Contains("=", sql);
+            Assert.Matches($@"{VLatest.QuantitySearchParam.QuantityCodeId.Metadata.Name}\s*=\s*@\w+", sql);
         }
 
         [Fact]
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.QuantitySearchParam.SystemId.Metadata.Name, sql);
-            Assert.Contains("=", sql);
+            Assert.Matches($@"{VLatest.QuantitySearchParam.SystemId.Metadata.Name}\s*=\s*@\w+", sql);
         }
 
         [Fact]

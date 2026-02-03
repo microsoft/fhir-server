@@ -71,8 +71,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.NumberSearchParam.SingleValue.Metadata.Name, sql);
-            Assert.Contains("IS NOT NULL", sql);
-            Assert.Contains(GetOperatorString(binaryOperator), sql);
+            Assert.Contains($"{VLatest.NumberSearchParam.SingleValue.Metadata.Name} IS NOT NULL", sql);
+            Assert.Matches($@"{VLatest.NumberSearchParam.SingleValue.Metadata.Name}\s*{System.Text.RegularExpressions.Regex.Escape(GetOperatorString(binaryOperator))}\s*@\w+", sql);
             Assert.NotEmpty(sql);
             Assert.True(context.Parameters.HasParametersToHash);
         }
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             Assert.Contains(VLatest.NumberSearchParam.LowValue.Metadata.Name, sql);
             Assert.DoesNotContain("IS NOT NULL", sql); // LowValue is not nullable
-            Assert.Contains(GetOperatorString(binaryOperator), sql);
+            Assert.Matches($@"{VLatest.NumberSearchParam.LowValue.Metadata.Name}\s*{System.Text.RegularExpressions.Regex.Escape(GetOperatorString(binaryOperator))}\s*@\w+", sql);
         }
 
         [Theory]
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             Assert.Contains(VLatest.NumberSearchParam.HighValue.Metadata.Name, sql);
             Assert.DoesNotContain("IS NOT NULL", sql); // HighValue is not nullable
-            Assert.Contains(GetOperatorString(binaryOperator), sql);
+            Assert.Matches($@"{VLatest.NumberSearchParam.HighValue.Metadata.Name}\s*{System.Text.RegularExpressions.Regex.Escape(GetOperatorString(binaryOperator))}\s*@\w+", sql);
         }
 
         [Fact]

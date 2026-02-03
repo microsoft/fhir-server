@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains(VLatest.UriSearchParam.Uri.Metadata.Name, sql);
-            Assert.Contains("=", sql);
+            Assert.Matches($@"{VLatest.UriSearchParam.Uri.Metadata.Name}\s*=\s*@\w+", sql);
             Assert.True(context.Parameters.HasParametersToHash);
         }
 
