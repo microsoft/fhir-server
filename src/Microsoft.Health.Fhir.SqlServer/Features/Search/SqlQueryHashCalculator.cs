@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var hashEndIndex = query[hashStartIndex..].IndexOf(SqlQueryGenerator.ParametersHashEnd, StringComparison.OrdinalIgnoreCase);
-            var hashLine = query[hashStartIndex..(hashStartIndex + hashEndIndex + SqlQueryGenerator.ParametersHashEnd.Length)];
+            var hashLine = query[hashStartIndex..(hashStartIndex + hashEndIndex + SqlQueryGenerator.ParametersHashStart.Length)];
             return query.Replace(hashLine, string.Empty, StringComparison.OrdinalIgnoreCase);
         }
     }

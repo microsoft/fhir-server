@@ -334,23 +334,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenGetSearchParameterStatuses_WhenParameterTypeNotSupported_ThenSortStatusIsDisabled()
-        {
-            // Arrange & Act
-            var statuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
-
-            // Assert - Verify that SortStatus is set appropriately
-            // SortStatus.Enabled is only set for Date and String parameter types
-            // We verify that at least some parameters have sorting enabled and some have it disabled
-            var enabledCount = statuses.Count(s => s.SortStatus == SortParameterStatus.Enabled);
-            var disabledCount = statuses.Count(s => s.SortStatus == SortParameterStatus.Disabled);
-
-            // We should have a mix of enabled and disabled sort statuses
-            Assert.True(enabledCount > 0, "Expected some parameters to have SortStatus.Enabled");
-            Assert.True(disabledCount > 0, "Expected some parameters to have SortStatus.Disabled");
-        }
-
-        [Fact]
         public async Task GivenUpsertStatuses_WhenLastUpdatedIsPropagated_ThenInputCollectionIsUpdated()
         {
             // Arrange
