@@ -41,23 +41,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _idDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        [Fact]
-        public async Task GivenATransactionBundle_WhenContainsUniqueResources_ThenNoExceptionShouldBeThrown()
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+
+        public async Task GivenATransactionBundle_WhenContainsUniqueResources_ThenNoExceptionShouldBeThrown(BundleProcessingLogic processingLogic)
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
-            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), processingLogic, _idDictionary, CancellationToken.None);
 
             ValidateIdDictionaryPopulatedCorrectly(_idDictionary, Array.Empty<Action<KeyValuePair<string, (string resourceId, string resourceType)>>>());
         }
 
-        [Fact]
-        public async Task GivenATransactionBundle_WhenContainsAnExistingResource_ThenIdDictionaryShouldBeUpdated()
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenATransactionBundle_WhenContainsAnExistingResource_ThenIdDictionaryShouldBeUpdated(BundleProcessingLogic processingLogic)
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
             MockSearchAsync(1);
 
-            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), processingLogic, _idDictionary, CancellationToken.None);
 
             var expectedEntries = new[]
             {
@@ -76,47 +81,96 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 expectedEntries);
         }
 
-        [Fact]
-        public async Task GivenATransactionBundle_WhenContainsMultipleMatchingExistingResource_ThenPreconditionFailedExceptionShouldBeThrown()
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenATransactionBundle_WhenContainsMultipleMatchingExistingResource_ThenPreconditionFailedExceptionShouldBeThrown(BundleProcessingLogic processingLogic)
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
             MockSearchAsync(2);
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
+            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _transactionBundleValidator.ValidateBundle(
+                requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(),
+                processingLogic,
+                _idDictionary,
+                CancellationToken.None));
         }
 
         [Theory]
-        [InlineData("Bundle-TransactionWithConditionalReferenceReferringToSameResource", "Patient?identifier=http:/example.org/fhir/ids|234234")]
-        [InlineData("Bundle-TransactionWithMultipleEntriesModifyingSameResource", "Patient/123")]
-        public async Task GivenATransactionBundle_WhenContainsMultipleEntriesWithTheSameResource_ThenRequestNotValidExceptionShouldBeThrown(string inputBundle, string requestedUrlInErrorMessage)
+        [InlineData(BundleProcessingLogic.Sequential, "Bundle-TransactionWithConditionalReferenceReferringToSameResource", "Patient?identifier=http:/example.org/fhir/ids|234234")]
+        [InlineData(BundleProcessingLogic.Sequential, "Bundle-TransactionWithMultipleEntriesModifyingSameResource", "Patient/123")]
+        [InlineData(BundleProcessingLogic.Parallel, "Bundle-TransactionWithConditionalReferenceReferringToSameResource", "Patient?identifier=http:/example.org/fhir/ids|234234")]
+        [InlineData(BundleProcessingLogic.Parallel, "Bundle-TransactionWithMultipleEntriesModifyingSameResource", "Patient/123")]
+        public async Task GivenATransactionBundle_WhenContainsMultipleEntriesWithTheSameResource_ThenRequestNotValidExceptionShouldBeThrown(BundleProcessingLogic processingLogic, string inputBundle, string requestedUrlInErrorMessage)
         {
             var expectedMessage = "Bundle contains multiple entries that refers to the same resource '" + requestedUrlInErrorMessage + "'.";
 
             var requestBundle = Samples.GetJsonSample(inputBundle);
-            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => ValidateIfBundleEntryIsUniqueAsync(requestBundle));
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => ValidateIfBundleEntryIsUniqueAsync(requestBundle, processingLogic));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
-        [Fact]
-        public async Task GivenATransactionBundle_WhenContainsEntryWithConditionalDelete_ThenRequestNotValidExceptionShouldBeThrown()
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenATransactionBundle_WhenContainsEntryWithConditionalDelete_ThenRequestNotValidExceptionShouldBeThrown(BundleProcessingLogic processingLogic)
         {
             var expectedMessage = "Requested operation 'Patient?identifier=123456' is not supported using DELETE.";
 
             var requestBundle = Samples.GetDefaultTransaction();
-            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(
+                requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(),
+                processingLogic,
+                _idDictionary,
+                CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
-        [Fact]
-        public async Task GivenATransactionBundle_WhenContainsMetaHistoryEntry_ThenNoExceptionShouldBeThrown()
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenATransactionBundle_WhenContainsMetaHistoryEntry_ThenNoExceptionShouldBeThrown(BundleProcessingLogic processingLogic)
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMetaHistory");
-            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(
+                requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(),
+                processingLogic,
+                _idDictionary,
+                CancellationToken.None);
         }
 
-        [Fact]
-        public async Task GivenATransactionBundle_WhenContainsEntryWithHardDelete_ThenNoExceptionShouldBeThrown()
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential)]
+        public async Task GivenATransactionBundle_WhenContainsEntryWithHardDelete_ThenNoExceptionShouldBeThrown(BundleProcessingLogic processingLogic)
+        {
+            // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update the Parallel test above.
+
+            // Arrange
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Hl7.Fhir.Model.Bundle.BundleType.Transaction,
+                Entry = new List<Hl7.Fhir.Model.Bundle.EntryComponent>
+                {
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new Hl7.Fhir.Model.Bundle.RequestComponent
+                        {
+                            Method = Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE,
+                            Url = "Patient/123?_hardDelete=true",
+                        },
+                        Resource = new Hl7.Fhir.Model.Patient { Id = "123" },
+                    },
+                },
+            };
+
+            // Act & Assert - Should not throw
+            await _transactionBundleValidator.ValidateBundle(bundle, processingLogic, _idDictionary, CancellationToken.None);
+        }
+
+        [Theory]
+        [InlineData(BundleProcessingLogic.Parallel)]
+        public async Task GivenATransactionBundle_WhenContainsEntryWithHardDelete_ThenExceptionShouldBeThrownWhenExecutedInParallel(BundleProcessingLogic processingLogic)
         {
             // Arrange
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -137,14 +191,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
 
             // Act & Assert - Should not throw
-            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+            await Assert.ThrowsAsync<RequestNotValidException>(async () =>
+            {
+                await _transactionBundleValidator.ValidateBundle(bundle, processingLogic, _idDictionary, CancellationToken.None);
+            });
         }
 
         [Theory]
-        [InlineData("Patient?identifier=123456", "Requested operation 'Patient?identifier=123456' is not supported using DELETE.")]
-        [InlineData("Patient?name=John", "Requested operation 'Patient?name=John' is not supported using DELETE.")]
-        [InlineData("Observation?code=12345", "Requested operation 'Observation?code=12345' is not supported using DELETE.")]
-        public async Task GivenATransactionBundle_WhenContainsConditionalDelete_ThenRequestNotValidExceptionShouldBeThrown(string requestUrl, string expectedMessage)
+        [InlineData(BundleProcessingLogic.Sequential, "Patient?identifier=123456", "Requested operation 'Patient?identifier=123456' is not supported using DELETE.")]
+        [InlineData(BundleProcessingLogic.Sequential, "Patient?name=John", "Requested operation 'Patient?name=John' is not supported using DELETE.")]
+        [InlineData(BundleProcessingLogic.Sequential, "Observation?code=12345", "Requested operation 'Observation?code=12345' is not supported using DELETE.")]
+        [InlineData(BundleProcessingLogic.Parallel, "Patient?identifier=123456", "Requested operation 'Patient?identifier=123456' is not supported using DELETE.")]
+        [InlineData(BundleProcessingLogic.Parallel, "Patient?name=John", "Requested operation 'Patient?name=John' is not supported using DELETE.")]
+        [InlineData(BundleProcessingLogic.Parallel, "Observation?code=12345", "Requested operation 'Observation?code=12345' is not supported using DELETE.")]
+        public async Task GivenATransactionBundle_WhenContainsConditionalDelete_ThenRequestNotValidExceptionShouldBeThrown(BundleProcessingLogic processingLogic, string requestUrl, string expectedMessage)
         {
             // Arrange
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -166,15 +226,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(
-                () => _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
+                () => _transactionBundleValidator.ValidateBundle(bundle, processingLogic, _idDictionary, CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
         [Theory]
-        [InlineData("Patient/123?_hardDelete=true")]
-        [InlineData("Observation/456?_purge=true")]
-        [InlineData("Patient/789?_hardDelete=true&_cascade=delete")]
-        public async Task GivenATransactionBundle_WhenContainsDeleteWithResourceIdAndQueryParams_ThenNoExceptionShouldBeThrown(string requestUrl)
+        [InlineData(BundleProcessingLogic.Sequential, "Patient/123?_hardDelete=true")]
+        [InlineData(BundleProcessingLogic.Sequential, "Observation/456?_purge=true")]
+        [InlineData(BundleProcessingLogic.Sequential, "Patient/789?_hardDelete=true&_cascade=delete")]
+        [InlineData(BundleProcessingLogic.Parallel, "Observation/456?_purge=true")]
+        public async Task GivenATransactionBundle_WhenContainsDeleteWithResourceIdAndQueryParams_ThenNoExceptionShouldBeThrown(BundleProcessingLogic processingLogic, string requestUrl)
         {
             // Arrange - These are hard deletes with resource IDs and query parameters
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -195,13 +256,44 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
 
             // Act & Assert - Should not throw
-            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(bundle, processingLogic, _idDictionary, CancellationToken.None);
         }
 
         [Theory]
-        [InlineData("")]
-        [InlineData("?test")]
-        public async Task GivenATransactionBundle_WhenUrlIsNotWellFormed_ThenRequestNotValidExceptionShouldBeThrown(string invalidUrl)
+        [InlineData(BundleProcessingLogic.Parallel, "Patient/123?_hardDelete=true")]
+        [InlineData(BundleProcessingLogic.Parallel, "Patient/789?_hardDelete=true&_cascade=delete")]
+        public async Task GivenATransactionBundle_WhenContainsDeleteWithResourceIdAndQueryParams_ThenExceptionShouldBeThrownWhenInParallel(BundleProcessingLogic processingLogic, string requestUrl)
+        {
+            // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update the Parallel test above.
+
+            // Arrange - These are hard deletes with resource IDs and query parameters
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Hl7.Fhir.Model.Bundle.BundleType.Transaction,
+                Entry = new List<Hl7.Fhir.Model.Bundle.EntryComponent>
+                {
+                    new Hl7.Fhir.Model.Bundle.EntryComponent
+                    {
+                        Request = new Hl7.Fhir.Model.Bundle.RequestComponent
+                        {
+                            Method = Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE,
+                            Url = requestUrl,
+                        },
+                        Resource = new Hl7.Fhir.Model.Patient(),
+                    },
+                },
+            };
+
+            // As the request is for a parallel bundle, then exceptions should be thrown.
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => { await _transactionBundleValidator.ValidateBundle(bundle, processingLogic, _idDictionary, CancellationToken.None); });
+        }
+
+        [Theory]
+        [InlineData(BundleProcessingLogic.Sequential, "")]
+        [InlineData(BundleProcessingLogic.Sequential, "?test")]
+        [InlineData(BundleProcessingLogic.Parallel, "")]
+        [InlineData(BundleProcessingLogic.Parallel, "?test")]
+        public async Task GivenATransactionBundle_WhenUrlIsNotWellFormed_ThenRequestNotValidExceptionShouldBeThrown(BundleProcessingLogic processingLogic, string invalidUrl)
         {
             var bundle = Samples.GetBasicTransactionBundleWithSingleResource();
 
@@ -211,7 +303,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Url = invalidUrl,
             };
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(bundle, processingLogic, _idDictionary, CancellationToken.None));
         }
 
         private static void ValidateIdDictionaryPopulatedCorrectly(Dictionary<string, (string resourceId, string resourceType)> idDictionary, Action<KeyValuePair<string, (string resourceId, string resourceType)>>[] actions)
@@ -219,7 +311,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Collection(idDictionary, actions);
         }
 
-        private async Task ValidateIfBundleEntryIsUniqueAsync(ResourceElement requestBundle)
+        private async Task ValidateIfBundleEntryIsUniqueAsync(ResourceElement requestBundle, BundleProcessingLogic processingLogic)
         {
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
@@ -227,7 +319,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(mockSearchResult);
 
-            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(bundle, processingLogic, _idDictionary, CancellationToken.None);
         }
 
         private void MockSearchAsync(int resultCount)

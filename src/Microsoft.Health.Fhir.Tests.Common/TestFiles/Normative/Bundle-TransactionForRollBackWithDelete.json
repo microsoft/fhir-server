@@ -9,9 +9,15 @@
             }
         },
         {
+            "request": {
+                "method": "DELETE",
+                "url": "Patient/patient-rollback-1"
+            }
+        },
+        {
             "resource": {
                 "resourceType": "Patient",
-                "id": "patient-rollback-1",
+                "id": "patient-rollback-2",
                 "identifier": [
                     {
                         "use": "official",
