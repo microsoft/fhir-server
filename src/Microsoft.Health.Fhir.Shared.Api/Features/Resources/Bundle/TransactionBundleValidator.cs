@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Conditional Delete operation is NOT supported.
             // However, hard deletes (DELETE {type}/{id}?_hardDelete=true) are allowed in SEQUENTIAL BUNDLES, as they use C# Transactions.
-            // Hard deletes in PARALLEL BUNDLES are not allowed, as they are not covered by a unique SQL Transaction.
+            // Hard deletes and historical purge in PARALLEL BUNDLES are not allowed, as they are not covered by a unique SQL Transaction (Work item #182638).
             // Conditional deletes have the pattern: DELETE {type}?{query} (no resource ID).
             if (requestMethod == HTTPVerb.DELETE && requestUrl.Contains('?', StringComparison.Ordinal))
             {
@@ -176,7 +176,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
                 }
 
-                if (processingLogic == BundleProcessingLogic.Parallel && requestUrl.Contains("_hardDelete=true", StringComparison.OrdinalIgnoreCase))
+                // TODO: 182638 - Add support to hard deletes in parallel processing mode.
+                if (processingLogic == BundleProcessingLogic.Parallel &&
+                    (requestUrl.Contains("_hardDelete=true", StringComparison.OrdinalIgnoreCase) || requestUrl.Contains("_purge=true", StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
                 }

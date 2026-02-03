@@ -145,6 +145,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenATransactionBundle_WhenContainsEntryWithHardDelete_ThenNoExceptionShouldBeThrown(BundleProcessingLogic processingLogic)
         {
             // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update the Parallel test above.
+            // TODO: 182638 - Add support to hard deletes in parallel processing mode.
 
             // Arrange
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -234,7 +235,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleProcessingLogic.Sequential, "Patient/123?_hardDelete=true")]
         [InlineData(BundleProcessingLogic.Sequential, "Observation/456?_purge=true")]
         [InlineData(BundleProcessingLogic.Sequential, "Patient/789?_hardDelete=true&_cascade=delete")]
-        [InlineData(BundleProcessingLogic.Parallel, "Observation/456?_purge=true")]
         public async Task GivenATransactionBundle_WhenContainsDeleteWithResourceIdAndQueryParams_ThenNoExceptionShouldBeThrown(BundleProcessingLogic processingLogic, string requestUrl)
         {
             // Arrange - These are hard deletes with resource IDs and query parameters
@@ -260,11 +260,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Theory]
+        [InlineData(BundleProcessingLogic.Parallel, "Observation/456?_purge=true")]
         [InlineData(BundleProcessingLogic.Parallel, "Patient/123?_hardDelete=true")]
         [InlineData(BundleProcessingLogic.Parallel, "Patient/789?_hardDelete=true&_cascade=delete")]
         public async Task GivenATransactionBundle_WhenContainsDeleteWithResourceIdAndQueryParams_ThenExceptionShouldBeThrownWhenInParallel(BundleProcessingLogic processingLogic, string requestUrl)
         {
             // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update the Parallel test above.
+            // TODO: 182638 - Add support to hard deletes in parallel processing mode.
 
             // Arrange - These are hard deletes with resource IDs and query parameters
             var bundle = new Hl7.Fhir.Model.Bundle

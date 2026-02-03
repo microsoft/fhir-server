@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
+using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -138,7 +139,61 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(FhirBundleProcessingLogic.Sequential, true)]
         public async Task GivenATransactionBundleWithDelete_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndNoOperationCompletes(FhirBundleProcessingLogic processingLogic, bool hardDeletes)
         {
+            // This test evaluates if, during a transaction bundle that includes delete operations, a failure in any operation results in a complete rollback of the transaction.
+
+            // TODO: 182638 - Add support to hard deletes in parallel processing mode.
+
             await TestBundleTransactionsRollbacksWithDeletesAsync(processingLogic, hardDeletes: hardDeletes, CancellationToken.None);
+        }
+
+        [RetryTheory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel, false)]
+        [InlineData(FhirBundleProcessingLogic.Sequential, false)]
+        [InlineData(FhirBundleProcessingLogic.Sequential, true)]
+        public async Task GivenATransactionBundleWithDelete_WhenTransactionExecutionSucceeds_ThenTransactionIsCompletedAndRecordsAreDeleted(FhirBundleProcessingLogic processingLogic, bool hardDeletes)
+        {
+            // This test evaluates if, during a transaction bundle that includes delete operations, all operations complete successfully and the records are deleted as expected.
+
+            // TODO: 182638 - Add support to hard deletes in parallel processing mode.
+
+            await TestBundleTransactionsWithDeletesAsync(processingLogic, hardDeletes: hardDeletes, CancellationToken.None);
+        }
+
+        [RetryTheory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData("_hardDelete")]
+        [InlineData("_purge")]
+        public async Task GivenAParallelTransactionalBundle_WhenHardDeleteOrPurgeIncluded_ThenTransactionIsExpectedToFaildWithHttp400(string parameter)
+        {
+            // This test evaluates if, during a parallel transaction bundles one of the operations is a hard delete or purge, the transaction fails as both are not supported in parallel processing mode.
+
+            // TODO: 182638 - Add support to hard deletes in parallel processing mode.
+
+            FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Parallel;
+
+            var bundleJson = Samples.GetJsonSample("Bundle-TransactionWithDelete");
+            Bundle bundle = bundleJson.ToPoco<Bundle>();
+
+            // Modify the delete requests to be hard deletes.
+            foreach (var entry in bundle.Entry.Where(e => e.Request.Method == HTTPVerb.DELETE))
+            {
+                entry.Request.Url = $"{entry.Request.Url}?{parameter}=true";
+            }
+
+            try
+            {
+                await _client.PostBundleAsync(
+                    bundle,
+                    new FhirBundleOptions() { BundleProcessingLogic = processingLogic },
+                    CancellationToken.None);
+            }
+            catch (FhirClientException e)
+            {
+                Assert.False(e.Response.Response.IsSuccessStatusCode, $"Parallel Bundles are expected to fail with _hardDelete/_purge operations.");
+                Assert.True(e.Response.Response.StatusCode == HttpStatusCode.BadRequest, $"Parallel Bundles with _hardDelete/_purge operations are expected to fail with HttpStatusCode 400 but received {e.Response.Response.StatusCode}.");
+                Assert.Contains("is not supported using DELETE.", e.OperationOutcome.Issue.First().Diagnostics);
+            }
         }
 
         [Fact]
@@ -791,6 +846,136 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(foundReference, "Patient reference wasn't found.");
         }
 
+        private async Task TestBundleTransactionsWithDeletesAsync(FhirBundleProcessingLogic processingLogic, bool hardDeletes, CancellationToken cancellationToken)
+        {
+            // 1 - Load information from sample.
+            var bundleJson = Samples.GetJsonSample("Bundle-TransactionWithDelete");
+            Bundle bundle = bundleJson.ToPoco<Bundle>();
+
+            string patientId0 = bundle.Entry[0].Request.Url.Split("/")[1];
+            string patientId1 = bundle.Entry[1].Request.Url.Split("/")[1];
+            string patientId2 = bundle.Entry[2].Resource.Id;
+            string observationId0 = bundle.Entry[3].Resource.Id;
+
+            if (hardDeletes)
+            {
+                // Modify the delete requests to be hard deletes.
+                foreach (var entry in bundle.Entry.Where(e => e.Request.Method == HTTPVerb.DELETE))
+                {
+                    entry.Request.Url = $"{entry.Request.Url}?_hardDelete=true";
+                }
+            }
+
+            // 2 - Create resources that will be deleted in the transaction.
+            Patient patient0 = new Patient
+            {
+                Id = patientId0,
+                Active = true,
+                Name = new List<HumanName>
+                {
+                    new HumanName
+                    {
+                        Family = "Doe",
+                        Given = new[] { "John" },
+                    },
+                },
+                Identifier = new List<Identifier>
+                {
+                    new Identifier
+                    {
+                        System = "http://example.org/fhir/ids",
+                        Value = patientId0,
+                    },
+                },
+            };
+
+            Patient patient1 = new Patient
+            {
+                Id = patientId1,
+                Active = true,
+                Name = new List<HumanName>
+                {
+                    new HumanName
+                    {
+                        Family = "John",
+                        Given = new[] { "Doe" },
+                    },
+                },
+                Identifier = new List<Identifier>
+                {
+                    new Identifier
+                    {
+                        System = "http://example.org/fhir/ids",
+                        Value = patientId0,
+                    },
+                },
+            };
+
+            // Creating Patient-0
+            FhirResponse<Patient> putPatient0Response = await _client.UpdateAsync($"Patient/{patientId0}", patient0, cancellationToken: cancellationToken);
+            DateTimeOffset? creationTimePatient0 = putPatient0Response.Resource.Meta.LastUpdated;
+            Assert.True(putPatient0Response.Response.IsSuccessStatusCode, "The creation of the Patient is expected, as this patient is used as part of the validations.");
+            Assert.True(patientId0 == putPatient0Response.Resource.Id, $"Patient ID is expected to be created as '{patientId0}'.");
+
+            // Creating Patient-1
+            FhirResponse<Patient> putPatient1Response = await _client.UpdateAsync($"Patient/{patientId1}", patient1, cancellationToken: cancellationToken);
+            DateTimeOffset? creationTimePatient1 = putPatient1Response.Resource.Meta.LastUpdated;
+            Assert.True(putPatient1Response.Response.IsSuccessStatusCode, "The creation of the Patient is expected, as this patient is used as part of the validations.");
+            Assert.True(patientId1 == putPatient1Response.Resource.Id, $"Patient ID is expected to be created as '{patientId1}'.");
+
+            // 3 - Execute transaction that is expected to fail.
+            await _client.PostBundleAsync(
+                bundle,
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic },
+                cancellationToken);
+
+            // 4 - Validate if Patients are deleted.
+            FhirResponse<Patient> getPatient0Response = null;
+            try
+            {
+                getPatient0Response = await _client.ReadAsync<Patient>($"Patient/{patientId0}", cancellationToken: cancellationToken);
+                Assert.Fail($"The Patient is expected to be deleted, as the transaction is expected to be completed. HTTP Status: {getPatient0Response.Response.StatusCode}.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.False(e.Response.Response.IsSuccessStatusCode, $"The Patient is expected to be deleted, as the transaction is expected to be completed. HTTP Status: {e.Response.Response.StatusCode}.");
+            }
+
+            FhirResponse<Patient> getPatient1Response = null;
+            try
+            {
+                getPatient1Response = await _client.ReadAsync<Patient>($"Patient/{patientId1}", cancellationToken: cancellationToken);
+                Assert.Fail($"The Patient is expected to be deleted, as the transaction is expected to be completed. HTTP Status: {getPatient1Response.Response.StatusCode}.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.False(e.Response.Response.IsSuccessStatusCode, $"The Patient is expected to be deleted, as the transaction is expected to be completed. HTTP Status: {e.Response.Response.StatusCode}.");
+            }
+
+            // 5 - Validate if other resources exist.
+            try
+            {
+                FhirResponse<Patient> getPatient2Response = await _client.ReadAsync<Patient>($"Patient/{patientId2}", cancellationToken: cancellationToken);
+                Assert.True(getPatient2Response.Response.IsSuccessStatusCode, $"The Patient is expected to exist, as the transaction is expected to be completed. HTTP Status: {getPatient2Response.Response.StatusCode}");
+                Assert.True(getPatient2Response.Resource.Id == patientId2, $"The Patient ID is expected to be '{patientId2}'.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.Fail($"The Patient '{patientId2}' is expected to exist, as the transaction is expected to be completed. HTTP Status: {e.Response.Response.StatusCode}");
+            }
+
+            try
+            {
+                FhirResponse<Observation> getObservation0Response = await _client.ReadAsync<Observation>($"Observation/{observationId0}", cancellationToken: cancellationToken);
+                Assert.True(getObservation0Response.Response.IsSuccessStatusCode, $"The Observation is expected to exist, as the transaction is expected to be completed. HTTP Status: {getObservation0Response.Response.StatusCode}");
+                Assert.True(getObservation0Response.Resource.Id == observationId0, $"The Observation ID is expected to be '{observationId0}'.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.Fail($"The Observation '{observationId0}' is expected to exist, as the transaction is expected to be completed. HTTP Status: {e.Response.Response.StatusCode}");
+            }
+        }
+
         private async Task TestBundleTransactionsRollbacksWithDeletesAsync(FhirBundleProcessingLogic processingLogic, bool hardDeletes, CancellationToken cancellationToken)
         {
             // 1 - Load information from sample.
@@ -805,16 +990,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (hardDeletes)
             {
                 // Modify the delete requests to be hard deletes.
-                foreach (var entry in bundle.Entry)
+                foreach (var entry in bundle.Entry.Where(e => e.Request.Method == HTTPVerb.DELETE))
                 {
-                    if (entry.Request.Method == HTTPVerb.DELETE)
-                    {
-                        entry.Request.Url = $"{entry.Request.Url}?_hardDelete=true";
-                    }
+                    entry.Request.Url = $"{entry.Request.Url}?_hardDelete=true";
                 }
             }
 
-            // 2 - Create resource that will be attempted to be deleted in the transaction.
+            // 2 - Create resources that will be attempted to be deleted in the transaction.
             Patient patient0 = new Patient
             {
                 Id = patientId0,
@@ -937,7 +1119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             try
             {
                 FhirResponse<Patient> getPatient2Response = await _client.ReadAsync<Patient>($"Patient/{patientId2}", cancellationToken: cancellationToken);
-                Assert.Fail($"The Patient '{patientId2}' is not expected to exist, as the transaction is expected to be rolled back.");
+                Assert.Fail($"The Patient '{patientId2}' is not expected to exist, as the transaction is expected to be rolled back. HTTP Status: {getPatient2Response.StatusCode}");
             }
             catch (FhirClientException e)
             {
@@ -947,7 +1129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             try
             {
                 FhirResponse<Observation> getObservation0Response = await _client.ReadAsync<Observation>($"Observation/{observationId0}", cancellationToken: cancellationToken);
-                Assert.Fail($"The Observation '{observationId0}' is not expected to exist, as the transaction is expected to be rolled back.");
+                Assert.Fail($"The Observation '{observationId0}' is not expected to exist, as the transaction is expected to be rolled back. HTTP Status: {getObservation0Response.StatusCode}");
             }
             catch (FhirClientException e)
             {
