@@ -28,22 +28,26 @@
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('UnitTest'))">
       <ItemGroup>
-        <Content Include="$(MSBuildThisFileDirectory)/xunit.runner.json">
-          <Link>xunit.runner.json</Link>
+        <Content Include="$(MSBuildThisFileDirectory)/xunit.v3.runner.json">
+          <Link>xunit.v3.runner.json</Link>
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
       </ItemGroup>
     </When>
   </Choose>
 
+  <!-- Test project configuration for xUnit 3 and Microsoft Testing Platform -->
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">
       <PropertyGroup>
         <IsPackable>false</IsPackable>
+        <OutputType>Exe</OutputType>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
       <ItemGroup>
         <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
+        <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
       </ItemGroup>
     </When>
     <Otherwise>
