@@ -214,7 +214,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
 
                         // Update the LastUpdated in our original collection for future operations
-                        // TODO: We are returning only new statuses, do we need update LastUpdated on "old" statuses
                         var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
                         if (matchingStatus != null)
                         {
