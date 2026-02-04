@@ -197,9 +197,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterStatusManager.ClearReceivedCalls(); // Clear any previous calls
             _searchParameterOperations.ClearReceivedCalls();
 
-            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
-                .Returns(true); // Cache is stale
-
             // Set initialized to true to allow timer to run
             await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
@@ -207,7 +204,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await Task.Delay(200);
 
             // Assert - use at least 1 call since timer might fire multiple times in test environment
-            await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
             await _searchParameterOperations.Received().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
 
@@ -218,17 +214,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterStatusManager.ClearReceivedCalls(); // Clear any previous calls
             _searchParameterOperations.ClearReceivedCalls();
 
-            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
-                .Returns(false); // Cache is fresh
-
             // Set initialized to true to allow timer to run
             await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
             await Task.Delay(200);
-
-            // Assert - verify the timer is working and EnsureCacheFreshnessAsync was called
-            await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
 
             // But GetAndApplySearchParameterUpdates should never be called when cache is fresh
             await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
@@ -275,10 +265,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
 
-            // Set up the status manager to throw ObjectDisposedException to simulate the service provider being disposed
-            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
-                .Returns<Task<bool>>(_ => throw new ObjectDisposedException("IServiceProvider"));
-
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
@@ -307,10 +293,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             // Arrange
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
-
-            // Set up the status manager to throw OperationCanceledException
-            _searchParameterStatusManager.EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>())
-                .Returns<Task<bool>>(_ => throw new OperationCanceledException());
 
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
@@ -356,10 +338,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             // Act - Try to handle the notification after cancellation
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
-
-            // Assert - Timer should not fire, so no calls should be made
-            await Task.Delay(200); // Wait to see if timer would fire
-            await _searchParameterStatusManager.DidNotReceive().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
 
             service.Dispose();
         }

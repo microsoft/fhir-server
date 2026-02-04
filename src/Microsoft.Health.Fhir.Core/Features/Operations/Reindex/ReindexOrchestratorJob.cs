@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task WaitForRefresh()
         {
-            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds, _cancellationToken);
+            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
         }
 
         private async Task RefreshSearchParameterCache()
@@ -245,7 +245,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Update the reindex job record with the latest hash map
             _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
-            _searchParamLastUpdated = _searchParameterStatusManager.SearchParamLastUpdated;
+            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            _searchParamLastUpdated = currentDate;
 
             _logger.LogJobInformation(_jobInfo, "Reindex orchestrator job: SearchParamLastUpdated {SearchParamLastUpdated}", _searchParamLastUpdated);
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}, SearchParameterHashMap.Count={_reindexJobRecord.ResourceTypeSearchParameterHashMap.Count}", null, _cancellationToken); // elevate in SQL to log w/o extra settings

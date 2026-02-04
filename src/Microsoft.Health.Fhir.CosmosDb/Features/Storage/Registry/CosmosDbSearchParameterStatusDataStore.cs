@@ -39,8 +39,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _queryFactory = queryFactory;
         }
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
+            if (startLastUpdated.HasValue)
+            {
+                throw new NotSupportedException("CosmosDbSearchParameterStatusDataStore does not support refreshes based on input date.");
+            }
+
             using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
             DateTimeOffset startedCheck = Clock.UtcNow;
             using var retryDelayToken = new CancellationTokenSource(TimeSpan.FromMinutes(1));
@@ -151,34 +156,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             // Do nothing. This is only required for SQL.
-        }
-
-        public async Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken)
-        {
-            using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
-
-            try
-            {
-                var maxLastUpdatedQuery = _queryFactory.Create<CacheQueryResponse>(
-                    clientScope.Value,
-                    new CosmosQueryContext(
-                        new QueryDefinition("select max(c.lastUpdated) as lastUpdated from c"),
-                        new QueryRequestOptions
-                        {
-                            PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
-                            MaxItemCount = 1,
-                        }));
-
-                FeedResponse<CacheQueryResponse> response = await maxLastUpdatedQuery.ExecuteNextAsync(cancellationToken);
-                var result = response?.FirstOrDefault();
-
-                return result?.LastUpdated ?? DateTimeOffset.MinValue;
-            }
-            catch (CosmosException)
-            {
-                // If query fails, return MinValue to indicate no data or error
-                return DateTimeOffset.MinValue;
-            }
         }
 
         public void Dispose()

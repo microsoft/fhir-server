@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
@@ -100,6 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
             _searchParameterStatusManager = searchParameterStatusManager;
+            _searchParameterOperations = searchParameterOperations;
             _logger = logger;
         }
 
@@ -110,9 +112,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _jobInfo = jobInfo;
             _reindexProcessingJobDefinition = DeserializeJobDefinition(_jobInfo);
 
-            var current = _searchParameterStatusManager.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > _searchParameterStatusManager.SearchParamLastUpdated;
+            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
             var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
             //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
             //// Cannot just refresh here because we might be missing resources updated via API.

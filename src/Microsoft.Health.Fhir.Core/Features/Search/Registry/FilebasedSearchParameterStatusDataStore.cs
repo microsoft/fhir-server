@@ -37,8 +37,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public delegate ISearchParameterStatusDataStore Resolver();
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
+            if (startLastUpdated.HasValue)
+            {
+                throw new NotSupportedException("FilebasedSearchParameterStatusDataStore does not support refreshes based on input date.");
+            }
+
             if (_statusResults == null)
             {
                 await using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters.json");

@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
+        private DateTimeOffset? _searchParamLastUpdated;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
@@ -57,6 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
         }
+
+        public DateTimeOffset? SearchParamLastUpdated => _searchParamLastUpdated;
 
         public string GetResourceTypeSearchParameterHashMap(string resourceType)
         {
@@ -289,52 +292,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <returns>A task.</returns>
         public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool forceFullRefresh = false)
         {
-            IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus;
-
-            if (forceFullRefresh)
-            {
-                _logger.LogInformation("Performing full SearchParameter database refresh.");
-                updatedSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-                _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", updatedSearchParameterStatus.Count);
-            }
-            else
-            {
-                updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
-            }
+            var results = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, forceFullRefresh ? null : _searchParamLastUpdated);
+            var statuses = results.Statuses;
 
             // First process any deletes or disables, then we will do any adds or updates
             // this way any deleted or params which might have the same code or name as a new
             // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
-            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
+            foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.Deleted))
             {
                 DeleteSearchParameter(searchParam.Uri.OriginalString);
             }
 
-            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.PendingDelete))
+            foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.PendingDelete))
             {
                 _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
             }
 
             // Get all URLs that need to be fetched
-            var urlsToFetch = updatedSearchParameterStatus
+            var urlsToFetch = statuses
                 .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
                 .Select(p => p.Uri.OriginalString)
                 .ToList();
 
-            if (!urlsToFetch.Any())
-            {
-                // No parameters to add, but still apply status updates
-                await _searchParameterStatusManager.ApplySearchParameterStatus(
-                    updatedSearchParameterStatus,
-                    cancellationToken);
-                return;
-            }
+            ////if (!urlsToFetch.Any())
+            ////{
+            ////    // No parameters to add, but still apply status updates
+            ////    await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
+            ////    return;
+            ////}
 
             // Batch fetch all SearchParameter resources in one call
             var searchParamResources = await GetSearchParametersByUrls(urlsToFetch, cancellationToken);
 
             var paramsToAdd = new List<ITypedElement>();
-            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported))
+            foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported))
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
@@ -360,9 +351,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Once added to the definition manager we can update their status
-            await _searchParameterStatusManager.ApplySearchParameterStatus(
-                updatedSearchParameterStatus,
-                cancellationToken);
+            await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
+
+            if (results.LastUpdated.HasValue)
+            {
+                _searchParamLastUpdated = results.LastUpdated.Value;
+            }
         }
 
         private void DeleteSearchParameter(string url)

@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _logger = logger;
         }
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -69,6 +69,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.CommandText = "dbo.GetSearchParamStatuses";
+                if (_schemaInformation.Current.Value >= 103 && startLastUpdated.HasValue)
+                {
+                    cmd.Parameters.AddWithValue("@StartLastUpdated", startLastUpdated.Value);
+                }
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
@@ -122,7 +126,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
                         }
 
-                        parameterStatuses.Add(resourceSearchParameterStatus);
+                        if (_schemaInformation.Current.Value < 103 && startLastUpdated.HasValue)
+                        {
+                            if (resourceSearchParameterStatus.LastUpdated > startLastUpdated.Value) // this is temporary as old stored proc does not have start last updated parameter
+                            {
+                                parameterStatuses.Add(resourceSearchParameterStatus);
+                            }
+                        }
+                        else
+                        {
+                            parameterStatuses.Add(resourceSearchParameterStatus);
+                        }
                     }
                 }
 
