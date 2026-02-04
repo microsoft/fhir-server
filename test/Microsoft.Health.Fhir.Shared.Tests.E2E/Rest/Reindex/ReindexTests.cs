@@ -27,12 +27,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ReindexTests : IClassFixture<ReindexTestFixture>
+    public class ReindexTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private readonly ReindexTestFixture _fixture;
+        private readonly HttpIntegrationTestFixture _fixture;
         private readonly bool _isSql;
 
-        public ReindexTests(ReindexTestFixture fixture)
+        public ReindexTests(HttpIntegrationTestFixture fixture)
         {
             _fixture = fixture;
             _isSql = _fixture.DataStore == DataStore.SqlServer;
