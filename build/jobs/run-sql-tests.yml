@@ -81,12 +81,6 @@ jobs:
       artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
       artifactType: 'container'
 
-  - task: PublishCodeCoverageResults@2
-    displayName: 'Publish SQL code coverage results to 1ES telemetry'
-    condition: always()
-    inputs:
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-
 - job: 'sqlE2eTests'
   timeoutInMinutes: 75
   dependsOn: []

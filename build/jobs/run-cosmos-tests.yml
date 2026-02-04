@@ -88,12 +88,6 @@ jobs:
       artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
       artifactType: 'container'
 
-  - task: PublishCodeCoverageResults@2
-    displayName: 'Publish Cosmos code coverage results to 1ES telemetry'
-    condition: always()
-    inputs:
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-
 - job: 'cosmosE2eTests'
   timeoutInMinutes: 75
   dependsOn: []
