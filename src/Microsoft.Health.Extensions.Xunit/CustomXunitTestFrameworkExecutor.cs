@@ -75,8 +75,9 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             protected override async ValueTask<RunSummary> RunTestCollection(XunitTestAssemblyRunnerContext context, IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases)
             {
+                var testCaseOrderer = context.AssemblyTestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
                 var runner = new FixtureArgumentSetCollectionRunner();
-                var summary = await runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, context.AssemblyTestCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.AssemblyFixtureMappings);
+                var summary = await runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.AssemblyFixtureMappings);
                 return summary;
             }
         }
@@ -85,8 +86,9 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             protected override async ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
             {
+                var testCaseOrderer = context.TestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
                 var classRunner = new FixtureArgumentSetClassRunner();
-                var summary = await classRunner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, context.TestCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.CollectionFixtureMappings);
+                var summary = await classRunner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.CollectionFixtureMappings);
                 return summary;
             }
         }
