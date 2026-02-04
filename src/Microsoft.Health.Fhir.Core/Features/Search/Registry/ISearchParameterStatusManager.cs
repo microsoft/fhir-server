@@ -21,8 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken);
 
-        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken);
-
         Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken);
 
         Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);

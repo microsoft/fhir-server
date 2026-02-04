@@ -197,12 +197,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
         }
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
-        {
-            var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            return searchParamStatus;
-        }
-
         public async Task<(IReadOnlyCollection<ResourceSearchParameterStatus> Statuses, DateTimeOffset? LastUpdated)> GetSearchParameterStatusUpdates(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             var searchParamStatuses = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken, startLastUpdated);
@@ -210,9 +204,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return (searchParamStatuses, lastUpdated);
         }
 
+        // This is just a conveniance wrapper method that should not be going to store directly
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
         {
-            return await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
+            return (await GetSearchParameterStatusUpdates(cancellationToken)).Statuses;
         }
 
         /// <summary>
