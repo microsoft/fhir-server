@@ -789,7 +789,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         public async Task Search_WithDescendingSort_ReturnsResultsInDescendingOrder()
         {
             // Arrange - Create observations with different dates
-            var observations = new List<Observation>();
             for (int i = 0; i < 5; i++)
             {
                 var obs = new Observation
@@ -798,7 +797,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                     Code = new CodeableConcept { Text = $"DescSort{i}" },
                     Effective = new FhirDateTime(DateTime.UtcNow.AddDays(-i)),
                 };
-                observations.Add(obs);
                 await _fixture.Mediator.UpsertResourceAsync(obs.ToResourceElement());
             }
 
@@ -824,7 +822,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                     return (obs.Effective as FhirDateTime)?.ToDateTimeOffset(TimeSpan.Zero);
                 })
                 .Where(d => d.HasValue)
-                .Select(d => d.Value)
+                .Select(d => d!.Value)
                 .ToList();
 
             if (dates.Count >= 2)

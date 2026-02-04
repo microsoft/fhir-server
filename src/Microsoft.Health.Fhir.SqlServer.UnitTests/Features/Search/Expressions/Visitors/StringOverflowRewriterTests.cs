@@ -96,13 +96,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // First expression should check Text column with prefix
             var prefixExpression = andExpression.Expressions[0] as StringExpression;
             Assert.NotNull(prefixExpression);
-            Assert.Equal(FieldName.String, prefixExpression.FieldName);
+            Assert.Equal(FieldName.String, prefixExpression!.FieldName);
             Assert.Equal(MaxTextLength, prefixExpression.Value.Length);
 
             // Second expression should check TextOverflow column with full value
             var overflowExpression = andExpression.Expressions[1] as StringExpression;
             Assert.NotNull(overflowExpression);
-            Assert.Equal(SqlFieldName.TextOverflow, overflowExpression.FieldName);
+            Assert.Equal(SqlFieldName.TextOverflow, overflowExpression!.FieldName);
             Assert.Equal(longValue, overflowExpression.Value);
         }
 
@@ -141,17 +141,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var andExpression = rewrittenSearchParam.Expression as MultiaryExpression;
 
             Assert.NotNull(andExpression);
-            Assert.Equal(MultiaryOperator.And, andExpression.MultiaryOperation);
+            Assert.Equal(MultiaryOperator.And, andExpression!.MultiaryOperation);
             Assert.Equal(2, andExpression.Expressions.Count);
 
             // Verify both expressions use StartsWith operator
             var prefixExpression = andExpression.Expressions[0] as StringExpression;
             Assert.NotNull(prefixExpression);
-            Assert.Equal(StringOperator.StartsWith, prefixExpression.StringOperator);
+            Assert.Equal(StringOperator.StartsWith, prefixExpression!.StringOperator);
 
             var overflowExpression = andExpression.Expressions[1] as StringExpression;
             Assert.NotNull(overflowExpression);
-            Assert.Equal(StringOperator.StartsWith, overflowExpression.StringOperator);
+            Assert.Equal(StringOperator.StartsWith, overflowExpression!.StringOperator);
         }
 
         [Fact]
@@ -189,18 +189,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var orExpression = rewrittenSearchParam.Expression as MultiaryExpression;
 
             Assert.NotNull(orExpression);
-            Assert.Equal(MultiaryOperator.Or, orExpression.MultiaryOperation);
+            Assert.Equal(MultiaryOperator.Or, orExpression!.MultiaryOperation);
             Assert.Equal(2, orExpression.Expressions.Count);
 
             // First expression should check Text column
             var textExpression = orExpression.Expressions[0] as StringExpression;
             Assert.NotNull(textExpression);
-            Assert.Equal(FieldName.String, textExpression.FieldName);
+            Assert.Equal(FieldName.String, textExpression!.FieldName);
 
             // Second expression should check TextOverflow column
             var overflowExpression = orExpression.Expressions[1] as StringExpression;
             Assert.NotNull(overflowExpression);
-            Assert.Equal(SqlFieldName.TextOverflow, overflowExpression.FieldName);
+            Assert.Equal(SqlFieldName.TextOverflow, overflowExpression!.FieldName);
         }
 
         [Fact]
@@ -264,11 +264,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var andExpression = rewrittenSearchParam.Expression as MultiaryExpression;
             Assert.NotNull(andExpression);
 
-            var prefixExpression = andExpression.Expressions[0] as StringExpression;
-            Assert.True(prefixExpression.IgnoreCase);
+            var prefixExpression = andExpression!.Expressions[0] as StringExpression;
+            Assert.NotNull(prefixExpression);
+            Assert.True(prefixExpression!.IgnoreCase);
 
             var overflowExpression = andExpression.Expressions[1] as StringExpression;
-            Assert.True(overflowExpression.IgnoreCase);
+            Assert.NotNull(overflowExpression);
+            Assert.True(overflowExpression!.IgnoreCase);
         }
 
         [Fact]
@@ -289,11 +291,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var andExpression = rewrittenSearchParam.Expression as MultiaryExpression;
             Assert.NotNull(andExpression);
 
-            var prefixExpression = andExpression.Expressions[0] as StringExpression;
-            Assert.Equal(2, prefixExpression.ComponentIndex);
+            var prefixExpression = andExpression!.Expressions[0] as StringExpression;
+            Assert.NotNull(prefixExpression);
+            Assert.Equal(2, prefixExpression!.ComponentIndex);
 
             var overflowExpression = andExpression.Expressions[1] as StringExpression;
-            Assert.Equal(2, overflowExpression.ComponentIndex);
+            Assert.NotNull(overflowExpression);
+            Assert.Equal(2, overflowExpression!.ComponentIndex);
         }
 
         [Fact]
@@ -406,11 +410,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var orExpression = rewrittenSearchParam.Expression as MultiaryExpression;
             Assert.NotNull(orExpression);
 
-            var textExpression = orExpression.Expressions[0] as StringExpression;
-            Assert.Equal(longValue, textExpression.Value);
+            var textExpression = orExpression!.Expressions[0] as StringExpression;
+            Assert.NotNull(textExpression);
+            Assert.Equal(longValue, textExpression!.Value);
 
             var overflowExpression = orExpression.Expressions[1] as StringExpression;
-            Assert.Equal(longValue, overflowExpression.Value);
+            Assert.NotNull(overflowExpression);
+            Assert.Equal(longValue, overflowExpression!.Value);
         }
     }
 }

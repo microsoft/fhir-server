@@ -217,8 +217,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal((short)10, token.MatchResourceTypeId);
             Assert.Equal(100L, token.MatchResourceSurrogateIdMin);
             Assert.Equal(200L, token.MatchResourceSurrogateIdMax);
-            Assert.Equal((short)20, token.IncludeResourceTypeId.Value);
-            Assert.Equal(150L, token.IncludeResourceSurrogateId.Value);
+            Assert.NotNull(token.IncludeResourceTypeId);
+            Assert.Equal((short)20, token.IncludeResourceTypeId!.Value);
+            Assert.NotNull(token.IncludeResourceSurrogateId);
+            Assert.Equal(150L, token.IncludeResourceSurrogateId!.Value);
             Assert.Null(token.SortQuerySecondPhase);
             Assert.Null(token.SecondPhaseContinuationToken);
         }
@@ -234,9 +236,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             // Assert
             Assert.Equal((short)10, token.MatchResourceTypeId);
-            Assert.Equal((short)20, token.IncludeResourceTypeId.Value);
-            Assert.Equal(150L, token.IncludeResourceSurrogateId.Value);
-            Assert.True(token.SortQuerySecondPhase.Value);
+            Assert.NotNull(token.IncludeResourceTypeId);
+            Assert.Equal((short)20, token.IncludeResourceTypeId!.Value);
+            Assert.NotNull(token.IncludeResourceSurrogateId);
+            Assert.Equal(150L, token.IncludeResourceSurrogateId!.Value);
+            Assert.NotNull(token.SortQuerySecondPhase);
+            Assert.True(token.SortQuerySecondPhase!.Value);
             Assert.Null(token.SecondPhaseContinuationToken);
         }
 
@@ -285,7 +290,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Assert - TryParse handles null gracefully, setting values to null
             Assert.Equal((short)10, token.MatchResourceTypeId);
             Assert.Null(token.IncludeResourceTypeId);
-            Assert.Equal(150L, token.IncludeResourceSurrogateId.Value);
+            Assert.NotNull(token.IncludeResourceSurrogateId);
+            Assert.Equal(150L, token.IncludeResourceSurrogateId!.Value);
         }
 
         [Fact]

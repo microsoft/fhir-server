@@ -75,7 +75,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                     Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    var func = callInfo.ArgAt<Func<SqlCommand, CancellationToken, Task>>(1);
                     throw new JobNotExistException("Job does not exist");
                 });
 
