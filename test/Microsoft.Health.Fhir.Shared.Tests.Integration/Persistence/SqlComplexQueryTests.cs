@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Antlr4.Runtime.Atn.SemanticContext;
 using Task = System.Threading.Tasks.Task;
@@ -250,14 +249,14 @@ END CATCH
             await Task.Delay(1000);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             await ClearProcedureCache();
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
-            Skip.If(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
+            Assert.SkipWhen(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
 
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;

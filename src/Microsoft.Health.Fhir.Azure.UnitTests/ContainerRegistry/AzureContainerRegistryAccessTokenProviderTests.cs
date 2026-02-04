@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             httpClientFactory.CreateClient().ReturnsForAnyArgs(httpClient);
             AzureContainerRegistryAccessTokenProvider acrTokenProvider = new AzureContainerRegistryAccessTokenProvider(tokenProvider, httpClientFactory, Options.Create(_convertDataConfiguration), new NullLogger<AzureContainerRegistryAccessTokenProvider>());
 
-            await Assert.ThrowsAsync<AzureContainerRegistryTokenException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
+            await Assert.ThrowsAsync<AzureContainerRegistryTokenException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, TestContext.Current.CancellationToken));
         }
 
         [Fact]
@@ -50,14 +50,14 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
         {
             var acrTokenProvider = GetMockAcrTokenProvider(HttpStatusCode.Unauthorized);
 
-            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
+            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, TestContext.Current.CancellationToken));
         }
 
         [Fact]
         public async Task GivenANotFoundRegistry_WhenGetToken_ExceptionShouldBeThrown()
         {
             var acrTokenProvider = GetMockAcrTokenProvider(HttpStatusCode.NotFound);
-            await Assert.ThrowsAsync<ContainerRegistryNotFoundException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
+            await Assert.ThrowsAsync<ContainerRegistryNotFoundException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, TestContext.Current.CancellationToken));
         }
 
         [Theory]
@@ -68,21 +68,22 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
         public async Task GivenAValidRegistry_WhenRefreshTokenIsEmpty_ExceptionShouldBeThrown(string content)
         {
             var acrTokenProvider = GetMockAcrTokenProvider(HttpStatusCode.OK, content);
-            await Assert.ThrowsAsync<AzureContainerRegistryTokenException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
+            await Assert.ThrowsAsync<AzureContainerRegistryTokenException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, TestContext.Current.CancellationToken));
         }
 
         [Fact]
         public async Task GivenAValidRegistry_WhenGetToken_CorrectResultShouldBeReturned()
         {
             var acrTokenProvider = GetMockAcrTokenProvider(HttpStatusCode.OK, "{\"refresh_token\":\"refresh_token_test\", \"access_token\":\"access_token_test\"}");
-            string accessToken = await acrTokenProvider.GetTokenAsync(RegistryServer, default);
+            string accessToken = await acrTokenProvider.GetTokenAsync(RegistryServer, TestContext.Current.CancellationToken);
             Assert.Equal("Bearer access_token_test", accessToken);
         }
 
         private AzureContainerRegistryAccessTokenProvider GetMockAcrTokenProvider(HttpStatusCode statusCode, string content = "")
         {
             IAccessTokenProvider tokenProvider = Substitute.For<IAccessTokenProvider>();
-            tokenProvider.GetAccessTokenForResourceAsync(default, default).ReturnsForAnyArgs("Bearer test");
+            tokenProvider.GetAccessTokenForResourceAsync(_convertDataConfiguration.AcrTargetResourceUri, TestContext.Current.CancellationToken)
+                .ReturnsForAnyArgs("Bearer test");
             IHttpClientFactory httpClientFactory = Substitute.For<IHttpClientFactory>();
             var httpClient = new HttpClient(new MockHttpMessageHandler(content, statusCode));
             httpClientFactory.CreateClient().ReturnsForAnyArgs(httpClient);

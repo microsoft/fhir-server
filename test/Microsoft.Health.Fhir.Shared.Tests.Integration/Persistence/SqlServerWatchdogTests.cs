@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -34,7 +34,6 @@ using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 #pragma warning disable SA1116 // Split parameters should start on line after declaration
 

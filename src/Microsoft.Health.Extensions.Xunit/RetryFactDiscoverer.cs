@@ -4,51 +4,49 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Xunit.Abstractions;
+using System.Linq;
+using System.Threading.Tasks;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
     /// Test case discoverer for <see cref="RetryFactAttribute"/>.
     /// </summary>
-    public class RetryFactDiscoverer : IXunitTestCaseDiscoverer
+    public sealed class RetryFactDiscoverer : IXunitTestCaseDiscoverer
     {
-        private readonly IMessageSink _diagnosticMessageSink;
-
-        public RetryFactDiscoverer(IMessageSink diagnosticMessageSink)
-        {
-            _diagnosticMessageSink = diagnosticMessageSink;
-        }
-
-        public IEnumerable<IXunitTestCase> Discover(
+        public ValueTask<IReadOnlyCollection<IXunitTestCase>> Discover(
             ITestFrameworkDiscoveryOptions discoveryOptions,
-            ITestMethod testMethod,
-            IAttributeInfo factAttribute)
+            IXunitTestMethod testMethod,
+            IFactAttribute factAttribute)
         {
-            var maxRetries = factAttribute.GetNamedArgument<int>(nameof(RetryFactAttribute.MaxRetries));
-            var delayMs = factAttribute.GetNamedArgument<int>(nameof(RetryFactAttribute.DelayBetweenRetriesMs));
-            var retryOnAssertionFailure = factAttribute.GetNamedArgument<bool>(nameof(RetryFactAttribute.RetryOnAssertionFailure));
+            var attribute = (RetryFactAttribute)factAttribute;
 
-            // Use default values if not specified
-            if (maxRetries == 0)
-            {
-                maxRetries = 3;
-            }
+            var maxRetries = attribute.MaxRetries;
+            var delayMs = attribute.DelayBetweenRetriesMs;
+            var retryOnAssertionFailure = attribute.RetryOnAssertionFailure;
 
-            if (delayMs == 0)
-            {
-                delayMs = 5000;
-            }
-
-            yield return new RetryTestCase(
-                _diagnosticMessageSink,
-                discoveryOptions.MethodDisplayOrDefault(),
-                discoveryOptions.MethodDisplayOptionsOrDefault(),
+            var testCase = new RetryTestCase(
                 testMethod,
-                maxRetries,
-                delayMs,
-                retryOnAssertionFailure);
+                testMethod.GetDisplayName(testMethod.MethodName, label: null, testMethodArguments: null, methodGenericTypes: null),
+                UniqueIDGenerator.ForTestCase(testMethod.UniqueID, null, null),
+                @explicit: attribute.Explicit,
+                skipExceptions: attribute.SkipExceptions,
+                skipReason: attribute.Skip,
+                skipType: attribute.SkipType,
+                skipUnless: attribute.SkipUnless,
+                skipWhen: attribute.SkipWhen,
+                traits: testMethod.Traits.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value)),
+                testMethodArguments: null,
+                sourceFile: attribute.SourceFilePath,
+                sourceLine: attribute.SourceLineNumber,
+                timeout: attribute.Timeout,
+                maxRetries: maxRetries,
+                delayMs: delayMs,
+                retryOnAssertionFailure: retryOnAssertionFailure);
+
+            return new ValueTask<IReadOnlyCollection<IXunitTestCase>>(new[] { testCase });
         }
     }
 }

@@ -5,16 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using EnsureThat;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
@@ -23,228 +20,120 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     internal sealed class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
-        public CustomXunitTestFrameworkExecutor(AssemblyName assemblyName, ISourceInformationProvider sourceInformationProvider, IMessageSink diagnosticMessageSink)
-            : base(assemblyName, sourceInformationProvider, diagnosticMessageSink)
+        public CustomXunitTestFrameworkExecutor(Assembly assembly)
+            : base(new FixtureArgumentSetTestAssembly(assembly))
         {
-            AssemblyInfo = new CustomAssemblyInfo(AssemblyInfo);
         }
 
-        protected override void RunTestCases(IEnumerable<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
+        public override async ValueTask RunTestCases(IReadOnlyCollection<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions, CancellationToken cancellationToken)
         {
-            using (var assemblyRunner = new AssemblyRunner(TestAssembly, testCases, DiagnosticMessageSink, executionMessageSink, executionOptions))
-            {
-                assemblyRunner.RunAsync().GetAwaiter().GetResult();
-            }
+            var runner = new FixtureArgumentSetAssemblyRunner();
+            await runner.Run((IXunitTestAssembly)TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
         }
 
-        private sealed class AssemblyRunner : XunitTestAssemblyRunner
+        private sealed class FixtureArgumentSetTestAssembly : XunitTestAssembly
         {
-            private readonly Dictionary<Type, object> _assemblyFixtureMappings = new Dictionary<Type, object>();
-            private ExecutionContext _context;
+            private readonly Assembly _assembly;
+            private IReadOnlyCollection<Type> _assemblyFixtureTypes;
+            private static readonly FieldInfo AssemblyFixtureTypesField = typeof(XunitTestAssembly).GetField("assemblyFixtureTypes", BindingFlags.Instance | BindingFlags.NonPublic);
 
-            public AssemblyRunner(ITestAssembly testAssembly, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
-                : base(testAssembly, testCases, diagnosticMessageSink, executionMessageSink, executionOptions)
+            public FixtureArgumentSetTestAssembly(Assembly assembly)
+                : base(assembly, configFileName: null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null))
             {
+                _assembly = assembly;
             }
 
-            protected override async Task AfterTestAssemblyStartingAsync()
+#pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
+            public FixtureArgumentSetTestAssembly()
             {
-                // Let everything initialize
-                await base.AfterTestAssemblyStartingAsync();
+            }
+#pragma warning restore CS0618
 
-                // Find the AssemblyFixtureAttributes placed on the test assembly
-                Aggregator.Run(() =>
+            public new IReadOnlyCollection<Type> AssemblyFixtureTypes
+            {
+                get
                 {
-                    var fixtureAttributes = ((IReflectionAssemblyInfo)TestAssembly.Assembly).Assembly
-                        .GetCustomAttributes(typeof(AssemblyFixtureAttribute), false)
-                        .Cast<AssemblyFixtureAttribute>();
-
-                    foreach (var fixtureAttr in fixtureAttributes)
+                    if (_assemblyFixtureTypes == null)
                     {
-                        _assemblyFixtureMappings[fixtureAttr.FixtureType] = Activator.CreateInstance(fixtureAttr.FixtureType);
-                    }
-                });
+#pragma warning disable CS0618 // AssemblyFixtureAttribute is obsolete; usage is required for assembly fixture discovery.
+                        _assemblyFixtureTypes = _assembly
+                            .GetCustomAttributes(typeof(global::Xunit.AssemblyFixtureAttribute), inherit: false)
+                            .Cast<global::Xunit.AssemblyFixtureAttribute>()
+                            .Select(attribute => attribute.AssemblyFixtureType)
+                            .ToArray();
+#pragma warning restore CS0618
 
-                _context = ExecutionContext.Capture();
+                        AssemblyFixtureTypesField?.SetValue(this, new Lazy<IReadOnlyCollection<Type>>(() => _assemblyFixtureTypes));
+                    }
+
+                    return _assemblyFixtureTypes;
+                }
+            }
+        }
+
+        private sealed class FixtureArgumentSetAssemblyRunner : XunitTestAssemblyRunner
+        {
+            protected override async ValueTask<RunSummary> RunTestCollection(XunitTestAssemblyRunnerContext context, IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases)
+            {
+                var runner = new FixtureArgumentSetCollectionRunner();
+                var summary = await runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, context.AssemblyTestCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.AssemblyFixtureMappings);
+                return summary;
+            }
+        }
+
+        private sealed class FixtureArgumentSetCollectionRunner : XunitTestCollectionRunner
+        {
+            protected override async ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
+            {
+                var classRunner = new FixtureArgumentSetClassRunner();
+                var summary = await classRunner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, context.TestCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.CollectionFixtureMappings);
+                return summary;
+            }
+        }
+
+        private sealed class FixtureArgumentSetClassRunner : XunitTestClassRunner
+        {
+            private static readonly FieldInfo FixtureCacheField = typeof(FixtureMappingManager)
+                .GetField("fixtureCache", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            protected override ValueTask<object[]> CreateTestClassConstructorArguments(XunitTestClassRunnerContext context)
+            {
+                InjectFixtureArguments(context);
+                return base.CreateTestClassConstructorArguments(context);
             }
 
-            protected override async Task BeforeTestAssemblyFinishedAsync()
+            private static void InjectFixtureArguments(XunitTestClassRunnerContext context)
             {
-                foreach (var fixture in _assemblyFixtureMappings.Values)
+                if (context?.TestClass is not FixtureArgumentSetTestClass fixtureTestClass)
                 {
-                    switch (fixture)
+                    return;
+                }
+
+                if (FixtureCacheField == null)
+                {
+                    return;
+                }
+
+                var cache = FixtureCacheField.GetValue(context.ClassFixtureMappings) as IDictionary<Type, object>;
+                if (cache == null)
+                {
+                    return;
+                }
+
+                var fixtureArguments = fixtureTestClass.GetFixtureArguments();
+                if (fixtureArguments.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (var argument in fixtureArguments)
+                {
+                    var argumentType = argument.EnumValue.GetType();
+                    if (!cache.ContainsKey(argumentType))
                     {
-                        case IAsyncLifetime d:
-                            await d.DisposeAsync();
-                            break;
-                        case IAsyncDisposable d:
-                            await d.DisposeAsync();
-                            break;
-                        case IDisposable d:
-                            d.Dispose();
-                            break;
+                        cache[argumentType] = argument.EnumValue;
                     }
                 }
-
-                await base.BeforeTestAssemblyFinishedAsync();
-            }
-
-            protected override Task<RunSummary> RunTestCollectionAsync(IMessageBus messageBus, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, CancellationTokenSource cancellationTokenSource)
-            {
-                Task<RunSummary> result = null;
-                ExecutionContext.Run(_context, state => result = new CollectionRunner(_assemblyFixtureMappings, testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync(), state: null);
-                return result;
-            }
-
-            public override void Dispose()
-            {
-                _context?.Dispose();
-                base.Dispose();
-            }
-        }
-
-        private sealed class CollectionRunner : XunitTestCollectionRunner
-        {
-            private readonly Dictionary<Type, object> _assemblyFixtureMappings;
-
-            public CollectionRunner(Dictionary<Type, object> assemblyFixtureMappings, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource)
-                : base(testCollection, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource)
-            {
-                _assemblyFixtureMappings = assemblyFixtureMappings;
-            }
-
-            protected override Task<RunSummary> RunTestClassAsync(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases)
-            {
-                EnsureArg.IsNotNull(testClass, nameof(testClass));
-                EnsureArg.IsNotNull(@class, nameof(@class));
-                EnsureArg.IsNotNull(testCases, nameof(testCases));
-
-                Dictionary<Type, object> combinedMappings = null;
-
-                if (testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments)
-                {
-                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
-
-                    foreach (var variant in classWithFixtureArguments.FixtureArguments)
-                    {
-                        combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
-                    }
-                }
-
-                if (_assemblyFixtureMappings.Count > 0 && combinedMappings == null)
-                {
-                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
-                }
-
-                foreach (var assemblyFixtureMapping in _assemblyFixtureMappings)
-                {
-                    combinedMappings.Add(assemblyFixtureMapping.Key, assemblyFixtureMapping.Value);
-                }
-
-                return new ExecutionContextFlowingClassRunner(
-                        testClass,
-                        @class,
-                        testCases,
-                        DiagnosticMessageSink,
-                        MessageBus,
-                        TestCaseOrderer,
-                        new ExceptionAggregator(Aggregator),
-                        CancellationTokenSource,
-                        combinedMappings ?? CollectionFixtureMappings)
-                    .RunAsync();
-            }
-        }
-
-        /// <summary>
-        /// An <see cref="XunitTestClassRunner"/> that runs tests in the same <see cref="ExecutionContext"/> as when all fixture constructors ran.
-        /// This means that <see cref="AsyncLocal{T}"/>s set during a fixture constructor can be read during test method execution.
-        /// </summary>
-        private sealed class ExecutionContextFlowingClassRunner : XunitTestClassRunner
-        {
-            private ExecutionContext _context;
-
-            public ExecutionContextFlowingClassRunner(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource, IDictionary<Type, object> collectionFixtureMappings)
-                : base(testClass, @class, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource, collectionFixtureMappings)
-            {
-            }
-
-            protected override void CreateClassFixture(Type fixtureType)
-            {
-                base.CreateClassFixture(fixtureType);
-                _context = ExecutionContext.Capture();
-            }
-
-            protected override Task<RunSummary> RunTestMethodsAsync()
-            {
-                if (_context == null)
-                {
-                    // no class fixtures, so context needed
-
-                    return base.RunTestMethodsAsync();
-                }
-
-                Task<RunSummary> result = null;
-                ExecutionContext.Run(_context, state => result = base.RunTestMethodsAsync(), null);
-                return result;
-            }
-        }
-
-        /// <summary>
-        /// <see cref="XunitTestCase"/> facts have special optimized serialization. Their deserialization needs to be able to instantiate
-        /// the synthetic classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
-        /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
-        /// </summary>
-        private sealed class CustomAssemblyInfo : LongLivedMarshalByRefObject, IAssemblyInfo
-        {
-            private readonly IAssemblyInfo _assemblyInfoImplementation;
-            private readonly Regex _argumentsRegex = new Regex(@"\((\s*(?<VALUE>[^, )]+)\s*,?)*\)");
-
-            public CustomAssemblyInfo(IAssemblyInfo assemblyInfoImplementation)
-            {
-                _assemblyInfoImplementation = assemblyInfoImplementation;
-            }
-
-            public string AssemblyPath => _assemblyInfoImplementation.AssemblyPath;
-
-            public string Name => _assemblyInfoImplementation.Name;
-
-            public IEnumerable<IAttributeInfo> GetCustomAttributes(string assemblyQualifiedAttributeTypeName)
-            {
-                return _assemblyInfoImplementation.GetCustomAttributes(assemblyQualifiedAttributeTypeName);
-            }
-
-            public ITypeInfo GetType(string typeName)
-            {
-                EnsureArg.IsNotNull(typeName, nameof(typeName));
-
-                // parse out the (Arg1, Arg2)
-                var match = _argumentsRegex.Match(typeName);
-                if (!match.Success)
-                {
-                    return _assemblyInfoImplementation.GetType(typeName);
-                }
-
-                // retrieve the real type
-                var typeInfo = _assemblyInfoImplementation.GetType(typeName.Substring(0, match.Index));
-                Debug.Assert(typeInfo != null, $"Could not find type {typeName} in assembly");
-
-                // now get the the arguments. We don't know what type they are, so we look at the FixtureArgumentSetsAttribute on the class and look at its arguments
-                IAttributeInfo attributeInfo = typeInfo.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).Single();
-
-                SingleFlag[] arguments = attributeInfo
-                    .GetConstructorArguments()
-                    .Cast<Enum>()
-                    .Zip(
-                        match.Groups["VALUE"].Captures,
-                        (e, c) => new SingleFlag((Enum)Enum.Parse(e.GetType(), c.Value)))
-                    .ToArray();
-
-                return new TestClassWithFixtureArgumentsTypeInfo(typeInfo, arguments);
-            }
-
-            public IEnumerable<ITypeInfo> GetTypes(bool includePrivateTypes)
-            {
-                return _assemblyInfoImplementation.GetTypes(includePrivateTypes);
             }
         }
     }

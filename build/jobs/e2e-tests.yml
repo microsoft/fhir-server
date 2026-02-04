@@ -23,10 +23,9 @@ steps:
 
   - task: DotNetCoreCLI@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
-    retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 15m --filter "FullyQualifiedName~${{parameters.appServiceType}}&${{ parameters.categoryFilter }}"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 15m --filter "FullyQualifiedName~${{parameters.appServiceType}}&${{ parameters.categoryFilter }}" -- --retry-failed-tests 3'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
     env:

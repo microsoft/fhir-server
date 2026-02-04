@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -49,6 +49,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Storage;
 using NSubstitute;
 using Xunit;
+using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -132,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
@@ -329,7 +330,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }

@@ -18,12 +18,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class MissingDataFilterCriteriaTests
     {
-        [SkippableTheory]
+        [Theory]
         [InlineData(USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfAllDataIsCompliant_ThenShowDataAsIs(string fileName)
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -46,12 +46,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfNoMissingStatusElements_ThenShowDataAsIs(string fileName)
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");

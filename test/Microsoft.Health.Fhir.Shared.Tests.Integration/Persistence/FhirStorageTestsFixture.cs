@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -60,6 +60,7 @@ using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using Xunit;
 using ResourceType = Hl7.Fhir.Model.ResourceType;
+using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -155,7 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             (_fixture as IDisposable)?.Dispose();
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {
@@ -231,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Mediator = new Mediator(services);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {

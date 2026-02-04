@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(2).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.ReceivedWithAnyArgs(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
 
             // Only one call for resource type Observation as Patient has existing jobs covering the surrogate id ranges
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(5).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -374,7 +374,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -420,7 +420,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(6).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -505,7 +505,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
+            await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -578,7 +578,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
+            await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(4).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -657,7 +657,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -707,7 +707,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -740,10 +740,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             // Act
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
 
             // Assert
-            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, TestContext.Current.CancellationToken);
             await _searchService.Received(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
         }
 
@@ -773,10 +773,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             // Act
-            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken);
 
             // Assert
-            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, TestContext.Current.CancellationToken);
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
             await _searchService.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>());
         }
@@ -800,7 +800,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken));
         }
 
         [Fact]
@@ -820,13 +820,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken));
         }
 
         [Fact]
         public async Task GivenBulkUpdateJob_WhenJobInfoIsNull_ThenArgumentNullExceptionIsThrown()
         {
-            await Assert.ThrowsAsync<ArgumentNullException>(async () => await _orchestratorJob.ExecuteAsync(null, CancellationToken.None));
+            await Assert.ThrowsAsync<ArgumentNullException>(async () => await _orchestratorJob.ExecuteAsync(null, TestContext.Current.CancellationToken));
         }
 
         [Fact]
@@ -839,7 +839,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 CreateDate = DateTime.Now,
             };
 
-            await Assert.ThrowsAsync<JsonReaderException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            await Assert.ThrowsAsync<JsonReaderException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, TestContext.Current.CancellationToken));
         }
 
         public static IEnumerable<object[]> GetAllowedSearchParameters()

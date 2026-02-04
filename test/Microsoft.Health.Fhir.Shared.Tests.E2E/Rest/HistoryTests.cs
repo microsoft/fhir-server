@@ -54,12 +54,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected HttpIntegrationTestFixture Fixture { get; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _createdResource = await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_createdResource?.Resource != null)
             {

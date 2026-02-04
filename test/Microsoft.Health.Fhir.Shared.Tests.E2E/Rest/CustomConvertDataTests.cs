@@ -53,14 +53,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _convertDataConfiguration = ((IOptions<ConvertDataConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ConvertDataConfiguration>)))?.Value;
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidRequestWithCustomizedTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload templates)
-            Skip.If(_convertDataConfiguration != null || registry == null);
+            Assert.SkipWhen(_convertDataConfiguration != null || registry == null, "Custom convert data configuration is not enabled.");
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("template:1234567890")]
         [InlineData("wrongtemplate:default")]
         [InlineData("template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload templates)
-            Skip.If(_convertDataConfiguration != null || registry == null);
+            Assert.SkipWhen(_convertDataConfiguration != null || registry == null, "Custom convert data configuration is not enabled.");
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 

@@ -4,24 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
-    /// <summary>
-    /// Placed on an assembly to indicate that the given type should be instantiated
-    /// before any tests are executed and disposed (if it implements IDisposable)
-    /// at the end of the test run.
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
+    [Obsolete("Use Xunit.AssemblyFixtureAttribute instead.")]
     public sealed class AssemblyFixtureAttribute : Attribute
     {
-        public AssemblyFixtureAttribute(Type fixtureType)
-        {
-            EnsureArg.IsNotNull(fixtureType, nameof(fixtureType));
-            FixtureType = fixtureType;
-        }
-
-        public Type FixtureType { get; }
     }
 }

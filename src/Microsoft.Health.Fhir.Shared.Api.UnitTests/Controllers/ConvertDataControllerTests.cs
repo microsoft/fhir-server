@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("abc.azurecr.io", "template", "sha256:123abc", "abc.azurecr.io/template@sha256:123abc")]
         public async Task GivenAConvertDataRequest_WithConfiguredTemplate_WhenValidBodySent_ThenConvertDataCalledWithCorrectParams(string loginServer, string imageName, string digest, string templateCollectionReference)
         {
-            _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
+            _mediator.Send(Arg.Any<ConvertDataRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetConvertDataResponse()));
 
             var ociArtifactInfo = new OciArtifactInfo
             {
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenAConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
             var treatDatesAsStrings = body.GetSingleValue<FhirBoolean>(ConvertDataProperties.JsonDeserializationTreatDatesAsStrings) ?? new FhirBoolean();
-            _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
+            _mediator.Send(Arg.Any<ConvertDataRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetConvertDataResponse()));
             await _convertDataEnabledController.ConvertData(body);
             await _mediator.Received().Send(
                 Arg.Is<ConvertDataRequest>(

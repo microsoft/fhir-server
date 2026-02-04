@@ -18,12 +18,11 @@
     <PackageReference Include="Microsoft.Azure.ContainerRegistry" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
   </ItemGroup>
@@ -39,7 +38,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.R5.Web\Microsoft.Health.Fhir.R5.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="xunit.runner.json">
+    <None Update="xunit.v3.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

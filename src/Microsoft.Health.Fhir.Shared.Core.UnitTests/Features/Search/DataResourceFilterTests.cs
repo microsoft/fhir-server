@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class DataResourceFilterTests
     {
-        [SkippableTheory]
+        [Theory]
         [InlineData(true, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(false, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(true, false, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         [InlineData(false, false, USCoreTestHelper.XmlCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfNoMissingStatusElements_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest, string fileName)
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -60,14 +60,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElementsAndUSCoreIsDisable_ThenShowDataAsIs(bool isSmartUserRequest, string fileName)
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -98,14 +98,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElementsAndNotSmartUser_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, string fileName)
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -136,12 +136,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElements_ThenReturnOperationOutcomeWith404(string fileName)
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -175,12 +175,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == 1, $"A single operation outcome is expected when there are searching issues. Currently there are {entries.Count} operation outcomes.");
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResourceWrappers_IfMissingStatusElements_ThenReturnOperationOutcomeWith404(string fileName)
         {
-            Skip.If(
+            Assert.SkipWhen(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");

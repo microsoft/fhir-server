@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Hl7.Fhir.Model.OperationOutcome;
 
@@ -252,7 +251,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (!invalidSortParameter)
             {
-                Skip.If(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
+                Assert.SkipWhen(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
 
                 Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
             }

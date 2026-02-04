@@ -29,10 +29,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUriVersionFragment_Then1ExpectedResultIsFound()
         {
-            Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
+            Assert.SkipUnless(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
 
             // We must encode '#' in the url or ASP.NET won't interpret this as part of the query string
             FhirResponse<Bundle> result = await Fixture.TestFhirClient.SearchAsync($"Observation?_profile={HttpUtility.UrlEncode(Fixture.ObservationProfileV1)}");
@@ -48,10 +48,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUri_ThenExpectedResultsAreFound()
         {
-            Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
+            Assert.SkipUnless(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
 
             FhirResponse<Bundle> result = await Fixture.TestFhirClient.SearchAsync($"Observation?_profile={Fixture.ObservationProfileUri}");
 
@@ -71,10 +71,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUriVersion_Then1ExpectedResultIsFound()
         {
-            Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
+            Assert.SkipUnless(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
 
             FhirResponse<Bundle> result = await Fixture.TestFhirClient.SearchAsync($"Observation?_profile={Fixture.ObservationProfileUri}|2");
 
@@ -92,10 +92,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAnObservationWithProfile_WhenSearchingByCanonicalUriMultipleProfiles_Then1ExpectedResultIsFound()
         {
-            Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
+            Assert.SkipUnless(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
 
             FhirResponse<Bundle> result = await Fixture.TestFhirClient.SearchAsync($"Observation?_profile={Fixture.ObservationProfileUriAlternate}");
 
