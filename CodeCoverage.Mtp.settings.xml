@@ -3,7 +3,6 @@
   <IncludeTestAssembly>false</IncludeTestAssembly>
   <ExcludeAssembliesWithoutSources>MissingAll</ExcludeAssembliesWithoutSources>
   <CodeCoverage>
-    <CollectFromChildProcesses>False</CollectFromChildProcesses>
     <ModulePaths>
       <Include>
         <ModulePath>.*Microsoft\.Health\.Fhir\..*\.dll$</ModulePath>
