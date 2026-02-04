@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -17,13 +16,10 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -47,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Lazy<IConformanceProvider> _conformanceProvider;
-        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IDeletionServiceDataStoreFactory _dataStoreFactory;
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly AsyncRetryPolicy _retryPolicy;
@@ -58,14 +54,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger<DeletionService> _logger;
-
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         private const int MaxParallelThreads = 64;
 
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
             Lazy<IConformanceProvider> conformanceProvider,
-            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IDeletionServiceDataStoreFactory dataStoreFactory,
             IScopeProvider<ISearchService> searchServiceFactory,
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
@@ -78,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
-            _fhirDataStoreFactory = EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
+            _dataStoreFactory = EnsureArg.IsNotNull(dataStoreFactory, nameof(dataStoreFactory));
             _searchServiceFactory = EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             _resourceIdProvider = EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
@@ -106,8 +101,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             string version = null;
-
-            using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+            using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+            var fhirDataStore = scopedDataStore.GetDataStore();
             switch (request.DeleteOperation)
             {
                 case DeleteOperation.SoftDelete:
@@ -115,13 +110,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
+                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
 
                     version = result?.Wrapper.Version;
                     break;
                 case DeleteOperation.HardDelete:
                 case DeleteOperation.PurgeHistory:
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request));
@@ -333,25 +328,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
 
                 deleteTasks.Where((task) => task.IsFaulted || task.IsCanceled).ToList().ForEach((Task<Dictionary<string, long>> result) =>
+                {
+                    if (result.Exception != null)
                     {
-                        if (result.Exception != null)
+                        // Count the number of resources deleted before the exception was thrown. Update the total.
+                        if (result.Exception.InnerExceptions.Any(ex => ex is IncompleteOperationException<Dictionary<string, long>>))
                         {
-                            // Count the number of resources deleted before the exception was thrown. Update the total.
-                            if (result.Exception.InnerExceptions.Any(ex => ex is IncompleteOperationException<Dictionary<string, long>>))
-                            {
-                                AppendDeleteResults(
-                                    resourceTypesDeleted,
-                                    result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<Dictionary<string, long>>)
-                                        .Select(ex => ((IncompleteOperationException<Dictionary<string, long>>)ex).PartialResults));
-                            }
-
-                            if (result.IsFaulted)
-                            {
-                                // Filter out noise from the cancellation exceptions caused by the core exception.
-                                exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException));
-                            }
+                            AppendDeleteResults(
+                                resourceTypesDeleted,
+                                result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<Dictionary<string, long>>)
+                                    .Select(ex => ((IncompleteOperationException<Dictionary<string, long>>)ex).PartialResults));
                         }
-                    });
+
+                        if (result.IsFaulted)
+                        {
+                            // Filter out noise from the cancellation exceptions caused by the core exception.
+                            exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException));
+                        }
+                    }
+                });
                 var aggregateException = new AggregateException(exceptions);
                 throw new IncompleteOperationException<Dictionary<string, long>>(aggregateException, resourceTypesDeleted);
             }
@@ -387,12 +382,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var partialResults = new List<(string, string, bool)>();
             try
             {
-                using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+                using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+                var fhirDataStore = scopedDataStore.GetDataStore();
 
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
                 if (softDeleteIncludes.Any())
                 {
-                    await fhirDataStore.Value.MergeAsync(softDeleteIncludes, cancellationToken);
+                    await fhirDataStore.MergeAsync(softDeleteIncludes, cancellationToken);
                     partialResults.AddRange(softDeleteIncludes.Select(item => (
                         item.Wrapper.ResourceTypeName,
                         item.Wrapper.ResourceId,
@@ -405,7 +401,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).Select(x => x.Resource).ToList(),
                     cancellationToken);
 
-                await fhirDataStore.Value.MergeAsync(softDeleteMatches, cancellationToken);
+                await fhirDataStore.MergeAsync(softDeleteMatches, cancellationToken);
             }
             catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
             {
@@ -455,7 +451,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                 }
 
-                using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+                using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+                var fhirDataStore = scopedDataStore.GetDataStore();
 
                 var includedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Include).ToList();
                 var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
@@ -465,14 +462,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
                 {
                     await DeleteSearchParameterAsync(item.Resource, cancellationToken);
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
 
                 await Parallel.ForEachAsync(matchedResources, cancellationToken, async (item, innerCt) =>
                 {
                     await DeleteSearchParameterAsync(item.Resource, cancellationToken);
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
                 });
             }
@@ -572,9 +569,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             bundleResourceContext: request.BundleResourceContext));
                     }
 
-                    using var fhirDataStore = _fhirDataStoreFactory.Invoke();
-
-                    await fhirDataStore.Value.MergeAsync(modifiedResources, cancellationToken);
+                    using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
+                    var fhirDataStore = scopedDataStore.GetDataStore();
+                    await fhirDataStore.MergeAsync(modifiedResources, cancellationToken);
 
                     if (includesContinuationToken != null)
                     {
