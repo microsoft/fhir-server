@@ -25,7 +25,7 @@ steps:
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 15m --filter "FullyQualifiedName~${{parameters.appServiceType}}&${{ parameters.categoryFilter }}" -- --retry-failed-tests 3'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 15m --filter "DisplayName~${{parameters.appServiceType}}&${{ parameters.categoryFilter }}" -- --retry-failed-tests 3'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
     env:
