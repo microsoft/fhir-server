@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 cmd.CommandText = "dbo.GetSearchParamStatuses";
                 if (_schemaInformation.Current.Value >= 103 && startLastUpdated.HasValue)
                 {
-                    cmd.Parameters.AddWithValue("@StartLastUpdated", startLastUpdated.Value);
+                    cmd.Parameters.AddWithValue("@StartLastUpdated", startLastUpdated.Value.AddSeconds(-60)); // TODO: Remove shift
                 }
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
