@@ -249,17 +249,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.OriginalString, status.Id);
             }
         }
-
-        public async Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken)
-        {
-            // TODO: use sql retry class
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlCommandWrapper cmd = sqlConnectionWrapper.CreateRetrySqlCommand();
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.GetSearchParamMaxLastUpdated";
-            var result = await cmd.ExecuteScalarAsync(cancellationToken);
-            return (result == null || result == DBNull.Value) ? DateTimeOffset.MinValue : (DateTimeOffset)result;
-        }
     }
 }
