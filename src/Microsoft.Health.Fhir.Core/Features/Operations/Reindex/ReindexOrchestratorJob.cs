@@ -10,6 +10,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.JsonPatch.Internal;
@@ -241,10 +242,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 .Select(s => s.Uri.ToString())
                 .ToHashSet();
 
-            // Filter to only those search parameters with valid status
-            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters
-                .Where(sp => validUris.Contains(sp.Url.ToString()))
-                .ToList();
+            // Filter to only those search parameters which have valid definitions
+            var possibleNotYetIndexedParams = new List<SearchParameterInfo>();
+            foreach (var validUri in validUris)
+            {
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var searchInfo))
+                {
+                    possibleNotYetIndexedParams.Add(searchInfo);
+                    await TryLogEvent("ReindexOrchestratorJob.CreateReindexProcessingJobsAsync", "Warn", $"Found definition for uri={validUri}", null, cancellationToken);
+                }
+                else
+                {
+                    // TODO: We should throw here otherwise we will reindex incorrectly
+                    await TryLogEvent("ReindexOrchestratorJob.CreateReindexProcessingJobsAsync", "Error", $"Did not find definition for uri={validUri}", null, cancellationToken);
+                }
+            }
 
             var notYetIndexedParams = new List<SearchParameterInfo>();
 
