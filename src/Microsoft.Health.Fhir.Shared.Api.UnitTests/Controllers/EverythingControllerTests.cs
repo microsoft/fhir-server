@@ -75,6 +75,66 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(Bundle.BundleType.Searchset, bundleResource?.Type);
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("?p0=v0")]
+        [InlineData("?p0=v0&p1=v1&p2=v2")]
+        public async Task GivenAnEverythingOperationRequest_WhenUnsupportedParametersAreFound_ThenRequestShouldHaveUnsupportedParameters(
+            string query) // NOTE: query parameters are always unsupported parameters
+        {
+            _everythingController.ControllerContext.HttpContext.Request.QueryString = new QueryString(query);
+
+            _mediator.Send(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
+
+            var request = default(EverythingOperationRequest);
+            _mediator.When(
+                x => x.Send<EverythingOperationResponse>(
+                    Arg.Any<EverythingOperationRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.Arg<EverythingOperationRequest>());
+
+            var result = await _everythingController.PatientEverythingById(
+                idParameter: "123",
+                start: PartialDateTime.Parse("2019"),
+                end: PartialDateTime.Parse("2020"),
+                since: PartialDateTime.Parse("2021"),
+                type: ResourceType.Observation.ToString(),
+                ct: null) as FhirResult;
+
+            await _mediator.Received().Send(
+                Arg.Is<EverythingOperationRequest>(
+                    r => string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
+                         && string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)
+                         && string.Equals(r.Start.ToString(), "2019", StringComparison.Ordinal)
+                         && string.Equals(r.End.ToString(), "2020", StringComparison.Ordinal)
+                         && string.Equals(r.Since.ToString(), "2021", StringComparison.Ordinal)
+                         && string.Equals(r.ResourceTypes, ResourceType.Observation.ToString(), StringComparison.Ordinal)
+                         && r.ContinuationToken == null),
+                Arg.Any<CancellationToken>());
+
+            _mediator.ClearReceivedCalls();
+
+            var bundleResource = (result?.Result as ResourceElement)?.ResourceInstance as Bundle;
+            Assert.Equal(System.Net.HttpStatusCode.OK, result?.StatusCode);
+            Assert.Equal(Bundle.BundleType.Searchset, bundleResource?.Type);
+
+            Assert.NotNull(request);
+            if (!string.IsNullOrEmpty(query))
+            {
+                var expected = _everythingController.ControllerContext.HttpContext.Request.Query;
+                Assert.All(
+                    expected,
+                    x =>
+                    {
+                        Assert.Contains(new Tuple<string, string>(x.Key, x.Value), request.UnsupportedParameters);
+                    });
+            }
+            else
+            {
+                Assert.Empty(request.UnsupportedParameters);
+            }
+        }
+
         private static EverythingOperationResponse GetEverythingOperationResponse()
         {
             var bundle = new Bundle

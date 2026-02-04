@@ -49,6 +49,13 @@ jobs:
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
   - task: DotNetCoreCLI@2
+    displayName: 'Build Integration Test Projects'
+    inputs:
+      command: build
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
       command: test

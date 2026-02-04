@@ -6,20 +6,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -187,6 +190,49 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             });
 
             return parameters;
+        }
+
+        [Fact]
+        public async Task GivenAPostSearchParametersStatusRequest_WhenProcessing_ThenCSearchParameterStateRequestShouldBeCreatedCorrectly()
+        {
+            var query = "?p0=v0&p1=v1&p2=v2";
+            _httpContext.Request.QueryString = new QueryString(query);
+
+            _mediator
+                .Send(Arg.Any<SearchParameterStateRequest>())
+                .Returns(new SearchParameterStateResponse(new Parameters().ToResourceElement()));
+
+            var request = default(SearchParameterStateRequest);
+            _mediator.When(
+                x => x.Send(
+                    Arg.Any<SearchParameterStateRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.ArgAt<SearchParameterStateRequest>(0));
+
+            var response = await _controller.PostSearchParametersStatus(CancellationToken.None);
+            var result = Assert.IsType<FhirResult>(response);
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotNull(result.Result);
+            Assert.Equal(KnownResourceTypes.Parameters, result.GetResultTypeName(), StringComparer.OrdinalIgnoreCase);
+
+            Assert.NotNull(request);
+            Assert.All(
+                _httpContext.Request.Query,
+                x =>
+                {
+                    Assert.Contains(
+                        request.Queries,
+                        y =>
+                        {
+                            return string.Equals(x.Key, y.Item1, StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(x.Value.ToString(), y.Item2, StringComparison.OrdinalIgnoreCase);
+                        });
+                });
+
+            await _mediator.Received(1).Send(
+                Arg.Any<SearchParameterStateRequest>(),
+                Arg.Any<CancellationToken>());
+            _mediator.ClearReceivedCalls();
         }
 
         private Parameters CreateValidRequestBodyWithInvalidStatus()
