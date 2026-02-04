@@ -59,7 +59,7 @@ jobs:
     displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal -- --retry-failed-tests 3'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter "DataStore=CosmosDb" --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal -- --retry-failed-tests 3'
       workingDirectory: '$(System.ArtifactsDirectory)'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishTestResults: true

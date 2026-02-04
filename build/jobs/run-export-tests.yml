@@ -66,7 +66,7 @@ jobs:
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "DisplayName~CosmosDb&Category=ExportLongRunning" -- --retry-failed-tests 3'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "DataStore=CosmosDb&Category=ExportLongRunning" -- --retry-failed-tests 3'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
     env:
@@ -159,7 +159,7 @@ jobs:
     displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "DisplayName~SqlServer&Category=ExportLongRunning" -- --retry-failed-tests 3'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "DataStore=SqlServer&Category=ExportLongRunning" -- --retry-failed-tests 3'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Export ${{ parameters.version }} SQL'
     env:
