@@ -3256,20 +3256,32 @@ AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'GetSearchParamStatuses', @Mode AS VARCHAR (100) = 'S=' + isnull(CONVERT (VARCHAR, @StartLastUpdated), 'NULL'), @st AS DATETIME = getUTCdate(), @msg AS VARCHAR (100);
 BEGIN TRY
+    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+    BEGIN TRANSACTION;
     SET @LastUpdated = (SELECT max(LastUpdated)
                         FROM   dbo.SearchParam);
     SET @msg = 'LastUpdated=' + substring(CONVERT (VARCHAR, @LastUpdated), 1, 23);
-    SELECT SearchParamId,
-           Uri,
-           Status,
-           LastUpdated,
-           IsPartiallySupported
-    FROM   dbo.SearchParam
-    WHERE  @StartLastUpdated IS NULL
-           OR LastUpdated > @StartLastUpdated;
+    IF @StartLastUpdated IS NULL
+        SELECT SearchParamId,
+               Uri,
+               Status,
+               LastUpdated,
+               IsPartiallySupported
+        FROM   dbo.SearchParam;
+    ELSE
+        SELECT SearchParamId,
+               Uri,
+               Status,
+               LastUpdated,
+               IsPartiallySupported
+        FROM   dbo.SearchParam
+        WHERE  LastUpdated > @StartLastUpdated;
+    COMMIT TRANSACTION;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount, @Action = 'Select', @Target = 'SearchParam', @Text = @msg;
 END TRY
 BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
     IF error_number() = 1750
         THROW;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';

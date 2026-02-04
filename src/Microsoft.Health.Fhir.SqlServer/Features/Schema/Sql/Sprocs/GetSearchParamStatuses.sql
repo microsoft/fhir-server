@@ -7,14 +7,24 @@ DECLARE @SP varchar(100) = 'GetSearchParamStatuses'
        ,@msg varchar(100)
 
 BEGIN TRY
+  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
+  
+  BEGIN TRANSACTION
+
   SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam) -- this should be before main select
   SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)
 
-  SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam WHERE @StartLastUpdated IS NULL OR LastUpdated > @StartLastUpdated
+  IF @StartLastUpdated IS NULL
+    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam
+  ELSE
+    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam WHERE LastUpdated > @StartLastUpdated
+  
+  COMMIT TRANSACTION
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Action='Select',@Target='SearchParam',@Text=@msg
 END TRY
 BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
   THROW
