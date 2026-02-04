@@ -308,24 +308,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
             }
 
-            // Get all URLs that need to be fetched
-            var urlsToFetch = statuses
-                .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
-                .Select(p => p.Uri.OriginalString)
-                .ToList();
-
-            ////if (!urlsToFetch.Any())
-            ////{
-            ////    // No parameters to add, but still apply status updates
-            ////    await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
-            ////    return;
-            ////}
+            var statusesToProcess = statuses.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList();
 
             // Batch fetch all SearchParameter resources in one call
-            var searchParamResources = await GetSearchParametersByUrls(urlsToFetch, cancellationToken);
+            var searchParamResources = await GetSearchParametersByUrls(statusesToProcess.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
 
             var paramsToAdd = new List<ITypedElement>();
-            foreach (var searchParam in statuses.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported))
+            foreach (var searchParam in statusesToProcess)
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
@@ -353,7 +342,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-            if (results.LastUpdated.HasValue)
+            if (results.LastUpdated.HasValue) // this should be the ony place in the code to assign last updated
             {
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
