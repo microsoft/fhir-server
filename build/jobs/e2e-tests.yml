@@ -90,6 +90,7 @@ steps:
       testResultsFormat: 'VSTest'
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
       # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
       failTaskOnFailedTests: false
     condition: succeededOrFailed()

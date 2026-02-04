@@ -120,6 +120,7 @@ jobs:
       testResultsFormat: 'VSTest'
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
+      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
       # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
       failTaskOnFailedTests: false
     condition: succeededOrFailed()
@@ -239,6 +240,7 @@ jobs:
       testResultsFormat: 'VSTest'
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
+      testRunTitle: 'Export ${{ parameters.version }} SQL'
       # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
       failTaskOnFailedTests: false
     condition: succeededOrFailed()

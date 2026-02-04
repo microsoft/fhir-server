@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration>
+  <IncludeTestAssembly>false</IncludeTestAssembly>
+  <ExcludeAssembliesWithoutSources>MissingAll</ExcludeAssembliesWithoutSources>
+  <CodeCoverage>
+    <CollectFromChildProcesses>False</CollectFromChildProcesses>
+    <ModulePaths>
+      <Include>
+        <ModulePath>.*Microsoft\.Health\.Fhir\..*\.dll$</ModulePath>
+      </Include>
+      <Exclude>
+        <ModulePath>.*Tests.*\.dll$</ModulePath>
+        <ModulePath>.*\.Web(\..*)?\.dll$</ModulePath>
+        <ModulePath>.*\.ValueSets(\..*)?\.dll$</ModulePath>
+        <ModulePath>.*\.SqlServer.*Schema\.Model.*\.dll$</ModulePath>
+      </Exclude>
+    </ModulePaths>
+    <Attributes>
+      <Exclude>
+        <Attribute>^System\.Diagnostics\.CodeAnalysis\.ExcludeFromCodeCoverageAttribute$</Attribute>
+      </Exclude>
+    </Attributes>
+    <Sources>
+      <Exclude>
+        <Source>.*[\\/].*\.g\.cs$</Source>
+        <Source>.*[\\/]test[\\/].*</Source>
+        <Source>.*\.Designer\.cs$</Source>
+        <Source>.*RegistrationExtensions\.cs$</Source>
+        <Source>.*[\\/]Registration[\\/].*Extensions\.cs$</Source>
+        <Source>.*[\\/]Modules[\\/].*Module\.cs$</Source>
+        <Source>.*[\\/]Extensions[\\/]ServiceCollectionExtensions\.cs$</Source>
+        <Source>.*[\\/]Api\.OpenIddict[\\/]Configuration[\\/].*\.cs$</Source>
+        <Source>.*[\\/]Core[\\/]Configs[\\/].*Configuration\.cs$</Source>
+        <Source>.*[\\/]CosmosDb\.Core[\\/]Configs[\\/].*Configuration\.cs$</Source>
+        <Source>.*[\\/]SchemaManager[\\/]Command.*\.cs$</Source>
+        <Source>.*[\\/]SchemaManager[\\/].*ParserBuilder\.cs$</Source>
+        <Source>.*[\\/]Modules[\\/]KnownAssemblies\.cs$</Source>
+        <Source>.*[\\/]Modules[\\/]FeatureFlags[\\/].*ValidatePostConfigureOptions\.cs$</Source>
+        <Source>.*[\\/]XmlFormatterConfiguration\.cs$</Source>
+      </Exclude>
+    </Sources>
+  </CodeCoverage>
+</Configuration>
