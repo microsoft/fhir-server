@@ -2,16 +2,17 @@
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetSearchParamStatuses'
-       ,@Mode varchar(100) = 'S='+isnull(convert(varchar,@StartLastUpdated),'NULL')
+       ,@Mode varchar(100) = 'S='+isnull(substring(convert(varchar,@StartLastUpdated),1,23),'NULL')
        ,@st datetime = getUTCdate()
        ,@msg varchar(100)
+       ,@Rows int
 
 BEGIN TRY
   SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
   
   BEGIN TRANSACTION
 
-  SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam) -- this should be before main select
+  SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
   SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)
 
   IF @StartLastUpdated IS NULL
@@ -19,9 +20,11 @@ BEGIN TRY
   ELSE
     SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam WHERE LastUpdated > @StartLastUpdated
   
+  SET @Rows = @@rowcount
+
   COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Action='Select',@Target='SearchParam',@Text=@msg
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Action='Select',@Target='SearchParam',@Text=@msg
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION

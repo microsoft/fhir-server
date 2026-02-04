@@ -3254,7 +3254,7 @@ CREATE PROCEDURE dbo.GetSearchParamStatuses
 @StartLastUpdated DATETIMEOFFSET (7)=NULL, @LastUpdated DATETIMEOFFSET (7)=NULL OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetSearchParamStatuses', @Mode AS VARCHAR (100) = 'S=' + isnull(CONVERT (VARCHAR, @StartLastUpdated), 'NULL'), @st AS DATETIME = getUTCdate(), @msg AS VARCHAR (100);
+DECLARE @SP AS VARCHAR (100) = 'GetSearchParamStatuses', @Mode AS VARCHAR (100) = 'S=' + isnull(substring(CONVERT (VARCHAR, @StartLastUpdated), 1, 23), 'NULL'), @st AS DATETIME = getUTCdate(), @msg AS VARCHAR (100), @Rows AS INT;
 BEGIN TRY
     SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
     BEGIN TRANSACTION;
@@ -3276,8 +3276,9 @@ BEGIN TRY
                IsPartiallySupported
         FROM   dbo.SearchParam
         WHERE  LastUpdated > @StartLastUpdated;
+    SET @Rows = @@rowcount;
     COMMIT TRANSACTION;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount, @Action = 'Select', @Target = 'SearchParam', @Text = @msg;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows, @Action = 'Select', @Target = 'SearchParam', @Text = @msg;
 END TRY
 BEGIN CATCH
     IF @@trancount > 0
