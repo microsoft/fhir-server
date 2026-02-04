@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
-#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously. Needed due to the Stu3 condition.
         public async Task GivenBulkUpdateJobWithIncludeSearchWithIsParallelFalse_WhenCompleted_ThenIncludedResourcesAreUpdated()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
@@ -645,6 +645,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             expectedResultsForIncludedResultsOnDifferentPages.ResourcesUpdated.Add("Patient", 4010);
             expectedResultsForIncludedResultsOnDifferentPages.ResourcesUpdated.Add("Group", 1012);
             await MonitorBulkUpdateJob(responseForIncludedResultsOnDifferentPages.Content.Headers.ContentLocation, expectedResultsForIncludedResultsOnDifferentPages);
+        }
+
+        [SkippableFact]
+        public async Task GivenBulkUpdateWithMetaHistoryDisabled_WhenCompleted_ThenNoHistoricalVersionWasCreated()
+        {
+            CheckBulkUpdateEnabled();
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatients(tag, 10);
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
+
+            // Create a patch request that updates a field on Patient
+            var patchRequest = new Parameters()
+                .AddAddPatchParameter("Patient.meta", "security", new Coding("http://example.org/security-system", "SECURITY_TAG_CODE"));
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+            var queryParam = new Dictionary<string, string>
+                {
+                    { "_meta-history", "false" },
+                };
+            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", queryParam);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            BulkUpdateResult expectedResults = new BulkUpdateResult();
+            expectedResults.ResourcesUpdated.Add("Patient", 10);
+            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+
+            // Verify no historical versions were created
+            var patients = await _fhirClient.SearchAsync(ResourceType.Patient, $"_tag={tag}");
+            Assert.True(patients.Resource.Entry.Count == 10);
+            foreach (var entry in patients.Resource.Entry)
+            {
+                var patient = (Patient)entry.Resource;
+                var history = await _fhirClient.ReadHistoryAsync(ResourceType.Patient, patient.Id);
+                Assert.Single(history.Resource.Entry); // Only one version should exist
+            }
         }
 
         private async Task RunBulkUpdateRequest(
