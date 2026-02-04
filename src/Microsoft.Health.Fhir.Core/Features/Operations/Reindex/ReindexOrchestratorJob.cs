@@ -214,34 +214,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task RefreshSearchParameterCache()
         {
-            if (_isSurrogateIdRangingSupported) // this is SQL
-            {
-                // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
-                await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, _cancellationToken); // elevate in SQL to log w/o extra settings
-                await WaitForRefresh(); // wait for M * cache refresh intervals
-            }
-            else
-            {
-                try
-                {
-                    _logger.LogJobInformation(_jobInfo, "Performing full SearchParameter database refresh and hash recalculation for reindex job.");
-
-                    // Use the enhanced method with forceFullRefresh flag
-                    // Wrapped with retry policy for SQL timeouts and Cosmos DB 429 errors
-                    await _searchParameterStatusRetries.ExecuteAsync(
-                        async () => await _searchParameterOperations.GetAndApplySearchParameterUpdates(_cancellationToken, forceFullRefresh: true));
-
-                    _logger.LogJobInformation(
-                        _jobInfo,
-                        "Completed full SearchParameter refresh. Hash map updated with {ResourceTypeCount} resource types.",
-                        _reindexJobRecord.ResourceTypeSearchParameterHashMap.Count);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogJobError(ex, _jobInfo, "Failed to refresh SearchParameter cache.");
-                    throw;
-                }
-            }
+            // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, _cancellationToken); // elevate in SQL to log w/o extra settings
+            await WaitForRefresh(); // wait for M * cache refresh intervals
 
             // Update the reindex job record with the latest hash map
             _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
