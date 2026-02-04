@@ -187,6 +187,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     bundle,
                     new FhirBundleOptions() { BundleProcessingLogic = processingLogic },
                     CancellationToken.None);
+
+                Assert.Fail("Transaction is supposed to fail at this point, as Parallel Bundles are expected to fail with _hardDelete/_purge operations.");
             }
             catch (FhirClientException e)
             {

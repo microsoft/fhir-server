@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleProcessingLogic.Sequential)]
         public async Task GivenATransactionBundle_WhenContainsEntryWithHardDelete_ThenNoExceptionShouldBeThrown(BundleProcessingLogic processingLogic)
         {
-            // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update the Parallel test above.
+            // TODO: When Parallel Bundles start supporting hard deletes, update this test and remove the Parallel test below.
             // TODO: 182638 - Add support to hard deletes in parallel processing mode.
 
             // Arrange
@@ -173,6 +173,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleProcessingLogic.Parallel)]
         public async Task GivenATransactionBundle_WhenContainsEntryWithHardDelete_ThenExceptionShouldBeThrownWhenExecutedInParallel(BundleProcessingLogic processingLogic)
         {
+            // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update test above.
+            // TODO: 182638 - Add support to hard deletes in parallel processing mode.
+
             // Arrange
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -265,7 +268,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(BundleProcessingLogic.Parallel, "Patient/789?_hardDelete=true&_cascade=delete")]
         public async Task GivenATransactionBundle_WhenContainsDeleteWithResourceIdAndQueryParams_ThenExceptionShouldBeThrownWhenInParallel(BundleProcessingLogic processingLogic, string requestUrl)
         {
-            // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update the Parallel test above.
+            // TODO: When Parallel Bundles start supporting hard deletes, remove this test and update the test above.
             // TODO: 182638 - Add support to hard deletes in parallel processing mode.
 
             // Arrange - These are hard deletes with resource IDs and query parameters
