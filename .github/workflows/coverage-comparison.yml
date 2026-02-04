@@ -1,12 +1,16 @@
 name: Code Coverage Comparison
 
 on:
+  workflow_dispatch:  # Allows manual triggering from Actions tab
   pull_request:
     branches:
       - main
     paths:
       - 'src/**'
       - 'test/**'
+      - 'build/**/*.yml'
+      - '.github/workflows/**'
+      - 'CodeCoverage.runsettings'
 
 permissions:
   contents: read
