@@ -120,7 +120,8 @@ jobs:
       testResultsFormat: 'VSTest'
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
-      failTaskOnFailedTests: true
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
     condition: succeededOrFailed()
 
 - job: 'sqlE2eTests'
@@ -238,6 +239,7 @@ jobs:
       testResultsFormat: 'VSTest'
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
-      failTaskOnFailedTests: true
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
     condition: succeededOrFailed()
       

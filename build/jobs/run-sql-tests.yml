@@ -55,9 +55,8 @@ jobs:
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter "FullyQualifiedName!~CosmosDb" --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
+      arguments: '--filter "FullyQualifiedName!~CosmosDb" --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --report-trx'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      publishTestResults: true
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
@@ -65,6 +64,16 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+
+  - task: PublishTestResults@2
+    displayName: 'Publish integration test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
+      mergeTestResults: true
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
+    condition: succeededOrFailed()
 
   - task: reportgenerator@5
     displayName: 'Aggregate SQL integration test coverage'

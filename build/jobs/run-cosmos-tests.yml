@@ -60,9 +60,8 @@ jobs:
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter "FullyQualifiedName!~SqlServer" --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura'
+      arguments: '--filter "FullyQualifiedName!~SqlServer" --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --report-trx'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      publishTestResults: true
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -72,6 +71,16 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+
+  - task: PublishTestResults@2
+    displayName: 'Publish integration test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
+      mergeTestResults: true
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
+    condition: succeededOrFailed()
 
   - task: reportgenerator@5
     displayName: 'Aggregate Cosmos integration test coverage'
