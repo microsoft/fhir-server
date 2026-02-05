@@ -324,6 +324,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     continue;
                 }
 
+                // check if search param is in cache and add if does not exist
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
                 {
                     // if the previous version of the search parameter exists we should delete the old information currently stored
@@ -336,7 +337,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Now add the new or updated parameters to the SearchParameterDefinitionManager
             if (paramsToAdd.Any())
             {
-                ////_searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
             }
 
             // Once added to the definition manager we can update their status
