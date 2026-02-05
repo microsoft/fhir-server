@@ -414,13 +414,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             Assert.NotNull(actual);
 
             var capabilities = new List<string>(Constants.SmartCapabilityClients
-                .Concat(Constants.SmartCapabilityContexts)
+                .Concat(Constants.SmartCapabilityAdditional)
                 .Concat(Constants.SmartCapabilityLaunches)
                 .Concat(Constants.SmartCapabilityPermissions)
                 .Concat(Constants.SmartCapabilitySSOs));
             if (!string.IsNullOrEmpty(configuration?.Authority))
             {
-                capabilities.AddRange(Constants.SmartCapabilityThirdPartyClients);
                 capabilities.AddRange(Constants.SmartCapabilityThirdPartyContexts);
             }
 

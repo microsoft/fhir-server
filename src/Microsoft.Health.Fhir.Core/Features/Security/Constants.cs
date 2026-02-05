@@ -26,19 +26,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
         public static readonly string[] SmartCapabilityLaunches = new[]
         {
-            "launch-ehr",
             "launch-standalone",
-        };
-
-        public static readonly string[] SmartCapabilityContexts = new[]
-        {
-            "context-ehr-patient",
-            "context-standalone-patient",
         };
 
         public static readonly string[] SmartCapabilityClients = new[]
         {
             "client-public",
+            "client-confidential-symmetric",
+            "client-confidential-asymmetric",
         };
 
         public static readonly string[] SmartCapabilityPermissions = new[]
@@ -54,10 +49,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             "sso-openid-connect",
         };
 
-        public static readonly string[] SmartCapabilityThirdPartyClients = new[]
+        public static readonly string[] SmartCapabilityAdditional = new[]
         {
-            "client-confidential-symmetric",
-            "client-confidential-asymmetric",
+            "authorize-post",
         };
 
         public static readonly string[] SmartCapabilityThirdPartyContexts = new[]

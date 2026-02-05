@@ -180,6 +180,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         {
             var extensions = new List<JObject>();
             extensions.Add(GetUrlExtension(authorizationEndpoint, tokenEndpoint));
+            extensions.AddRange(GetAdditionalCapabilities());
             extensions.AddRange(GetClientCapabilities());
             extensions.AddRange(GetContextCapabilities());
             extensions.AddRange(GetLaunchCapabilities());
@@ -268,48 +269,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             };
         }
 
-        private List<JObject> GetClientCapabilities()
-        {
-            var capabilities = new List<JObject>();
-            foreach (var client in Constants.SmartCapabilityClients)
-            {
-                capabilities.Add(
-                    new JObject
-                    {
-                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
-                        { Constants.ValueCodePropertyName, client },
-                    });
-            }
-
-            if (IsThirdPartyIdentityProvider())
-            {
-                foreach (var client in Constants.SmartCapabilityThirdPartyClients)
-                {
-                    capabilities.Add(
-                        new JObject
-                        {
-                            { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
-                            { Constants.ValueCodePropertyName, client },
-                        });
-                }
-            }
-
-            return capabilities;
-        }
-
         private List<JObject> GetContextCapabilities()
         {
             var capabilities = new List<JObject>();
-            foreach (var context in Constants.SmartCapabilityContexts)
-            {
-                capabilities.Add(
-                    new JObject
-                    {
-                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
-                        { Constants.ValueCodePropertyName, context },
-                    });
-            }
-
             if (IsThirdPartyIdentityProvider())
             {
                 foreach (var context in Constants.SmartCapabilityThirdPartyContexts)
@@ -321,6 +283,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                             { Constants.ValueCodePropertyName, context },
                         });
                 }
+            }
+
+            return capabilities;
+        }
+
+        private static List<JObject> GetAdditionalCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            foreach (var client in Constants.SmartCapabilityAdditional)
+            {
+                capabilities.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                        { Constants.ValueCodePropertyName, client },
+                    });
+            }
+
+            return capabilities;
+        }
+
+        private static List<JObject> GetClientCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            foreach (var client in Constants.SmartCapabilityClients)
+            {
+                capabilities.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                        { Constants.ValueCodePropertyName, client },
+                    });
             }
 
             return capabilities;
