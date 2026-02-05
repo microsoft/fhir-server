@@ -25,7 +25,7 @@ namespace Microsoft.Health.Extensions.Xunit
         private readonly string _uniqueId;
 
         public FixtureArgumentSetTestMethod(FixtureArgumentSetTestClass testClass, MethodInfo methodInfo, IReadOnlyList<SingleFlag> fixtureArguments, string uniqueId)
-            : base(testClass, methodInfo, testMethodArguments: null, uniqueId)
+            : base(testClass, methodInfo, testMethodArguments: Array.Empty<object>(), uniqueId)
         {
             EnsureArg.IsNotNull(testClass, nameof(testClass));
             EnsureArg.IsNotNull(methodInfo, nameof(methodInfo));
