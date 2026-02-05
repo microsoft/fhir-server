@@ -129,13 +129,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 if (shouldForceRefresh)
                 {
                     _logger.LogInformation("Performing full SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
+
+                    var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
+
+                    _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
+
+                    // Apply all search parameters (this will recalculate the hash)
+                    await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
+
+                    _lastForceRefreshTime = DateTime.UtcNow;
                 }
                 else
                 {
                     _logger.LogInformation("Performing incremental SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
                 }
-
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, shouldForceRefresh);
             }
             catch (OperationCanceledException)
             {
