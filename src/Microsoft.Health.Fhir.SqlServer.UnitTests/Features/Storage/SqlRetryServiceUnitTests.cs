@@ -138,43 +138,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.DoesNotContain(errorCodeToRemove, transientErrors);
         }
 
-        [Fact]
-        public void DefaultIsExceptionRetriable_WithError121AndHandshakeMessage_ShouldReturnTrue()
+        [Theory]
+        [InlineData(121, "an error occurred during the pre-login handshake with the server", true)]
+        [InlineData(121, "An Error Occurred During The Pre-Login Handshake", true)]
+        [InlineData(121, "some other error message", false)]
+        [InlineData(18456, "Login failed for user 'test'", true)]
+        public void DefaultIsExceptionRetriable_WithSqlException_ShouldReturnExpectedResult(int errorCode, string message, bool expectedResult)
         {
             // Arrange
-            var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake with the server");
+            var sqlEx = CreateSqlException(errorCode, message);
 
             // Act
             var result = InvokeDefaultIsExceptionRetriable(sqlEx);
 
             // Assert
-            Assert.True(result);
-        }
-
-        [Fact]
-        public void DefaultIsExceptionRetriable_WithError121NoHandshakeMessage_ShouldReturnFalse()
-        {
-            // Arrange
-            var sqlEx = CreateSqlException(121, "some other error message");
-
-            // Act
-            var result = InvokeDefaultIsExceptionRetriable(sqlEx);
-
-            // Assert
-            Assert.False(result);
-        }
-
-        [Fact]
-        public void DefaultIsExceptionRetriable_WithLoginFailedMessage_ShouldReturnTrue()
-        {
-            // Arrange
-            var sqlEx = CreateSqlException(18456, "Login failed for user 'test'");
-
-            // Act
-            var result = InvokeDefaultIsExceptionRetriable(sqlEx);
-
-            // Assert
-            Assert.True(result);
+            Assert.Equal(expectedResult, result);
         }
 
         [Fact]
@@ -188,19 +166,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Assert
             Assert.False(result);
-        }
-
-        [Fact]
-        public void DefaultIsExceptionRetriable_WithHandshakeMessageDifferentCase_ShouldReturnTrue()
-        {
-            // Arrange
-            var sqlEx = CreateSqlException(121, "An Error Occurred During The Pre-Login Handshake");
-
-            // Act
-            var result = InvokeDefaultIsExceptionRetriable(sqlEx);
-
-            // Assert
-            Assert.True(result);
         }
 
         [Fact]

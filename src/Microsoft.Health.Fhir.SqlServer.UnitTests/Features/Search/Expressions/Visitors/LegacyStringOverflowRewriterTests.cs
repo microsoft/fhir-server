@@ -172,17 +172,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenSingletonInstance_WhenAccessed_ThenReturnsSameInstance()
-        {
-            // Arrange & Act
-            var instance1 = LegacyStringOverflowRewriter.Instance;
-            var instance2 = LegacyStringOverflowRewriter.Instance;
-
-            // Assert
-            Assert.Same(instance1, instance2);
-        }
-
-        [Fact]
         public void GivenChainExpression_WhenVisited_ThenDoesNotRewrite()
         {
             // Arrange - Chain expressions should be skipped even with long string values

@@ -37,25 +37,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             _schemaInformation = new SchemaInformation(1, 100);
         }
 
-        [Fact]
-        public void Constructor_WithNullRetryService_ShouldThrowArgumentNullException()
+        [Theory]
+        [InlineData("retryService")]
+        [InlineData("logger")]
+        [InlineData("schemaInfo")]
+        public void Constructor_WithNullParameter_ShouldThrowArgumentNullException(string nullParameter)
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new SqlQueueClient(null, _logger));
-        }
-
-        [Fact]
-        public void Constructor_WithNullLogger_ShouldThrowArgumentNullException()
-        {
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new SqlQueueClient(_sqlRetryService, null));
-        }
-
-        [Fact]
-        public void Constructor_WithSchemaInformation_WithNullSchemaInformation_ShouldThrowArgumentNullException()
-        {
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new SqlQueueClient(null, _sqlRetryService, _logger));
+            switch (nullParameter)
+            {
+                case "retryService":
+                    Assert.Throws<ArgumentNullException>(() => new SqlQueueClient(null, _logger));
+                    break;
+                case "logger":
+                    Assert.Throws<ArgumentNullException>(() => new SqlQueueClient(_sqlRetryService, null));
+                    break;
+                case "schemaInfo":
+                    Assert.Throws<ArgumentNullException>(() => new SqlQueueClient(null, _sqlRetryService, _logger));
+                    break;
+            }
         }
 
         [Fact]
@@ -153,43 +153,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Contains("schema information = null", exception.Message);
         }
 
-        [Fact]
-        public void IsInitialized_WhenNotInitialized_ShouldReturnFalse()
-        {
-            // Arrange - Test both null and zero cases
-            var schemaInfoWithNull = new SchemaInformation(1, 100);
-            typeof(SchemaInformation).GetProperty(nameof(SchemaInformation.Current))
-                .SetValue(schemaInfoWithNull, null);
-            var clientWithNull = new SqlQueueClient(schemaInfoWithNull, _sqlRetryService, _logger);
-
-            var schemaInfoWithZero = new SchemaInformation(1, 100);
-            typeof(SchemaInformation).GetProperty(nameof(SchemaInformation.Current))
-                .SetValue(schemaInfoWithZero, 0);
-            var clientWithZero = new SqlQueueClient(schemaInfoWithZero, _sqlRetryService, _logger);
-
-            // Act
-            var resultWithNull = clientWithNull.IsInitialized();
-            var resultWithZero = clientWithZero.IsInitialized();
-
-            // Assert
-            Assert.False(resultWithNull);
-            Assert.False(resultWithZero);
-        }
-
-        [Fact]
-        public void IsInitialized_WhenCurrentIsValid_ShouldReturnTrue()
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData(0, false)]
+        [InlineData(100, true)]
+        public void IsInitialized_WithVariousSchemaVersions_ShouldReturnExpectedResult(int? currentVersion, bool expectedResult)
         {
             // Arrange
             var schemaInfo = new SchemaInformation(1, 100);
             typeof(SchemaInformation).GetProperty(nameof(SchemaInformation.Current))
-                .SetValue(schemaInfo, 100);
+                .SetValue(schemaInfo, currentVersion);
             var client = new SqlQueueClient(schemaInfo, _sqlRetryService, _logger);
 
             // Act
             var result = client.IsInitialized();
 
             // Assert
-            Assert.True(result);
+            Assert.Equal(expectedResult, result);
         }
 
         private static JobInfo CreateJobInfo(long id)

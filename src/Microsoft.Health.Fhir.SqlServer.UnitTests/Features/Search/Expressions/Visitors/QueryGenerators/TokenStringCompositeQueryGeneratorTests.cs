@@ -49,15 +49,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.Equal(VLatest.TokenStringCompositeSearchParam.TableName, table.TableName);
         }
 
-        [Fact]
-        public void GivenStringExpressionForTokenCodeWithComponentIndex0_WhenVisitString_ThenDelegatesToTokenQueryGenerator()
+        [Theory]
+        [InlineData(0, FieldName.TokenCode, "active", @"Code1\s*=\s*@\w+")]
+        [InlineData(1, FieldName.String, "test-value", @"Text2\s*=\s*@\w+")]
+        public void GivenStringExpressionWithComponentIndex_WhenVisitString_ThenDelegatesToCorrectQueryGenerator(
+            int componentIndex, FieldName fieldName, string value, string expectedPattern)
         {
-            // Arrange - Component index 0 should delegate to TokenQueryGenerator
+            // Arrange - Component index determines which query generator handles the expression
             var expression = new StringExpression(
                 StringOperator.Equals,
-                FieldName.TokenCode,
-                componentIndex: 0,
-                value: "active",
+                fieldName,
+                componentIndex: componentIndex,
+                value: value,
                 ignoreCase: false);
 
             var context = CreateContext();
@@ -65,32 +68,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Act
             TokenStringCompositeQueryGenerator.Instance.VisitString(expression, context);
 
-            // Assert - TokenQueryGenerator should generate SQL for token code with component 1 column suffix
+            // Assert - Correct query generator should generate SQL with appropriate column suffix
             var sql = context.StringBuilder.ToString();
             Assert.NotEmpty(sql);
-            Assert.Matches(@"Code1\s*=\s*@\w+", sql);
-        }
-
-        [Fact]
-        public void GivenStringExpressionWithComponentIndex1_WhenVisitString_ThenDelegatesToStringQueryGenerator()
-        {
-            // Arrange - Component index 1 should delegate to StringQueryGenerator
-            var expression = new StringExpression(
-                StringOperator.Equals,
-                FieldName.String,
-                componentIndex: 1,
-                value: "test-value",
-                ignoreCase: false);
-
-            var context = CreateContext();
-
-            // Act
-            TokenStringCompositeQueryGenerator.Instance.VisitString(expression, context);
-
-            // Assert - StringQueryGenerator should generate SQL for string on component 2
-            var sql = context.StringBuilder.ToString();
-            Assert.NotEmpty(sql);
-            Assert.Matches(@"Text2\s*=\s*@\w+", sql);
+            Assert.Matches(expectedPattern, sql);
         }
 
         [Fact]

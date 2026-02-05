@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,74 +28,36 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerFhirDataStoreUnitTests
     {
-        [Fact]
-        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_WithAllZeroMilliseconds_ShouldRemoveDotAndMilliseconds()
+        public static IEnumerable<object[]> RemoveTrailingZerosTestCases()
         {
-            var date = new DateTimeOffset(2022, 3, 9, 1, 40, 52, 0, TimeSpan.FromHours(2));
+            // All zero milliseconds - should remove dot and milliseconds
+            yield return new object[] { new DateTimeOffset(2022, 3, 9, 1, 40, 52, 0, TimeSpan.FromHours(2)), "2022-03-09T01:40:52+02:00" };
 
-            var result = InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(date);
+            // Trailing zeros - should remove only trailing zeros
+            yield return new object[] { new DateTimeOffset(2022, 3, 9, 1, 40, 52, 69, TimeSpan.FromHours(2)), "2022-03-09T01:40:52.069+02:00" };
 
-            Assert.Equal("2022-03-09T01:40:52+02:00", result);
+            // No trailing zeros - should return unchanged
+            yield return new object[] { new DateTimeOffset(2022, 3, 9, 1, 40, 52, 123, TimeSpan.FromHours(2)).AddTicks(4567), "2022-03-09T01:40:52.1234567+02:00" };
+
+            // Single non-zero digit - should return single digit
+            yield return new object[] { new DateTimeOffset(2022, 3, 9, 1, 40, 52, 100, TimeSpan.FromHours(2)), "2022-03-09T01:40:52.1+02:00" };
+
+            // Multiple trailing zeros - should remove all
+            yield return new object[] { new DateTimeOffset(2022, 3, 9, 1, 40, 52, 10, TimeSpan.FromHours(2)), "2022-03-09T01:40:52.01+02:00" };
+
+            // Middle non-zero digit - should preserve pattern
+            yield return new object[] { new DateTimeOffset(2022, 3, 9, 1, 40, 52, 101, TimeSpan.FromHours(2)), "2022-03-09T01:40:52.101+02:00" };
+
+            // Negative offset - should handle correctly
+            yield return new object[] { new DateTimeOffset(2022, 3, 9, 1, 40, 52, 18, TimeSpan.FromHours(-5)), "2022-03-09T01:40:52.018-05:00" };
         }
 
-        [Fact]
-        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_WithTrailingZeros_ShouldRemoveOnlyTrailingZeros()
+        [Theory]
+        [MemberData(nameof(RemoveTrailingZerosTestCases))]
+        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_ShouldFormatCorrectly(DateTimeOffset date, string expected)
         {
-            var date = new DateTimeOffset(2022, 3, 9, 1, 40, 52, 69, TimeSpan.FromHours(2));
-
             var result = InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(date);
-
-            Assert.Equal("2022-03-09T01:40:52.069+02:00", result);
-        }
-
-        [Fact]
-        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_WithNoTrailingZeros_ShouldReturnUnchanged()
-        {
-            var date = new DateTimeOffset(2022, 3, 9, 1, 40, 52, 123, TimeSpan.FromHours(2)).AddTicks(4567);
-
-            var result = InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(date);
-
-            Assert.Equal("2022-03-09T01:40:52.1234567+02:00", result);
-        }
-
-        [Fact]
-        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_WithSingleNonZeroDigit_ShouldReturnSingleDigit()
-        {
-            var date = new DateTimeOffset(2022, 3, 9, 1, 40, 52, 100, TimeSpan.FromHours(2));
-
-            var result = InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(date);
-
-            Assert.Equal("2022-03-09T01:40:52.1+02:00", result);
-        }
-
-        [Fact]
-        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_WithMultipleTrailingZeros_ShouldRemoveAll()
-        {
-            var date = new DateTimeOffset(2022, 3, 9, 1, 40, 52, 10, TimeSpan.FromHours(2));
-
-            var result = InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(date);
-
-            Assert.Equal("2022-03-09T01:40:52.01+02:00", result);
-        }
-
-        [Fact]
-        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_WithMiddleNonZeroDigit_ShouldPreservePattern()
-        {
-            var date = new DateTimeOffset(2022, 3, 9, 1, 40, 52, 101, TimeSpan.FromHours(2));
-
-            var result = InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(date);
-
-            Assert.Equal("2022-03-09T01:40:52.101+02:00", result);
-        }
-
-        [Fact]
-        public void RemoveTrailingZerosFromMillisecondsForAGivenDate_WithNegativeOffset_ShouldHandleCorrectly()
-        {
-            var date = new DateTimeOffset(2022, 3, 9, 1, 40, 52, 18, TimeSpan.FromHours(-5));
-
-            var result = InvokeRemoveTrailingZerosFromMillisecondsForAGivenDate(date);
-
-            Assert.Equal("2022-03-09T01:40:52.018-05:00", result);
+            Assert.Equal(expected, result);
         }
 
         [Fact]

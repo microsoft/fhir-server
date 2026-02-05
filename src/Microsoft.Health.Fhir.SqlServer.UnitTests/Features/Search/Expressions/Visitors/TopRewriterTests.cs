@@ -32,18 +32,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             url: new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"));
 
         [Fact]
-        public void GivenSingletonInstance_WhenAccessed_ThenReturnsSameInstance()
-        {
-            // Arrange & Act
-            var instance1 = TopRewriter.Instance;
-            var instance2 = TopRewriter.Instance;
-
-            // Assert
-            Assert.Same(instance1, instance2);
-            Assert.NotNull(instance1);
-        }
-
-        [Fact]
         public void GivenCountOnlyQuery_WhenVisited_ThenReturnsUnchanged()
         {
             // Arrange
@@ -135,30 +123,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Last should be TOP
             Assert.Equal(SearchParamTableExpressionKind.Top, result.SearchParamTableExpressions[2].Kind);
             Assert.Null(result.SearchParamTableExpressions[2].Predicate);
-        }
-
-        [Fact]
-        public void GivenQueryWithCountOnlyTrue_WhenVisited_ThenDoesNotAddTopExpression()
-        {
-            // Arrange
-            var stringExpression = Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false);
-            var searchParamExpression = new SearchParameterExpression(TestSearchParam, stringExpression);
-            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
-                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
-
-            var searchOptions = new SearchOptions
-            {
-                CountOnly = true,
-                MaxItemCount = 10,
-            };
-
-            // Act
-            var result = (SqlRootExpression)TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
-
-            // Assert - Count-only queries should not get TOP expression
-            Assert.Same(sqlRoot, result);
-            Assert.Single(result.SearchParamTableExpressions);
-            Assert.Equal(SearchParamTableExpressionKind.Normal, result.SearchParamTableExpressions[0].Kind);
         }
 
         [Fact]

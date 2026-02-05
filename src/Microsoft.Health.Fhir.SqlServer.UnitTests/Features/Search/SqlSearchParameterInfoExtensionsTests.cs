@@ -22,58 +22,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.Search)]
     public class SqlSearchParameterInfoExtensionsTests
     {
-        [Fact]
-        public void GivenLastUpdatedParameter_WhenColumnLocation_ThenReturnsBothResourceAndSearchParamTable()
+        [Theory]
+        [InlineData(SearchParameterNames.LastUpdated)]
+        [InlineData(SqlSearchParameters.ResourceSurrogateIdParameterName)]
+        [InlineData(SearchParameterNames.ResourceType)]
+        [InlineData(SqlSearchParameters.PrimaryKeyParameterName)]
+        public void GivenSpecialParameter_WhenColumnLocation_ThenReturnsBothResourceAndSearchParamTable(string paramCode)
         {
             // Arrange
-            var searchParam = CreateSearchParameterInfo(SearchParameterNames.LastUpdated);
+            var searchParam = CreateSearchParameterInfo(paramCode);
 
             // Act
             var location = searchParam.ColumnLocation();
 
-            // Assert - _lastUpdated is in both Resource table and search param tables
-            Assert.True(location.HasFlag(SearchParameterColumnLocation.ResourceTable));
-            Assert.True(location.HasFlag(SearchParameterColumnLocation.SearchParamTable));
-        }
-
-        [Fact]
-        public void GivenResourceSurrogateIdParameter_WhenColumnLocation_ThenReturnsBothResourceAndSearchParamTable()
-        {
-            // Arrange
-            var searchParam = CreateSearchParameterInfo(SqlSearchParameters.ResourceSurrogateIdParameterName);
-
-            // Act
-            var location = searchParam.ColumnLocation();
-
-            // Assert
-            Assert.True(location.HasFlag(SearchParameterColumnLocation.ResourceTable));
-            Assert.True(location.HasFlag(SearchParameterColumnLocation.SearchParamTable));
-        }
-
-        [Fact]
-        public void GivenResourceTypeParameter_WhenColumnLocation_ThenReturnsBothResourceAndSearchParamTable()
-        {
-            // Arrange
-            var searchParam = CreateSearchParameterInfo(SearchParameterNames.ResourceType);
-
-            // Act
-            var location = searchParam.ColumnLocation();
-
-            // Assert
-            Assert.True(location.HasFlag(SearchParameterColumnLocation.ResourceTable));
-            Assert.True(location.HasFlag(SearchParameterColumnLocation.SearchParamTable));
-        }
-
-        [Fact]
-        public void GivenPrimaryKeyParameter_WhenColumnLocation_ThenReturnsBothResourceAndSearchParamTable()
-        {
-            // Arrange
-            var searchParam = CreateSearchParameterInfo(SqlSearchParameters.PrimaryKeyParameterName);
-
-            // Act
-            var location = searchParam.ColumnLocation();
-
-            // Assert
+            // Assert - These special parameters are in both Resource table and search param tables
             Assert.True(location.HasFlag(SearchParameterColumnLocation.ResourceTable));
             Assert.True(location.HasFlag(SearchParameterColumnLocation.SearchParamTable));
         }

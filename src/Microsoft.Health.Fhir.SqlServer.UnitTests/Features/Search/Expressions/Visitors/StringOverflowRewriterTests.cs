@@ -220,17 +220,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenSingletonInstance_WhenAccessed_ThenReturnsSameInstance()
-        {
-            // Arrange & Act
-            var instance1 = StringOverflowRewriter.Instance;
-            var instance2 = StringOverflowRewriter.Instance;
-
-            // Assert
-            Assert.Same(instance1, instance2);
-        }
-
-        [Fact]
         public void GivenTokenCodeFieldName_WhenVisited_ThenReturnsUnchanged()
         {
             // Arrange - TokenCode field should not be rewritten even with string search param
@@ -336,54 +325,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.IsType<BinaryExpression>(third.Expression);
         }
 
-        [Fact]
-        public void GivenEndsWithOperator_WhenVisited_ThenThrowsInvalidOperationException()
+        [Theory]
+        [InlineData(StringOperator.EndsWith, "end")]
+        [InlineData(StringOperator.NotStartsWith, "notstart")]
+        [InlineData(StringOperator.NotContains, "notcontains")]
+        [InlineData(StringOperator.NotEndsWith, "notend")]
+        public void GivenUnsupportedOperator_WhenVisited_ThenThrowsInvalidOperationException(StringOperator unsupportedOperator, string value)
         {
-            // Arrange - EndsWith is not supported by StringOverflowRewriter
-            var value = "end";
-            var stringExpression = Expression.EndsWith(FieldName.String, null, value, ignoreCase: false);
-            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
-            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
-                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
-
-            // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => StringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null));
-        }
-
-        [Fact]
-        public void GivenNotStartsWithOperator_WhenVisited_ThenThrowsInvalidOperationException()
-        {
-            // Arrange - NotStartsWith is not supported by StringOverflowRewriter
-            var value = "notstart";
-            var stringExpression = Expression.NotStartsWith(FieldName.String, null, value, ignoreCase: false);
-            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
-            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
-                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
-
-            // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => StringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null));
-        }
-
-        [Fact]
-        public void GivenNotContainsOperator_WhenVisited_ThenThrowsInvalidOperationException()
-        {
-            // Arrange - NotContains is not supported by StringOverflowRewriter
-            var value = "notcontains";
-            var stringExpression = Expression.NotContains(FieldName.String, null, value, ignoreCase: false);
-            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
-            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
-                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
-
-            // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => StringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null));
-        }
-
-        [Fact]
-        public void GivenNotEndsWithOperator_WhenVisited_ThenThrowsInvalidOperationException()
-        {
-            // Arrange - NotEndsWith is not supported by StringOverflowRewriter
-            var value = "notend";
-            var stringExpression = Expression.NotEndsWith(FieldName.String, null, value, ignoreCase: false);
+            // Arrange - These operators are not supported by StringOverflowRewriter
+            var stringExpression = new StringExpression(unsupportedOperator, FieldName.String, componentIndex: null, value, ignoreCase: false);
             var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
             var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
                 new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
