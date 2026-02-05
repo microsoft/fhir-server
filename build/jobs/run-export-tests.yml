@@ -21,6 +21,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         $keyVault = "$(KeyVaultBaseName)-ts"
@@ -115,6 +116,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         $keyVault = "$(KeyVaultBaseName)-ts"
