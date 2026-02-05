@@ -52,7 +52,7 @@ steps:
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/coverage/*.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage'
   
