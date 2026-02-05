@@ -125,25 +125,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             try
             {
                 var timeSinceLastForceRefresh = DateTime.UtcNow - _lastForceRefreshTime;
-                var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1);
-                if (shouldForceRefresh)
-                {
-                    _logger.LogInformation("Performing full SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
+                ////var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1);
+                ////if (shouldForceRefresh)
+                ////{
+                ////    _logger.LogInformation("Performing full SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
 
-                    var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
+                ////    var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
 
-                    _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
+                ////    _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
 
-                    // Apply all search parameters (this will recalculate the hash)
-                    await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
+                ////    // Apply all search parameters (this will recalculate the hash)
+                ////    await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
 
-                    _lastForceRefreshTime = DateTime.UtcNow;
-                }
-                else
-                {
-                    _logger.LogInformation("Performing incremental SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
-                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
-                }
+                ////    _lastForceRefreshTime = DateTime.UtcNow;
+                ////}
+                ////else
+                ////{
+                ////    _logger.LogInformation("Performing incremental SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
+                ////    await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
+                ////}
+
+                _logger.LogInformation("Performing incremental SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
             }
             catch (OperationCanceledException)
             {

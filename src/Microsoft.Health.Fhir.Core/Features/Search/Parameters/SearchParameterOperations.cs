@@ -328,7 +328,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
                 {
                     // if the previous version of the search parameter exists we should delete the old information currently stored
-                    ////DeleteSearchParameter(searchParam.Uri.OriginalString);
+                    DeleteSearchParameter(searchParam.Uri.OriginalString);
                 }
 
                 paramsToAdd.Add(searchParamResource);
@@ -343,10 +343,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-            if (results.LastUpdated.HasValue) // this should be the ony place in the code to assign last updated
+            var allInCache = await ParametersAreInCache(statusesToProcess, cancellationToken);
+
+            if (results.LastUpdated.HasValue && allInCache) // this should be the ony place in the code to assign last updated
             {
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
+        }
+
+        private async Task<bool> ParametersAreInCache(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        {
+            var allInCache = true;
+            if (!_searchParamLastUpdated.HasValue)
+            {
+                return allInCache;
+            }
+
+            foreach (var status in statuses)
+            {
+                _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
+                using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+                if (existingSearchParam == null)
+                {
+                    allInCache = false;
+                    await search.Value.TryLogEvent("SearchParameterOperations.GetAndApplySearchParameterUpdates", "Error", $"Not found {status.Uri.OriginalString} {status.Status}", null, cancellationToken);
+                }
+            }
+
+            return allInCache;
         }
 
         private void DeleteSearchParameter(string url)
