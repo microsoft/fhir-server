@@ -12,6 +12,7 @@ steps:
     azureSubscription: $(ConnectedServiceName)
     scriptType: pscore
     scriptLocation: inlineScript
+    addSpnToEnvironment: true
     inlineScript: |
       # IMPORTANT: Using AzureCLI@2 with pscore to avoid assembly loading conflicts.
       # This task provides Azure authentication context while allowing us to control module import order.
@@ -54,10 +55,10 @@ steps:
       $tenantId = "$(tenant-id)"
 
       # Set up Microsoft Graph authentication using tenant admin service principal
-      $clientId = "$(tenant-admin-service-principal-id)"
+      $graphClientId = "$(tenant-admin-service-principal-id)"
       $password_raw = "$(tenant-admin-service-principal-password)"
       $password = ConvertTo-SecureString -AsPlainText $password_raw -Force
-      $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
+      $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $graphClientId, $password
 
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       $keyVaultName = "$(KeyVaultBaseName)-ts".ToLower() -replace "\.", ""
@@ -68,15 +69,26 @@ steps:
       Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential
       Write-Host "Connected to Microsoft Graph"
 
-      # Connect to Azure using the AzureCLI service connection context
-      # AzureCLI@2 sets environment variables that we can use for Az PowerShell auth
-      Write-Host "Connecting to Azure using service connection..."
+      # Connect to Azure using the service connection's service principal
+      # AzureCLI@2 with addSpnToEnvironment exposes: servicePrincipalId, servicePrincipalKey, tenantId (or idToken for WIF)
+      Write-Host "Connecting to Azure using service principal..."
       $azureContext = az account show | ConvertFrom-Json
-      Write-Host "Azure subscription: $($azureContext.name) ($($azureContext.id))"
+      $azSubscriptionId = $azureContext.id
+      $azTenantId = $azureContext.tenantId
       
-      # Use the Azure CLI auth context for Az PowerShell
-      az account get-access-token --resource https://management.azure.com | ConvertFrom-Json | ForEach-Object {
-        Connect-AzAccount -AccessToken $_.accessToken -AccountId $azureContext.user.name -Subscription $azureContext.id -Tenant $azureContext.tenantId
+      # Check if using Workload Identity Federation (WIF) or secret-based auth
+      if ($env:idToken) {
+        # Workload Identity Federation - use federated token
+        Write-Host "Using Workload Identity Federation"
+        Connect-AzAccount -ServicePrincipal -ApplicationId $env:servicePrincipalId -FederatedToken $env:idToken -Tenant $azTenantId -Subscription $azSubscriptionId
+      } elseif ($env:servicePrincipalKey) {
+        # Secret-based service principal
+        Write-Host "Using Service Principal with secret"
+        $azSpnSecret = ConvertTo-SecureString $env:servicePrincipalKey -AsPlainText -Force
+        $azSpnCredential = New-Object System.Management.Automation.PSCredential($env:servicePrincipalId, $azSpnSecret)
+        Connect-AzAccount -ServicePrincipal -Credential $azSpnCredential -Tenant $azTenantId -Subscription $azSubscriptionId
+      } else {
+        throw "No valid credentials found. Ensure the service connection is configured correctly."
       }
       Write-Host "Connected to Azure"
 
@@ -84,4 +96,4 @@ steps:
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
       Write-Host "Imported modules"
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -KeyVaultName $keyVaultName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password
+      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -KeyVaultName $keyVaultName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $graphClientId -ClientSecret $password
