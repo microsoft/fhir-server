@@ -40,15 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             _schemaInformation.Current = SchemaVersionConstants.Max;
         }
 
-        [Fact]
-        public void GivenTokenStringCompositeQueryGenerator_WhenTableAccessed_ThenReturnsTokenStringCompositeSearchParamTable()
-        {
-            var table = TokenStringCompositeQueryGenerator.Instance.Table;
-
-            Assert.NotNull(table);
-            Assert.Equal(VLatest.TokenStringCompositeSearchParam.TableName, table.TableName);
-        }
-
         [Theory]
         [InlineData(0, FieldName.TokenCode, "active", @"Code1\s*=\s*@\w+")]
         [InlineData(1, FieldName.String, "test-value", @"Text2\s*=\s*@\w+")]

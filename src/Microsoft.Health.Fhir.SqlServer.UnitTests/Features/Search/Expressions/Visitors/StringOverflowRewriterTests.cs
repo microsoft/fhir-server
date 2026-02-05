@@ -72,12 +72,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.Same(sqlRoot, result);
         }
 
-        [Fact]
-        public void GivenStringSearchParamWithLongValue_WhenEqualsOperator_ThenCreatesAndExpression()
+        [Theory]
+        [InlineData(false, null)] // Basic case - no ignoreCase, no componentIndex
+        [InlineData(true, null)] // IgnoreCase preserved
+        [InlineData(false, 2)] // ComponentIndex preserved
+        public void GivenStringSearchParamWithLongValue_WhenEqualsOperator_ThenCreatesAndExpressionPreservingProperties(bool ignoreCase, int? componentIndex)
         {
             // Arrange - Long string that exceeds Text column limit
             var longValue = new string('a', 257);
-            var stringExpression = Expression.StringEquals(FieldName.String, null, longValue, ignoreCase: false);
+            var stringExpression = new StringExpression(StringOperator.Equals, FieldName.String, componentIndex, longValue, ignoreCase);
             var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
             var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
                 new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
@@ -98,12 +101,16 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.NotNull(prefixExpression);
             Assert.Equal(FieldName.String, prefixExpression!.FieldName);
             Assert.Equal(MaxTextLength, prefixExpression!.Value.Length);
+            Assert.Equal(ignoreCase, prefixExpression!.IgnoreCase);
+            Assert.Equal(componentIndex, prefixExpression!.ComponentIndex);
 
             // Second expression should check TextOverflow column with full value
             var overflowExpression = andExpression!.Expressions[1] as StringExpression;
             Assert.NotNull(overflowExpression);
             Assert.Equal(SqlFieldName.TextOverflow, overflowExpression!.FieldName);
             Assert.Equal(longValue, overflowExpression!.Value);
+            Assert.Equal(ignoreCase, overflowExpression!.IgnoreCase);
+            Assert.Equal(componentIndex, overflowExpression!.ComponentIndex);
         }
 
         [Fact]
@@ -233,60 +240,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             // Assert
             Assert.Same(sqlRoot, result);
-        }
-
-        [Fact]
-        public void GivenIgnoreCaseTrue_WhenLongValueWithEquals_ThenPreservesIgnoreCase()
-        {
-            // Arrange
-            var longValue = new string('z', 257);
-            var stringExpression = new StringExpression(StringOperator.Equals, FieldName.String, null, longValue, ignoreCase: true);
-            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
-            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
-                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
-
-            // Act
-            var result = (SqlRootExpression)StringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
-
-            // Assert
-            var rewrittenSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[0].Predicate;
-            var andExpression = rewrittenSearchParam.Expression as MultiaryExpression;
-            Assert.NotNull(andExpression);
-
-            var prefixExpression = andExpression!.Expressions[0] as StringExpression;
-            Assert.NotNull(prefixExpression);
-            Assert.True(prefixExpression!.IgnoreCase);
-
-            var overflowExpression = andExpression!.Expressions[1] as StringExpression;
-            Assert.NotNull(overflowExpression);
-            Assert.True(overflowExpression!.IgnoreCase);
-        }
-
-        [Fact]
-        public void GivenComponentIndex_WhenLongValueWithEquals_ThenPreservesComponentIndex()
-        {
-            // Arrange
-            var longValue = new string('c', 257);
-            var stringExpression = new StringExpression(StringOperator.Equals, FieldName.String, componentIndex: 2, longValue, ignoreCase: false);
-            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
-            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
-                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
-
-            // Act
-            var result = (SqlRootExpression)StringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
-
-            // Assert
-            var rewrittenSearchParam = (SearchParameterExpression)result.SearchParamTableExpressions[0].Predicate;
-            var andExpression = rewrittenSearchParam.Expression as MultiaryExpression;
-            Assert.NotNull(andExpression);
-
-            var prefixExpression = andExpression!.Expressions[0] as StringExpression;
-            Assert.NotNull(prefixExpression);
-            Assert.Equal(2, prefixExpression!.ComponentIndex);
-
-            var overflowExpression = andExpression!.Expressions[1] as StringExpression;
-            Assert.NotNull(overflowExpression);
-            Assert.Equal(2, overflowExpression!.ComponentIndex);
         }
 
         [Fact]
