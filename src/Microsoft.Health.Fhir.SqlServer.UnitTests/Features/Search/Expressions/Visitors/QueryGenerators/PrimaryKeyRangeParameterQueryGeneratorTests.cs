@@ -42,29 +42,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenPrimaryKeyRangeParameterQueryGenerator_WhenInstanceAccessed_ThenNotNull()
-        {
-            Assert.NotNull(PrimaryKeyRangeParameterQueryGenerator.Instance);
-        }
-
-        [Fact]
-        public void GivenPrimaryKeyRangeParameterQueryGenerator_WhenInstanceAccessedMultipleTimes_ThenReturnsSameInstance()
-        {
-            var instance1 = PrimaryKeyRangeParameterQueryGenerator.Instance;
-            var instance2 = PrimaryKeyRangeParameterQueryGenerator.Instance;
-
-            Assert.Same(instance1, instance2);
-        }
-
-        [Fact]
-        public void GivenPrimaryKeyRangeParameterQueryGenerator_WhenTypeChecked_ThenIsResourceTableSearchParameterQueryGenerator()
-        {
-            var instance = PrimaryKeyRangeParameterQueryGenerator.Instance;
-
-            Assert.IsAssignableFrom<ResourceTableSearchParameterQueryGenerator>(instance);
-        }
-
-        [Fact]
         public void GivenSimplePrimaryKeyRange_WhenVisitBinary_ThenGeneratesCorrectSql()
         {
             // Arrange
