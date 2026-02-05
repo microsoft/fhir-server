@@ -14,12 +14,11 @@ steps:
     scriptLocation: inlineScript
     addSpnToEnvironment: true
     inlineScript: |
-      # IMPORTANT: Using AzureCLI@2 with pscore to avoid assembly loading conflicts.
-      # This task provides Azure authentication context while allowing us to control module import order.
-      # We MUST import Microsoft.Graph modules BEFORE Az modules to prevent conflicts with
-      # System.Threading.Tasks.Extensions.dll versions.
+      # IMPORTANT: Using AzureCLI@2 with pscore and importing Microsoft.Graph modules BEFORE Az modules
+      # to avoid assembly loading conflicts with System.Threading.Tasks.Extensions.dll
       # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
       
+      # Install and import Microsoft Graph modules FIRST (order matters!)
       $graphModules = @(
         'Microsoft.Graph.Authentication',
         'Microsoft.Graph.Applications',
@@ -27,73 +26,50 @@ steps:
         'Microsoft.Graph.Identity.DirectoryManagement'
       )
       
-      # Install all Microsoft Graph modules first
       Write-Host "Installing Microsoft Graph modules..."
-      foreach ($module in $graphModules) {
-        Install-Module -Name $module -Force -Scope CurrentUser -AllowClobber
-      }
+      $graphModules | ForEach-Object { Install-Module -Name $_ -Force -Scope CurrentUser -AllowClobber }
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
-
-      # Import all Microsoft Graph modules BEFORE any Az modules
+      
       Write-Host "Importing Microsoft Graph modules..."
-      foreach ($module in $graphModules) {
-        Import-Module -Name $module -ErrorAction Stop
-      }
+      $graphModules | ForEach-Object { Import-Module -Name $_ -ErrorAction Stop }
+      
+      $graphAuthModule = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
+      Write-Host "Microsoft.Graph.Authentication version: $($graphAuthModule.Version)"
 
-      $module = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
-      Write-Host "Microsoft.Graph.Authentication version: $($module.Version)"
-
-      # NOW install and import Az modules AFTER Microsoft.Graph modules are loaded
+      # Install and import Az modules AFTER Microsoft.Graph modules are loaded
       Write-Host "Installing Az modules..."
       Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Az.Resources -Force -Scope CurrentUser -AllowClobber
       Import-Module Az.Accounts -ErrorAction Stop
       Import-Module Az.KeyVault -ErrorAction Stop
-      Import-Module Az.Resources -ErrorAction Stop
 
+      # Set up variables
       $tenantId = "$(tenant-id)"
-
-      # Set up Microsoft Graph authentication using tenant admin service principal
       $graphClientId = "$(tenant-admin-service-principal-id)"
-      $password_raw = "$(tenant-admin-service-principal-password)"
-      $password = ConvertTo-SecureString -AsPlainText $password_raw -Force
-      $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $graphClientId, $password
-
+      $graphClientSecret = ConvertTo-SecureString -AsPlainText "$(tenant-admin-service-principal-password)" -Force
+      $graphCredential = New-Object System.Management.Automation.PSCredential($graphClientId, $graphClientSecret)
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       $keyVaultName = "$(KeyVaultBaseName)-ts".ToLower() -replace "\.", ""
-      Write-Host "Installed modules and set variables"
 
       # Connect to Microsoft Graph using tenant admin service principal
-      Write-Host "Connecting to Microsoft Graph"
-      Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential
-      Write-Host "Connected to Microsoft Graph"
-
-      # Connect to Azure using the service connection's service principal
-      # AzureCLI@2 with addSpnToEnvironment exposes: servicePrincipalId, servicePrincipalKey, tenantId (or idToken for WIF)
-      Write-Host "Connecting to Azure using service principal..."
-      $azureContext = az account show | ConvertFrom-Json
-      $azSubscriptionId = $azureContext.id
-      $azTenantId = $azureContext.tenantId
+      Write-Host "Connecting to Microsoft Graph..."
+      Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $graphCredential
       
-      # Check if using Workload Identity Federation (WIF) or secret-based auth
+      # Connect to Azure using the service connection (supports both WIF and secret-based auth)
+      Write-Host "Connecting to Azure..."
+      $azContext = az account show | ConvertFrom-Json
       if ($env:idToken) {
-        # Workload Identity Federation - use federated token
-        Write-Host "Using Workload Identity Federation"
-        Connect-AzAccount -ServicePrincipal -ApplicationId $env:servicePrincipalId -FederatedToken $env:idToken -Tenant $azTenantId -Subscription $azSubscriptionId
+        Connect-AzAccount -ServicePrincipal -ApplicationId $env:servicePrincipalId -FederatedToken $env:idToken -Tenant $azContext.tenantId -Subscription $azContext.id
       } elseif ($env:servicePrincipalKey) {
-        # Secret-based service principal
-        Write-Host "Using Service Principal with secret"
-        $azSpnSecret = ConvertTo-SecureString $env:servicePrincipalKey -AsPlainText -Force
-        $azSpnCredential = New-Object System.Management.Automation.PSCredential($env:servicePrincipalId, $azSpnSecret)
-        Connect-AzAccount -ServicePrincipal -Credential $azSpnCredential -Tenant $azTenantId -Subscription $azSubscriptionId
+        $azCredential = New-Object System.Management.Automation.PSCredential($env:servicePrincipalId, (ConvertTo-SecureString $env:servicePrincipalKey -AsPlainText -Force))
+        Connect-AzAccount -ServicePrincipal -Credential $azCredential -Tenant $azContext.tenantId -Subscription $azContext.id
       } else {
-        throw "No valid credentials found. Ensure the service connection is configured correctly."
+        throw "No valid Azure credentials found. Ensure the service connection is configured correctly."
       }
-      Write-Host "Connected to Azure"
 
+      # Import FHIR modules and run setup
       Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
-      Write-Host "Imported modules"
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -KeyVaultName $keyVaultName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $graphClientId -ClientSecret $password
+      Write-Host "Setting up AAD Test Environment..."
+      Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -KeyVaultName $keyVaultName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $graphCredential -TenantId $tenantId -ClientId $graphClientId -ClientSecret $graphClientSecret
