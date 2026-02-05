@@ -113,25 +113,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23", true, false)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, false)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, false)]
-        [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category&url=http://acme.com/fhir/ValueSet/23&offset=10&date=2014-02-23", true, false)]
-        [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category", true, false)]
-        [InlineData("?offset=10", false, false)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&unknown=10", false, false)]
-        [InlineData("", false, false)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23", true, true)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, true)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, true)]
-        [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category&url=http://acme.com/fhir/ValueSet/23&offset=10&date=2014-02-23", true, true)]
-        [InlineData("?offset=10", true, true)]
-        [InlineData("?url=http://acme.com/fhir/ValueSet/23&unknown=10", false, true)]
-        [InlineData("", true, true)]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23", true, false, null)]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, false, null)]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, false, null)]
+        [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category&url=http://acme.com/fhir/ValueSet/23&offset=10&date=2014-02-23", true, false, null)]
+        [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category", true, false, null)]
+        [InlineData("?offset=10", false, false, null)]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&unknown=10", false, false, null)]
+        [InlineData("", false, false, null)]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23", true, true, "id")]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&offset=10", true, true, "id")]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&valueSetVersion=1.1&filter=abdo", true, true, "id")]
+        [InlineData("?context=http://fhir.org/guides/argonaut-clinicalnotes/StructureDefinition/argo-diagnosticreport%23DiagnosticReport.category&url=http://acme.com/fhir/ValueSet/23&offset=10&date=2014-02-23", true, true, "id")]
+        [InlineData("?offset=10", true, true, "id")]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23&unknown=10", false, true, "id")]
+        [InlineData("", true, true, "id")]
+        [InlineData("?url=http://acme.com/fhir/ValueSet/23", false, true, null)]
         public async Task GivenGetRequest_WhenExpanding_ThenCorrectRequestShouldBeSentToHandler(
             string query,
             bool valid,
-            bool useId)
+            bool useId,
+            string id)
         {
             _mediator.Send<ExpandResponse>(
                 Arg.Any<ExpandRequest>(),
@@ -157,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _controller.HttpContext.Request.QueryString = new QueryString(query);
                 if (useId)
                 {
-                    await _controller.Expand(Guid.NewGuid().ToString());
+                    await _controller.Expand(id);
                 }
                 else
                 {
@@ -386,6 +388,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         },
                     },
                     true,
+                },
+                new object[]
+                {
+                    new Parameters()
+                    {
+                        Parameter = new List<Parameters.ParameterComponent>()
+                        {
+                            new Parameters.ParameterComponent()
+                            {
+                                Name = TerminologyOperationParameterNames.Expand.Context,
+                                Value = new Coding("system", "code"),
+                            },
+                            new Parameters.ParameterComponent()
+                            {
+                                Name = TerminologyOperationParameterNames.Expand.Context,
+                                Value = new Age(),
+                            },
+                        },
+                    },
+                    false,
                 },
             };
 

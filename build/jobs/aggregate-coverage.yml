@@ -2,7 +2,7 @@
 # This template aggregates code coverage from all test stages (unit tests and integration tests)
 # and publishes a unified coverage report to Azure DevOps.
 #
-# Optionally, it can post a coverage comparison comment on GitHub PRs.
+# It also posts a coverage comparison comment on GitHub PRs when coverage decreases.
 # 
 # PREREQUISITES for PR coverage comparison:
 # - Set up a pipeline variable or variable group with 'GitHubPAT' containing a GitHub Personal Access Token
@@ -16,260 +16,258 @@ parameters:
     displayName: 'Post coverage comparison comment on PR'
 
 steps:
-  - checkout: none
+- checkout: none
 
-  # Download all coverage artifacts from all test stages
-  - task: DownloadPipelineArtifact@2
-    displayName: 'Download all coverage artifacts'
+# Download all coverage artifacts from all test stages
+- task: DownloadPipelineArtifact@2
+  displayName: 'Download all coverage artifacts'
+  inputs:
+    path: '$(Pipeline.Workspace)/AllCoverage'
+    patterns: |
+      Coverage_UnitTests/**
+      Coverage_IntegrationTests_*/**
+
+# Aggregate all coverage files into a single report
+- task: reportgenerator@5
+  displayName: 'Aggregate all coverage reports'
+  inputs:
+    reports: '$(Pipeline.Workspace)/AllCoverage/**/Cobertura.xml'
+    reporttypes: 'Cobertura;HtmlInline_AzurePipelines'
+    targetdir: '$(Pipeline.Workspace)/AggregatedCoverage'
+
+# Publish the aggregated coverage artifact
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish aggregated coverage artifact'
+  continueOnError: true  # Allow re-runs if artifact already exists
+  inputs:
+    pathToPublish: '$(Pipeline.Workspace)/AggregatedCoverage'
+    artifactName: 'Coverage_Aggregated'
+    artifactType: 'container'
+
+# Publish to Azure DevOps for pipeline UI visualization and 1ES telemetry
+- task: PublishCodeCoverageResults@2
+  displayName: 'Publish aggregated code coverage to pipeline and 1ES telemetry'
+  inputs:
+    summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
+    failIfCoverageEmpty: false
+
+# Coverage comparison - only runs on PRs when enabled
+- ${{ if eq(parameters.postCoverageComparison, true) }}:
+  - task: PowerShell@2
+    displayName: 'Compare coverage with main branch and post PR comment'
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      GITHUB_TOKEN: $(GitHubPAT)
     inputs:
-      path: '$(Pipeline.Workspace)/AllCoverage'
-      patterns: |
-        Coverage_UnitTests/**
-        Coverage_IntegrationTests_*/**
-
-  # Aggregate all coverage files into a single report
-  - task: reportgenerator@5
-    displayName: 'Aggregate all coverage reports'
-    inputs:
-      reports: '$(Pipeline.Workspace)/AllCoverage/**/Cobertura.xml'
-      reporttypes: 'Cobertura;HtmlInline_AzurePipelines'
-      targetdir: '$(Pipeline.Workspace)/AggregatedCoverage'
-
-  # Publish the aggregated coverage artifact
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish aggregated coverage artifact'
-    continueOnError: true  # Allow re-runs if artifact already exists
-    inputs:
-      pathToPublish: '$(Pipeline.Workspace)/AggregatedCoverage'
-      artifactName: 'Coverage_Aggregated'
-      artifactType: 'container'
-
-  # Publish to Azure DevOps for pipeline UI visualization
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish aggregated code coverage to pipeline'
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
-      reportDirectory: '$(Pipeline.Workspace)/AggregatedCoverage'
-      failIfCoverageEmpty: false
-
-  # Coverage comparison - only runs on PRs when enabled
-  - ${{ if eq(parameters.postCoverageComparison, true) }}:
-    - task: PowerShell@2
-      displayName: 'Compare coverage with main branch and post PR comment'
-      condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-      env:
-        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-        GITHUB_TOKEN: $(GitHubPAT)
-      inputs:
-        targetType: 'inline'
-        pwsh: true
-        script: |
-          $ErrorActionPreference = 'Stop'
+      targetType: 'inline'
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        
+        # Configuration
+        $organization = "$(System.TeamFoundationCollectionUri)".TrimEnd('/')
+        $project = "$(System.TeamProject)"
+        $definitionId = "$(System.DefinitionId)"
+        $prNumber = "$(System.PullRequest.PullRequestNumber)"
+        $repoOwner = "microsoft"
+        $repoName = "fhir-server"
+        
+        Write-Host "Organization: $organization"
+        Write-Host "Project: $project"
+        Write-Host "Definition ID: $definitionId"
+        Write-Host "PR Number: $prNumber"
+        
+        # Function to parse Cobertura XML and extract coverage percentage
+        function Get-CoverageFromXml {
+          param([string]$XmlPath)
           
-          # Configuration
-          $organization = "$(System.TeamFoundationCollectionUri)".TrimEnd('/')
-          $project = "$(System.TeamProject)"
-          $definitionId = "$(System.DefinitionId)"
-          $prNumber = "$(System.PullRequest.PullRequestNumber)"
-          $repoOwner = "microsoft"
-          $repoName = "fhir-server"
-          
-          Write-Host "Organization: $organization"
-          Write-Host "Project: $project"
-          Write-Host "Definition ID: $definitionId"
-          Write-Host "PR Number: $prNumber"
-          
-          # Function to parse Cobertura XML and extract coverage percentage
-          function Get-CoverageFromXml {
-            param([string]$XmlPath)
-            
-            if (-not (Test-Path $XmlPath)) {
-              Write-Warning "Coverage file not found: $XmlPath"
-              return $null
-            }
-            
-            [xml]$coverage = Get-Content $XmlPath
-            $lineRate = [double]$coverage.coverage.'line-rate'
-            $branchRate = [double]$coverage.coverage.'branch-rate'
-            
-            return @{
-              LineRate = [math]::Round($lineRate * 100, 2)
-              BranchRate = [math]::Round($branchRate * 100, 2)
-              LinesValid = $coverage.coverage.'lines-valid'
-              LinesCovered = $coverage.coverage.'lines-covered'
-              BranchesValid = $coverage.coverage.'branches-valid'
-              BranchesCovered = $coverage.coverage.'branches-covered'
-            }
+          if (-not (Test-Path $XmlPath)) {
+            Write-Warning "Coverage file not found: $XmlPath"
+            return $null
           }
           
-          # Function to format coverage change with emoji
-          function Format-CoverageChange {
-            param([double]$Change)
-            
-            if ($Change -gt 0) {
-              return ":arrow_up: +$($Change)%"
-            } elseif ($Change -lt 0) {
-              return ":arrow_down: $($Change)%"
-            } else {
-              return ":left_right_arrow: 0%"
-            }
+          [xml]$coverage = Get-Content $XmlPath
+          $lineRate = [double]$coverage.coverage.'line-rate'
+          $branchRate = [double]$coverage.coverage.'branch-rate'
+          
+          return @{
+            LineRate = [math]::Round($lineRate * 100, 2)
+            BranchRate = [math]::Round($branchRate * 100, 2)
+            LinesValid = $coverage.coverage.'lines-valid'
+            LinesCovered = $coverage.coverage.'lines-covered'
+            BranchesValid = $coverage.coverage.'branches-valid'
+            BranchesCovered = $coverage.coverage.'branches-covered'
           }
+        }
+        
+        # Function to format coverage change with emoji
+        function Format-CoverageChange {
+          param([double]$Change)
           
-          # Get current PR coverage
-          $prCoveragePath = "$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
-          $prCoverage = Get-CoverageFromXml -XmlPath $prCoveragePath
-          
-          if (-not $prCoverage) {
-            Write-Error "Failed to read PR coverage file"
-            exit 1
-          }
-          
-          Write-Host "PR Coverage - Line: $($prCoverage.LineRate)%, Branch: $($prCoverage.BranchRate)%"
-          
-          # Try to get main branch coverage from latest successful build
-          $mainCoverage = $null
-          $headers = @{
-            Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
-            "Content-Type" = "application/json"
-          }
-          
-          try {
-            # Get latest successful build on main branch
-            $buildsUrl = "$organization/$project/_apis/build/builds?definitions=$definitionId&branchName=refs/heads/main&statusFilter=completed&resultFilter=succeeded&`$top=1&api-version=7.0"
-            Write-Host "Fetching main branch builds from: $buildsUrl"
-            
-            $buildsResponse = Invoke-RestMethod -Uri $buildsUrl -Headers $headers -Method Get
-            
-            if ($buildsResponse.count -gt 0) {
-              $mainBuildId = $buildsResponse.value[0].id
-              Write-Host "Found main branch build: $mainBuildId"
-              
-              # Download coverage artifact from main branch build
-              $artifactUrl = "$organization/$project/_apis/build/builds/$mainBuildId/artifacts?artifactName=Coverage_Aggregated&api-version=7.0"
-              Write-Host "Fetching artifact info from: $artifactUrl"
-              
-              $artifactResponse = Invoke-RestMethod -Uri $artifactUrl -Headers $headers -Method Get
-              
-              if ($artifactResponse.resource.downloadUrl) {
-                $downloadUrl = $artifactResponse.resource.downloadUrl
-                $mainCoverageDir = "$(Pipeline.Workspace)/MainCoverage"
-                $zipPath = "$mainCoverageDir/coverage.zip"
-                
-                New-Item -ItemType Directory -Force -Path $mainCoverageDir | Out-Null
-                
-                Write-Host "Downloading main branch coverage artifact..."
-                Invoke-WebRequest -Uri $downloadUrl -Headers $headers -OutFile $zipPath
-                
-                Write-Host "Extracting coverage artifact..."
-                Expand-Archive -Path $zipPath -DestinationPath $mainCoverageDir -Force
-                
-                $mainCoveragePath = Get-ChildItem -Path $mainCoverageDir -Recurse -Filter "Cobertura.xml" | Select-Object -First 1
-                if ($mainCoveragePath) {
-                  $mainCoverage = Get-CoverageFromXml -XmlPath $mainCoveragePath.FullName
-                  Write-Host "Main Coverage - Line: $($mainCoverage.LineRate)%, Branch: $($mainCoverage.BranchRate)%"
-                }
-              }
-            } else {
-              Write-Host "No successful main branch builds found"
-            }
-          } catch {
-            Write-Warning "Failed to fetch main branch coverage: $_"
-          }
-          
-          # Build the comment markdown
-          $commentBody = @"
-          ## :bar_chart: Code Coverage Report
-          
-          "@
-          
-          if ($mainCoverage) {
-            $lineDiff = [math]::Round($prCoverage.LineRate - $mainCoverage.LineRate, 2)
-            $branchDiff = [math]::Round($prCoverage.BranchRate - $mainCoverage.BranchRate, 2)
-            
-            $lineChange = Format-CoverageChange -Change $lineDiff
-            $branchChange = Format-CoverageChange -Change $branchDiff
-            
-            # Determine overall status
-            $statusEmoji = if ($lineDiff -lt -1 -or $branchDiff -lt -1) { ":warning:" } 
-                          elseif ($lineDiff -gt 0 -or $branchDiff -gt 0) { ":white_check_mark:" } 
-                          else { ":information_source:" }
-            
-            $commentBody += @"
-          $statusEmoji **Coverage comparison against main branch**
-          
-          | Metric | main | This PR | Change |
-          |--------|------|---------|--------|
-          | **Line Coverage** | $($mainCoverage.LineRate)% | $($prCoverage.LineRate)% | $lineChange |
-          | **Branch Coverage** | $($mainCoverage.BranchRate)% | $($prCoverage.BranchRate)% | $branchChange |
-          
-          <details>
-          <summary>Coverage Details</summary>
-          
-          **This PR:**
-          - Lines: $($prCoverage.LinesCovered) / $($prCoverage.LinesValid) covered
-          - Branches: $($prCoverage.BranchesCovered) / $($prCoverage.BranchesValid) covered
-          
-          **main branch:**
-          - Lines: $($mainCoverage.LinesCovered) / $($mainCoverage.LinesValid) covered
-          - Branches: $($mainCoverage.BranchesCovered) / $($mainCoverage.BranchesValid) covered
-          
-          </details>
-          "@
+          if ($Change -gt 0) {
+            return ":arrow_up: +$($Change)%"
+          } elseif ($Change -lt 0) {
+            return ":arrow_down: $($Change)%"
           } else {
-            $commentBody += @"
-          :information_source: **Coverage for this PR** (no main branch baseline available)
-          
-          | Metric | This PR |
-          |--------|---------|
-          | **Line Coverage** | $($prCoverage.LineRate)% |
-          | **Branch Coverage** | $($prCoverage.BranchRate)% |
-          
-          > Note: Could not fetch main branch coverage for comparison. This may be the first run or the main branch pipeline hasn't completed yet.
-          "@
+            return ":left_right_arrow: 0%"
           }
+        }
+        
+        # Get current PR coverage (aggregated)
+        $prCoveragePath = "$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
+        $prCoverage = Get-CoverageFromXml -XmlPath $prCoveragePath
+        
+        if (-not $prCoverage) {
+          Write-Error "Failed to read PR coverage file"
+          exit 1
+        }
+        
+        Write-Host "PR Aggregated Coverage - Line: $($prCoverage.LineRate)%, Branch: $($prCoverage.BranchRate)%"
+        
+        # Try to get main branch coverage from latest successful build
+        $mainCoverage = $null
+        $headers = @{
+          Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+          "Content-Type" = "application/json"
+        }
+        
+        try {
+          # Get latest successful build on main branch
+          $buildsUrl = "$organization/$project/_apis/build/builds?definitions=$definitionId&branchName=refs/heads/main&statusFilter=completed&resultFilter=succeeded&`$top=1&api-version=7.0"
+          Write-Host "Fetching main branch builds from: $buildsUrl"
+          
+          $buildsResponse = Invoke-RestMethod -Uri $buildsUrl -Headers $headers -Method Get
+          
+          if ($buildsResponse.count -gt 0) {
+            $mainBuildId = $buildsResponse.value[0].id
+            Write-Host "Found main branch build: $mainBuildId"
+            
+            # Download aggregated coverage artifact from main branch build
+            $artifactUrl = "$organization/$project/_apis/build/builds/$mainBuildId/artifacts?artifactName=Coverage_Aggregated&api-version=7.0"
+            Write-Host "Fetching artifact info from: $artifactUrl"
+            
+            $artifactResponse = Invoke-RestMethod -Uri $artifactUrl -Headers $headers -Method Get
+            
+            if ($artifactResponse.resource.downloadUrl) {
+              $downloadUrl = $artifactResponse.resource.downloadUrl
+              $mainCoverageDir = "$(Pipeline.Workspace)/MainCoverage"
+              $zipPath = "$mainCoverageDir/coverage.zip"
+              
+              New-Item -ItemType Directory -Force -Path $mainCoverageDir | Out-Null
+              
+              Write-Host "Downloading main branch aggregated coverage artifact..."
+              Invoke-WebRequest -Uri $downloadUrl -Headers $headers -OutFile $zipPath
+              
+              Write-Host "Extracting coverage artifact..."
+              Expand-Archive -Path $zipPath -DestinationPath $mainCoverageDir -Force
+              
+              $mainCoveragePath = Get-ChildItem -Path $mainCoverageDir -Recurse -Filter "Cobertura.xml" | Select-Object -First 1
+              if ($mainCoveragePath) {
+                $mainCoverage = Get-CoverageFromXml -XmlPath $mainCoveragePath.FullName
+                Write-Host "Main Aggregated Coverage - Line: $($mainCoverage.LineRate)%, Branch: $($mainCoverage.BranchRate)%"
+              }
+            }
+          } else {
+            Write-Host "No successful main branch builds found"
+          }
+        } catch {
+          Write-Warning "Failed to fetch main branch coverage: $_"
+        }
+        
+        # Build the comment markdown
+        $commentBody = @"
+        ## :bar_chart: Code Coverage Report
+        
+        "@
+        
+        if ($mainCoverage) {
+          $lineDiff = [math]::Round($prCoverage.LineRate - $mainCoverage.LineRate, 2)
+          $branchDiff = [math]::Round($prCoverage.BranchRate - $mainCoverage.BranchRate, 2)
+          
+          $lineChange = Format-CoverageChange -Change $lineDiff
+          $branchChange = Format-CoverageChange -Change $branchDiff
+          
+          # Determine overall status
+          $statusEmoji = if ($lineDiff -lt -1 -or $branchDiff -lt -1) { ":warning:" } 
+                        elseif ($lineDiff -gt 0 -or $branchDiff -gt 0) { ":white_check_mark:" } 
+                        else { ":information_source:" }
           
           $commentBody += @"
-          
-          
-          ---
-          <sub>:robot: This comment was automatically generated by Azure DevOps Pipeline</sub>
-          "@
-          
-          Write-Host "Generated comment:"
-          Write-Host $commentBody
-          
-          # Post comment to GitHub PR
-          if ($env:GITHUB_TOKEN -and $prNumber) {
-            try {
-              $githubHeaders = @{
-                Authorization = "Bearer $env:GITHUB_TOKEN"
-                Accept = "application/vnd.github.v3+json"
-                "User-Agent" = "Azure-DevOps-Pipeline"
-              }
-              
-              # First, check for existing coverage comments and delete them to avoid spam
-              $commentsUrl = "https://api.github.com/repos/$repoOwner/$repoName/issues/$prNumber/comments"
-              $existingComments = Invoke-RestMethod -Uri $commentsUrl -Headers $githubHeaders -Method Get
-              
-              $coverageComments = $existingComments | Where-Object { $_.body -like "*Code Coverage Report*" -and $_.body -like "*Azure DevOps Pipeline*" }
-              foreach ($comment in $coverageComments) {
-                Write-Host "Deleting previous coverage comment: $($comment.id)"
-                $deleteUrl = "https://api.github.com/repos/$repoOwner/$repoName/issues/comments/$($comment.id)"
-                Invoke-RestMethod -Uri $deleteUrl -Headers $githubHeaders -Method Delete
-              }
-              
-              # Post new comment
-              $body = @{ body = $commentBody } | ConvertTo-Json
-              $response = Invoke-RestMethod -Uri $commentsUrl -Headers $githubHeaders -Method Post -Body $body
-              Write-Host "Posted coverage comment to PR #$prNumber (Comment ID: $($response.id))"
-            } catch {
-              Write-Warning "Failed to post GitHub comment: $_"
-              Write-Host "Comment body was:"
-              Write-Host $commentBody
+        $statusEmoji **Aggregated Coverage comparison against main branch**
+        
+        | Metric | main | This PR | Change |
+        |--------|------|---------|--------|
+        | **Line Coverage** | $($mainCoverage.LineRate)% | $($prCoverage.LineRate)% | $lineChange |
+        | **Branch Coverage** | $($mainCoverage.BranchRate)% | $($prCoverage.BranchRate)% | $branchChange |
+        
+        <details>
+        <summary>Coverage Details</summary>
+        
+        **This PR:**
+        - Lines: $($prCoverage.LinesCovered) / $($prCoverage.LinesValid) covered
+        - Branches: $($prCoverage.BranchesCovered) / $($prCoverage.BranchesValid) covered
+        
+        **main branch:**
+        - Lines: $($mainCoverage.LinesCovered) / $($mainCoverage.LinesValid) covered
+        - Branches: $($mainCoverage.BranchesCovered) / $($mainCoverage.BranchesValid) covered
+        
+        </details>
+        "@
+        } else {
+          $commentBody += @"
+        :information_source: **Aggregated Coverage for this PR** (no main branch baseline available)
+        
+        | Metric | This PR |
+        |--------|---------|
+        | **Line Coverage** | $($prCoverage.LineRate)% |
+        | **Branch Coverage** | $($prCoverage.BranchRate)% |
+        
+        > Note: Could not fetch main branch coverage for comparison. This may be the first run or the main branch pipeline hasn't completed yet.
+        "@
+        }
+        
+        $commentBody += @"
+        
+        
+        ---
+        <sub>:robot: This comment was automatically generated by Azure DevOps Pipeline</sub>
+        "@
+        
+        Write-Host "Generated comment:"
+        Write-Host $commentBody
+        
+        # Post comment to GitHub PR
+        if ($env:GITHUB_TOKEN -and $prNumber) {
+          try {
+            $githubHeaders = @{
+              Authorization = "Bearer $env:GITHUB_TOKEN"
+              Accept = "application/vnd.github.v3+json"
+              "User-Agent" = "Azure-DevOps-Pipeline"
             }
-          } else {
-            Write-Host "GitHub token not available or PR number not set. Skipping PR comment."
-            Write-Host "GITHUB_TOKEN present: $($null -ne $env:GITHUB_TOKEN)"
-            Write-Host "PR Number: $prNumber"
+            
+            # First, check for existing coverage comments and delete them to avoid spam
+            $commentsUrl = "https://api.github.com/repos/$repoOwner/$repoName/issues/$prNumber/comments"
+            $existingComments = Invoke-RestMethod -Uri $commentsUrl -Headers $githubHeaders -Method Get
+            
+            $coverageComments = $existingComments | Where-Object { $_.body -like "*Code Coverage Report*" -and $_.body -like "*Azure DevOps Pipeline*" }
+            foreach ($comment in $coverageComments) {
+              Write-Host "Deleting previous coverage comment: $($comment.id)"
+              $deleteUrl = "https://api.github.com/repos/$repoOwner/$repoName/issues/comments/$($comment.id)"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $githubHeaders -Method Delete
+            }
+            
+            # Post new comment
+            $body = @{ body = $commentBody } | ConvertTo-Json
+            $response = Invoke-RestMethod -Uri $commentsUrl -Headers $githubHeaders -Method Post -Body $body
+            Write-Host "Posted coverage comment to PR #$prNumber (Comment ID: $($response.id))"
+          } catch {
+            Write-Warning "Failed to post GitHub comment: $_"
+            Write-Host "Comment body was:"
+            Write-Host $commentBody
           }
+        } else {
+          Write-Host "GitHub token not available or PR number not set. Skipping PR comment."
+          Write-Host "GITHUB_TOKEN present: $($null -ne $env:GITHUB_TOKEN)"
+          Write-Host "PR Number: $prNumber"
+        }

@@ -44,12 +44,19 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
   - task: DotNetCoreCLI@2
+    displayName: 'Build Integration Test Projects'
+    inputs:
+      command: build
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
+
+  - task: DotNetCoreCLI@2
     displayName: 'Run SQL Integration Tests with coverage'
     retryCountOnTaskFailure: 1
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal'
-      workingDirectory: '$(System.ArtifactsDirectory)'
+      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--filter DisplayName!~CosmosDb --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       publishTestResults: true
     env:
@@ -73,14 +80,6 @@ jobs:
       pathToPublish: '$(Agent.TempDirectory)/coverage'
       artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
       artifactType: 'container'
-
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish SQL code coverage results'
-    condition: always()
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      reportDirectory: '$(Agent.TempDirectory)/coverage'
 
 - job: 'sqlE2eTests'
   timeoutInMinutes: 75

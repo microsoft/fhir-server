@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -379,6 +380,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
 
             Assert.Equal(applicationXml, context.HttpContext.Response.ContentType);
+        }
+
+        [Theory]
+        [InlineData(new[] { "json", "application/fhir+json" }, "json", true)]
+        [InlineData(new[] { "xml", "application/fhir+xml" }, "xml", true)]
+        [InlineData(new[] { "xml", "application/fhir+xml" }, "json", false)]
+        public async Task GivenAPatchRequestWithNoContentTypeHeader_WhenValidatingTheContentType_ThenTheContentTypeShouldBeValidatedCorrectly(
+            string[] formats,
+            string contentType,
+            bool supported)
+        {
+            _statement.PatchFormat = formats;
+
+            var filter = CreateFilter();
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.Method = HttpMethod.Patch.ToString();
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = contentType;
+
+            try
+            {
+                await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
+                Assert.True(supported);
+            }
+            catch (UnsupportedMediaTypeException)
+            {
+                Assert.False(supported);
+            }
         }
 
         private ValidateFormatParametersAttribute CreateFilter(IReadOnlyCollection<TextOutputFormatter> formatters = null)
