@@ -9,6 +9,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DebugType>embedded</DebugType>
     <Deterministic>true</Deterministic>
+    <DeterministicSourcePaths Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</DeterministicSourcePaths>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <HighEntropyVA>true</HighEntropyVA>
     <LangVersion>latest</LangVersion>

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Configuration>
   <IncludeTestAssembly>false</IncludeTestAssembly>
+  <DeterministicReport>true</DeterministicReport>
   <ExcludeAssembliesWithoutSources>MissingAll</ExcludeAssembliesWithoutSources>
   <CodeCoverage>
     <ModulePaths>
