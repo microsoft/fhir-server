@@ -18,6 +18,20 @@ steps:
       reporttypes: 'Cobertura;HtmlInline_AzurePipelines'
       targetdir: '$(Pipeline.Workspace)/AggregatedCoverage'
 
+  - pwsh: |
+      $coveragePath = "$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
+      if (-not (Test-Path $coveragePath)) {
+        Write-Error "Cobertura.xml was not generated at $coveragePath"
+      }
+
+      [xml]$coverage = Get-Content $coveragePath
+      $linesValid = [int]$coverage.coverage.'lines-valid'
+      $branchesValid = [int]$coverage.coverage.'branches-valid'
+      if ($linesValid -le 0 -and $branchesValid -le 0) {
+        Write-Error "Aggregated coverage is empty (lines-valid=$linesValid, branches-valid=$branchesValid)."
+      }
+    displayName: 'Fail if aggregated coverage is empty'
+
   # Publish the aggregated coverage artifact
   - task: PublishBuildArtifacts@1
     displayName: 'Publish aggregated coverage artifact'

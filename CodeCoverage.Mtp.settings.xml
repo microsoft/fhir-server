@@ -5,13 +5,13 @@
   <CodeCoverage>
     <ModulePaths>
       <Include>
-        <ModulePath>.*Microsoft\.Health\.Fhir\..*\.dll$</ModulePath>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\.[^\\/]*\.dll$</ModulePath>
       </Include>
       <Exclude>
-        <ModulePath>.*Tests.*\.dll$</ModulePath>
-        <ModulePath>.*\.Web(\..*)?\.dll$</ModulePath>
-        <ModulePath>.*\.ValueSets(\..*)?\.dll$</ModulePath>
-        <ModulePath>.*\.SqlServer.*Schema\.Model.*\.dll$</ModulePath>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\.[^\\/]*Tests[^\\/]*\.dll$</ModulePath>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\..*\.Web(\..*)?\.dll$</ModulePath>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\..*\.ValueSets(\..*)?\.dll$</ModulePath>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\.SqlServer.*Schema\.Model.*\.dll$</ModulePath>
       </Exclude>
     </ModulePaths>
     <Attributes>
