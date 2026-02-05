@@ -5,18 +5,20 @@ steps:
     azureSubscription: $(ConnectedServiceName)
     KeyVaultName: 'resolute-oss-tenant-info'
 
-- task: PowerShell@2
+- task: AzureCLI@2
   displayName: Setup AAD Test Environment
   retryCountOnTaskFailure: 1
   inputs:
-    pwsh: true
-    targetType: inline
-    script: |
-      # Install only required Microsoft Graph modules for better performance
-      # IMPORTANT: Using PowerShell@2 instead of AzurePowerShell@5 to avoid assembly loading conflicts.
-      # AzurePowerShell@5 pre-loads Az.Accounts before our script runs, which causes conflicts with
-      # Microsoft.Graph.Authentication due to different versions of System.Threading.Tasks.Extensions.dll
+    azureSubscription: $(ConnectedServiceName)
+    scriptType: pscore
+    scriptLocation: inlineScript
+    inlineScript: |
+      # IMPORTANT: Using AzureCLI@2 with pscore to avoid assembly loading conflicts.
+      # This task provides Azure authentication context while allowing us to control module import order.
+      # We MUST import Microsoft.Graph modules BEFORE Az modules to prevent conflicts with
+      # System.Threading.Tasks.Extensions.dll versions.
       # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
+      
       $graphModules = @(
         'Microsoft.Graph.Authentication',
         'Microsoft.Graph.Applications',
@@ -24,13 +26,15 @@ steps:
         'Microsoft.Graph.Identity.DirectoryManagement'
       )
       
-      # Install all modules first
+      # Install all Microsoft Graph modules first
+      Write-Host "Installing Microsoft Graph modules..."
       foreach ($module in $graphModules) {
         Install-Module -Name $module -Force -Scope CurrentUser -AllowClobber
       }
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
 
-      # Import all modules upfront to prevent auto-loading conflicts
+      # Import all Microsoft Graph modules BEFORE any Az modules
+      Write-Host "Importing Microsoft Graph modules..."
       foreach ($module in $graphModules) {
         Import-Module -Name $module -ErrorAction Stop
       }
@@ -38,36 +42,44 @@ steps:
       $module = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
       Write-Host "Microsoft.Graph.Authentication version: $($module.Version)"
 
-      # NOW install and import Az.Accounts AFTER Microsoft.Graph modules are loaded
-      # This order is critical to avoid assembly loading conflicts
-      Write-Host "Installing Az.Accounts module..."
+      # NOW install and import Az modules AFTER Microsoft.Graph modules are loaded
+      Write-Host "Installing Az modules..."
       Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Az.Resources -Force -Scope CurrentUser -AllowClobber
       Import-Module Az.Accounts -ErrorAction Stop
       Import-Module Az.KeyVault -ErrorAction Stop
+      Import-Module Az.Resources -ErrorAction Stop
 
       $tenantId = "$(tenant-id)"
 
-      # Set up Microsoft Graph authentication
-      $username = "$(tenant-admin-service-principal-name)"
+      # Set up Microsoft Graph authentication using tenant admin service principal
       $clientId = "$(tenant-admin-service-principal-id)"
-      $password_raw =  "$(tenant-admin-service-principal-password)"
-      $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
+      $password_raw = "$(tenant-admin-service-principal-password)"
+      $password = ConvertTo-SecureString -AsPlainText $password_raw -Force
       $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
 
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       $keyVaultName = "$(KeyVaultBaseName)-ts".ToLower() -replace "\.", ""
-      Write-Host "Installed module and set variables"
+      Write-Host "Installed modules and set variables"
 
-      # Connect to Microsoft Graph using client credentials
+      # Connect to Microsoft Graph using tenant admin service principal
       Write-Host "Connecting to Microsoft Graph"
       Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential
+      Write-Host "Connected to Microsoft Graph"
 
-      # Connect to Azure using service principal
-      Write-Host "Connecting to Azure"
-      Connect-AzAccount -ServicePrincipal -Credential $clientSecretCredential -Tenant $tenantId
+      # Connect to Azure using the AzureCLI service connection context
+      # AzureCLI@2 sets environment variables that we can use for Az PowerShell auth
+      Write-Host "Connecting to Azure using service connection..."
+      $azureContext = az account show | ConvertFrom-Json
+      Write-Host "Azure subscription: $($azureContext.name) ($($azureContext.id))"
+      
+      # Use the Azure CLI auth context for Az PowerShell
+      az account get-access-token --resource https://management.azure.com | ConvertFrom-Json | ForEach-Object {
+        Connect-AzAccount -AccessToken $_.accessToken -AccountId $azureContext.user.name -Subscription $azureContext.id -Tenant $azureContext.tenantId
+      }
+      Write-Host "Connected to Azure"
 
-      Write-Host "Connected to Microsoft Graph and Azure"
       Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
