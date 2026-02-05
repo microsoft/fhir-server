@@ -38,6 +38,14 @@ steps:
       $module = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
       Write-Host "Microsoft.Graph.Authentication version: $($module.Version)"
 
+      # NOW install and import Az.Accounts AFTER Microsoft.Graph modules are loaded
+      # This order is critical to avoid assembly loading conflicts
+      Write-Host "Installing Az.Accounts module..."
+      Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
+      Import-Module Az.Accounts -ErrorAction Stop
+      Import-Module Az.KeyVault -ErrorAction Stop
+
       $tenantId = "$(tenant-id)"
 
       # Set up Microsoft Graph authentication
@@ -55,7 +63,11 @@ steps:
       Write-Host "Connecting to Microsoft Graph"
       Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential
 
-      Write-Host "Connected to Microsoft Graph"
+      # Connect to Azure using service principal
+      Write-Host "Connecting to Azure"
+      Connect-AzAccount -ServicePrincipal -Credential $clientSecretCredential -Tenant $tenantId
+
+      Write-Host "Connected to Microsoft Graph and Azure"
       Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
