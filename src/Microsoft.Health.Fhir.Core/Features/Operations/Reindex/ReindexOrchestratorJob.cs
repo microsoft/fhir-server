@@ -249,12 +249,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var searchInfo))
                 {
                     possibleNotYetIndexedParams.Add(searchInfo);
-                    await TryLogEvent("ReindexOrchestratorJob.CreateReindexProcessingJobsAsync", "Warn", $"Found definition for uri={validUri}", null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateReindexProcessingJobsAsync.GetDefinitionFromCache", "Warn", $"OK for uri={validUri}", null, cancellationToken);
                 }
                 else
                 {
                     // TODO: We should throw here otherwise we will reindex incorrectly
-                    await TryLogEvent("ReindexOrchestratorJob.CreateReindexProcessingJobsAsync", "Error", $"Did not find definition for uri={validUri}", null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateReindexProcessingJobsAsync.GetDefinitionFromCache", "Error", $"Not found for uri={validUri}", null, cancellationToken);
                 }
             }
 
