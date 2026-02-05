@@ -17,11 +17,23 @@ steps:
       # AzurePowerShell@5 pre-loads Az.Accounts before our script runs, which causes conflicts with
       # Microsoft.Graph.Authentication due to different versions of System.Threading.Tasks.Extensions.dll
       # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
-      Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Applications -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Users -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force -Scope CurrentUser -AllowClobber
+      $graphModules = @(
+        'Microsoft.Graph.Authentication',
+        'Microsoft.Graph.Applications',
+        'Microsoft.Graph.Users',
+        'Microsoft.Graph.Identity.DirectoryManagement'
+      )
+      
+      # Install all modules first
+      foreach ($module in $graphModules) {
+        Install-Module -Name $module -Force -Scope CurrentUser -AllowClobber
+      }
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
+
+      # Import all modules upfront to prevent auto-loading conflicts
+      foreach ($module in $graphModules) {
+        Import-Module -Name $module -ErrorAction Stop
+      }
 
       $module = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
       Write-Host "Microsoft.Graph.Authentication version: $($module.Version)"

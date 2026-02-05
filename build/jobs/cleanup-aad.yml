@@ -29,13 +29,16 @@ jobs:
           'Microsoft.Graph.Identity.DirectoryManagement'
         )
 
+        # Install all modules first
         foreach ($module in $graphModules) {
           $installed = Get-Module -ListAvailable -Name $module | Select-Object -First 1
-
           if (-not $installed) {
             Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
           }
+        }
 
+        # Import all modules upfront to prevent auto-loading conflicts
+        foreach ($module in $graphModules) {
           Import-Module -Name $module -ErrorAction Stop
         }
 

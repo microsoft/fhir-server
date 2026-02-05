@@ -54,11 +54,22 @@ stages:
           # Microsoft.Graph.Authentication due to different versions of System.Threading.Tasks.Extensions.dll
           # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
           Write-Host "Installing Microsoft Graph modules..."
-          $modules = @("Microsoft.Graph.Authentication", "Microsoft.Graph.Beta.Applications", "Microsoft.Graph.Beta.Users", "Microsoft.Graph.DirectoryObjects")
+          # Include Identity.DirectoryManagement for Get-MgDirectoryDeletedItem* cmdlets used in recycle bin cleanup
+          $modules = @(
+            "Microsoft.Graph.Authentication",
+            "Microsoft.Graph.Beta.Applications", 
+            "Microsoft.Graph.Beta.Users", 
+            "Microsoft.Graph.DirectoryObjects",
+            "Microsoft.Graph.Identity.DirectoryManagement"
+          )
           
           foreach ($module in $modules) {
             Install-Module -Name $module -Force -Scope CurrentUser -ErrorAction Stop
-            Import-Module $module
+          }
+          
+          # Import all modules upfront to prevent auto-loading conflicts
+          foreach ($module in $modules) {
+            Import-Module $module -ErrorAction Stop
           }
 
           $installedAuth = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
