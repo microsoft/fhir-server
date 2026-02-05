@@ -10,17 +10,17 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
-  - task: AzurePowerShell@5
+  - task: PowerShell@2
     displayName: 'Delete AAD apps'
     retryCountOnTaskFailure: 1
     inputs:
-      azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
       pwsh: true
-      ScriptType: InlineScript
-      Inline: |
+      targetType: inline
+      script: |
         # Install and import required Microsoft Graph modules
-        # Using PowerShell 7+ (pwsh) to avoid assembly loading issues with Microsoft.Graph.Authentication
+        # IMPORTANT: Using PowerShell@2 instead of AzurePowerShell@5 to avoid assembly loading conflicts.
+        # AzurePowerShell@5 pre-loads Az.Accounts before our script runs, which causes conflicts with
+        # Microsoft.Graph.Authentication due to different versions of System.Threading.Tasks.Extensions.dll
         # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
         $graphModules = @(
           'Microsoft.Graph.Authentication',

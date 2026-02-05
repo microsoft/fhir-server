@@ -5,18 +5,17 @@ steps:
     azureSubscription: $(ConnectedServiceName)
     KeyVaultName: 'resolute-oss-tenant-info'
 
-- task: AzurePowerShell@5
+- task: PowerShell@2
   displayName: Setup AAD Test Environment
   retryCountOnTaskFailure: 1
   inputs:
-    azureSubscription: $(ConnectedServiceName)
-    azurePowerShellVersion: latestVersion
     pwsh: true
-    ScriptType: inlineScript
-    Inline: |
+    targetType: inline
+    script: |
       # Install only required Microsoft Graph modules for better performance
-      # Use AllowClobber to handle any version conflicts
-      # Using PowerShell 7+ (pwsh) to avoid assembly loading issues with Microsoft.Graph.Authentication
+      # IMPORTANT: Using PowerShell@2 instead of AzurePowerShell@5 to avoid assembly loading conflicts.
+      # AzurePowerShell@5 pre-loads Az.Accounts before our script runs, which causes conflicts with
+      # Microsoft.Graph.Authentication due to different versions of System.Threading.Tasks.Extensions.dll
       # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
       Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Microsoft.Graph.Applications -Force -Scope CurrentUser -AllowClobber
