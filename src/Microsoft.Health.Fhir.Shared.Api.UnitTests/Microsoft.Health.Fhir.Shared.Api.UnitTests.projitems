@@ -28,6 +28,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\SearchParameterControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TerminologyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\TokenIntrospectionControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\HttpRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttributeTests.cs" />
@@ -51,6 +52,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteDataPopulatingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FilterTestsHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OAuth2ExceptionFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateContentTypeFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateExportRequestFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateIdSegmentAttributeTests.cs" />

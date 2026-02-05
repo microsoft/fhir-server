@@ -162,10 +162,14 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example-with-base64.json" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+    <None Remove="TestFiles\R5\Bundle-TransactionWithMetaHistory.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBackWithDelete.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\capabilitystatement-example.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\codesystem-abstract-types.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Flag.json" />
@@ -310,6 +314,7 @@
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-patient-v6.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-race.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-detailed-ethnicity.json" />
@@ -491,6 +496,7 @@
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-ethnicity.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-patient-v6.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-race.json" />
     <EmbeddedResource Include="TestFiles\R5\Profile-Organization-uscore-endpoint.json" />
     <EmbeddedResource Include="TestFiles\R5\Profile-Organization-uscore.json" />
@@ -587,6 +593,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-patient-v6.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-race.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
@@ -607,6 +614,7 @@
     <EmbeddedResource Include="DefinitionFiles\R4B\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="TestFiles\R4B\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4B\MedicinalProductDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithMetaHistory.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" />

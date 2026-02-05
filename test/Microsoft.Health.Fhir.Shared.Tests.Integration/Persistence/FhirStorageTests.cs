@@ -210,7 +210,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Tuple.Create(KnownQueryParameterNames.Type, type),
                 Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
-                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, "0"),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
 
@@ -236,7 +235,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Tuple.Create(KnownQueryParameterNames.Type, type),
                 Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
-                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, "0"),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
             results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);

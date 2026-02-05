@@ -253,13 +253,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 selectingFromResourceTable = true;
 
-                // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
-                StringBuilder.Append("SELECT DISTINCT ");
-
+                // When there are no SearchParamTableExpressions, we need TOP on the outer SELECT (after ORDER BY)
+                // to ensure pagination works correctly. Previously TOP was in the inner subquery without ORDER BY,
+                // causing SQL Server to return arbitrary rows before the outer ORDER BY reordered them.
+                // Fix for pagination bug introduced in commit 6dd540c7d.
                 if (expression.SearchParamTableExpressions.Count == 0)
                 {
-                    StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ");
+                    StringBuilder.Append("SELECT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") * FROM (");
                 }
+                else
+                {
+                    StringBuilder.Append("SELECT * FROM (");
+                }
+
+                // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
+                StringBuilder.Append("SELECT DISTINCT ");
 
                 StringBuilder.Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(", ")
                     .Append(VLatest.Resource.ResourceId, resourceTableAlias).Append(", ")
@@ -331,9 +339,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 if (!searchOptions.CountOnly)
                 {
-                    StringBuilder.Append("ORDER BY ");
+                    var orderTableAlias = "t";
+                    StringBuilder.Append(") AS ").Append(orderTableAlias).Append(" ORDER BY ");
 
-                    if (_rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                    var hasIncludes = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+
+                    if (hasIncludes)
                     {
                         // ensure the matches appear before includes
                         StringBuilder.Append("IsMatch DESC, ");
@@ -349,22 +360,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
                                 _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
                             };
-                            sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                        })
-                            .AppendLine();
+
+                            if (hasIncludes)
+                            {
+                                // when includes are present, we want to ensure that only matches sorted by the sort field
+                                sb.Append("(CASE WHEN IsMatch = 1 THEN ");
+                                sb.Append(column, orderTableAlias);
+                                sb.Append(" ELSE NULL END) ");
+                            }
+                            else
+                            {
+                                sb.Append(column, orderTableAlias).Append(" ");
+                            }
+
+                            sb.Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        });
+
+                        if (hasIncludes)
+                        {
+                            StringBuilder.Append(", (CASE WHEN IsMatch = 0 THEN ").Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ELSE NULL END) ASC, ");
+                            StringBuilder.Append("(CASE WHEN IsMatch = 0 THEN ").Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).Append(" ELSE NULL END) ASC ");
+                        }
+
+                        StringBuilder.AppendLine();
                     }
                     else if (IsSortValueNeeded(searchOptions) && !context.IsIncludesOperation)
                     {
+                        if (hasIncludes)
+                        {
+                            StringBuilder
+                                .Append("(CASE WHEN IsMatch = 1 THEN ")
+                                .Append(orderTableAlias)
+                                .Append(".SortValue ELSE NULL END) ");
+                        }
+                        else
+                        {
+                            StringBuilder
+                                .Append(orderTableAlias)
+                                .Append(".SortValue ");
+                        }
+
                         StringBuilder
-                            .Append(TableExpressionName(_tableExpressionCounter))
-                            .Append(".SortValue ")
                             .Append(searchOptions.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
-                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
                     }
                     else
                     {
                         StringBuilder
-                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
                     }
 
                     AddOptionClause();
@@ -930,14 +975,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append(VLatest.Resource.ResourceTypeId, table).Append(" AS T1, ")
                 .Append(VLatest.Resource.ResourceSurrogateId, table);
-            if (!context.IsIncludesOperation)
-            {
-                StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch ");
-            }
-            else
-            {
-                StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch, 0 AS IsPartial ");
-            }
+
+            // Always project IsPartial to maintain consistent column count across UNION branches
+            StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch, 0 AS IsPartial ");
 
             StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                 .Append(_joinShift).Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(referenceTargetResourceTableAlias)
@@ -1257,7 +1297,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 StringBuilder.AppendLine("UNION ALL");
                 StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial");
-                if (sortValueNeeded)
+                if (sortValueNeeded && !context.IsIncludesOperation)
                 {
                     StringBuilder.AppendLine(", NULL as SortValue ");
                 }

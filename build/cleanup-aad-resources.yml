@@ -41,6 +41,7 @@ stages:
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
+        pwsh: true
         ScriptType: inlineScript
         Inline: |
           # Parameters for Azure AD connection
@@ -50,16 +51,18 @@ stages:
           $AgeThresholdDays = ${{ parameters.AgeThresholdDays }}
 
           # Install and Import Microsoft Graph Modules
-          # Pin to version 2.33.0 due to bug in 2.34.0 affecting PowerShell 5.1
+          # Using PowerShell 7+ (pwsh) to avoid assembly loading issues with Microsoft.Graph.Authentication
           # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
           Write-Host "Installing Microsoft Graph modules..."
           $modules = @("Microsoft.Graph.Authentication", "Microsoft.Graph.Beta.Applications", "Microsoft.Graph.Beta.Users", "Microsoft.Graph.DirectoryObjects")
           
           foreach ($module in $modules) {
-            Install-Module -Name $module -RequiredVersion 2.33.0 -Force -Scope CurrentUser -ErrorAction Stop
+            Install-Module -Name $module -Force -Scope CurrentUser -ErrorAction Stop
             Import-Module $module
           }
 
+          $installedAuth = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
+          Write-Host "Microsoft.Graph.Authentication version: $($installedAuth.Version)"
           Write-Host "Microsoft Graph modules installed and imported."
 
           # Connect to Microsoft Graph API

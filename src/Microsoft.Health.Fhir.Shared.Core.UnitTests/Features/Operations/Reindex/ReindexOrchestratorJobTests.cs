@@ -188,6 +188,62 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             };
         }
 
+        /// <summary>
+        /// Sets up the GetSurrogateIdRanges mock to return ranges only on the first call (when startId is less than or equal to rangeEnd).
+        /// This simulates the batched behavior where subsequent calls with advanced startId return empty.
+        /// </summary>
+        private void SetupGetSurrogateIdRangesMock(long rangeStart = 1, long rangeEnd = 10, string resourceType = null)
+        {
+            if (resourceType != null)
+            {
+                _searchService.GetSurrogateIdRanges(
+                    resourceType,
+                    Arg.Any<long>(),
+                    Arg.Any<long>(),
+                    Arg.Any<int>(),
+                    Arg.Any<int>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                    .Returns(callInfo =>
+                    {
+                        var startId = callInfo.ArgAt<long>(1);
+                        if (startId <= rangeEnd)
+                        {
+                            return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, 1) });
+                        }
+
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                            new List<(long StartId, long EndId, int Count)>());
+                    });
+            }
+            else
+            {
+                _searchService.GetSurrogateIdRanges(
+                    Arg.Any<string>(),
+                    Arg.Any<long>(),
+                    Arg.Any<long>(),
+                    Arg.Any<int>(),
+                    Arg.Any<int>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>())
+                    .Returns(callInfo =>
+                    {
+                        var startId = callInfo.ArgAt<long>(1);
+                        if (startId <= rangeEnd)
+                        {
+                            return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                                new List<(long StartId, long EndId, int Count)> { (rangeStart, rangeEnd, 1) });
+                        }
+
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                            new List<(long StartId, long EndId, int Count)>());
+                    });
+            }
+        }
+
         private async Task<List<JobInfo>> WaitForJobsAsync(long groupId, TimeSpan timeout, int expectedMinimumJobs = 1)
         {
             var startTime = DateTime.UtcNow;
@@ -335,17 +391,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         resourceType: resourceType);
                 });
 
-            _searchService.GetSurrogateIdRanges(
-                Arg.Any<string>(),
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 10) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10);
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
@@ -353,11 +399,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
 
-            // Wait for processing jobs to be created - expect many jobs since all resource types should be included
+            // Wait for processing jobs to be created - expect jobs for all resource types
+            // Use longer timeout and wait for all types since dictionary iteration order is non-deterministic
             var processingJobs = await WaitForJobsAsync(
                 jobInfo.GroupId,
-                TimeSpan.FromSeconds(60),
-                expectedMinimumJobs: Math.Min(10, allResourceTypes.Count)); // Expect at least 10 different resource types
+                TimeSpan.FromSeconds(120),
+                expectedMinimumJobs: allResourceTypes.Count); // Wait for all resource types
 
             // Assert
             Assert.True(processingJobs.Count > 0, "Processing jobs should have been created");
@@ -446,17 +493,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                         resourceType: resourceType);
                 });
 
-            _searchService.GetSurrogateIdRanges(
-                Arg.Any<string>(),
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 10) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10);
+
+            // Get the expected DomainResource types (excluding Binary, Bundle, Parameters)
+            var allResourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames().ToList();
+            var domainResourceTypes = allResourceTypes.Where(rt =>
+                rt != "Binary" && rt != "Bundle" && rt != "Parameters").ToList();
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
@@ -464,8 +506,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
 
-            // Wait for processing jobs to be created
-            var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(60), expectedMinimumJobs: 1);
+            // Wait for processing jobs to be created - wait for all DomainResource types
+            // Use longer timeout since dictionary iteration order is non-deterministic
+            var processingJobs = await WaitForJobsAsync(
+                jobInfo.GroupId,
+                TimeSpan.FromSeconds(120),
+                expectedMinimumJobs: domainResourceTypes.Count);
 
             // Assert
             Assert.True(processingJobs.Count > 0, "Processing jobs should have been created");
@@ -477,8 +523,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Distinct()
                 .ToList();
 
-            // Verify that multiple resource types were included
-            Assert.True(resourceTypesInJobs.Count >= 3, $"Should have jobs for multiple resource types derived from DomainResource. Found: {string.Join(", ", resourceTypesInJobs)}");
+            // Verify that many DomainResource types were included
+            Assert.True(resourceTypesInJobs.Count >= domainResourceTypes.Count - 5, $"Should have jobs for most resource types derived from DomainResource. Found: {resourceTypesInJobs.Count}, Expected at least: {domainResourceTypes.Count - 5}");
 
             // Verify that non-DomainResource types were excluded
             Assert.DoesNotContain("Binary", resourceTypesInJobs);
@@ -544,17 +590,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResult);
 
-            _searchService.GetSurrogateIdRanges(
-                "Patient",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 100) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
@@ -631,11 +667,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResultWithData);
 
-            var ranges = new List<(long, long)>
+            var ranges = new List<(long, long, int)>
             {
-                (1, 100),
-                (101, 200),
-                (201, 250),
+                (1, 100, 100),
+                (101, 200, 100),
+                (201, 250, 50),
             };
             _searchService.GetSurrogateIdRanges(
                 Arg.Any<string>(),
@@ -646,7 +682,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>())
-                .Returns(ranges);
+                .Returns(callInfo =>
+                {
+                    var startId = callInfo.ArgAt<long>(1);
+                    if (startId <= 1)
+                    {
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(ranges);
+                    }
+
+                    return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                        new List<(long StartId, long EndId, int Count)>());
+                });
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(
@@ -863,17 +909,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResult);
 
-            _searchService.GetSurrogateIdRanges(
-                "Patient",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 10) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
@@ -965,17 +1001,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResult);
 
-            _searchService.GetSurrogateIdRanges(
-                "Patient",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 10) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
@@ -1123,29 +1149,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(CreateSearchResult(resourceCount: 50, resourceType: "Observation"));
 
-            _searchService.GetSurrogateIdRanges(
-                "Patient",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 100) }));
-
-            _searchService.GetSurrogateIdRanges(
-                "Observation",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 50) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 50, resourceType: "Observation");
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
@@ -1331,41 +1336,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(CreateSearchResult(resourceCount: 20, resourceType: "Condition"));
 
-            _searchService.GetSurrogateIdRanges(
-                "Patient",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 30) }));
-
-            _searchService.GetSurrogateIdRanges(
-                "Observation",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 25) }));
-
-            _searchService.GetSurrogateIdRanges(
-                "Condition",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 20) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 30, resourceType: "Patient");
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 25, resourceType: "Observation");
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 20, resourceType: "Condition");
 
             // Arrange
             var jobRecord = await CreateReindexJobRecord();
@@ -1470,17 +1443,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return CreateSearchResult(resourceCount: 100, resourceType: "Patient");
                 });
 
-            _searchService.GetSurrogateIdRanges(
-                "Patient",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 100) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
@@ -1662,11 +1625,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResultWithData);
 
-            var ranges = new List<(long, long)>
+            var ranges = new List<(long, long, int)>
             {
-                (1, 100),
-                (101, 200),
-                (201, 250),
+                (1, 100, 100),
+                (101, 200, 100),
+                (201, 250, 50),
             };
             _searchService.GetSurrogateIdRanges(
                 Arg.Any<string>(),
@@ -1677,7 +1640,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>())
-                .Returns(ranges);
+                .Returns(callInfo =>
+                {
+                    var startId = callInfo.ArgAt<long>(1);
+                    if (startId <= 1)
+                    {
+                        return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(ranges);
+                    }
+
+                    return Task.FromResult<IReadOnlyList<(long StartId, long EndId, int Count)>>(
+                        new List<(long StartId, long EndId, int Count)>());
+                });
 
             var jobInfo = await CreateReindexJobRecord(targetResourceTypes: targetResourceTypes);
             var orchestrator = CreateReindexOrchestratorJob(
@@ -1798,17 +1771,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<bool>())
                 .Returns(searchResult);
 
-            _searchService.GetSurrogateIdRanges(
-                "Patient",
-                Arg.Any<long>(),
-                Arg.Any<long>(),
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>(),
-                Arg.Any<bool>())
-                .Returns(Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(
-                    new List<(long StartId, long EndId)> { (1, 10) }));
+            SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
