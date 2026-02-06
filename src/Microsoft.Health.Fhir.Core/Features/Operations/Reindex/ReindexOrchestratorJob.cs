@@ -10,7 +10,6 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.JsonPatch.Internal;
@@ -23,7 +22,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -47,7 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly bool _isSurrogateIdRangingSupported;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly OperationsConfiguration _operationsConfiguration;
-        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
 
         private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
@@ -95,8 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ILoggerFactory loggerFactory,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            IOptions<OperationsConfiguration> operationsConfiguration,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory)
+            IOptions<OperationsConfiguration> operationsConfiguration)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
@@ -109,7 +105,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(coreFeatureConfiguration.Value, nameof(coreFeatureConfiguration.Value));
             EnsureArg.IsNotNull(operationsConfiguration, nameof(operationsConfiguration));
             EnsureArg.IsNotNull(operationsConfiguration.Value, nameof(operationsConfiguration.Value));
-            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
 
             _queueClient = queueClient;
             _searchServiceFactory = searchServiceFactory;
@@ -120,7 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterOperations = searchParameterOperations;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _operationsConfiguration = operationsConfiguration.Value;
-            _fhirDataStoreFactory = fhirDataStoreFactory;
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
@@ -1389,8 +1383,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
-            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
-            await store.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
+            using IScoped<ISearchService> search = _searchServiceFactory();
+            await search.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
     }
 }

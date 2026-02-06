@@ -243,8 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _fixture.FhirRuntimeConfiguration,
                             NullLoggerFactory.Instance,
                             _coreFeatureConfig,
-                            operationsConfig,
-                            Substitute.For<Func<IScoped<IFhirDataStore>>>());
+                            operationsConfig);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {

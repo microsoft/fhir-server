@@ -96,8 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 runtimeConfig,
                 NullLoggerFactory.Instance,
                 coreFeatureConfig,
-                operationsConfig,
-                Substitute.For<Func<IScoped<IFhirDataStore>>>());
+                operationsConfig);
         }
 
         private async Task<JobInfo> CreateReindexJobRecord(
