@@ -823,8 +823,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     try
                                     {
                                         await LogQueryStoreByTextAsync(
-                                            sqlCommand.Connection,
-                                            sqlCommand.CommandText,
+                                            sqlCommand,
                                             _logger,
                                             (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
                                             executionStopwatch.ElapsedMilliseconds,
@@ -980,11 +979,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Normalizes query text for matching against Query Store entries.
-        /// Strips SET STATISTICS, DECLARE statements, OPTION/comments, and extracts
-        /// the core query starting from the first SELECT, WITH, or INSERT statement.
+        /// Strips SET STATISTICS, DECLARE statements
         /// </summary>
-        private static string NormalizeQueryTextForQueryStore(string queryText)
+        private static string RemoveDeclareAndStatisticsLines(string queryText)
         {
             if (string.IsNullOrWhiteSpace(queryText))
             {
@@ -1017,67 +1014,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     continue;
                 }
 
-                sb.AppendLine(line);
-            }
-
-            var cleaned = sb.ToString();
-
-            // Remove block comments like /* HASH ... */
-            cleaned = System.Text.RegularExpressions.Regex.Replace(
-                cleaned,
-                @"/\*.*?\*/",
-                string.Empty,
-                System.Text.RegularExpressions.RegexOptions.Singleline);
-
-            // Find the start of the actual query: SELECT, ;WITH, or INSERT
-            int startIdx = -1;
-            int selectIdx = cleaned.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
-            int withIdx = cleaned.IndexOf(";WITH", StringComparison.OrdinalIgnoreCase);
-            int insertIdx = cleaned.IndexOf("INSERT", StringComparison.OrdinalIgnoreCase);
-
-            // Pick the earliest occurrence
-            foreach (int idx in new[] { selectIdx, withIdx >= 0 ? withIdx + 1 : -1, insertIdx }.Where(idx => idx >= 0))
-            {
-                if (startIdx < 0 || idx < startIdx)
+                // Replace ;With <> With
+                string processedLine = line;
+                if (trimmed.StartsWith(";WITH", StringComparison.OrdinalIgnoreCase))
                 {
-                    startIdx = idx;
+                    processedLine = line.Replace(";WITH", "WITH", StringComparison.OrdinalIgnoreCase);
                 }
+
+                sb.AppendLine(processedLine);
             }
 
-            // Also check for standalone WITH (not preceded by ;)
-            int standaloneWithIdx = cleaned.IndexOf("WITH", StringComparison.OrdinalIgnoreCase);
-            if (standaloneWithIdx >= 0 && (startIdx < 0 || standaloneWithIdx < startIdx))
-            {
-                startIdx = standaloneWithIdx;
-            }
-
-            if (startIdx > 0)
-            {
-                cleaned = cleaned[startIdx..];
-            }
-
-            // Collapse all whitespace to single space
-            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ");
-
-            // Trim and drop trailing semicolons
-            cleaned = cleaned.Trim().TrimEnd(';').Trim();
-
-            return cleaned;
+            return sb.ToString().TrimStart().TrimEnd();
         }
 
         private static async Task LogQueryStoreByTextAsync(
-            SqlConnection connection,
-            string queryText,
+            SqlCommand sqlCommand,
             ILogger logger,
             int timeoutSeconds,
             long executionTime,
             CancellationToken ct)
         {
-            using var cmd = connection.CreateCommand();
+            using SqlCommandWrapper sqlCommandWrapper = new SqlCommandWrapper(sqlCommand);
+            var queryText = new StringBuilder();
+            if (sqlCommandWrapper.CommandType == CommandType.Text)
+            {
+                foreach (SqlParameter p in sqlCommandWrapper.Parameters)
+                {
+                    queryText.Append('(')
+                        .Append(p)
+                        .Append(' ')
+                        .Append(p.SqlDbType.ToString().ToLowerInvariant())
+                        .Append(')');
+                }
+
+                queryText.Append(RemoveDeclareAndStatisticsLines(sqlCommand.CommandText));
+            }
+            else
+            {
+                queryText = new StringBuilder(RemoveDeclareAndStatisticsLines(sqlCommand.CommandText));
+            }
+
+            using var cmd = sqlCommand.Connection.CreateCommand();
             cmd.CommandType = CommandType.Text;
             cmd.CommandTimeout = timeoutSeconds;
-
-            var normalizedText = NormalizeQueryTextForQueryStore(queryText);
 
             // Use LIKE-only matching:
             // 1. Collapse all whitespace in both QS text and our normalized text to single spaces
@@ -1085,42 +1064,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // 3. Use a generous substring (up to 4000 chars) for LIKE matching
             // 4. Filter runtime stats to the last 1 hour only
             cmd.CommandText = @"
-                DECLARE @QueryText nvarchar(max) = @NormalizedText;
-                DECLARE @QueryCollapsed nvarchar(max) = @QueryText;
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
 
-                WITH src AS
-                (
-                    SELECT
-                        qt.query_text_id,
-                        qt.query_sql_text,
-                        -- 1. Replace tabs/CR/LF with space
-                        -- 2. Collapse all consecutive spaces to a single space using CHAR(7) sentinel trick
-                        REPLACE(REPLACE(REPLACE(
-                            REPLACE(REPLACE(REPLACE(qt.query_sql_text, CHAR(9), ' '), CHAR(13), ' '), CHAR(10), ' '),
-                            '  ', ' ' + CHAR(7)), CHAR(7) + ' ', ''), CHAR(7), '') AS qs_collapsed
-                    FROM sys.query_store_query_text AS qt
-                ),
-                stripped AS
-                (
-                    SELECT
-                        s.query_text_id,
-                        s.query_sql_text,
-                        -- Strip parameter signature prefix like '(@p0 int)' or '(@p0 int,@p1 smallint)'
-                        CASE
-                            WHEN LTRIM(s.qs_collapsed) LIKE '(@%' AND CHARINDEX(')', s.qs_collapsed) > 0
-                            THEN LTRIM(SUBSTRING(s.qs_collapsed, CHARINDEX(')', s.qs_collapsed) + 1, LEN(s.qs_collapsed)))
-                            ELSE LTRIM(s.qs_collapsed)
-                        END AS qs_clean
-                    FROM src s
-                ),
-                match_like AS
-                (
-                    SELECT s.query_text_id
-                    FROM stripped s
-                    WHERE @QueryCollapsed <> ''
-                        AND s.qs_clean LIKE '%' + LEFT(@QueryCollapsed, 4000) + '%'
-                )
                 SELECT TOP (5)
                     rs.count_executions,
                     rs.avg_duration / 1000.0 AS avg_duration_ms,
@@ -1132,15 +1077,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     rs.max_duration / 1000.0 AS max_duration_ms,
                     rs.last_execution_time,
                     qt.query_sql_text
-                FROM match_like r
-                JOIN sys.query_store_query q ON q.query_text_id = r.query_text_id
+                FROM sys.query_store_query_text qt
+                JOIN sys.query_store_query q ON q.query_text_id = qt.query_text_id
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
                 JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
-                JOIN sys.query_store_query_text qt ON qt.query_text_id = q.query_text_id
-                WHERE rs.last_execution_time >= @CutoffTime
+                WHERE @NormalizedText <> ''
+                    AND qt.query_sql_text LIKE '%' + LEFT(@NormalizedText, 4000) + '%'
+                    AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
-            cmd.Parameters.AddWithValue("@NormalizedText", normalizedText);
+            cmd.Parameters.AddWithValue("@NormalizedText", queryText.ToString());
 
             using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
             if (!reader.HasRows)
@@ -1954,8 +1900,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     try
                                     {
                                         await LogQueryStoreByTextAsync(
-                                            sqlCommand.Connection,
-                                            sqlCommand.CommandText,
+                                            sqlCommand,
                                             _logger,
                                             (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
                                             executionStopwatch.ElapsedMilliseconds,
