@@ -28,7 +28,6 @@ steps:
       
       Write-Host "Installing Microsoft Graph modules..."
       $graphModules | ForEach-Object { Install-Module -Name $_ -Force -Scope CurrentUser -AllowClobber }
-      Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
       
       Write-Host "Importing Microsoft Graph modules..."
       $graphModules | ForEach-Object { Import-Module -Name $_ -ErrorAction Stop }
