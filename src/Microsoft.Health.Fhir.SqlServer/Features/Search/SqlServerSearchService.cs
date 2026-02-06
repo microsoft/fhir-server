@@ -132,12 +132,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
 
+            InitializeProcessingFlags(logger);
+        }
+
+        private static void InitializeProcessingFlags(ILogger logger)
+        {
             if (_reuseQueryPlans == null)
             {
                 lock (_locker)
                 {
-                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, _logger);
-                    _longRunningQueryDetails ??= new ProcessingFlag<SqlServerSearchService>(LongRunningQueryDetailsParameterId, true, _logger);
+                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, logger);
+                    _longRunningQueryDetails ??= new ProcessingFlag<SqlServerSearchService>(LongRunningQueryDetailsParameterId, true, logger);
                 }
             }
         }
