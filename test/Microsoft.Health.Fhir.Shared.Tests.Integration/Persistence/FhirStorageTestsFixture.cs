@@ -60,7 +60,6 @@ using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using Xunit;
 using ResourceType = Hl7.Fhir.Model.ResourceType;
-using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence

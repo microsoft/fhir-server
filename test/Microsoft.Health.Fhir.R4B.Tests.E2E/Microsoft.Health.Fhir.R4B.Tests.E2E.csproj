@@ -25,7 +25,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" />
   </ItemGroup>
   <ItemGroup>
@@ -69,3 +68,4 @@
     </ItemGroup>
   </Target>
 </Project>
+
