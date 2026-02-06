@@ -39,8 +39,10 @@ steps:
       Write-Host "Installing Az modules..."
       Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
       Import-Module Az.Accounts -ErrorAction Stop
       Import-Module Az.KeyVault -ErrorAction Stop
+      Import-Module Microsoft.PowerShell.SecretManagement -ErrorAction Stop
 
       # Set up variables
       $tenantId = "$(tenant-id)"
