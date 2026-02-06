@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly SemaphoreSlim _refreshSemaphore;
         private bool _isInitialized;
         private CancellationToken _stoppingToken;
-        private DateTime _lastForceRefreshTime;
 
         public SearchParameterCacheRefreshBackgroundService(
             ISearchParameterStatusManager searchParameterStatusManager,
@@ -57,12 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             // Create semaphore to prevent concurrent refresh operations (max 1 concurrent operation)
             _refreshSemaphore = new SemaphoreSlim(1, 1);
-
-            // Initialize last force refresh time to now with random offset (0-5 minutes) to stagger force refreshes across instances
-            // We use UtcNow instead of MinValue because SearchParameters are already loaded during initialization,
-            // so there's no need to do a full refresh on first timer execution
-            var randomOffsetMinutes = RandomNumberGenerator.GetInt32(0, 6); // 0-5 minutes
-            _lastForceRefreshTime = DateTime.UtcNow.AddMinutes(randomOffsetMinutes);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -124,29 +117,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             try
             {
-                var timeSinceLastForceRefresh = DateTime.UtcNow - _lastForceRefreshTime;
-                ////var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1);
-                ////if (shouldForceRefresh)
-                ////{
-                ////    _logger.LogInformation("Performing full SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
-
-                ////    var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
-
-                ////    _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
-
-                ////    // Apply all search parameters (this will recalculate the hash)
-                ////    await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
-
-                ////    _lastForceRefreshTime = DateTime.UtcNow;
-                ////}
-                ////else
-                ////{
-                ////    _logger.LogInformation("Performing incremental SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
-                ////    await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
-                ////}
-
-                _logger.LogInformation("Performing incremental SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
+                _logger.LogInformation("Performing incremental SearchParameter cache refresh...");
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
+                _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
             }
             catch (OperationCanceledException)
             {
