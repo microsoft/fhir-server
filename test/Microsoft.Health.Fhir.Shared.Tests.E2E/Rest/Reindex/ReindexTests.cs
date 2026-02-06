@@ -714,27 +714,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        private async Task<Observation> CreateObservationResourceAsync(string id, string personId)
-        {
-            var observation = new Observation
-            {
-                Id = id,
-                Status = ObservationStatus.Final,
-                Code = new CodeableConcept("http://loinc.org", "1234-5"),
-                Subject = new ResourceReference($"Person/{personId}"),
-            };
-
-            try
-            {
-                var result = await _fixture.TestFhirClient.CreateAsync(observation);
-                return result;
-            }
-            catch
-            {
-                return observation;
-            }
-        }
-
         private async Task<Specimen> CreateSpecimenResourceAsync(string id, string name)
         {
             var specimen = new Specimen
@@ -962,7 +941,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             Exception lastException = null;
 
-            var maxRetries = 20;
+            var maxRetries = 1;
             var retryDelayMs = 500;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
