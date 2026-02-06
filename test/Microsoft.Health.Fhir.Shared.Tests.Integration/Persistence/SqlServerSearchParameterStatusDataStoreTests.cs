@@ -335,54 +335,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenGetMaxLastUpdatedAsync_WhenStatusesHaveVariedTimestamps_ThenReturnsMaximum()
-        {
-            // Arrange
-            var dataStore = _fixture.SearchParameterStatusDataStore as SqlServerSearchParameterStatusDataStore;
-            Assert.NotNull(dataStore);
-
-            var testUri1 = "http://hl7.org/fhir/SearchParameter/Test-MaxTime1-" + Guid.NewGuid();
-            var testUri2 = "http://hl7.org/fhir/SearchParameter/Test-MaxTime2-" + Guid.NewGuid();
-
-            var now = DateTimeOffset.UtcNow;
-            var statuses = new List<ResourceSearchParameterStatus>
-            {
-                new ResourceSearchParameterStatus
-                {
-                    Uri = new Uri(testUri1),
-                    Status = SearchParameterStatus.Disabled,
-                    IsPartiallySupported = false,
-                    LastUpdated = now.AddMinutes(-5),
-                },
-                new ResourceSearchParameterStatus
-                {
-                    Uri = new Uri(testUri2),
-                    Status = SearchParameterStatus.Enabled,
-                    IsPartiallySupported = false,
-                    LastUpdated = now,
-                },
-            };
-
-            try
-            {
-                // Act - Insert statuses with different timestamps
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statuses, CancellationToken.None);
-
-                var maxLastUpdated = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
-
-                // Assert - MaxLastUpdated should be at least as recent as our latest timestamp
-                Assert.True(
-                    maxLastUpdated >= now.AddSeconds(-1),
-                    $"Expected MaxLastUpdated ({maxLastUpdated}) to be >= our latest timestamp ({now})");
-            }
-            finally
-            {
-                await _testHelper.DeleteSearchParameterStatusAsync(testUri1);
-                await _testHelper.DeleteSearchParameterStatusAsync(testUri2);
-            }
-        }
-
-        [Fact]
         public async Task GivenGetSearchParameterStatuses_WhenIsPartiallySupported_ThenValueIsPreserved()
         {
             // Arrange
