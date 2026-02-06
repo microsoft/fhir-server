@@ -17,7 +17,6 @@
     <Attributes>
       <Exclude>
         <Attribute>^System\.Diagnostics\.CodeAnalysis\.ExcludeFromCodeCoverageAttribute$</Attribute>
-        <Attribute>^System\.Runtime\.CompilerServices\.CompilerGeneratedAttribute$</Attribute>
       </Exclude>
     </Attributes>
     <Sources>
@@ -30,25 +29,15 @@
         <Source>.*[\\/]Modules[\\/][^\\/]*Module\.cs$</Source>
         <Source>.*[\\/]Extensions[\\/]ServiceCollectionExtensions\.cs$</Source>
         <Source>.*[\\/]((Microsoft\.Health\.Fhir\.)?Api\.OpenIddict)[\\/]Configuration[\\/][^\\/]*\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Api[\\/]Configs[\\/]ThrottlingConfiguration\.cs$</Source>
         <Source>.*[\\/]Microsoft\.Health\.Fhir\.SqlServer[\\/]Features[\\/]Schema[\\/]Model[\\/].*\.cs$</Source>
         <Source>.*[\\/]SchemaManager[\\/]Command[^\\/]*\.cs$</Source>
         <Source>.*[\\/]SchemaManager[\\/][^\\/]*ParserBuilder\.cs$</Source>
         <Source>.*[\\/]Modules[\\/]KnownAssemblies\.cs$</Source>
         <Source>.*[\\/]Modules[\\/]FeatureFlags[\\/][^\\/]+[\\/]ValidatePostConfigureOptions\.cs$</Source>
         <Source>.*[\\/]XmlFormatterConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]ArtifactStoreConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]BundleConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]CoreFeatureConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]CustomerManagedKeyEncryption\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]ExportJobFormatConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]ImplementationGuidesConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]IntegrationDataStoreConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]OperationsConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]TaskHostingConfiguration\.cs$</Source>
-        <Source>.*[\\/]Microsoft\.Health\.Fhir\.Core[\\/]Configs[\\/]ValidateOperationConfiguration\.cs$</Source>
+        <Source>.*[\\/]Core[\\/]Configs[\\/][^\\/]*Configuration\.cs$</Source>
+        <Source>.*[\\/]CosmosDb\.Core[\\/]Configs[\\/][^\\/]*Configuration\.cs$</Source>
       </Exclude>
     </Sources>
-    <SkipAutoProperties>true</SkipAutoProperties>
   </CodeCoverage>
 </Configuration>
