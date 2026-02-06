@@ -343,34 +343,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-            var allInCache = await ParametersAreInCache(statusesToProcess, cancellationToken);
+            var inCache = await ParametersAreInCache(statusesToProcess, cancellationToken);
 
-            if (results.LastUpdated.HasValue && allInCache) // this should be the ony place in the code to assign last updated
+            if (results.LastUpdated.HasValue && inCache) // this should be the ony place in the code to assign last updated
             {
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
         }
 
+        // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
+        // when refresh is invoked between saving status and saving resource.
+        // This will not be needed when order of saves is reversed (resource first, then status)
         private async Task<bool> ParametersAreInCache(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
-            var allInCache = true;
-            if (!_searchParamLastUpdated.HasValue)
-            {
-                return allInCache;
-            }
-
+            var inCache = true;
             foreach (var status in statuses)
             {
                 _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
                 using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
                 if (existingSearchParam == null)
                 {
-                    allInCache = false;
-                    await search.Value.TryLogEvent("SearchParameterOperations.GetAndApplySearchParameterUpdates", "Error", $"Not found {status.Uri.OriginalString} {status.Status}", null, cancellationToken);
+                    inCache = false;
+                    var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
+                    _logger.LogInformation(msg);
+                    await search.Value.TryLogEvent("SearchParameterOperations.GetAndApplySearchParameterUpdates", "Error", msg, null, cancellationToken);
                 }
             }
 
-            return allInCache;
+            return inCache;
         }
 
         private void DeleteSearchParameter(string url)
