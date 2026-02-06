@@ -30,12 +30,12 @@ public class FhirSchemaClientTests
     {
         // Arrange
         int currentVersion = 5;
-        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(TestContext.Current.CancellationToken).Returns(currentVersion);
+        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(currentVersion);
 
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync(TestContext.Current.CancellationToken);
+        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
 
         int numberOfAvailableVersions = SchemaVersionConstants.Max - currentVersion + 1;
         var expectedVersions = Enumerable
@@ -51,11 +51,11 @@ public class FhirSchemaClientTests
     public async Task GivenCurrentVersionOfMax_GetAvailableVersionsShouldReturnOneVersion()
     {
         // Arrange
-        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(TestContext.Current.CancellationToken).Returns(SchemaVersionConstants.Max);
+        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(SchemaVersionConstants.Max);
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync(TestContext.Current.CancellationToken);
+        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
 
         var expectedVersions = new List<AvailableVersion>()
         {
@@ -70,11 +70,11 @@ public class FhirSchemaClientTests
     public async Task GivenVersion1_GetAvailableVersionsShouldReturnEmptyDiffUriForVersion1()
     {
         // Arrange
-        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(TestContext.Current.CancellationToken).Returns(1);
+        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(1);
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync(TestContext.Current.CancellationToken);
+        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
 
         // Assert
         Assert.Contains(actualVersions, v => v.Id == 1 && string.IsNullOrEmpty(v.DiffUri));
@@ -102,11 +102,11 @@ public class FhirSchemaClientTests
     {
         // Arrange
         var compatibleVersions = new CompatibleVersions(1, 5);
-        _schemaDataStore.GetLatestCompatibleVersionsAsync(TestContext.Current.CancellationToken).Returns(compatibleVersions);
+        _schemaDataStore.GetLatestCompatibleVersionsAsync(default).Returns(compatibleVersions);
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        CompatibleVersion result = await fhirSchemaClient.GetCompatibilityAsync(TestContext.Current.CancellationToken);
+        CompatibleVersion result = await fhirSchemaClient.GetCompatibilityAsync();
 
         // Assert
         Assert.Equal(1, result.Min);
@@ -117,12 +117,12 @@ public class FhirSchemaClientTests
     public async Task GivenCompatibleVersionsNotFound_WhenGetCompatibility_ThenReturnsDefaultVersion()
     {
         // Arrange
-        _schemaDataStore.GetLatestCompatibleVersionsAsync(TestContext.Current.CancellationToken)
+        _schemaDataStore.GetLatestCompatibleVersionsAsync(default)
             .ThrowsAsync(new CompatibleVersionsNotFoundException("Compatible versions not found"));
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        CompatibleVersion result = await fhirSchemaClient.GetCompatibilityAsync(TestContext.Current.CancellationToken);
+        CompatibleVersion result = await fhirSchemaClient.GetCompatibilityAsync();
 
         // Assert
         Assert.Equal(0, result.Min);
@@ -138,11 +138,11 @@ public class FhirSchemaClientTests
             new CurrentVersionInformation(1, (Microsoft.Health.SqlServer.Features.Schema.SchemaVersionStatus)2, new List<string> { "Server1", "Server2" }),
             new CurrentVersionInformation(2, (Microsoft.Health.SqlServer.Features.Schema.SchemaVersionStatus)2, new List<string> { "Server3" }),
         };
-        _schemaDataStore.GetCurrentVersionAsync(TestContext.Current.CancellationToken).Returns(currentVersionInfo);
+        _schemaDataStore.GetCurrentVersionAsync(default).Returns(currentVersionInfo);
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        List<CurrentVersion> result = await fhirSchemaClient.GetCurrentVersionInformationAsync(TestContext.Current.CancellationToken);
+        List<CurrentVersion> result = await fhirSchemaClient.GetCurrentVersionInformationAsync();
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -161,7 +161,7 @@ public class FhirSchemaClientTests
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        string result = await fhirSchemaClient.GetDiffScriptAsync(5, TestContext.Current.CancellationToken);
+        string result = await fhirSchemaClient.GetDiffScriptAsync(5);
 
         // Assert
         Assert.Equal(expectedScript, result);
@@ -177,7 +177,7 @@ public class FhirSchemaClientTests
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        string result = await fhirSchemaClient.GetScriptAsync(5, TestContext.Current.CancellationToken);
+        string result = await fhirSchemaClient.GetScriptAsync(5);
 
         // Assert
         Assert.Equal(expectedScript, result);

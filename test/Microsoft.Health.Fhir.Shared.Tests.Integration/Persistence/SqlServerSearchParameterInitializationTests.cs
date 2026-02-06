@@ -96,4 +96,3 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
         }
     }
 }
-

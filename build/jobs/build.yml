@@ -44,21 +44,23 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml"'
       testRunTitle: 'Unit Tests'
+    env:
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
       reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
+      targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
   
   - task: PublishBuildArtifacts@1
     displayName: 'Publish unit test coverage artifact'
     condition: succeededOrFailed()
     inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
       artifactName: 'Coverage_UnitTests'
       artifactType: 'container'
 

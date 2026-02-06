@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             string blobName = Guid.NewGuid().ToString("N");
 
             var container = client.GetBlobContainerClient(containerName);
-            await container.CreateAsync(cancellationToken: TestContext.Current.CancellationToken);
+            await container.CreateAsync();
             try
             {
                 using MemoryStream sourceStream = new MemoryStream();
@@ -72,18 +72,18 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 int lineNumber = (1024 * 1024) + 3;
                 while (lineNumber-- > 0)
                 {
-                    await writer.WriteLineAsync(Guid.NewGuid().ToString("N").AsMemory(), TestContext.Current.CancellationToken);
+                    await writer.WriteLineAsync(Guid.NewGuid().ToString("N"));
                 }
 
-                await writer.FlushAsync(TestContext.Current.CancellationToken);
+                await writer.FlushAsync();
 
                 var blob = container.GetBlockBlobClient(blobName);
                 sourceStream.Position = 0;
-                blob.Upload(sourceStream, cancellationToken: TestContext.Current.CancellationToken);
+                blob.Upload(sourceStream);
 
                 sourceStream.Position = 0;
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                using Stream targetStream = blobClient.DownloadResource(blob.Uri, 0, TestContext.Current.CancellationToken);
+                using Stream targetStream = blobClient.DownloadResource(blob.Uri, 0, CancellationToken.None);
                 using StreamReader sourceReader = new StreamReader(sourceStream);
                 using StreamReader targetReader = new StreamReader(targetStream);
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
             finally
             {
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             string blobName = Guid.NewGuid().ToString("N");
 
             var container = client.GetBlobContainerClient(containerName);
-            await container.CreateAsync(cancellationToken: TestContext.Current.CancellationToken);
+            await container.CreateAsync();
             try
             {
                 using MemoryStream sourceStream = new MemoryStream();
@@ -117,19 +117,19 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 int lineNumber = (1024 * 1024) + 3;
                 while (lineNumber-- > 0)
                 {
-                    await writer.WriteLineAsync(Guid.NewGuid().ToString("N").AsMemory(), TestContext.Current.CancellationToken);
+                    await writer.WriteLineAsync(Guid.NewGuid().ToString("N"));
                 }
 
-                await writer.FlushAsync(TestContext.Current.CancellationToken);
+                await writer.FlushAsync();
 
                 var blob = container.GetBlockBlobClient(blobName);
                 sourceStream.Position = 0;
-                blob.Upload(sourceStream, cancellationToken: TestContext.Current.CancellationToken);
+                blob.Upload(sourceStream);
 
                 long startPosition = 2021;
                 sourceStream.Position = startPosition;
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                using Stream targetStream = blobClient.DownloadResource(blob.Uri, startPosition, TestContext.Current.CancellationToken);
+                using Stream targetStream = blobClient.DownloadResource(blob.Uri, startPosition, CancellationToken.None);
                 using StreamReader sourceReader = new StreamReader(sourceStream);
                 using StreamReader targetReader = new StreamReader(targetStream);
 
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
             finally
             {
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -158,16 +158,16 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             try
             {
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                Uri fileUri = await blobClient.PrepareResourceAsync(containerName, blobName, TestContext.Current.CancellationToken);
-                Assert.True(await client.GetBlobContainerClient(containerName).ExistsAsync(TestContext.Current.CancellationToken));
+                Uri fileUri = await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
+                Assert.True(await client.GetBlobContainerClient(containerName).ExistsAsync());
                 Assert.Equal(blobUri, fileUri);
 
-                await blobClient.PrepareResourceAsync(containerName, blobName, TestContext.Current.CancellationToken);
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
             }
             finally
             {
                 var container = client.GetBlobContainerClient(containerName);
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -183,27 +183,27 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             Uri blobUri = new Uri(Path.Combine(client.Uri.ToString(), $"{containerName}/{blobName}"));
 
             var container = client.GetBlobContainerClient(containerName);
-            await container.CreateAsync(cancellationToken: TestContext.Current.CancellationToken);
+            await container.CreateAsync();
             try
             {
                 using MemoryStream sourceStream = new MemoryStream();
                 using StreamWriter writer = new StreamWriter(sourceStream);
 
-                await writer.WriteLineAsync(Guid.NewGuid().ToString("N").AsMemory(), TestContext.Current.CancellationToken);
-                await writer.FlushAsync(TestContext.Current.CancellationToken);
+                await writer.WriteLineAsync(Guid.NewGuid().ToString("N"));
+                await writer.FlushAsync();
 
                 var blob = container.GetBlockBlobClient(blobName);
                 sourceStream.Position = 0;
-                blob.Upload(sourceStream, cancellationToken: TestContext.Current.CancellationToken);
+                blob.Upload(sourceStream);
 
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                Dictionary<string, object> properties = await blobClient.GetPropertiesAsync(blobUri, TestContext.Current.CancellationToken);
+                Dictionary<string, object> properties = await blobClient.GetPropertiesAsync(blobUri, CancellationToken.None);
                 Assert.True(properties.ContainsKey(IntegrationDataStoreClientConstants.BlobPropertyETag));
                 Assert.True(properties.ContainsKey(IntegrationDataStoreClientConstants.BlobPropertyLength));
             }
             finally
             {
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             {
                 var configuration = GetIntegrationDataStoreConfigurationOption();
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, configuration, new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                await blobClient.PrepareResourceAsync(containerName, blobName, TestContext.Current.CancellationToken);
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
                 List<string> blockIds = new List<string>();
@@ -230,22 +230,22 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 {
                     using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
                     string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-                    await blobClient.UploadBlockAsync(blobUri, input, blockId, TestContext.Current.CancellationToken);
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
                     blockIds.Add(blockId);
                 }
 
-                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), TestContext.Current.CancellationToken);
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
 
                 BlockBlobClient output = new BlockBlobClient(configuration.Value.StorageAccountConnection, containerName, blobName);
                 using Stream outputStream = new MemoryStream();
-                await output.DownloadToAsync(outputStream, TestContext.Current.CancellationToken);
+                await output.DownloadToAsync(outputStream);
                 outputStream.Position = 0;
                 using StreamReader reader = new StreamReader(outputStream);
 
                 long currentLine = 0;
                 string content = null;
 
-                while ((content = await reader.ReadLineAsync(TestContext.Current.CancellationToken)) != null)
+                while ((content = await reader.ReadLineAsync()) != null)
                 {
                     Assert.Equal(currentLine.ToString(), content);
                     currentLine++;
@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             finally
             {
                 var container = client.GetBlobContainerClient(containerName);
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             {
                 var configuration = GetIntegrationDataStoreConfigurationOption();
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, configuration, new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                await blobClient.PrepareResourceAsync(containerName, blobName, TestContext.Current.CancellationToken);
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
                 List<string> blockIds = new List<string>();
@@ -283,22 +283,22 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 {
                     using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
                     string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-                    await blobClient.UploadBlockAsync(blobUri, input, blockId, TestContext.Current.CancellationToken);
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
                     blockIds.Add(blockId);
                 }
 
-                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), TestContext.Current.CancellationToken);
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
 
                 BlockBlobClient output = new BlockBlobClient(configuration.Value.StorageAccountConnection, containerName, blobName);
                 using Stream outputStream = new MemoryStream();
-                await output.DownloadToAsync(outputStream, TestContext.Current.CancellationToken);
+                await output.DownloadToAsync(outputStream);
                 outputStream.Position = 0;
                 using StreamReader reader = new StreamReader(outputStream);
 
                 long currentLine = 0;
                 string content = null;
 
-                while ((content = await reader.ReadLineAsync(TestContext.Current.CancellationToken)) != null)
+                while ((content = await reader.ReadLineAsync()) != null)
                 {
                     Assert.Equal(currentLine.ToString(), content);
                     currentLine++;
@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             finally
             {
                 var container = client.GetBlobContainerClient(containerName);
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -327,7 +327,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             try
             {
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                await blobClient.PrepareResourceAsync(containerName, blobName, TestContext.Current.CancellationToken);
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
                 List<string> blockIds = new List<string>();
@@ -335,23 +335,23 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 {
                     using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
                     string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-                    await blobClient.UploadBlockAsync(blobUri, input, blockId, TestContext.Current.CancellationToken);
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
                     blockIds.Add(blockId);
                 }
 
-                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), TestContext.Current.CancellationToken);
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
 
-                string leaseId = await blobClient.TryAcquireLeaseAsync(blobUri, blobName, TestContext.Current.CancellationToken);
+                string leaseId = await blobClient.TryAcquireLeaseAsync(blobUri, blobName, CancellationToken.None);
                 Assert.NotNull(leaseId);
-                string nullLeaseId = await blobClient.TryAcquireLeaseAsync(blobUri, "dummy", TestContext.Current.CancellationToken);
+                string nullLeaseId = await blobClient.TryAcquireLeaseAsync(blobUri, "dummy", CancellationToken.None);
                 Assert.Null(nullLeaseId);
 
-                await blobClient.TryReleaseLeaseAsync(blobUri, leaseId, TestContext.Current.CancellationToken);
+                await blobClient.TryReleaseLeaseAsync(blobUri, leaseId, CancellationToken.None);
             }
             finally
             {
                 var container = client.GetBlobContainerClient(containerName);
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             {
                 var configuration = GetIntegrationDataStoreConfigurationOption();
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, configuration, new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                await blobClient.PrepareResourceAsync(containerName, blobName, TestContext.Current.CancellationToken);
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
                 List<string> blockIds = new List<string>();
@@ -378,22 +378,22 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 {
                     using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
                     string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-                    await blobClient.UploadBlockAsync(blobUri, input, blockId, TestContext.Current.CancellationToken);
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
                     blockIds.Add(blockId);
                 }
 
-                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), TestContext.Current.CancellationToken);
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
 
                 BlockBlobClient output = await initializer.GetAuthorizedBlockBlobClientAsync(blobUri);
                 using Stream outputStream = new MemoryStream();
-                await output.DownloadToAsync(outputStream, TestContext.Current.CancellationToken);
+                await output.DownloadToAsync(outputStream);
                 outputStream.Position = 0;
                 using StreamReader reader = new StreamReader(outputStream);
 
                 long currentLine = 0;
                 string content = null;
 
-                while ((content = await reader.ReadLineAsync(TestContext.Current.CancellationToken)) != null)
+                while ((content = await reader.ReadLineAsync()) != null)
                 {
                     Assert.Equal(currentLine.ToString(), content);
                     currentLine++;
@@ -404,7 +404,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             finally
             {
                 var container = client.GetBlobContainerClient(containerName);
-                await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
+                await container.DeleteIfExistsAsync();
             }
         }
 
@@ -415,7 +415,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => client.DownloadResource(null, 0, TestContext.Current.CancellationToken));
+            Assert.Throws<ArgumentNullException>(() => client.DownloadResource(null, 0, CancellationToken.None));
         }
 
         [Fact]
@@ -425,7 +425,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.PrepareResourceAsync(null, "file.txt", TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.PrepareResourceAsync(null, "file.txt", CancellationToken.None));
         }
 
         [Fact]
@@ -435,7 +435,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.PrepareResourceAsync("container", null, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.PrepareResourceAsync("container", null, CancellationToken.None));
         }
 
         [Fact]
@@ -446,7 +446,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             using var stream = new MemoryStream();
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(null, stream, "blockId", TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(null, stream, "blockId", CancellationToken.None));
         }
 
         [Fact]
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var uri = new Uri("https://test.blob.core.windows.net/container/blob");
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(uri, null, "blockId", TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(uri, null, "blockId", CancellationToken.None));
         }
 
         [Fact]
@@ -469,7 +469,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             using var stream = new MemoryStream();
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(uri, stream, null, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.UploadBlockAsync(uri, stream, null, CancellationToken.None));
         }
 
         [Fact]
@@ -480,7 +480,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var blockIds = new[] { "block1", "block2" };
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.CommitAsync(null, blockIds, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.CommitAsync(null, blockIds, CancellationToken.None));
         }
 
         [Fact]
@@ -491,7 +491,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var uri = new Uri("https://test.blob.core.windows.net/container/blob");
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.CommitAsync(uri, null, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.CommitAsync(uri, null, CancellationToken.None));
         }
 
         [Fact]
@@ -502,7 +502,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var blockIds = new[] { "block1", "block2" };
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.AppendCommitAsync(null, blockIds, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.AppendCommitAsync(null, blockIds, CancellationToken.None));
         }
 
         [Fact]
@@ -513,7 +513,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var uri = new Uri("https://test.blob.core.windows.net/container/blob");
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.AppendCommitAsync(uri, null, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.AppendCommitAsync(uri, null, CancellationToken.None));
         }
 
         [Fact]
@@ -523,7 +523,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.GetPropertiesAsync(null, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.GetPropertiesAsync(null, CancellationToken.None));
         }
 
         [Fact]
@@ -533,7 +533,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryAcquireLeaseAsync(null, "leaseId", TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryAcquireLeaseAsync(null, "leaseId", CancellationToken.None));
         }
 
         [Fact]
@@ -543,7 +543,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             var client = new AzureBlobIntegrationDataStoreClient(_clientInitializer, _configuration, _logger);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryReleaseLeaseAsync(null, "leaseId", TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => client.TryReleaseLeaseAsync(null, "leaseId", CancellationToken.None));
         }
 
         private static IIntegrationDataStoreClientInitializer GetClientInitializer()

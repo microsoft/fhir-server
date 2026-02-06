@@ -16,12 +16,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 {
     public static class BulkUpdateMediatorExtensions
     {
-        public static async Task<CreateBulkUpdateResponse> BulkUpdateAsync(this IMediator mediator, string resourceType, IList<Tuple<string, string>> searchParameters, Hl7.Fhir.Model.Parameters parameters, bool isParallel, uint maxCount, CancellationToken cancellationToken)
+        public static async Task<CreateBulkUpdateResponse> BulkUpdateAsync(this IMediator mediator, string resourceType, IList<Tuple<string, string>> searchParameters, Hl7.Fhir.Model.Parameters parameters, bool isParallel, uint maxCount, bool metaHistory, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new CreateBulkUpdateRequest(resourceType, searchParameters, parameters, isParallel, maxCount);
-
+            var request = new CreateBulkUpdateRequest(resourceType, searchParameters, parameters, isParallel, maxCount, metaHistory);
             CreateBulkUpdateResponse response = await mediator.Send(request, cancellationToken);
             return response;
         }

@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                     resourceElement,
                     bundleResourceContext: null),
                 requestHandlerDelegate,
-                TestContext.Current.CancellationToken);
+                default);
 
             // Out of the bundle context, ProfileResourcesBehaviour should call the profile resolver refresh.
             _profilesResolver.Received(1).Refresh();
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                     resourceElement,
                     bundleResourceContext: bundleResourceContext),
                 requestHandlerDelegate,
-                TestContext.Current.CancellationToken);
+                default);
 
             // Under the bundle context, ProfileResourcesBehaviour should not call the profile resolver refresh.
             _profilesResolver.Received(0).Refresh();

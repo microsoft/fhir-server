@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var notification = new SearchParametersInitializedNotification();
 
             // Act
-            await _service.Handle(notification, TestContext.Current.CancellationToken);
+            await _service.Handle(notification, CancellationToken.None);
 
             // Assert
             // The method should complete without throwing - the flag is set internally
@@ -201,10 +201,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns(true); // Cache is stale
 
             // Set initialized to true to allow timer to run
-            await _service.Handle(new SearchParametersInitializedNotification(), TestContext.Current.CancellationToken);
+            await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
-            await Task.Delay(200, TestContext.Current.CancellationToken);
+            await Task.Delay(200);
 
             // Assert - use at least 1 call since timer might fire multiple times in test environment
             await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
@@ -222,10 +222,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 .Returns(false); // Cache is fresh
 
             // Set initialized to true to allow timer to run
-            await _service.Handle(new SearchParametersInitializedNotification(), TestContext.Current.CancellationToken);
+            await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for the timer to fire at least once and allow async operations to complete
-            await Task.Delay(200, TestContext.Current.CancellationToken);
+            await Task.Delay(200);
 
             // Assert - verify the timer is working and EnsureCacheFreshnessAsync was called
             await _searchParameterStatusManager.Received().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var executeTask = service.StartAsync(cancellationTokenSource.Token);
 
             // Allow some time for service to start
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(100);
 
             // Cancel the service
             cancellationTokenSource.Cancel();
@@ -286,10 +286,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 mockLogger);
 
             // Act - Initialize and let timer run
-            await service.Handle(new SearchParametersInitializedNotification(), TestContext.Current.CancellationToken);
+            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait for timer to fire and handle the exception
-            await Task.Delay(200, TestContext.Current.CancellationToken);
+            await Task.Delay(200);
 
             // Assert - Verify that ObjectDisposedException was handled and logged appropriately
             mockLogger.Received().Log(
@@ -319,11 +319,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 mockLogger);
 
             // Act - Initialize and let timer run
-            await service.Handle(new SearchParametersInitializedNotification(), TestContext.Current.CancellationToken);
+            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Wait longer for timer to fire and handle the exception - give it up to 2 seconds
             // The timer starts immediately (TimeSpan.Zero) when Handle is called
-            await Task.Delay(2000, TestContext.Current.CancellationToken);
+            await Task.Delay(2000);
 
             // Assert - Verify that OperationCanceledException was handled and logged appropriately
             mockLogger.Received().Log(
@@ -355,10 +355,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await executeTask;
 
             // Act - Try to handle the notification after cancellation
-            await service.Handle(new SearchParametersInitializedNotification(), TestContext.Current.CancellationToken);
+            await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             // Assert - Timer should not fire, so no calls should be made
-            await Task.Delay(200, TestContext.Current.CancellationToken); // Wait to see if timer would fire
+            await Task.Delay(200); // Wait to see if timer would fire
             await _searchParameterStatusManager.DidNotReceive().EnsureCacheFreshnessAsync(Arg.Any<CancellationToken>());
 
             service.Dispose();

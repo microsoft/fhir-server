@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
             var attribute = new BundleEndpointMetricEmitterAttribute(metricHandler);
 
             attribute.OnActionExecuting(null);
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(100);
             attribute.OnActionExecuted(null);
 
             metricHandler.Received(1).EmitLatency(Arg.Any<BundleMetricNotification>());
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
             var attribute = new SearchEndpointMetricEmitterAttribute(metricHandler);
 
             attribute.OnActionExecuting(null);
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(100);
             attribute.OnActionExecuted(null);
 
             metricHandler.Received(1).EmitLatency(Arg.Any<SearchMetricNotification>());
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters.Metrics
             var attribute = new CrudEndpointMetricEmitterAttribute(metricHandler);
 
             attribute.OnActionExecuting(null);
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(100);
             attribute.OnActionExecuted(null);
 
             metricHandler.Received(1).EmitLatency(Arg.Any<CrudMetricNotification>());
