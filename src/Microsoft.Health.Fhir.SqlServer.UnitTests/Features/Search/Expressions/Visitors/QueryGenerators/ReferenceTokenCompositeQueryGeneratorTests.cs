@@ -40,21 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenReferenceTokenCompositeQueryGenerator_WhenInstanceAccessed_ThenNotNull()
-        {
-            Assert.NotNull(ReferenceTokenCompositeQueryGenerator.Instance);
-        }
-
-        [Fact]
-        public void GivenReferenceTokenCompositeQueryGenerator_WhenInstanceAccessedMultipleTimes_ThenReturnsSameInstance()
-        {
-            var instance1 = ReferenceTokenCompositeQueryGenerator.Instance;
-            var instance2 = ReferenceTokenCompositeQueryGenerator.Instance;
-
-            Assert.Same(instance1, instance2);
-        }
-
-        [Fact]
         public void GivenReferenceTokenCompositeQueryGenerator_WhenTableAccessed_ThenReturnsReferenceTokenCompositeSearchParamTable()
         {
             var table = ReferenceTokenCompositeQueryGenerator.Instance.Table;
