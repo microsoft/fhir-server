@@ -81,6 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
         internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
         internal const int LongRunningThresholdMillisecondsDefault = 60000;
+        private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -151,6 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, logger);
                     _longRunningQueryDetails ??= new ProcessingFlag<SqlServerSearchService>(LongRunningQueryDetailsParameterId, true, logger);
+                    _longRunningThreshold ??= new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault, logger);
                 }
             }
         }
@@ -816,9 +818,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             try
                             {
                                 var loggingCancellationToken = CancellationToken.None;
-
-                                var thresholdMs = await GetNumberParameterByIdAsync(LongRunningQueryDetailsThresholdId, loggingCancellationToken);
-                                if (executionStopwatch.ElapsedMilliseconds > thresholdMs && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
+                                if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
                                     try
                                     {
@@ -1185,22 +1185,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     "Long-running SQL ({ElapsedMilliseconds}ms). Normalized query did not match any Query Store entries.",
                     executionTime);
             }
-        }
-
-        private async Task<double> GetNumberParameterByIdAsync(string id, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
-
-            await using var cmd = new SqlCommand("SELECT Number FROM dbo.Parameters WHERE Id = @Id");
-            cmd.Parameters.AddWithValue("@Id", id);
-            var value = await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancellationToken);
-
-            if (value == null)
-            {
-                return LongRunningThresholdMillisecondsDefault;
-            }
-
-            return (double)value;
         }
 
         private static (long StartId, long EndId, int Count) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
@@ -1968,9 +1952,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             try
                             {
                                 var loggingCancellationToken = CancellationToken.None;
-
-                                var thresholdMs = await GetNumberParameterByIdAsync(LongRunningQueryDetailsThresholdId, loggingCancellationToken);
-                                if (executionStopwatch.ElapsedMilliseconds > thresholdMs && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
+                                if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
                                     try
                                     {
