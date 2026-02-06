@@ -822,9 +822,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     try
                                     {
-                                        var execStartUtc = st;
-                                        var execEndUtc = st.AddMilliseconds(executionStopwatch.ElapsedMilliseconds);
-
                                         await LogQueryStoreByTextAsync(
                                             sqlCommand.Connection,
                                             sqlCommand.CommandText,
@@ -1956,9 +1953,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 {
                                     try
                                     {
-                                        var execStartUtc = st;
-                                        var execEndUtc = st.AddMilliseconds(executionStopwatch.ElapsedMilliseconds);
-
                                         await LogQueryStoreByTextAsync(
                                             sqlCommand.Connection,
                                             sqlCommand.CommandText,
