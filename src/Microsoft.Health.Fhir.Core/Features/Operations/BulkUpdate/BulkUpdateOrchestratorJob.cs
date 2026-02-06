@@ -306,7 +306,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     endSurrogateId,
                     globalStartSurrogateId,
                     globalEndSurrogateId,
-                    baseDefinition.MaximumNumberOfResourcesPerQuery);
+                    baseDefinition.MaximumNumberOfResourcesPerQuery,
+                    baseDefinition.MetaHistory);
         }
     }
 }

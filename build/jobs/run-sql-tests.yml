@@ -53,42 +53,44 @@ jobs:
 
   - task: DotNetCoreCLI@2
     displayName: 'Run SQL Integration Tests with coverage'
-    retryCountOnTaskFailure: 1
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--filter DisplayName!~CosmosDb --configuration $(buildConfiguration) --collect "XPlat Code Coverage" -s "$(Pipeline.Workspace)/source/CodeCoverage.runsettings" -v normal --no-build -f $(defaultBuildFramework)'
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      publishTestResults: true
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
 
+  - task: PublishTestResults@2
+    displayName: 'Publish integration test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
+      mergeTestResults: true
+      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
+    condition: succeededOrFailed()
+
   - task: reportgenerator@5
     displayName: 'Aggregate SQL integration test coverage'
     condition: succeededOrFailed()
     inputs:
-      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
       reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
+      targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish SQL integration test coverage'
     inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
       artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
       artifactType: 'container'
-
-  - task: PublishCodeCoverageResults@1
-    displayName: 'Publish SQL code coverage results'
-    condition: always()
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
-      reportDirectory: '$(Agent.TempDirectory)/coverage'
 
 - job: 'sqlE2eTests'
   timeoutInMinutes: 75
