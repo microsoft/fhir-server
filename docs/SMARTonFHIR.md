@@ -4,7 +4,7 @@ In this tutorial we will cover how to use the proxy to enable SMART on FHIR appl
 
 The majority of the tutorial is available [here](https://docs.microsoft.com/azure/healthcare-apis/use-smart-on-fhir-proxy) but the first two steps need to be completed differently. These steps ensure that your app service settings are configured correctly. 
 
-Navigate to the App Service that was greated as part of the deployment.
+Navigate to the App Service that was created as part of the deployment.
 
 ## Enable the SMART on FHIR proxy setting
 1. Select **Configuration** under Settings
