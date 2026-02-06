@@ -217,6 +217,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 // Create custom search parameters - one with valid FHIRPath expression
                 specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
 
+                // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is 1 sec.
+                await Task.Delay(3000);
+
                 // Create test resources that will be indexed using SetupTestDataAsync
                 var specimenResources = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
                 testResources.AddRange(specimenResources);
@@ -250,7 +253,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await CheckCounts(value.jobUri, testResources.Count, false);
+                await CheckCounts(value.jobUri, 0, false); // reindex should skip this resource
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
@@ -286,6 +289,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
                 immunizationSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-imm-{randomSuffix}", ["Immunization"], "Immunization.vaccineCode", SearchParamType.Token);
 
+                // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is 1 sec.
+                await Task.Delay(3000);
+
                 // Create test resources that will be indexed using SetupTestDataAsync
                 var specimenResources = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
                 testResources.AddRange(specimenResources);
@@ -318,6 +324,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
+
+                await CheckCounts(value.jobUri, 0, false); // nothing to reindex
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
