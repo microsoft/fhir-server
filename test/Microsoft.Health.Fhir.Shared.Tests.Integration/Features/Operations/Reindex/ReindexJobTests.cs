@@ -329,59 +329,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             task.Start();
         }
 
-        ////[Fact]
-        ////public async Task GivenReindexJobQueuedWithBackgroundService_WhenJobCompleted_ThenStatusIsUpdated()
-        ////{
-        ////    await CancelActiveReindexJobIfExists();
-
-        ////    // Create a test search parameter
-        ////    var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-        ////    string searchParamName = randomName;
-        ////    string searchParamCode = randomName + "Code";
-        ////    SearchParameter searchParam = await CreateSearchParam(
-        ////        searchParamName,
-        ////        SearchParamType.String,
-        ////        KnownResourceTypes.Patient,
-        ////        "Patient.name",
-        ////        searchParamCode);
-
-        ////    // Create a reindex job
-        ////    var request = new CreateReindexRequest(new List<string>(), new List<string>());
-        ////    CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
-
-        ////    Assert.NotNull(response);
-        ////    Assert.NotNull(response.Job);
-
-        ////    string jobId = response.Job.JobRecord.Id;
-
-        ////    // Wait for the job to be processed by our background service
-        ////    var timeout = TimeSpan.FromSeconds(240);
-        ////    var sw = Stopwatch.StartNew();
-
-        ////    // Poll until job status changes or timeout
-        ////    while (sw.Elapsed < timeout)
-        ////    {
-        ////        // Check job status
-        ////        var job = await _fhirOperationDataStore.GetReindexJobByIdAsync(jobId, CancellationToken.None);
-
-        ////        _output.WriteLine($"Job status: {job.JobRecord.Status}, Elapsed time: {sw.Elapsed}");
-
-        ////        if (job.JobRecord.Status == OperationStatus.Completed ||
-        ////            job.JobRecord.Status == OperationStatus.Failed ||
-        ////            job.JobRecord.Status == OperationStatus.Canceled)
-        ////        {
-        ////            // Job processing completed
-        ////            break;
-        ////        }
-
-        ////        await Task.Delay(1000);
-        ////    }
-
-        ////    // Final verification of job status
-        ////    var finalJob = await _fhirOperationDataStore.GetReindexJobByIdAsync(jobId, CancellationToken.None);
-        ////    Assert.Equal(OperationStatus.Completed, finalJob.JobRecord.Status);
-        ////}
-
         [Fact]
         public Task GivenALegacyReindexJobRecord_WhenGettingJobStatus_ThenJobRecordShouldReturn()
         {
