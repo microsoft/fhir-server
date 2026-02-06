@@ -28,7 +28,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             string endSurrogateId = null,
             string globalStartSurrogateId = null,
             string globalEndSurrogateId = null,
-            uint maximumNumberOfResourcesPerQuery = 10000)
+            uint maximumNumberOfResourcesPerQuery = 10000,
+            bool metaHistory = true)
         {
             TypeId = (int)jobType;
             Type = type;
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             GlobalStartSurrogateId = globalStartSurrogateId;
             GlobalEndSurrogateId = globalEndSurrogateId;
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery > 0 ? maximumNumberOfResourcesPerQuery : 10000;
+            MetaHistory = metaHistory;
         }
 
         [JsonConstructor]
@@ -92,5 +94,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
         public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+
+        [JsonProperty(JobRecordProperties.MetaHistory)]
+        public bool MetaHistory { get; private set; } = true;
     }
 }
