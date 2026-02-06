@@ -67,11 +67,13 @@ Notes:
 ### Attach debugger to a running instance
 1) Open the solution in Visual Studio (e.g., `Microsoft.Health.Fhir.sln`)
 2) Go to **Debug → Attach to Process...** (or press **Ctrl+Alt+P**)
+  ![alt text](image.png)
 3) In the "Attach to Process" dialog:
    - Confirm **Connection type** is set to "Local"
    - In the process list, look for **Microsoft.Health.Fhir.R4.Web.exe** entries
    - Each running instance will appear in the list with its PID
    - Select the instance(s) you want to debug and click **Attach**
+  ![alt text](image-1.png)
 4) Set breakpoints in your code (e.g., in SearchParameterOperations.cs or SqlStoreClient.cs)
 5) Make requests via the proxy (http://localhost:4343) to hit the breakpoints
 
