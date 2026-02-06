@@ -8,7 +8,6 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -135,7 +134,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             InitializeProcessingFlags(logger);
         }
 
-        private static void InitializeProcessingFlags(ILogger logger)
+        internal bool StoredProcedureLayerIsEnabled { get; set; } = true;
+
+        internal ISqlServerFhirModel Model => _model;
+
+        internal static void ResetReuseQueryPlans()
+        {
+            _reuseQueryPlans.Reset();
+        }
+
+        private static void InitializeProcessingFlags(ILogger<SqlServerSearchService> logger)
         {
             if (_reuseQueryPlans == null)
             {
@@ -145,15 +153,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     _longRunningQueryDetails ??= new ProcessingFlag<SqlServerSearchService>(LongRunningQueryDetailsParameterId, true, logger);
                 }
             }
-        }
-
-        internal bool StoredProcedureLayerIsEnabled { get; set; } = true;
-
-        internal ISqlServerFhirModel Model => _model;
-
-        internal static void ResetReuseQueryPlans()
-        {
-            _reuseQueryPlans.Reset();
         }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -829,8 +828,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         await LogQueryStoreByTextAsync(
                                             sqlCommand.Connection,
                                             sqlCommand.CommandText,
-                                            execStartUtc,
-                                            execEndUtc,
                                             _logger,
                                             (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
                                             executionStopwatch.ElapsedMilliseconds,
@@ -1042,9 +1039,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             int insertIdx = cleaned.IndexOf("INSERT", StringComparison.OrdinalIgnoreCase);
 
             // Pick the earliest occurrence
-            foreach (int idx in new[] { selectIdx, withIdx >= 0 ? withIdx + 1 : -1, insertIdx })
+            foreach (int idx in new[] { selectIdx, withIdx >= 0 ? withIdx + 1 : -1, insertIdx }.Where(idx => idx >= 0))
             {
-                if (idx >= 0 && (startIdx < 0 || idx < startIdx))
+                if (startIdx < 0 || idx < startIdx)
                 {
                     startIdx = idx;
                 }
@@ -1074,8 +1071,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static async Task LogQueryStoreByTextAsync(
             SqlConnection connection,
             string queryText,
-            DateTime execStartUtc,
-            DateTime execEndUtc,
             ILogger logger,
             int timeoutSeconds,
             long executionTime,
@@ -1091,59 +1086,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // 1. Collapse all whitespace in both QS text and our normalized text to single spaces
             // 2. Strip QS parameter signature prefix like "(@p0 int)" by starting from first SQL keyword
             // 3. Use a generous substring (up to 4000 chars) for LIKE matching
+            // 4. Filter runtime stats to the last 1 hour only
             cmd.CommandText = @"
-DECLARE @QueryText nvarchar(max) = @NormalizedText;
-DECLARE @QueryCollapsed nvarchar(max) = @QueryText;
+                DECLARE @QueryText nvarchar(max) = @NormalizedText;
+                DECLARE @QueryCollapsed nvarchar(max) = @QueryText;
+                DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
 
-WITH src AS
-(
-    SELECT
-        qt.query_text_id,
-        qt.query_sql_text,
-        -- 1. Replace tabs/CR/LF with space
-        -- 2. Collapse all consecutive spaces to a single space using CHAR(7) sentinel trick
-        REPLACE(REPLACE(REPLACE(
-            REPLACE(REPLACE(REPLACE(qt.query_sql_text, CHAR(9), ' '), CHAR(13), ' '), CHAR(10), ' '),
-            '  ', ' ' + CHAR(7)), CHAR(7) + ' ', ''), CHAR(7), '') AS qs_collapsed
-    FROM sys.query_store_query_text AS qt
-),
-stripped AS
-(
-    SELECT
-        s.query_text_id,
-        s.query_sql_text,
-        -- Strip parameter signature prefix like '(@p0 int)' or '(@p0 int,@p1 smallint)'
-        CASE
-            WHEN LTRIM(s.qs_collapsed) LIKE '(@%' AND CHARINDEX(')', s.qs_collapsed) > 0
-            THEN LTRIM(SUBSTRING(s.qs_collapsed, CHARINDEX(')', s.qs_collapsed) + 1, LEN(s.qs_collapsed)))
-            ELSE LTRIM(s.qs_collapsed)
-        END AS qs_clean
-    FROM src s
-),
-match_like AS
-(
-    SELECT s.query_text_id
-    FROM stripped s
-    WHERE @QueryCollapsed <> ''
-        AND s.qs_clean LIKE '%' + LEFT(@QueryCollapsed, 4000) + '%'
-)
-SELECT TOP (5)
-    rs.count_executions,
-    rs.avg_duration / 1000.0 AS avg_duration_ms,
-    rs.avg_cpu_time / 1000.0 AS avg_cpu_ms,
-    rs.avg_logical_io_reads,
-    rs.avg_physical_io_reads,
-    rs.avg_logical_io_writes,
-    rs.avg_rowcount,
-    rs.max_duration / 1000.0 AS max_duration_ms,
-    rs.last_execution_time,
-    qt.query_sql_text
-FROM match_like r
-JOIN sys.query_store_query q ON q.query_text_id = r.query_text_id
-JOIN sys.query_store_plan p ON p.query_id = q.query_id
-JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
-JOIN sys.query_store_query_text qt ON qt.query_text_id = q.query_text_id
-ORDER BY rs.last_execution_time DESC;";
+                WITH src AS
+                (
+                    SELECT
+                        qt.query_text_id,
+                        qt.query_sql_text,
+                        -- 1. Replace tabs/CR/LF with space
+                        -- 2. Collapse all consecutive spaces to a single space using CHAR(7) sentinel trick
+                        REPLACE(REPLACE(REPLACE(
+                            REPLACE(REPLACE(REPLACE(qt.query_sql_text, CHAR(9), ' '), CHAR(13), ' '), CHAR(10), ' '),
+                            '  ', ' ' + CHAR(7)), CHAR(7) + ' ', ''), CHAR(7), '') AS qs_collapsed
+                    FROM sys.query_store_query_text AS qt
+                ),
+                stripped AS
+                (
+                    SELECT
+                        s.query_text_id,
+                        s.query_sql_text,
+                        -- Strip parameter signature prefix like '(@p0 int)' or '(@p0 int,@p1 smallint)'
+                        CASE
+                            WHEN LTRIM(s.qs_collapsed) LIKE '(@%' AND CHARINDEX(')', s.qs_collapsed) > 0
+                            THEN LTRIM(SUBSTRING(s.qs_collapsed, CHARINDEX(')', s.qs_collapsed) + 1, LEN(s.qs_collapsed)))
+                            ELSE LTRIM(s.qs_collapsed)
+                        END AS qs_clean
+                    FROM src s
+                ),
+                match_like AS
+                (
+                    SELECT s.query_text_id
+                    FROM stripped s
+                    WHERE @QueryCollapsed <> ''
+                        AND s.qs_clean LIKE '%' + LEFT(@QueryCollapsed, 4000) + '%'
+                )
+                SELECT TOP (5)
+                    rs.count_executions,
+                    rs.avg_duration / 1000.0 AS avg_duration_ms,
+                    rs.avg_cpu_time / 1000.0 AS avg_cpu_ms,
+                    rs.avg_logical_io_reads,
+                    rs.avg_physical_io_reads,
+                    rs.avg_logical_io_writes,
+                    rs.avg_rowcount,
+                    rs.max_duration / 1000.0 AS max_duration_ms,
+                    rs.last_execution_time,
+                    qt.query_sql_text
+                FROM match_like r
+                JOIN sys.query_store_query q ON q.query_text_id = r.query_text_id
+                JOIN sys.query_store_plan p ON p.query_id = q.query_id
+                JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
+                JOIN sys.query_store_query_text qt ON qt.query_text_id = q.query_text_id
+                WHERE rs.last_execution_time >= @CutoffTime
+                ORDER BY rs.last_execution_time DESC;";
 
             cmd.Parameters.AddWithValue("@NormalizedText", normalizedText);
 
@@ -1966,32 +1964,40 @@ ORDER BY rs.last_execution_time DESC;";
                         finally
                         {
                             executionStopwatch.Stop();
-                            var thresholdMs = await GetNumberParameterByIdAsync(LongRunningQueryDetailsThresholdId, cancellationToken);
-                            if (executionStopwatch.ElapsedMilliseconds > thresholdMs && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
-                            {
-                                try
-                                {
-                                    var execStartUtc = st;
-                                    var execEndUtc = st.AddMilliseconds(executionStopwatch.ElapsedMilliseconds);
 
-                                    await LogQueryStoreByTextAsync(
-                                        sqlCommand.Connection,
-                                        sqlCommand.CommandText,
-                                        execStartUtc,
-                                        execEndUtc,
-                                        _logger,
-                                        (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
-                                        executionStopwatch.ElapsedMilliseconds,
-                                        cancellationToken);
-                                }
-                                catch (SqlException ex)
+                            try
+                            {
+                                var loggingCancellationToken = CancellationToken.None;
+
+                                var thresholdMs = await GetNumberParameterByIdAsync(LongRunningQueryDetailsThresholdId, loggingCancellationToken);
+                                if (executionStopwatch.ElapsedMilliseconds > thresholdMs && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
-                                    _logger.LogWarning(
-                                        "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryTextWithParams}. Query Store lookup failed for long-running query.",
-                                        executionStopwatch.ElapsedMilliseconds,
-                                        sqlCommand.CommandText);
-                                    _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    try
+                                    {
+                                        var execStartUtc = st;
+                                        var execEndUtc = st.AddMilliseconds(executionStopwatch.ElapsedMilliseconds);
+
+                                        await LogQueryStoreByTextAsync(
+                                            sqlCommand.Connection,
+                                            sqlCommand.CommandText,
+                                            _logger,
+                                            (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
+                                            executionStopwatch.ElapsedMilliseconds,
+                                            loggingCancellationToken);
+                                    }
+                                    catch (SqlException ex)
+                                    {
+                                        _logger.LogWarning(
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryTextWithParams}. Query Store lookup failed for long-running query.",
+                                            executionStopwatch.ElapsedMilliseconds,
+                                            sqlCommand.CommandText);
+                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    }
                                 }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
                             }
                         }
                     }
