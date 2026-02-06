@@ -809,32 +809,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             executionStopwatch.Stop();
 
-                            var thresholdMs = await GetNumberParameterByIdAsync(LongRunningQueryDetailsThresholdId, cancellationToken);
-                            if (executionStopwatch.ElapsedMilliseconds > thresholdMs && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
+                            try
                             {
-                                try
-                                {
-                                    var execStartUtc = st;
-                                    var execEndUtc = st.AddMilliseconds(executionStopwatch.ElapsedMilliseconds);
+                                var loggingCancellationToken = CancellationToken.None;
 
-                                    await LogQueryStoreByTextAsync(
-                                        sqlCommand.Connection,
-                                        sqlCommand.CommandText,
-                                        execStartUtc,
-                                        execEndUtc,
-                                        _logger,
-                                        (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
-                                        executionStopwatch.ElapsedMilliseconds,
-                                        cancellationToken);
-                                }
-                                catch (SqlException ex)
+                                var thresholdMs = await GetNumberParameterByIdAsync(LongRunningQueryDetailsThresholdId, loggingCancellationToken);
+                                if (executionStopwatch.ElapsedMilliseconds > thresholdMs && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
-                                    _logger.LogWarning(
-                                        "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryTextWithParams}. Query Store lookup failed for long-running query.",
-                                        executionStopwatch.ElapsedMilliseconds,
-                                        sqlCommand.CommandText);
-                                    _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    try
+                                    {
+                                        var execStartUtc = st;
+                                        var execEndUtc = st.AddMilliseconds(executionStopwatch.ElapsedMilliseconds);
+
+                                        await LogQueryStoreByTextAsync(
+                                            sqlCommand.Connection,
+                                            sqlCommand.CommandText,
+                                            execStartUtc,
+                                            execEndUtc,
+                                            _logger,
+                                            (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
+                                            executionStopwatch.ElapsedMilliseconds,
+                                            loggingCancellationToken);
+                                    }
+                                    catch (SqlException ex)
+                                    {
+                                        _logger.LogWarning(
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryTextWithParams}. Query Store lookup failed for long-running query.",
+                                            executionStopwatch.ElapsedMilliseconds,
+                                            sqlCommand.CommandText);
+                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    }
                                 }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
                             }
                         }
                     }
