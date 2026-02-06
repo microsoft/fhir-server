@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<CreateResourceRequest>());
 
-            var response = await _fhirController.Create(resource);
+            var response = await _fhirController.Create(resource.ToResourceElement());
             var result = response as FhirResult;
             Assert.NotNull(result?.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
@@ -412,7 +412,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .Do(x => request = x.Arg<UpsertResourceRequest>());
 
             var response = await _fhirController.Update(
-                resource,
+                resource.ToResourceElement(),
                 versionId != null ? WeakETag.FromVersionId(versionId) : null,
                 metaHistory);
             var result = response as FhirResult;
@@ -487,7 +487,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalUpsertResourceRequest>());
 
-            var response = await _fhirController.ConditionalUpdate(resource);
+            var response = await _fhirController.ConditionalUpdate(resource.ToResourceElement());
             Assert.IsType<FhirResult>(response);
             Assert.Equal(statusCodeMap[saveOutcome], ((FhirResult)response).StatusCode);
 
@@ -1237,7 +1237,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<BundleRequest>());
 
-            var response = await _fhirController.BatchAndTransactions(resource);
+            var response = await _fhirController.BatchAndTransactions(resource.ToResourceElement());
             var result = Assert.IsType<FhirResult>(response);
             Assert.NotNull(result.Result);
             Assert.Equal(resource.TypeName, result.Result.InstanceType);
@@ -1300,7 +1300,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<CreateResourceRequest>());
 
-            await _fhirController.Create(resource);
+            await _fhirController.Create(resource.ToResourceElement());
 
             Assert.NotNull(request?.Resource);
             Assert.Equal(resource.TypeName, request.Resource.InstanceType);
