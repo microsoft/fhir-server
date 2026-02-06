@@ -561,7 +561,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
-                        var st = DateTime.UtcNow;
                         var executionStopwatch = Stopwatch.StartNew();
 
                         try
@@ -1755,7 +1754,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
-                        var st = DateTime.UtcNow;
                         var executionStopwatch = Stopwatch.StartNew();
 
                         try
