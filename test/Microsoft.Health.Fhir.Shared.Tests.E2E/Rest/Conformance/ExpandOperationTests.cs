@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
 
         private TestFhirServer Server => _fixture.TestFhirServer;
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("?url=0", true, null)]
         [InlineData("?offset=10", false, null)] // Invalid parameter (missing required parameter)
         [InlineData("?valueSet={'bogusResource'}", true, "valueSet")] // Invalid parameter value handled by the proxy (OperationOutcome expected)
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             try
             {
                 var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
-                Assert.SkipUnless(expandEnabled, "The $expand operation is disabled");
+                Skip.IfNot(expandEnabled, "The $expand operation is disabled");
 
                 var parameters = ParseQuery(query, null);
                 var url = $"{KnownResourceTypes.ValueSet}/{KnownRoutes.Expand}{ToQueryString(query, parameters.Collection)}";
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             }
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(0, null, true, null)]
         [InlineData(1, "?url=0", true, null)] // The url parameter should be ignored.
         [InlineData(0, "?offset=10", true, null)]
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             try
             {
                 var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
-                Assert.SkipUnless(expandEnabled, "The $expand operation is disabled");
+                Skip.IfNot(expandEnabled, "The $expand operation is disabled");
 
                 var resource = GetResource(index);
                 var parameters = ParseQuery(query, resource);
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             }
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("?url=0", true, null)]
         [InlineData("?valueSet=0", true, null)]
         [InlineData("?url=0&valueSet=1", true, null)] // LocalTerminologyService takes 'valueSet' over 'url' parameter.
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             try
             {
                 var expandEnabled = Server.Metadata.SupportsOperation(OperationsConstants.ValueSetExpand);
-                Assert.SkipUnless(expandEnabled, "The $expand operation is disabled");
+                Skip.IfNot(expandEnabled, "The $expand operation is disabled");
 
                 var parameters = ParseQuery(query, null);
                 var url = $"{KnownResourceTypes.ValueSet}/{KnownRoutes.Expand}";

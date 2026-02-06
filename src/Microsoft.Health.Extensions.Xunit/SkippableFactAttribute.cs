@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 namespace Xunit
 {
     /// <summary>
-    /// Compatibility attribute for legacy SkippableFact usage.
+    /// Compatibility attribute for legacy SkippableFact usage (temporary shim to reduce PR review churn).
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class SkippableFactAttribute : FactAttribute

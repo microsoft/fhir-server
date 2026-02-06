@@ -217,11 +217,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await tempClient.CancelExport(contentLocation);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoConvertDataPermissions_WhenConvertData_TheServerShouldReturnForbidden()
         {
-            Assert.SkipUnless(_convertDataEnabled, "Convert Data is not enabled.");
+            Skip.IfNot(_convertDataEnabled);
 
             TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
 
@@ -230,11 +230,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.ConvertDataAsync(parameters));
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithConvertDataPermissions_WhenConvertData_TheServerShouldReturnSuccess()
         {
-            Assert.SkipUnless(_convertDataEnabled, "Convert Data is not enabled.");
+            Skip.IfNot(_convertDataEnabled);
 
             TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ConvertDataUser);
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();

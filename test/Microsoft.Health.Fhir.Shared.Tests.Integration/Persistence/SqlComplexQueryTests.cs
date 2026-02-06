@@ -249,14 +249,14 @@ END CATCH
             await Task.Delay(1000);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             await ClearProcedureCache();
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
-            Assert.SkipWhen(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
+            Skip.If(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
 
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
@@ -399,4 +399,3 @@ INSERT INTO dbo.TokenSearchParam
         }
     }
 }
-

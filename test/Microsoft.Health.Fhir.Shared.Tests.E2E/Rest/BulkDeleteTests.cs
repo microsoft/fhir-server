@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _output = output;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkDeleted_ThenAllAreDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunBulkDeleteRequest(resourceTypes);
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("Patient")]
         [InlineData("Organization")]
         public async Task GivenResourcesOfOneType_WhenBulkDeletedByType_ThenAllOfThatTypeAreDeleted(string resourceType)
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunBulkDeleteRequest(resourceTypes, true, $"{resourceType}/$bulk-delete");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenBulkDeleteRequestWithInvalidSearchParameters_WhenRequested_ThenBadRequestIsReturned()
         {
             CheckBulkDeleteEnabled();
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {
             CheckBulkDeleteEnabled();
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(2, history.Resource.Entry.Count);
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(KnownQueryParameterNames.BulkHardDelete)]
         [InlineData(KnownQueryParameterNames.HardDelete)]
         public async Task GivenHardBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExist(string hardDeleteKey)
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Assert.ThrowsAsync<FhirClientException>(async () => await _fhirClient.SearchAsync($"Patient/{resource.Id}/_history"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenPurgeBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExistAndCurrentRecordExists()
         {
             CheckBulkDeleteEnabled();
@@ -189,13 +189,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(resource.VersionId, current.Resource.VersionId);
         }
 
-        [Fact]
+        [SkippableFact]
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async Task GivenBulkDeleteJobWithIncludeSearch_WhenCompleted_ThenIncludedResourcesAreDeleted()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
 #if Stu3
-            Assert.SkipWhen(true, "Referenced used isn't present in Stu3");
+            Skip.If(true, "Referenced used isn't present in Stu3");
 #else
             CheckBulkDeleteEnabled();
 
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #endif
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenBulkDeleteJobWithRevincludeSearch_WhenCompleted_ThenIncludedResourcesAreDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenBulkHardDeleteJobWithIncludeSearch_WhenCompleted_ThenIncludedResourcesAreDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenBulkHardDeleteJobWithMoreThanOnePageOfIncludeResults_WhenCompleted_ThenIncludedResultsAreDeleted()
         {
@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenBulkDeleteRequestWithMultipleExcludedResourceTypes_WhenCompleted_ThenExcludedResourcesAreNotDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -483,7 +483,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(locationResults.Resource.Entry);
         }
 
-        [Theory(Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.")]
+        [SkippableTheory(Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.")]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
@@ -897,13 +897,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [SkippableFact]
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         public async Task GivenABulkDeleteJob_WhenRemovingReferences_ThenReferencesAreRemoved()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
 #if Stu3
-            Assert.SkipWhen(true, "Referenced used isn't present in Stu3");
+            Skip.If(true, "Referenced used isn't present in Stu3");
 #else
             CheckBulkDeleteEnabled();
 
@@ -1095,7 +1095,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var supported = _fixture.TestFhirServer.Metadata.SupportsOperation("bulk-delete");
             Console.WriteLine($"Bulk delete operation supported: {supported}");
-            Assert.SkipUnless(supported, "$bulk-delete not enabled on this server");
+            Skip.IfNot(supported, "$bulk-delete not enabled on this server");
         }
 
         private Resource TagResources(Bundle bundle, string tag)
@@ -1122,4 +1122,3 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
     }
 }
-

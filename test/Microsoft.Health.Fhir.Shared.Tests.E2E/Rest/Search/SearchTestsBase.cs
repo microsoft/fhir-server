@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (!invalidSortParameter)
             {
-                Assert.SkipWhen(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
+                Skip.If(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
 
                 Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
             }
@@ -522,4 +522,3 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
     }
 }
-

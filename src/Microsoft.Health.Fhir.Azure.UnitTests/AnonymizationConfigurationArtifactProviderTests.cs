@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             using var stream = new MemoryStream();
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(() => _provider.FetchAsync(jobRecord, stream, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentException>(() => _provider.FetchAsync(jobRecord, stream, CancellationToken.None));
         }
 
         [Fact]
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             using var stream = new MemoryStream();
 
             // Act & Assert
-            await Assert.ThrowsAsync<NullReferenceException>(() => _provider.FetchAsync(null, stream, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<NullReferenceException>(() => _provider.FetchAsync(null, stream, CancellationToken.None));
         }
 
         [Fact]
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 anonymizationConfigurationLocation: "config.json");
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => _provider.FetchAsync(jobRecord, null, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _provider.FetchAsync(jobRecord, null, CancellationToken.None));
         }
 
         [Fact]
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
 
             // Act & Assert - Will attempt to use blob storage path and fail since we don't have real blob infrastructure
             // This test verifies the code path selection logic
-            await Assert.ThrowsAnyAsync<Exception>(() => provider.FetchAsync(jobRecord, stream, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAnyAsync<Exception>(() => provider.FetchAsync(jobRecord, stream, CancellationToken.None));
 
             // Verify that GetAuthorizedClient was called (blob storage path)
             clientInitializer.Received(1).GetAuthorizedClient(Arg.Any<ExportJobConfiguration>());
@@ -242,19 +242,19 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
 
             // Act & Assert - Will attempt to use ACR path and fail since we don't have real ACR
             // This test verifies the code path selection logic
-            await Assert.ThrowsAnyAsync<Exception>(() => provider.FetchAsync(jobRecord, stream, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAnyAsync<Exception>(() => provider.FetchAsync(jobRecord, stream, CancellationToken.None));
 
             // Verify that token provider was called (ACR path)
             await tokenProvider.Received(1).GetTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAValidConfigName_WithValidAcrReference_WhenFetchAnonymizedConfig_TheConfigContentInAcrShouldBeRerturn()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Skip when there is no registry configuration
-            Assert.SkipWhen(registry == null, "Registry configuration is not available.");
+            Skip.If(registry == null);
 
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
             var jobRecord = new ExportJobRecord(
@@ -269,23 +269,23 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 anonymizationConfigurationLocation: TestConfigName);
             using (Stream stream = new MemoryStream())
             {
-                await _provider.FetchAsync(jobRecord, stream, TestContext.Current.CancellationToken);
+                await _provider.FetchAsync(jobRecord, stream, CancellationToken.None);
                 stream.Position = 0;
                 using (StreamReader reader = new StreamReader(stream))
                 {
-                    string configurationContent = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+                    string configurationContent = await reader.ReadToEndAsync();
                     Assert.Contains("Resource.nodesByName('id')", configurationContent);
                 }
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAValidAcrReference_WithInvalidConfigName_WhenFetchAnonymizedConfig_ExceptionShouldBeThrown()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Skip when there is no registry configuration
-            Assert.SkipWhen(registry == null, "Registry configuration is not available.");
+            Skip.If(registry == null);
 
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, AnonymizationConfiguration);
             var jobRecord = new ExportJobRecord(
@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 anonymizationConfigurationLocation: "InvalidConfigName");
             using (Stream stream = new MemoryStream())
             {
-                await Assert.ThrowsAsync<FileNotFoundException>(() => _provider.FetchAsync(jobRecord, stream, TestContext.Current.CancellationToken));
+                await Assert.ThrowsAsync<FileNotFoundException>(() => _provider.FetchAsync(jobRecord, stream, CancellationToken.None));
             }
         }
 

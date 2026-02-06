@@ -159,10 +159,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             return ValueTask.CompletedTask;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForAllResources_WhenRevIncludeObservations_PatientAndObservationReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -188,10 +188,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 e3 => Assert.Equal("Observation", e3.Resource.ResourceTypeName));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesForPatientAndObservation_WhenRevIncludeObservations_PatientAndObservationReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -218,10 +218,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 e3 => Assert.Equal("Observation", e3.Resource.ResourceTypeName));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForPatient_WhenRevIncludeObservationsAndEncounter_OnlyPatientObservationsAndEncounterResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -248,10 +248,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Appointment");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForPatient_WhenRevIncludeObservations_OnlyPatientResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -274,10 +274,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Patient");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForAllResource_WhenRevincludeWithWildCardRequest_ReturnsAllResourcesThatReferenceThePatient()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -299,10 +299,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Appointment");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesForPatientAndObservation_WhenRevincludeWithWildCardRequest_ReturnsOnlyPatientAndObservation()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -326,10 +326,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 e3 => Assert.Equal("Observation", e3.Resource.ResourceTypeName));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesForPatientAndObservation_WhenRevIncludeObservations_PatientAndObservationReturned1()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -356,10 +356,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 e3 => Assert.Equal("Observation", e3.Resource.ResourceTypeName));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesForPatientAndObservation_WhenIncludeObservations_PatientAndObservationReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -385,10 +385,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 e2 => Assert.Equal("Patient", e2.Resource.ResourceTypeName));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesForObservation_WhenIncludePatient_OnlyObservationResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -412,10 +412,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Observation");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForAllResource_WhenIncludeWithWildCardRequest_ReturnsCorrectResources()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -436,10 +436,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Practitioner");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesForPatientAndObservation_WhenIncludeWithWildCardRequest_ReturnsOnlyPatientAndObservation()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -460,10 +460,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Practitioner");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForObservation_WhenChainedSearchWithPatientName_ThrowsInvalidSearchException()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -482,10 +482,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 _searchService.Value.SearchAsync("Observation", query, CancellationToken.None));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForObservationAndPatient_WhenChainedSearchWithPatientName_ThenObservationResourceReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -509,10 +509,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r2 => Assert.Equal("smart-observation-A2", r2.Resource.ResourceId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForPatient_WhenRevChainedSearchWithObservationCode_ThrowsInvalidSearchException()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -531,10 +531,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 () => _searchService.Value.SearchAsync("Patient", query, CancellationToken.None));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForPatient_WhenRevChainedSearchWithObservationPatientCode_ThrowsInvalidSearchException()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -553,10 +553,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 _searchService.Value.SearchAsync("Patient", query, CancellationToken.None));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForAllResources_WhenRevChainedSearchWithObservationCode_PatientResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -578,10 +578,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenScopesWithReadForPatient_WhenObservationRequested_NoResultsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -599,10 +599,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPatient_WhenPatientInOtherCompartmentRequestedUsingSearch_NoResultsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -621,10 +621,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPatient_WhenPatientInOtherCompartmentRequested_NoResultsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -638,10 +638,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.Handle(new GetResourceRequest(new ResourceKey("Patient", "smart-patient-B"), bundleResourceContext: null), CancellationToken.None));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPatient_WhenPatientInSameCompartmentRequested_ResourceIsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -662,10 +662,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPractitioner_WhenPatientInSameCompartmentRequested_ResourceIsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -686,10 +686,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPractitioner_WhenPatientInOtherCompartmentRequested_NoResourceIsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -708,10 +708,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPractitioner_WhenCareTeamIsRequested_OnlyCareTeamResourcesInTheSameCompartmentReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -731,10 +731,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                             r => Assert.True(r.Resource.ResourceId == "smart-careteam-1"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPractitioner_WhenAllResourcesRequested_ResourcesInTheSameComparementAndUniversalResourcesAlsoReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -791,10 +791,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                            r => r.Resource.ResourceId == "smart-patient-C");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPatient_WhenAllResourcesRequested_UniversalResourcesAlsoReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -817,10 +817,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Equal(39, results.Results.Count());
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimPatient_WhenAllPractitionersRequested_PractitionersReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -840,10 +840,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Equal(3, results.Results.Count());
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenFhirUserClaimSystem_WhenAllResourcesRequested_ThenAllResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -865,10 +865,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.True(results.Results.Count() > 89);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenReadScopeOnAllResourcesInACompartment_OnSystemLevelWithPreviouslyUpdatedResources_ReturnsResourcesInThePatientCompartment()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -887,10 +887,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotEmpty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenPatientAccessControlContext_WhenSearchingOwnCompartment_ThenResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -918,10 +918,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == "Observation" && r.Resource.ResourceId.Contains("smart-observation-A"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenPatientAccessControlContext_WhenSearchingOtherPatientCompartment_ThenNoResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -947,10 +947,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenPractitionerAccessControlContext_WhenSearchingPatientInTheirCompartment_ThenResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -978,10 +978,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenPractitionerAccessControlContext_WhenSearchingPatientNotInTheirCompartment_ThenNoResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1007,10 +1007,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenPatientAccessControlContext_WhenSearchingSpecificResourceTypeInOwnCompartment_ThenResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1038,10 +1038,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-observation-A"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenPractitionerAccessControlContext_WhenSearchingOwnPractitionerCompartment_ThenResourcesReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1071,10 +1071,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == "CareTeam");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenReadScopeOnAllResourcesInACompartment_OnRevincludeWithWildCardRequest_ReturnsAllResourcesThatReferenceThePatientInCompartment()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1095,10 +1095,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Patient);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenReadScopeOnOnlyEncountersInACompartment_OnRevincludeWithWildCardRequest_ReturnsOnlyEncountersThatReferenceThePatientInCompartment()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1180,10 +1180,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         // SMART v2 Granular Scope Tests
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2CreateScope_WhenCreatingPatient_ThenPatientIsCreated()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1205,10 +1205,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Equal("smart-v2-create-test", result.Wrapper.ResourceId);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2ReadScope_WhenReadingPatient_ThenPatientIsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1227,10 +1227,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Equal("smart-patient-A", result.Resource.Id);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2SearchScope_WhenSearchingPatients_ThenPatientsAreReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1250,10 +1250,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.All(results.Results, r => Assert.Equal("Patient", r.Resource.ResourceTypeName));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2UpdateScope_WhenUpdatingPatient_ThenPatientIsUpdated()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1275,10 +1275,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotNull(result);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2SearchAndCreateScopes_WhenSearchingWithCreate_ThenBothPermissionsWork()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1308,10 +1308,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.NotNull(createResult);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2SearchAndUpdateScopes_WhenSearchingWithUpdate_ThenBothPermissionsWork()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1353,10 +1353,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             return searchParams;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2PatientSearchForSpecificNameOnlyScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1463,10 +1463,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2PatientSearchScopeWithSpecificNameAndGender_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1573,10 +1573,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2ObservationSearchScopeWithoutAndWithCodeAndStatusFilter_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1724,10 +1724,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2PatientAndObservationScopeWithCombinedFilters_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -1871,10 +1871,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId == "smart-observation-A1");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2PatientPractitionerAndObservationScopeWithFilters_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -2025,10 +2025,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2PatientSearchForSpecificNameAndObservationCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -2197,10 +2197,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2PatientSearchWithoutAndWithSpecificNameAndObservationWithoutAndWithCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -2379,10 +2379,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2UniversalCompartmentScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -2579,10 +2579,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Appointment");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2UniversalCompartmentScopeAndObservationWithCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -2789,10 +2789,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Appointment");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2UniversalCompartmentScopeWithTagAndObservationWithCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3015,10 +3015,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-diagnosticreport-A3-different-tag");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2UniversalCompartmentScopeWithTypeIncludingObservationAndObservationWithCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3156,10 +3156,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r1 => Assert.Equal("smart-observation-A2", r1.Resource.ResourceId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2UniversalCompartmentScopeWithTypeAppointmentAndObservationWithCodeFilterScope_WhenSearching_ThenResultsAreReturnAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3289,10 +3289,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Contains(results.Results, r => r.Resource.ResourceId.Contains("smart-appointment-A1"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2GranularScopeWithCodeAndGenderFilter_WhenSearchingObservationsWithInclude_ThenObservationsAndIncludedPatientsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3341,10 +3341,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2GranularScopesWithCodeFilterAndPatientScope_WhenSearchingObservationsWithInclude_ThenObservationsAndIncludedPatientsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3407,10 +3407,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-practitioner-A");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2GranularScopeWithNameFilter_WhenSearchingPatientsWithRevInclude_ThenPatientsAndRevIncludedObservationsReturned()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3450,10 +3450,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-observation-A2" && r.Resource.ResourceTypeName == "Observation");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenGranularScopesForObservationPatientDiagnosticReport_WhenSearching_ThenResultsAreAsExpected()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3533,10 +3533,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 r1 => Assert.Equal("smart-diagnosticreport-A3-different-tag", r1.Resource.ResourceId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingObservationsWithWildcardInclude_ThenCorrectResourcesReturnedExcludingFemaleActitioners()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3592,10 +3592,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "MedicationRequest");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingObservationsWithSpecificIncludes_ThenCorrectResourcesReturnedExcludingFemalePractitioners()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3646,10 +3646,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 $"Unexpected resource type returned: {type}"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingPatientsWithWildcardRevInclude_ThenCorrectResourcesReturnedExcludingSpecificEncounters()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3712,10 +3712,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Practitioner");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingPatientsWithSpecificRevIncludes_ThenCorrectResourcesReturnedExcludingSpecificEncounters()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
@@ -3779,10 +3779,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceTypeName == "Practitioner");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSmartV2MultipleGranularScopesWithSpecificFilters_WhenSearchingPatientsWithSpecificRevIncludes_ThenCorrectResourcesReturnedIncludingSpecificEncounters()
         {
-            Assert.SkipWhen(
+            Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");

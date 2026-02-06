@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
 
         private TestFhirClient Client => _fixture.TestFhirClient;
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenMetadataRequest_WhenUSCore6ProfileIsUploaded_TheInstantiatesFieldShouldBePopulated(
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             try
             {
                 var exists = await USCore6ProfileExists();
-                Assert.SkipWhen(
+                Skip.If(
                     !uploadUSCore6Profile && exists,
                     "USCore 6 profile already uploaded on the server by other tests. Skipping test.");
 

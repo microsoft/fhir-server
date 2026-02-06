@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
 
         private TestFhirServer Server => _fixture.TestFhirServer;
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("?patient=0")]
         [InlineData("?patient=0,2")]
         [InlineData("?patient=nonexistent")]
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             try
             {
                 var docrefEnabled = Server.Metadata.SupportsOperation(OperationsConstants.DocRef);
-                Assert.SkipUnless(docrefEnabled, "The $docref operation is disabled");
+                Skip.IfNot(docrefEnabled, "The $docref operation is disabled");
 
                 var parameters = ParseQuery(query, out valid, out unsupported, out unknown);
                 var url = $"{KnownResourceTypes.DocumentReference}/{KnownRoutes.DocRef}{ToQueryString(query, parameters)}";
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             }
         }
 
-        [Theory]
+        [SkippableTheory]
         [MemberData(nameof(GetParametersTestData))]
         public async Task GivenParameters_WhenInvokingDocRef_ThenDocumentReferenceShouldBeRetrieved(
             Parameters parameters)
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Conformance
             try
             {
                 var docrefEnabled = Server.Metadata.SupportsOperation(OperationsConstants.DocRef);
-                Assert.SkipUnless(docrefEnabled, "The $docref operation is disabled");
+                Skip.IfNot(docrefEnabled, "The $docref operation is disabled");
 
                 var parameterCollections = ParseParameters(parameters, out valid, out unsupported, out unknown);
                 var url = $"{KnownResourceTypes.DocumentReference}/{KnownRoutes.DocRef}";
