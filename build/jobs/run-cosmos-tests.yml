@@ -89,12 +89,12 @@ jobs:
     inputs:
       reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
       reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
+      targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Cosmos integration test coverage'
     inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
       artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
       artifactType: 'container'
 

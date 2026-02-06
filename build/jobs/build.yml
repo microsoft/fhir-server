@@ -54,13 +54,13 @@ steps:
     inputs:
       reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
       reporttypes: 'Cobertura'
-      targetdir: '$(Agent.TempDirectory)/coverage'
+      targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
   
   - task: PublishBuildArtifacts@1
     displayName: 'Publish unit test coverage artifact'
     condition: succeededOrFailed()
     inputs:
-      pathToPublish: '$(Agent.TempDirectory)/coverage'
+      pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
       artifactName: 'Coverage_UnitTests'
       artifactType: 'container'
 
