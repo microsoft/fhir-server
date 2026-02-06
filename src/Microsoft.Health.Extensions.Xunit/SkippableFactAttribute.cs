@@ -5,9 +5,8 @@
 
 using System;
 using System.Runtime.CompilerServices;
-using Xunit;
 
-namespace Microsoft.Health.Extensions.Xunit
+namespace Xunit
 {
     /// <summary>
     /// Compatibility attribute for legacy SkippableFact usage.

@@ -1392,3 +1392,4 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
     }
 }
+

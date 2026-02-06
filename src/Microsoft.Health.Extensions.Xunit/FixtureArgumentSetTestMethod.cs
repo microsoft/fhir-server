@@ -118,7 +118,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     var enumValue = _fixtureArguments[i].EnumValue;
                     var enumValueText = enumValue.ToString();
 
-                    string key = $"FixtureArg{i + 1}";
+                    string key = $"{enumValue.GetType().Name}";
                     if (!traits.TryGetValue(key, out var values))
                     {
                         values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

@@ -136,7 +136,6 @@
     <PackageVersion Include="xunit.v3.common" Version="3.2.2" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="2.0.2" />
     <PackageVersion Include="System.Drawing.Common" Version="8.0.8" />
     <PackageVersion Include="Moq" Version="4.20.69" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />

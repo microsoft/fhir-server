@@ -187,3 +187,4 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
     }
 }
+

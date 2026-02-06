@@ -44,10 +44,10 @@
         <OutputType>Exe</OutputType>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
+        <NoWarn>$(NoWarn);xUnit1031;xUnit1051;SA1208;SA1209;SA1518</NoWarn>
       </PropertyGroup>
       <ItemGroup>
         <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
-        <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
       </ItemGroup>
     </When>
     <Otherwise>

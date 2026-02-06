@@ -75,7 +75,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             protected override async ValueTask<RunSummary> RunTestCollection(XunitTestAssemblyRunnerContext context, IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases)
             {
-                var testCaseOrderer = context.AssemblyTestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
+                var testCaseOrderer = context.AssemblyTestCaseOrderer ?? DefaultTestCaseOrderer.Instance ?? StableFallbackTestCaseOrderer.Instance;
                 var runner = new FixtureArgumentSetCollectionRunner();
                 var summary = await runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.AssemblyFixtureMappings);
                 return summary;
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
             protected override async ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
             {
-                var testCaseOrderer = context.TestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
+                var testCaseOrderer = context.TestCaseOrderer ?? DefaultTestCaseOrderer.Instance ?? StableFallbackTestCaseOrderer.Instance;
                 var classRunner = new FixtureArgumentSetClassRunner();
                 var summary = await classRunner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.CollectionFixtureMappings);
                 return summary;
@@ -283,6 +283,31 @@ namespace Microsoft.Health.Extensions.Xunit
 
                     values.UnionWith(kvp.Value);
                 }
+            }
+        }
+
+        private sealed class StableFallbackTestCaseOrderer : ITestCaseOrderer
+        {
+            internal static ITestCaseOrderer Instance { get; } = new StableFallbackTestCaseOrderer();
+
+            public IReadOnlyCollection<TTestCase> OrderTestCases<TTestCase>(IReadOnlyCollection<TTestCase> testCases)
+                where TTestCase : ITestCase
+            {
+                ArgumentNullException.ThrowIfNull(testCases);
+
+                return testCases
+                    .OrderBy(testCase => GetSortKey(testCase))
+                    .ToArray();
+            }
+
+            private static string GetSortKey<TTestCase>(TTestCase testCase)
+            {
+                if (testCase is ITestCaseMetadata metadata)
+                {
+                    return metadata.TestCaseDisplayName ?? string.Empty;
+                }
+
+                return testCase?.ToString() ?? string.Empty;
             }
         }
     }

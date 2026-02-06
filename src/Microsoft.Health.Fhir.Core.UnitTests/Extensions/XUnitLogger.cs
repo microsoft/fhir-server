@@ -63,3 +63,4 @@ public class XUnitLogger<T> : ILogger<T>, IDisposable
         return new XUnitLogger<T>(output, 0);
     }
 }
+
