@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await Task.WhenAll(tasks);
 
                 // reported in reindex counts should be less than total resources created
-                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, true);
+                await CheckCounts(value.jobUri, testResources.Count, true);
             }
             finally
             {
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await CheckCounts(value.jobUri, testResources.Count, testResources.Count, false);
+                await CheckCounts(value.jobUri, testResources.Count, false);
 
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
@@ -249,6 +249,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
+
+                await CheckCounts(value.jobUri, testResources.Count, false);
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
@@ -386,6 +388,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
+                await CheckCounts(value.jobUri, testResources.Count, false);
+
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
                     $"Specimen?{lowerCaseParam.Code}=119295008",
@@ -455,6 +459,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
+
+                await CheckCounts(value.jobUri, testResources.Count, false);
 
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
@@ -542,6 +548,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus1 == OperationStatus.Completed,
                     $"First reindex job should complete successfully, but got {jobStatus1}");
                 System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
+
+                await CheckCounts(reindexRequest1.jobUri, testResources.Count, false);
 
                 // Step 4: Verify the search parameter works by searching for the specimen
                 var searchQuery = $"Specimen?{searchParam.Code}=119295008";
@@ -1207,7 +1215,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        private async Task CheckCounts(Uri jobUri, long expectedTotal, long expectedSuccesses, bool lessThan)
+        private async Task CheckCounts(Uri jobUri, long expected, bool lessThan)
         {
             if (!_isSql)
             {
@@ -1220,23 +1228,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
             if (lessThan)
             {
-                Assert.True(total < expectedTotal, $"total={total} < expected={expectedTotal}");
+                Assert.True(total < expected, $"total={total} < expected={expected}");
             }
             else
             {
-                Assert.True(total >= expectedTotal, $"total={total} >= expected={expectedTotal}"); // some of resources might come for not completed retries
+                Assert.True(total >= expected, $"total={total} >= expected={expected}"); // some of resources might come for not completed retries
             }
 
             var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
-            if (lessThan)
-            {
-                Assert.True(successes < expectedSuccesses, $"successes={successes} < expected={expectedSuccesses}");
-            }
-            else
-            {
-                Assert.True(successes >= expectedSuccesses, $"successes={successes} >= expected={expectedSuccesses}"); // some of resources might come for not completed retries
-            }
-
             Assert.True(total == successes, $"total={total} == successes={successes}");
         }
 
