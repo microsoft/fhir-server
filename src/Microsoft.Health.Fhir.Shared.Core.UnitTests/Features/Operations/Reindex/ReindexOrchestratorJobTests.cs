@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationTokenSource?.Dispose();
         }
 
-        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null)
+        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null, int waitMultiplier = 0)
         {
             runtimeConfig ??= new AzureHealthDataServicesRuntimeConfiguration();
 
@@ -84,7 +84,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration());
 
             var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfig.Value.Returns(new OperationsConfiguration());
+            var conf = new OperationsConfiguration();
+            conf.Reindex.CacheRefreshWaitMultiplier = waitMultiplier;
+            operationsConfig.Value.Returns(conf);
 
             return new ReindexOrchestratorJob(
                 _queueClient,
@@ -266,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             cancellationTokenSource.CancelAfter(10); // Cancel after short delay
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob();
+            var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: 1);
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, cancellationTokenSource.Token);
