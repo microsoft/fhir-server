@@ -14,9 +14,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Persists the search parameter status after the resource write succeeds.
+        /// </summary>
+        /// <param name="searchParam">Search parameter resource.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task.</returns>
+        Task AddSearchParameterStatusAsync(ITypedElement searchParam, CancellationToken cancellationToken);
+
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
         Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Persists the search parameter status after the resource update succeeds.
+        /// </summary>
+        /// <param name="searchParam">Search parameter resource.</param>
+        /// <param name="previousSearchParam">Previous search parameter resource.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task.</returns>
+        Task UpdateSearchParameterStatusAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
 
         /// <summary>
         /// This method should be called periodically to get any updates to SearchParameters

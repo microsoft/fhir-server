@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
             await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.DidNotReceive().AddSearchParameterStatusAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -97,6 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.Received().AddSearchParameterStatusAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -208,7 +210,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Should call AddSearchParameterAsync since the resource doesn't exist
             await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.Received().AddSearchParameterStatusAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
             await _searchParameterOperations.DidNotReceive().UpdateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.DidNotReceive().UpdateSearchParameterStatusAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -235,7 +239,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Should call UpdateSearchParameterAsync since the resource exists
             await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.DidNotReceive().AddSearchParameterStatusAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
             await _searchParameterOperations.Received().UpdateSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
+            await _searchParameterOperations.Received().UpdateSearchParameterStatusAsync(Arg.Any<ITypedElement>(), Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)
