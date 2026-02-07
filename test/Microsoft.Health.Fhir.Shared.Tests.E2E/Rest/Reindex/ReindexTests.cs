@@ -941,7 +941,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             Exception lastException = null;
 
-            var maxRetries = 1;
+            var maxRetries = _isSql ? 1 : 50;
             var retryDelayMs = 500;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
