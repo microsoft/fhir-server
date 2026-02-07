@@ -107,6 +107,101 @@ function Normalize-SqlConnectionString {
     return $b.ConnectionString
 }
 
+# ---------------------------
+# Helper: Write NGINX config with given upstream ports
+# ---------------------------
+function Write-NginxConfig {
+    param(
+        [Parameter(Mandatory=$true)][int[]]$Ports,
+        [Parameter(Mandatory=$true)][int]$ListenPort,
+        [Parameter(Mandatory=$true)][string]$ConfPath
+    )
+
+    $upstreamServers = foreach ($p in $Ports) {
+        "    server 127.0.0.1:$p;"
+    }
+
+@"
+events {}
+
+http {
+  upstream fhir_upstream {
+$($upstreamServers -join [Environment]::NewLine)
+  }
+
+  server {
+    listen $ListenPort;
+    location / {
+      proxy_pass http://fhir_upstream;
+      proxy_set_header Host `$http_host;
+      proxy_set_header X-Forwarded-For `$proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto `$scheme;
+      proxy_set_header X-Forwarded-Host `$http_host;
+    }
+  }
+}
+"@ | Set-Content -Path $ConfPath -Encoding UTF8
+}
+
+# ---------------------------
+# Helper: Start a single FHIR instance on a given port
+# ---------------------------
+function Start-FhirInstance {
+    param(
+        [Parameter(Mandatory=$true)][int]$Port
+    )
+
+    $envVars = @{
+        "ASPNETCORE_URLS" = "http://localhost:$Port"
+        "ASPNETCORE_ENVIRONMENT" = "Development"
+        "DataStore" = "SqlServer"
+        "SqlServer:ConnectionString" = $script:SqlConnectionString
+        "SqlServer:AllowDatabaseCreation" = "true"
+        "SqlServer:DeleteAllDataOnStartup" = "false"
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED" = "true"
+        "TaskHosting:Enabled" = "true"
+        "TaskHosting:PollingFrequencyInSeconds" = "1"
+        "TaskHosting:MaxRunningTaskCount" = "4"
+        "FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds" = "1"
+        "FhirServer:CoreFeatures:SearchParameterCacheRefreshMaxInitialDelaySeconds" = "0"
+        "FhirServer:Operations:Reindex:Enabled" = "true"
+        "FhirServer:Operations:Export:Enabled" = "true"
+        "FhirServer:Operations:ConvertData:Enabled" = "true"
+        "FhirServer:Operations:Import:Enabled" = "true"
+        "Logging:LogLevel:Default" = "Debug"
+        "Logging:LogLevel:Microsoft.Health" = "Debug"
+        "Logging:LogLevel:Microsoft" = "Debug"
+        "Logging:LogLevel:System" = "Debug"
+    }
+
+    if ($script:DisableSecurity) {
+        $envVars["FhirServer:Security:Enabled"] = "false"
+        $envVars["FhirServer:Security:Authorization:Enabled"] = "false"
+    }
+
+    $runArgs = @("run", "--no-build", "--no-restore", "--project", $script:projectFullPath, "--framework", $script:Framework)
+    if ($script:NoLaunchProfile) {
+        $runArgs += "--no-launch-profile"
+    }
+
+    if ($script:RedirectOutput) {
+        $stdoutLog = Join-Path $script:logRoot "fhir-r4-$Port.out.log"
+        $stderrLog = Join-Path $script:logRoot "fhir-r4-$Port.err.log"
+        $proc = Start-Process -FilePath "dotnet" -ArgumentList $runArgs -WorkingDirectory $script:repoRoot -Environment $envVars -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -PassThru
+    }
+    else {
+        $proc = Start-Process -FilePath "dotnet" -ArgumentList $runArgs -WorkingDirectory $script:repoRoot -Environment $envVars -PassThru
+    }
+
+    return [PSCustomObject]@{ Port = $Port; Process = $proc }
+}
+
+# ---------------------------
+# Helper: Reload NGINX config (graceful, zero-downtime)
+# ---------------------------
+function Reload-Nginx {
+    & $script:nginxExe -p $script:nginxRoot -c $script:nginxConfRelativePath -s reload 2>&1 | Out-Null
+}
 
 
 $SqlConnectionString = Normalize-SqlConnectionString -ConnectionString $SqlConnectionString -DatabaseNameFallback $DatabaseName
@@ -178,30 +273,12 @@ if ([string]::IsNullOrWhiteSpace($nginxExe) -or -not (Test-Path $nginxExe)) {
 
 $nginxConfPath = Join-Path $nginxConfDir "nginx.conf"
 $nginxConfRelativePath = Join-Path "conf" "nginx.conf"
-$upstreamServers = for ($i = 0; $i -lt $InstanceCount; $i++) {
-    "    server 127.0.0.1:{0};" -f ($BasePort + $i)
+
+$initialPorts = @()
+for ($i = 0; $i -lt $InstanceCount; $i++) {
+    $initialPorts += ($BasePort + $i)
 }
-
-@"
-events {}
-
-http {
-  upstream fhir_upstream {
-$($upstreamServers -join [Environment]::NewLine)
-  }
-
-  server {
-    listen $NginxListenPort;
-    location / {
-      proxy_pass http://fhir_upstream;
-      proxy_set_header Host `$http_host;
-      proxy_set_header X-Forwarded-For `$proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto `$scheme;
-      proxy_set_header X-Forwarded-Host `$http_host;
-    }
-  }
-}
-"@ | Set-Content -Path $nginxConfPath -Encoding UTF8
+Write-NginxConfig -Ports $initialPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
 
 $testEnvUrl = "http://localhost:$NginxListenPort"
 $env:TestEnvironmentUrl = $testEnvUrl
@@ -285,52 +362,12 @@ if (-not $SkipSchemaInitialization) {
     & dotnet @schemaArgs
 }
 
-$processes = @()
+$script:instances = [System.Collections.Generic.List[PSCustomObject]]::new()
 for ($i = 0; $i -lt $InstanceCount; $i++) {
     $port = $BasePort + $i
-    $envVars = @{
-        "ASPNETCORE_URLS" = "http://localhost:$port"
-        "ASPNETCORE_ENVIRONMENT" = "Development"
-        "DataStore" = "SqlServer"
-        "SqlServer:ConnectionString" = $SqlConnectionString
-        "SqlServer:AllowDatabaseCreation" = "true"
-        "SqlServer:DeleteAllDataOnStartup" = "false"
-        "ASPNETCORE_FORWARDEDHEADERS_ENABLED" = "true"
-        "TaskHosting:Enabled" = "true"
-        "TaskHosting:PollingFrequencyInSeconds" = "1"
-        "TaskHosting:MaxRunningTaskCount" = "4"
-        "FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds" = "1"
-        "FhirServer:CoreFeatures:SearchParameterCacheRefreshMaxInitialDelaySeconds" = "0"
-        "FhirServer:Operations:Reindex:Enabled" = "true"
-        "FhirServer:Operations:Export:Enabled" = "true"
-        "FhirServer:Operations:ConvertData:Enabled" = "true"
-        "FhirServer:Operations:Import:Enabled" = "true"
-        "Logging:LogLevel:Default" = "Debug"
-        "Logging:LogLevel:Microsoft.Health" = "Debug"
-        "Logging:LogLevel:Microsoft" = "Debug"
-        "Logging:LogLevel:System" = "Debug"
-    }
-
-    if ($DisableSecurity) {
-        $envVars["FhirServer:Security:Enabled"] = "false"
-        $envVars["FhirServer:Security:Authorization:Enabled"] = "false"
-    }
-
-    $runArgs = @("run", "--no-build", "--no-restore", "--project", $projectFullPath, "--framework", $Framework)
-    if ($NoLaunchProfile) {
-        $runArgs += "--no-launch-profile"
-    }
-
-    if ($RedirectOutput) {
-        $stdoutLog = Join-Path $logRoot "fhir-r4-$port.out.log"
-        $stderrLog = Join-Path $logRoot "fhir-r4-$port.err.log"
-        $process = Start-Process -FilePath "dotnet" -ArgumentList $runArgs -WorkingDirectory $repoRoot -Environment $envVars -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -PassThru
-    }
-    else {
-        $process = Start-Process -FilePath "dotnet" -ArgumentList $runArgs -WorkingDirectory $repoRoot -Environment $envVars -PassThru
-    }
-
-    $processes += $process
+    $inst = Start-FhirInstance -Port $port
+    $script:instances.Add($inst)
+    Write-Host "  Started instance on port $port (PID $($inst.Process.Id))" -ForegroundColor DarkCyan
 }
 
 Write-Host "Starting NGINX on port $NginxListenPort" -ForegroundColor Cyan
@@ -346,14 +383,159 @@ Start-Process -FilePath $nginxExe -ArgumentList @("-p", $nginxRoot, "-c", $nginx
 
 Write-Host "NGINX proxy: http://localhost:$NginxListenPort" -ForegroundColor Green
 Write-Host "FHIR instances: " -NoNewline -ForegroundColor Green
-$instanceUrls = for ($i = 0; $i -lt $InstanceCount; $i++) {
-    "http://localhost:{0}" -f ($BasePort + $i)
-}
+$instanceUrls = $script:instances | ForEach-Object { "http://localhost:$($_.Port)" }
 Write-Host ($instanceUrls -join ", ") -ForegroundColor Green
 Write-Host "E2E Test URL set: $env:TestEnvironmentUrl_R4_Sql" -ForegroundColor Green
 if ($RedirectOutput) {
     Write-Host "Logs: $logRoot" -ForegroundColor Yellow
 }
-Write-Host "Press Ctrl+C to stop this script. You can stop NGINX with: `"$nginxExe -p $nginxRoot -s stop`"" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Interactive scaling mode. Commands:" -ForegroundColor Cyan
+Write-Host "  +N      Scale up by N instances (default 1)" -ForegroundColor Cyan
+Write-Host "  -N      Scale down by N instances (default 1, min 1 remaining)" -ForegroundColor Cyan
+Write-Host "  status  Show all tracked instances" -ForegroundColor Cyan
+Write-Host "  prune   Remove dead instances from NGINX upstream" -ForegroundColor Cyan
+Write-Host "  help    Show this help" -ForegroundColor Cyan
+Write-Host "  quit    Stop all instances and exit" -ForegroundColor Cyan
+Write-Host ""
 
-Wait-Process -Id ($processes | Select-Object -ExpandProperty Id)
+# ---------------------------
+# Interactive command loop
+# ---------------------------
+try {
+    while ($true) {
+        # Health check: warn about dead instances
+        foreach ($inst in $script:instances) {
+            if ($inst.Process.HasExited) {
+                Write-Host "WARNING: Instance on port $($inst.Port) (PID $($inst.Process.Id)) has exited." -ForegroundColor Red
+            }
+        }
+
+        $liveCount = ($script:instances | Where-Object { -not $_.Process.HasExited } | Measure-Object).Count
+        $totalCount = $script:instances.Count
+        $promptLabel = if ($liveCount -eq $totalCount) { "$totalCount instances" } else { "$liveCount/$totalCount alive" }
+        $userInput = Read-Host "fhir-runner [$promptLabel]"
+
+        if ([string]::IsNullOrWhiteSpace($userInput)) { continue }
+
+        $cmd = $userInput.Trim()
+
+        # --- Scale UP: + or +N ---
+        if ($cmd -match '^\+\s*(\d*)$') {
+            $n = if ($Matches[1] -ne '') { [int]$Matches[1] } else { 1 }
+            if ($n -lt 1) { Write-Host "Nothing to add." -ForegroundColor Yellow; continue }
+
+            $maxPort = ($script:instances | ForEach-Object { $_.Port } | Measure-Object -Maximum).Maximum
+            $newPorts = @()
+            for ($j = 1; $j -le $n; $j++) {
+                $newPort = $maxPort + $j
+                $inst = Start-FhirInstance -Port $newPort
+                $script:instances.Add($inst)
+                $newPorts += $newPort
+                Write-Host "  Started instance on port $newPort (PID $($inst.Process.Id))" -ForegroundColor Green
+            }
+
+            $allPorts = $script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port }
+            Write-NginxConfig -Ports $allPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
+            Reload-Nginx
+            Write-Host "NGINX reloaded. Now $($script:instances.Count) instances ($($allPorts.Count) alive)." -ForegroundColor Green
+        }
+        # --- Scale DOWN: - or -N ---
+        elseif ($cmd -match '^-\s*(\d*)$') {
+            $n = if ($Matches[1] -ne '') { [int]$Matches[1] } else { 1 }
+            $alive = @($script:instances | Where-Object { -not $_.Process.HasExited })
+
+            if ($alive.Count -le 1) {
+                Write-Host "Cannot scale below 1 running instance." -ForegroundColor Red
+                continue
+            }
+
+            $toRemove = [Math]::Min($n, $alive.Count - 1)
+            # Remove from the end (highest ports)
+            $removing = $script:instances | Sort-Object Port -Descending | Select-Object -First $toRemove
+
+            foreach ($inst in $removing) {
+                Write-Host "  Stopping instance on port $($inst.Port) (PID $($inst.Process.Id))..." -ForegroundColor Yellow
+                try { Stop-Process -Id $inst.Process.Id -Force -ErrorAction SilentlyContinue } catch { }
+                $script:instances.Remove($inst) | Out-Null
+            }
+
+            $allPorts = $script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port }
+            if ($allPorts.Count -gt 0) {
+                Write-NginxConfig -Ports $allPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
+                Reload-Nginx
+            }
+            Write-Host "NGINX reloaded. Removed $toRemove instance(s). $($script:instances.Count) remaining." -ForegroundColor Green
+        }
+        # --- Status ---
+        elseif ($cmd -eq 'status') {
+            Write-Host ("{0,-8} {1,-10} {2}" -f "Port", "PID", "Status") -ForegroundColor Cyan
+            Write-Host ("{0,-8} {1,-10} {2}" -f "----", "---", "------") -ForegroundColor Cyan
+            foreach ($inst in ($script:instances | Sort-Object Port)) {
+                $status = if ($inst.Process.HasExited) { "Exited" } else { "Running" }
+                $color = if ($inst.Process.HasExited) { "Red" } else { "Green" }
+                Write-Host ("{0,-8} {1,-10} {2}" -f $inst.Port, $inst.Process.Id, $status) -ForegroundColor $color
+            }
+            $alive = ($script:instances | Where-Object { -not $_.Process.HasExited } | Measure-Object).Count
+            Write-Host "Total: $($script:instances.Count) tracked, $alive alive." -ForegroundColor Cyan
+        }
+        # --- Prune dead instances ---
+        elseif ($cmd -eq 'prune') {
+            $dead = @($script:instances | Where-Object { $_.Process.HasExited })
+            if ($dead.Count -eq 0) {
+                Write-Host "No dead instances to prune." -ForegroundColor Green
+                continue
+            }
+
+            foreach ($inst in $dead) {
+                Write-Host "  Removing dead instance on port $($inst.Port) (PID $($inst.Process.Id))" -ForegroundColor Yellow
+                $script:instances.Remove($inst) | Out-Null
+            }
+
+            $allPorts = $script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port }
+            if ($allPorts.Count -gt 0) {
+                Write-NginxConfig -Ports $allPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
+                Reload-Nginx
+                Write-Host "NGINX reloaded. Pruned $($dead.Count) dead instance(s). $($script:instances.Count) remaining." -ForegroundColor Green
+            }
+            else {
+                Write-Host "WARNING: No alive instances remain after prune." -ForegroundColor Red
+            }
+        }
+        # --- Help ---
+        elseif ($cmd -in @('help', '?')) {
+            Write-Host "Commands:" -ForegroundColor Cyan
+            Write-Host "  +N      Scale up by N instances (default 1)" -ForegroundColor Cyan
+            Write-Host "  -N      Scale down by N instances (default 1, min 1 remaining)" -ForegroundColor Cyan
+            Write-Host "  status  Show all tracked instances" -ForegroundColor Cyan
+            Write-Host "  prune   Remove dead instances from NGINX upstream" -ForegroundColor Cyan
+            Write-Host "  quit    Stop all instances and exit" -ForegroundColor Cyan
+        }
+        # --- Quit ---
+        elseif ($cmd -in @('quit', 'q', 'exit')) {
+            break
+        }
+        else {
+            Write-Host "Unknown command: '$cmd'. Type 'help' for available commands." -ForegroundColor Yellow
+        }
+    }
+}
+finally {
+    Write-Host ""
+    Write-Host "Shutting down..." -ForegroundColor Cyan
+
+    foreach ($inst in $script:instances) {
+        if (-not $inst.Process.HasExited) {
+            Write-Host "  Stopping instance on port $($inst.Port) (PID $($inst.Process.Id))..." -ForegroundColor Yellow
+            try { Stop-Process -Id $inst.Process.Id -Force -ErrorAction SilentlyContinue } catch { }
+        }
+    }
+
+    try {
+        Write-Host "  Stopping NGINX..." -ForegroundColor Yellow
+        & $nginxExe -p $nginxRoot -c $nginxConfRelativePath -s stop 2>&1 | Out-Null
+    }
+    catch { }
+
+    Write-Host "All instances and NGINX stopped." -ForegroundColor Green
+}
