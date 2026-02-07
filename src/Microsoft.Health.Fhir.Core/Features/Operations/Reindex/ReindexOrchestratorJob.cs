@@ -188,10 +188,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
         }
 
-        private async Task RefreshSearchParameterCache(bool isStart)
+        private async Task RefreshSearchParameterCache(bool isReindexStart)
         {
             // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
-            var suffix = isStart ? "Start" : "End";
+            var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken); // elevate in SQL to log w/o extra settings
             await WaitForRefresh(); // wait for M * cache refresh intervals
