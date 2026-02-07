@@ -166,21 +166,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
                 }
 
-                if (!queryReindexProcessingJobs.Any())
-                {
-                    // Nothing to process so we are done.
-                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, Core.Resources.ReindexingNothingToProcess);
-
-                    return JsonConvert.SerializeObject(_currentResult);
-                }
-
                 _currentResult.CreatedJobs = queryReindexProcessingJobs.Count;
 
                 await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
 
-                //// this should enable searches running without any errors after reindex completion
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", "Started wait for refresh", null, cancellationToken); // elevate in SQL to log w/o extra settings
-                await WaitForRefresh();
+                await WaitForRefresh(); // this wait should enable searches running without any errors after reindex completion
                 _logger.LogInformation("Reindex job with Id: {Id} completed with SearchParamLastUpdated {SearchParamLastUpdated}.", _jobInfo.Id, _searchParamLastUpdated);
                 await TryLogEvent($"ReindexOrchestratorJob={jobInfo.Id}.ExecuteAsync", "Warn", $"Completed. SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, cancellationToken); // elevate in SQL to log w/o extra settings
             }
