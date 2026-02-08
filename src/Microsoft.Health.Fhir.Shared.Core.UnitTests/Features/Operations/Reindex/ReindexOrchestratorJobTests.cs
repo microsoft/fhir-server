@@ -1081,6 +1081,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             Assert.NotNull(jobResult);
             Assert.Equal(0, jobResult.SucceededResources);
+            Assert.Null(jobResult.Error);
         }
 
         [Fact]
