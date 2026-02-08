@@ -1080,6 +1080,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
 
             Assert.NotNull(jobResult);
+            Assert.Equal(0, jobResult.CreatedJobs);
             Assert.Equal(0, jobResult.SucceededResources);
             Assert.Null(jobResult.Error);
         }
