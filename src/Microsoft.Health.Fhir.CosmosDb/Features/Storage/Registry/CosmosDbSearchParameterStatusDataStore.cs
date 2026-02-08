@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
             DateTimeOffset startedCheck = Clock.UtcNow;
             using var retryDelayToken = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+            var lastUpdated = startLastUpdated.HasValue ? startLastUpdated.Value : DateTimeOffset.MinValue;
 
             await _statusListSemaphore.WaitAsync(retryDelayToken.Token);
             try
@@ -79,7 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                     {
                         FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync(cancellationToken);
 
-                        parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()));
+                        parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()).Where(_ => _.LastUpdated > lastUpdated));
                     }
                     while (query.HasMoreResults);
 
