@@ -1054,7 +1054,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task CheckJobRecordForAnyWork_WithZeroResources_ReturnsZeroResources()
+        public async Task CheckJobRecordForAnyWork_WithZeroResources_ReturnsErrorIndicatingNoWork()
         {
             // Arrange
             var emptyStatus = new ReadOnlyCollection<ResourceSearchParameterStatus>(
