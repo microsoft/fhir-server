@@ -35,15 +35,12 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        # Build xUnit v3 query filter: match class name containing appServiceType and apply category trait filters
+        # Build xUnit v3 query filter: use DataStore trait to match appServiceType and apply category trait filters
         $categoryFilter = '${{ parameters.categoryFilter }}'
         $parts = $categoryFilter -split '&'
-        if ($parts.Count -eq 1) {
-          $traitFilter = "[$($parts[0])]"
-        } else {
-          $traitFilter = "[" + (($parts | ForEach-Object { "($_)" }) -join '&') + "]"
-        }
-        $filterQuery = "/*/*/*${{ parameters.appServiceType }}*/*$traitFilter"
+        $allParts = @("DataStore=${{ parameters.appServiceType }}") + $parts
+        $traitFilter = "[" + (($allParts | ForEach-Object { "($_)" }) -join '&') + "]"
+        $filterQuery = "/$traitFilter"
         $args = @('--filter-query', $filterQuery, '--retry-failed-tests', '3', '--report-trx')
 
         Write-Host "Running dotnet $($dll.FullName) with filter: $filterQuery"

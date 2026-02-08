@@ -76,9 +76,9 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/*/*/*CosmosDb*/*[Category=ExportLongRunning]', '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx')
 
-        Write-Host "Running dotnet $($dll.FullName) with filter: /*/*/*CosmosDb*/*[Category=ExportLongRunning]"
+        Write-Host "Running dotnet $($dll.FullName) with filter: /[(DataStore=CosmosDb)&(Category=ExportLongRunning)]"
         & dotnet $dll.FullName @args
 
         if ($LASTEXITCODE -ne 0) {
@@ -196,9 +196,9 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/*/*/*SqlServer*/*[Category=ExportLongRunning]', '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx')
 
-        Write-Host "Running dotnet $($dll.FullName) with filter: /*/*/*SqlServer*/*[Category=ExportLongRunning]"
+        Write-Host "Running dotnet $($dll.FullName) with filter: /[(DataStore=SqlServer)&(Category=ExportLongRunning)]"
         & dotnet $dll.FullName @args
 
         if ($LASTEXITCODE -ne 0) {
