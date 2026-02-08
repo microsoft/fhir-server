@@ -1082,7 +1082,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.NotNull(jobResult);
             Assert.Equal(0, jobResult.CreatedJobs);
             Assert.Equal(0, jobResult.SucceededResources);
-            Assert.Null(jobResult.Error);
+            Assert.NotNull(jobResult.Error);
+            Assert.True(jobResult.Error.Count > 0, "Should have at least one error");
+            var hasNoWorkError = jobResult.Error.Any(e => e.Diagnostics != null && e.Diagnostics.Contains("no search parameters to reindex", StringComparison.OrdinalIgnoreCase));
+            Assert.True(hasNoWorkError, $"Expected error indicating no search parameters to run reindex. Actual errors: {string.Join(", ", jobResult.Error.Select(e => e.Diagnostics))}");
         }
 
         [Fact]
