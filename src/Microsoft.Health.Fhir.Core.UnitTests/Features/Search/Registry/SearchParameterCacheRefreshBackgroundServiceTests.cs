@@ -271,6 +271,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 _coreFeatureConfiguration,
                 mockLogger);
 
+            // Set up the manager to throw ObjectDisposedException to simulate the service provider being disposed
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(_ => throw new ObjectDisposedException("IServiceProvider"));
+
             // Act - Initialize and let timer run
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
