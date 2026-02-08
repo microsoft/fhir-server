@@ -411,20 +411,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
 
-                foreach (var searchResultEntry in result.Results)
+                if (result != null)
                 {
-                    var typedElement = searchResultEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-                    var url = typedElement.GetStringScalar("url");
-
-                    if (!string.IsNullOrEmpty(url))
+                    foreach (var searchResultEntry in result.Results)
                     {
-                        if (!searchParametersByUrl.ContainsKey(url))
+                        var typedElement = searchResultEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
+                        var url = typedElement.GetStringScalar("url");
+
+                        if (!string.IsNullOrEmpty(url))
                         {
-                            searchParametersByUrl[url] = typedElement;
-                        }
-                        else
-                        {
-                            _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
+                            if (!searchParametersByUrl.ContainsKey(url))
+                            {
+                                searchParametersByUrl[url] = typedElement;
+                            }
+                            else
+                            {
+                                _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
+                            }
                         }
                     }
                 }
