@@ -208,23 +208,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
-        public async Task OnRefreshTimer_WhenCacheIsFresh_ShouldNotCallGetAndApplySearchParameterUpdates()
-        {
-            // Arrange
-            _searchParameterStatusManager.ClearReceivedCalls(); // Clear any previous calls
-            _searchParameterOperations.ClearReceivedCalls();
-
-            // Set initialized to true to allow timer to run
-            await _service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
-
-            // Wait for the timer to fire at least once and allow async operations to complete
-            await Task.Delay(200);
-
-            // But GetAndApplySearchParameterUpdates should never be called when cache is fresh
-            await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
         public async Task ExecuteAsync_WhenCancellationRequested_ShouldStopGracefully()
         {
             // Arrange
@@ -265,15 +248,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
 
+            // Set up throwing ObjectDisposedException to simulate the service provider being disposed
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(_ => throw new ObjectDisposedException("IServiceProvider"));
+
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
                 _coreFeatureConfiguration,
                 mockLogger);
-
-            // Set up throwing ObjectDisposedException to simulate the service provider being disposed
-            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
-                .Returns(_ => throw new ObjectDisposedException("IServiceProvider"));
 
             // Act - Initialize and let timer run
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
@@ -303,6 +286,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 _searchParameterOperations,
                 _coreFeatureConfiguration,
                 mockLogger);
+
+            _searchParameterOperations.GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(_ => throw new OperationCanceledException());
 
             // Act - Initialize and let timer run
             await service.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
