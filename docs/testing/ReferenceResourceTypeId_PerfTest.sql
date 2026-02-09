@@ -126,9 +126,10 @@ BEGIN
     -- Anything from @RelPersonCutoff to @NonNullPct-1 = Medication (110)
     -- Anything from @NonNullPct to 99 = NULL
 
-    -- Resource types + search params (weighted cumulative)
-    DECLARE @ResourceTypes TABLE (ResourceTypeId SMALLINT, SearchParamId SMALLINT, LowBound INT, HighBound INT);
-    INSERT INTO @ResourceTypes VALUES
+    -- Resource types + search params: use a temp table so dynamic SQL can access it
+    IF OBJECT_ID('tempdb..#ResourceTypes') IS NOT NULL DROP TABLE #ResourceTypes;
+    CREATE TABLE #ResourceTypes (ResourceTypeId SMALLINT, SearchParamId SMALLINT, LowBound INT, HighBound INT);
+    INSERT INTO #ResourceTypes VALUES
         (40, 414,  0, 24),   -- DiagnosticReport / subject
         (40, 217, 25, 39),   -- DiagnosticReport / clinical-patient
         (57, 414, 40, 59),   -- Observation / subject
@@ -190,7 +191,7 @@ BEGIN
         FROM RandomData rd
         CROSS APPLY (
             SELECT TOP 1 ResourceTypeId, SearchParamId
-            FROM @ResourceTypes
+            FROM #ResourceTypes
             WHERE rd.ResourceRand BETWEEN LowBound AND HighBound
         ) rt;';
 
