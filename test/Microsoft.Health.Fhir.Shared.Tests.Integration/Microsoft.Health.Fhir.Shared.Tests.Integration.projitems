@@ -57,4 +57,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTransactionScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\TestSqlHashCalculator.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)xunit.v3.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>
