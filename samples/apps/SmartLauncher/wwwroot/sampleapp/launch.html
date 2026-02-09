@@ -1,20 +1,101 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
-    <script>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Launching&hellip;</title>
+</head>
+<body>
+<p style="text-align:center;margin-top:3rem;">Redirecting to authorization server&hellip;</p>
 
-    var launchUri = window.location.protocol + "//" + window.location.host + window.location.pathname;
-    var redirectUri = launchUri.replace("launch.html","index.html");
-    $.getJSON( '/config', function (appConfig) {
-        FHIR.oauth2.authorize({
-            "client_id": appConfig.ClientId,
-            "scope"    : "openid profile",
-            "redirect_uri": redirectUri
-            });
-    });
-    </script>
-  </head>
-  <body>Loading...</body>
+<script>
+// PKCE helpers
+function generateCodeVerifier() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return base64UrlEncode(array);
+}
+
+async function generateCodeChallenge(verifier) {
+    const data = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return base64UrlEncode(new Uint8Array(digest));
+}
+
+function base64UrlEncode(bytes) {
+    let binary = '';
+    bytes.forEach(b => binary += String.fromCharCode(b));
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function generateState() {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return base64UrlEncode(array);
+}
+
+(async function () {
+    try {
+        // 1. Fetch our app configuration
+        const cfgRes = await fetch('/config');
+        if (!cfgRes.ok) throw new Error('Failed to load app configuration');
+        const cfg = await cfgRes.json();
+
+        const fhirUrl = cfg.FhirServerUrl.replace(/\/+$/, '');
+
+        // 2. Fetch SMART configuration from the FHIR server
+        const smartRes = await fetch(fhirUrl + '/.well-known/smart-configuration');
+        if (!smartRes.ok) throw new Error('Failed to load SMART configuration from FHIR server');
+        const smartCfg = await smartRes.json();
+
+        const authorizeEndpoint = smartCfg.authorization_endpoint;
+        const tokenEndpoint = smartCfg.token_endpoint;
+
+        if (!authorizeEndpoint || !tokenEndpoint) {
+            throw new Error('SMART configuration missing authorization_endpoint or token_endpoint');
+        }
+
+        // 3. Generate PKCE pair
+        const codeVerifier = generateCodeVerifier();
+        const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+        // 4. Generate state
+        const state = generateState();
+
+        // 5. Build redirect URI (callback page)
+        const redirectUri = window.location.href.replace('launch.html', 'index.html');
+
+        // 6. Store session data for the callback page
+        sessionStorage.setItem('smart_state', JSON.stringify({
+            state: state,
+            codeVerifier: codeVerifier,
+            tokenEndpoint: tokenEndpoint,
+            clientId: cfg.ClientId,
+            clientType: cfg.ClientType || 'public',
+            redirectUri: redirectUri,
+            fhirUrl: fhirUrl
+        }));
+
+        // 7. Build the authorization URL
+        const params = new URLSearchParams({
+            response_type: 'code',
+            client_id: cfg.ClientId,
+            redirect_uri: redirectUri,
+            scope: cfg.Scopes || 'openid fhirUser launch/patient patient/*.rs offline_access',
+            state: state,
+            aud: fhirUrl,
+            code_challenge: codeChallenge,
+            code_challenge_method: 'S256'
+        });
+
+        // 8. Redirect to authorization server
+        window.location.href = authorizeEndpoint + '?' + params.toString();
+
+    } catch (err) {
+        document.body.innerHTML = '<div style="max-width:600px;margin:2rem auto;color:#721c24;' +
+            'background:#f8d7da;border:1px solid #f5c6cb;border-radius:.25rem;padding:1rem;">' +
+            '<strong>Launch Error:</strong> ' + err.message + '</div>';
+    }
+})();
+</script>
+</body>
 </html>

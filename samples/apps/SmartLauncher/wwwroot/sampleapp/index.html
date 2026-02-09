@@ -1,45 +1,204 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>Sample app</title>
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
-    </head>
-    <body>
-    
-    <div class="container">
-        <h1>Microsoft FHIR Server SMART on FHIR Sample App</h1>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SMART on FHIR &ndash; Sample App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YcnS/1tMKn09JEOQfq1cGlvTkSk28nRV0+d" crossorigin="anonymous" />
+    <style>
+        pre { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: .375rem; padding: 1rem; overflow-x: auto; max-height: 400px; }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-4" style="max-width: 840px;">
+    <h1 class="mb-4">SMART on FHIR Sample App</h1>
 
-        <div class="row">
-            <h2>Patient Resource</h2>
-            <textarea id="patientfield" style="width: 20cm; height: 5cm;"></textarea>
-        </div>
-
-        <div class="row">
-            <h2>Token Response</h2>
-            <textarea id="tokenresponsefield" style="width: 20cm; height: 5cm;"></textarea>
-        </div>
+    <div id="loading" class="text-center py-5">
+        <div class="spinner-border" role="status"><span class="visually-hidden">Loading&hellip;</span></div>
+        <p class="mt-2">Exchanging authorization code for token&hellip;</p>
     </div>
 
-    <script type="text/javascript">
-        function log(txt) {
-            document.getElementsByTagName("pre")[0].innerText += txt + "\n";
+    <div id="results" class="d-none">
+        <div class="card mb-3">
+            <div class="card-header"><strong>Launch Details</strong></div>
+            <div class="card-body">
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        <tr><th style="width:30%">Client Type</th><td id="res-client-type"></td></tr>
+                        <tr><th>FHIR Server</th><td id="res-fhir-url" class="text-break"></td></tr>
+                        <tr><th>Patient ID</th><td id="res-patient-id"></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><strong>Patient Resource</strong></div>
+            <div class="card-body p-0"><pre id="patient-json" class="m-0 border-0 rounded-0"></pre></div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><strong>Token Response</strong></div>
+            <div class="card-body p-0"><pre id="token-json" class="m-0 border-0 rounded-0"></pre></div>
+        </div>
+
+        <div id="id-token-section" class="card mb-3 d-none">
+            <div class="card-header"><strong>ID Token Claims</strong></div>
+            <div class="card-body p-0"><pre id="id-token-json" class="m-0 border-0 rounded-0"></pre></div>
+        </div>
+
+        <a href="/" class="btn btn-outline-secondary">&larr; Back to Launcher</a>
+    </div>
+
+    <div id="error-panel" class="alert alert-danger d-none mt-3"></div>
+</div>
+
+<script>
+function decodeJwtPayload(token) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(atob(payload));
+    } catch { return null; }
+}
+
+function showError(msg) {
+    document.getElementById('loading').classList.add('d-none');
+    const ep = document.getElementById('error-panel');
+    ep.textContent = msg;
+    ep.classList.remove('d-none');
+}
+
+(async function () {
+    try {
+        // 1. Parse the authorization code from the URL
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const returnedState = params.get('state');
+        const error = params.get('error');
+
+        if (error) {
+            throw new Error('Authorization error: ' + error + ' - ' + (params.get('error_description') || ''));
         }
 
-        FHIR.oauth2.ready(function(client) {
-            client.patient.read().then(
-                function(patient){
-                    $('#patientfield').val(JSON.stringify(patient, null, 4));
-                    $('#tokenresponsefield').val(JSON.stringify(client.state.tokenResponse, null, 4));
-                },
-                function(error){
-                    console.log("Error:\n" + error);
-                }
-            );
-        });
-    </script>
+        if (!code) {
+            throw new Error('No authorization code received. Did you launch from the launcher page?');
+        }
 
-    </body>
+        // 2. Retrieve stored session data
+        const stored = JSON.parse(sessionStorage.getItem('smart_state') || 'null');
+        if (!stored) {
+            throw new Error('Session state not found. Please relaunch the app.');
+        }
+
+        // 3. Validate state
+        if (stored.state !== returnedState) {
+            throw new Error('State mismatch. Possible CSRF attack or session expired.');
+        }
+
+        // 4. Exchange code for token
+        let tokenResponse;
+        const clientType = stored.clientType || 'public';
+
+        if (clientType === 'public') {
+            // Public client: exchange directly with the token endpoint
+            const tokenParams = new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: stored.redirectUri,
+                client_id: stored.clientId,
+                code_verifier: stored.codeVerifier
+            });
+
+            const tokenRes = await fetch(stored.tokenEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: tokenParams.toString()
+            });
+
+            tokenResponse = await tokenRes.json();
+            if (tokenResponse.error) {
+                throw new Error('Token error: ' + tokenResponse.error + ' - ' + (tokenResponse.error_description || ''));
+            }
+        } else {
+            // Confidential client: proxy through our backend
+            const proxyForm = new FormData();
+            proxyForm.append('token_endpoint', stored.tokenEndpoint);
+            proxyForm.append('grant_type', 'authorization_code');
+            proxyForm.append('code', code);
+            proxyForm.append('redirect_uri', stored.redirectUri);
+            proxyForm.append('code_verifier', stored.codeVerifier);
+
+            const proxyRes = await fetch('/token-proxy', {
+                method: 'POST',
+                body: proxyForm
+            });
+
+            tokenResponse = await proxyRes.json();
+            if (tokenResponse.error) {
+                throw new Error('Token error: ' + tokenResponse.error + ' - ' + (tokenResponse.error_description || ''));
+            }
+        }
+
+        // Clean up stored state
+        sessionStorage.removeItem('smart_state');
+
+        // Clear the URL query params without reloading
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // 5. Display token response
+        document.getElementById('token-json').textContent = JSON.stringify(tokenResponse, null, 2);
+
+        // 6. Decode ID token if present
+        if (tokenResponse.id_token) {
+            const claims = decodeJwtPayload(tokenResponse.id_token);
+            if (claims) {
+                document.getElementById('id-token-json').textContent = JSON.stringify(claims, null, 2);
+                document.getElementById('id-token-section').classList.remove('d-none');
+            }
+        }
+
+        // 7. Display launch details
+        document.getElementById('res-client-type').textContent = clientType;
+        document.getElementById('res-fhir-url').textContent = stored.fhirUrl;
+
+        // 8. Read patient resource if we have an access token and patient context
+        const accessToken = tokenResponse.access_token;
+        const patientId = tokenResponse.patient;
+
+        if (patientId && accessToken) {
+            document.getElementById('res-patient-id').textContent = patientId;
+
+            try {
+                const patientRes = await fetch(stored.fhirUrl + '/Patient/' + patientId, {
+                    headers: { 'Authorization': 'Bearer ' + accessToken, 'Accept': 'application/fhir+json' }
+                });
+
+                if (patientRes.ok) {
+                    const patient = await patientRes.json();
+                    document.getElementById('patient-json').textContent = JSON.stringify(patient, null, 2);
+                } else {
+                    document.getElementById('patient-json').textContent = 'Failed to read Patient: HTTP ' + patientRes.status;
+                }
+            } catch (fetchErr) {
+                document.getElementById('patient-json').textContent = 'Failed to read Patient: ' + fetchErr.message;
+            }
+        } else {
+            document.getElementById('res-patient-id').textContent = '(not in token response)';
+            document.getElementById('patient-json').textContent = 'No patient context returned in the token response.\n' +
+                'Ensure the "launch/patient" scope is requested and a patient is selected during authorization.';
+        }
+
+        // 9. Show results
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('results').classList.remove('d-none');
+
+    } catch (err) {
+        showError(err.message);
+    }
+})();
+</script>
+</body>
 </html>
