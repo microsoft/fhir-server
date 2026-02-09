@@ -349,6 +349,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
             await _searchParameterOperations.AddSearchParameterStatusAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
             Assert.NotNull(searchParamHash);
         }
@@ -403,6 +405,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
             await _searchParameterOperations.AddSearchParameterStatusAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+
             var addedParam = _searchParameterDefinitionManager.GetSearchParameter("http://test/Patient-test");
             Assert.NotNull(addedParam);
         }
@@ -451,6 +455,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
             await _searchParameterOperations.AddSearchParameterStatusAsync(searchParam.ToTypedElement(), CancellationToken.None);
+
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
 
             var patientParamsWithNew = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());
