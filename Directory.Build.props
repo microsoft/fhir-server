@@ -29,10 +29,11 @@
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('UnitTest'))">
       <ItemGroup>
-        <Content Include="$(MSBuildThisFileDirectory)/xunit.v3.runner.json">
+        <None Include="$(MSBuildThisFileDirectory)/xunit.v3.runner.json">
           <Link>xunit.v3.runner.json</Link>
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
+          <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+        </None>
       </ItemGroup>
     </When>
   </Choose>
