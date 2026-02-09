@@ -43,6 +43,7 @@ stages:
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
+        pwsh: true
         ScriptType: inlineScript
         Inline: |
           $testNamePatterns = @("SNAPSHOT*","FHIRCOMPATIBILITYTEST*","FHIRINTEGRATIONTEST*","FHIRRESOURCECHANGEDISABLEDTEST*","BASE*","SNAPSHOT*")

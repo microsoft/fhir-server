@@ -36,14 +36,12 @@ stages:
         azureSubscription: $(ConnectedServiceName)
         KeyVaultName: 'resolute-oss-tenant-info'
 
-    - task: AzurePowerShell@5
+    - task: PowerShell@2
       displayName: 'Clean Up AAD Resources'
       inputs:
-        azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
         pwsh: true
-        ScriptType: inlineScript
-        Inline: |
+        targetType: inline
+        script: |
           # Parameters for Azure AD connection
           $TenantId = "$(tenant-id)"
           $ClientId = "$(tenant-admin-service-principal-id)"
@@ -51,14 +49,27 @@ stages:
           $AgeThresholdDays = ${{ parameters.AgeThresholdDays }}
 
           # Install and Import Microsoft Graph Modules
-          # Using PowerShell 7+ (pwsh) to avoid assembly loading issues with Microsoft.Graph.Authentication
+          # IMPORTANT: Using PowerShell@2 instead of AzurePowerShell@5 to avoid assembly loading conflicts.
+          # AzurePowerShell@5 pre-loads Az.Accounts before our script runs, which causes conflicts with
+          # Microsoft.Graph.Authentication due to different versions of System.Threading.Tasks.Extensions.dll
           # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
           Write-Host "Installing Microsoft Graph modules..."
-          $modules = @("Microsoft.Graph.Authentication", "Microsoft.Graph.Beta.Applications", "Microsoft.Graph.Beta.Users", "Microsoft.Graph.DirectoryObjects")
+          # Include Identity.DirectoryManagement for Get-MgDirectoryDeletedItem* cmdlets used in recycle bin cleanup
+          $modules = @(
+            "Microsoft.Graph.Authentication",
+            "Microsoft.Graph.Beta.Applications", 
+            "Microsoft.Graph.Beta.Users", 
+            "Microsoft.Graph.DirectoryObjects",
+            "Microsoft.Graph.Identity.DirectoryManagement"
+          )
           
           foreach ($module in $modules) {
             Install-Module -Name $module -Force -Scope CurrentUser -ErrorAction Stop
-            Import-Module $module
+          }
+          
+          # Import all modules upfront to prevent auto-loading conflicts
+          foreach ($module in $modules) {
+            Import-Module $module -ErrorAction Stop
           }
 
           $installedAuth = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
