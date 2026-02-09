@@ -16,13 +16,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages
             IList<Tuple<string, string>> conditionalParameters,
             Hl7.Fhir.Model.Parameters parameters,
             bool isParallel,
-            uint maxCount = 0)
+            uint maxCount = 0,
+            bool metaHistory = true)
         {
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
             Parameters = parameters;
             IsParallel = isParallel;
             MaxCount = maxCount;
+            MetaHistory = metaHistory;
         }
 
         public string ResourceType { get; }
@@ -34,5 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages
         public bool IsParallel { get; }
 
         public uint MaxCount { get; }
+
+        public bool MetaHistory { get; }
     }
 }

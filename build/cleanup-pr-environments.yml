@@ -22,6 +22,7 @@ stages:
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
+        pwsh: true
         ScriptType: InlineScript
         Inline: |
           Write-Host "Starting"

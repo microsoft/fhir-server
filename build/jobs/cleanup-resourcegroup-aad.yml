@@ -10,6 +10,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: InlineScript
       Inline: |
         Get-AzResourceGroup -Name $(ResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 

@@ -5,48 +5,72 @@ steps:
     azureSubscription: $(ConnectedServiceName)
     KeyVaultName: 'resolute-oss-tenant-info'
 
-- task: AzurePowerShell@5
+- task: AzureCLI@2
   displayName: Setup AAD Test Environment
   retryCountOnTaskFailure: 1
   inputs:
     azureSubscription: $(ConnectedServiceName)
-    azurePowerShellVersion: latestVersion
-    pwsh: true
-    ScriptType: inlineScript
-    Inline: |
-      # Install only required Microsoft Graph modules for better performance
-      # Use AllowClobber to handle any version conflicts
-      # Using PowerShell 7+ (pwsh) to avoid assembly loading issues with Microsoft.Graph.Authentication
+    scriptType: pscore
+    scriptLocation: inlineScript
+    addSpnToEnvironment: true
+    inlineScript: |
+      # IMPORTANT: Using AzureCLI@2 with pscore and importing Microsoft.Graph modules BEFORE Az modules
+      # to avoid assembly loading conflicts with System.Threading.Tasks.Extensions.dll
       # See: https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3479
-      Install-Module -Name Microsoft.Graph.Authentication -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Applications -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Users -Force -Scope CurrentUser -AllowClobber
-      Install-Module -Name Microsoft.Graph.Identity.DirectoryManagement -Force -Scope CurrentUser -AllowClobber
+      
+      # Install and import Microsoft Graph modules FIRST (order matters!)
+      $graphModules = @(
+        'Microsoft.Graph.Authentication',
+        'Microsoft.Graph.Applications',
+        'Microsoft.Graph.Users',
+        'Microsoft.Graph.Identity.DirectoryManagement'
+      )
+      
+      Write-Host "Installing Microsoft Graph modules..."
+      $graphModules | ForEach-Object { Install-Module -Name $_ -Force -Scope CurrentUser -AllowClobber }
+      
+      Write-Host "Importing Microsoft Graph modules..."
+      $graphModules | ForEach-Object { Import-Module -Name $_ -ErrorAction Stop }
+      
+      $graphAuthModule = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
+      Write-Host "Microsoft.Graph.Authentication version: $($graphAuthModule.Version)"
+
+      # Install and import Az modules AFTER Microsoft.Graph modules are loaded
+      Write-Host "Installing Az modules..."
+      Install-Module -Name Az.Accounts -Force -Scope CurrentUser -AllowClobber
+      Install-Module -Name Az.KeyVault -Force -Scope CurrentUser -AllowClobber
       Install-Module -Name Microsoft.PowerShell.SecretManagement -Force -Scope CurrentUser -AllowClobber
+      Import-Module Az.Accounts -ErrorAction Stop
+      Import-Module Az.KeyVault -ErrorAction Stop
+      Import-Module Microsoft.PowerShell.SecretManagement -ErrorAction Stop
 
-      $module = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable | Select-Object -First 1
-      Write-Host "Microsoft.Graph.Authentication version: $($module.Version)"
-
+      # Set up variables
       $tenantId = "$(tenant-id)"
-
-      # Set up Microsoft Graph authentication
-      $username = "$(tenant-admin-service-principal-name)"
-      $clientId = "$(tenant-admin-service-principal-id)"
-      $password_raw =  "$(tenant-admin-service-principal-password)"
-      $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
-      $clientSecretCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
-
+      $graphClientId = "$(tenant-admin-service-principal-id)"
+      $graphClientSecret = ConvertTo-SecureString -AsPlainText "$(tenant-admin-service-principal-password)" -Force
+      $graphCredential = New-Object System.Management.Automation.PSCredential($graphClientId, $graphClientSecret)
       $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       $keyVaultName = "$(KeyVaultBaseName)-ts".ToLower() -replace "\.", ""
-      Write-Host "Installed module and set variables"
 
-      # Connect to Microsoft Graph using client credentials
-      Write-Host "Connecting to Microsoft Graph"
-      Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $clientSecretCredential
+      # Connect to Microsoft Graph using tenant admin service principal
+      Write-Host "Connecting to Microsoft Graph..."
+      Connect-MgGraph -TenantId $tenantId -ClientSecretCredential $graphCredential
+      
+      # Connect to Azure using the service connection (supports both WIF and secret-based auth)
+      Write-Host "Connecting to Azure..."
+      $azContext = az account show | ConvertFrom-Json
+      if ($env:idToken) {
+        Connect-AzAccount -ServicePrincipal -ApplicationId $env:servicePrincipalId -FederatedToken $env:idToken -Tenant $azContext.tenantId -Subscription $azContext.id
+      } elseif ($env:servicePrincipalKey) {
+        $azCredential = New-Object System.Management.Automation.PSCredential($env:servicePrincipalId, (ConvertTo-SecureString $env:servicePrincipalKey -AsPlainText -Force))
+        Connect-AzAccount -ServicePrincipal -Credential $azCredential -Tenant $azContext.tenantId -Subscription $azContext.id
+      } else {
+        throw "No valid Azure credentials found. Ensure the service connection is configured correctly."
+      }
 
-      Write-Host "Connected to Microsoft Graph"
+      # Import FHIR modules and run setup
       Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
       Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
-      Write-Host "Imported modules"
-      $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -KeyVaultName $keyVaultName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $clientSecretCredential -TenantId $tenantId -ClientId $clientId -ClientSecret $password
+      Write-Host "Setting up AAD Test Environment..."
+      Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -KeyVaultName $keyVaultName -ResourceGroupName $(UniqueResourceGroupName) -EnvironmentLocation $(ResourceGroupRegion) -TenantAdminCredential $graphCredential -TenantId $tenantId -ClientId $graphClientId -ClientSecret $graphClientSecret
