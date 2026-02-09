@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
     {
         Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken);
 
-        Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken);
+        Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken, bool updateCacheTimestamp = true);
 
         Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken);
 

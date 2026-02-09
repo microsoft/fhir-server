@@ -179,7 +179,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
-            var updated = new List<SearchParameterInfo>();
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
                 .ToDictionary(x => x.Uri.OriginalString);
 
@@ -187,52 +186,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
-                try
+                if (parameters.TryGetValue(uri, out var existingStatus))
                 {
-                    SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
-                    updated.Add(paramInfo);
-                    paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
-                    paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
-
-                    if (parameters.TryGetValue(uri, out var existingStatus))
-                    {
-                        existingStatus.Status = status;
-
-                        if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
-                        {
-                            existingStatus.SortStatus = SortParameterStatus.Enabled;
-                            paramInfo.SortStatus = SortParameterStatus.Enabled;
-                        }
-
-                        searchParameterStatusList.Add(existingStatus);
-                    }
-                    else
-                    {
-                        searchParameterStatusList.Add(new ResourceSearchParameterStatus
-                        {
-                            Status = status,
-                            Uri = new Uri(uri),
-                        });
-                    }
+                    existingStatus.Status = status;
+                    searchParameterStatusList.Add(existingStatus);
                 }
-                catch (SearchParameterNotSupportedException ex)
+                else
                 {
-                    _logger.LogError(ex, "The search parameter '{Uri}' not supported.", uri);
-
-                    // Note: SearchParameterNotSupportedException can be thrown by SearchParameterDefinitionManager.GetSearchParameter
-                    // when the given url is not found in its cache that can happen when the cache becomes out of sync with the store.
-                    // Use this flag to ignore the exception and continue the update process for the rest of search parameters.
-                    // (e.g. $bulk-delete ensuring deletion of as many search parameters as possible.)
-                    if (!ignoreSearchParameterNotSupportedException)
+                    searchParameterStatusList.Add(new ResourceSearchParameterStatus
                     {
-                        throw;
-                    }
+                        Status = status,
+                        Uri = new Uri(uri),
+                    });
                 }
             }
 
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
 
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+                    // Note: SearchParameterNotSupportedException can be thrown by SearchParameterDefinitionManager.GetSearchParameter
+                    // when the given url is not found in its cache that can happen when the cache becomes out of sync with the store.
+                    // Use this flag to ignore the exception and continue the update process for the rest of search parameters.
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                var sampleUris = searchParameterStatusList.Select(s => s.Uri.OriginalString).Take(10).ToList();
+                var suffix = searchParameterStatusList.Count > sampleUris.Count ? "..." : string.Empty;
+                _logger.LogDebug(
+                    "Upserted search parameter statuses. Count={Count}, SampleUrls={Urls}{Suffix}",
+                    searchParameterStatusList.Count,
+                    string.Join(", ", sampleUris),
+                    suffix);
+            }
+
+            var urisToSync = new HashSet<string>(
+                searchParameterStatusList.Select(s => s.Uri.OriginalString),
+                StringComparer.OrdinalIgnoreCase);
+            var refreshedStatuses = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
+            var statusesToSync = refreshedStatuses.Where(s => urisToSync.Contains(s.Uri.OriginalString)).ToList();
+            _searchParameterStatusDataStore.SyncStatuses(statusesToSync);
         }
 
         public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
@@ -264,14 +254,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        /// <param name="updateCacheTimestamp">Whether to update the cache timestamp after applying statuses.</param>
+        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken, bool updateCacheTimestamp = true)
         {
             if (!updatedSearchParameterStatus.Any())
             {
-                // Even when there are no updates to apply, we need to update our cache timestamp
-                // to reflect that we've successfully synchronized with the database
-                await UpdateCacheTimestampAsync(cancellationToken);
-                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Updated cache timestamp.");
+                if (updateCacheTimestamp)
+                {
+                    // Even when there are no updates to apply, we need to update our cache timestamp
+                    // to reflect that we've successfully synchronized with the database
+                    await UpdateCacheTimestampAsync(cancellationToken);
+                    _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Updated cache timestamp.");
+                }
+                else
+                {
+                    _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Cache timestamp update skipped.");
+                }
+
                 return;
             }
 
@@ -302,7 +301,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
-            await UpdateCacheTimestampAsync(cancellationToken);
+            if (updateCacheTimestamp)
+            {
+                await UpdateCacheTimestampAsync(cancellationToken);
+                _logger.LogInformation("ApplySearchParameterStatus: Cache timestamp updated after applying {Count} statuses.", updatedSearchParameterStatus.Count);
+            }
+            else
+            {
+                _logger.LogInformation("ApplySearchParameterStatus: Cache timestamp update skipped due to missing SearchParameter resources.");
+            }
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
