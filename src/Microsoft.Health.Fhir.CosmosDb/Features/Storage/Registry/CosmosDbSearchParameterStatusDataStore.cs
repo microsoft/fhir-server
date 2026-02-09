@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
-            DateTimeOffset startedCheck = Clock.UtcNow;
             using var retryDelayToken = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             var lastUpdated = startLastUpdated.HasValue ? startLastUpdated.Value : DateTimeOffset.MinValue;
 
