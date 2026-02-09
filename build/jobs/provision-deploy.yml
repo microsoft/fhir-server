@@ -71,8 +71,6 @@ jobs:
         $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
         $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
         $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 1
-        $additionalProperties["FhirServer__Operations__Validate__BackgroundProfileStatusCheckIntervalInSeconds"] = 5
-        $additionalProperties["FhirServer__Operations__Validate__BackgroundProfileStatusDelayedStartInSeconds"] = 0
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
