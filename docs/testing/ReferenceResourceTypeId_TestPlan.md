@@ -132,6 +132,66 @@ A SQL performance test script has been created at:
 
 ---
 
+## Test Results (2026-02-09)
+
+### Data Distribution (Verified)
+
+| Table | Total Rows | NULL Rows | NULL % | Patient Rows | Practitioner Rows |
+|-------|-----------|-----------|--------|-------------|-------------------|
+| RefSearch_Null10 | 2,000,010 | 199,915 | 10.0% | 779,391 | 300,709 |
+| RefSearch_Null30 | 2,000,010 | 599,653 | 30.0% | 598,962 | 219,900 |
+| RefSearch_Null60 | 2,000,010 | 1,198,664 | 59.9% | 340,541 | 119,471 |
+
+Scenario IDs in Null10 table: `common-patient-0001` = 1,035 rows (107 NULL), `overlap-typed-null-id` = 5 rows (2 NULL), `null-only-id` = 3 rows (all NULL), `rare-singleton-id` = 2 rows (0 NULL).
+
+### Key Finding: ALL Variants Fail Correctness
+
+**Every query variant that adds `ReferenceResourceTypeId` to the WHERE clause loses rows compared to baseline (Q1):**
+
+| Variant | S1 Rows | Baseline | Missing | Root Cause |
+|---------|---------|----------|---------|------------|
+| Q1-Baseline | 258 | — | — | Returns ALL rows (correct) |
+| Q2-SingleType | 110 | 258 | **-148** | Excludes NULL rows AND other typed rows |
+| Q3-MultiTypeOR | 145 | 258 | **-113** | Excludes NULL rows AND other typed rows |
+| Q4-SingleType+NULL | 135 | 258 | **-123** | Includes NULL rows but still misses other typed rows |
+| Q5-MultiType+NULL | 170 | 258 | **-88** | Includes NULL rows but still misses other typed rows |
+| Q6-InClause | 145 | 258 | **-113** | Same as Q3 |
+| Q7-UnionAll | 135 | 258 | **-123** | Same as Q4 |
+
+**Critical insight**: The problem is NOT just about NULL rows. The `ReferenceResourceTypeId` column stores the type of the **referenced** resource, not the type expected by the search parameter. When a `DiagnosticReport.subject` reference points to a `Practitioner` (type 104), that row is stored with `ReferenceResourceTypeId = 104`. But if we filter with `ReferenceResourceTypeId = 103` (Patient only), we lose that Practitioner reference. The baseline Q1 (no type filter) correctly returns ALL references regardless of their target type.
+
+This means the fundamental premise of PR #5285 has a data mismatch: the search parameter's `TargetResourceTypes` list does NOT necessarily match how references are actually stored. Real data contains references to types outside the search parameter's declared targets.
+
+### Index Behavior
+
+| Variant | Seeks (of 4 scenarios) | Index Used |
+|---------|----------------------|------------|
+| Q1-Baseline | 1 | Mixed — only seeks on S1 (many rows) |
+| Q2-SingleType | 2 | IXU (secondary index) ✓ |
+| Q3-MultiTypeOR | 2 | IXU (secondary index) ✓ |
+| Q4-SingleType+NULL | 3 | IXU (secondary index) ✓ |
+| Q5-MultiType+NULL | 3 | IXU (secondary index) ✓ |
+| Q7-UnionAll | 2 | IXU (secondary index) ✓ |
+
+All type-filtered variants successfully use the secondary index for seeks when rows exist. No degradation was observed across NULL distributions (10% → 30% → 60%).
+
+### Cross-Distribution Comparison
+
+Plans were **stable** across all three NULL ratios — the 60% NULL table did not cause the optimizer to switch from seeks to scans. This is a positive finding for the index, but irrelevant given the correctness failures.
+
+### Conclusion
+
+**⛔ Do NOT proceed with adding `ReferenceResourceTypeId` to the WHERE clause in its current form.**
+
+The correctness failures are not limited to NULL handling — they are fundamental. Filtering by `ReferenceResourceTypeId` excludes valid references whose target type doesn't match the search parameter's declared target types. The `common-patient-0001` ID has 258 baseline rows but only 110 are Patient (type 103), meaning 148 rows reference other types (Practitioner, Organization, etc.) through the same search parameter.
+
+### Recommended Path Forward
+
+1. **Short term**: Leave the WHERE clause as-is (Q1 baseline). The index partial-seek on `ReferenceResourceId` alone is sufficient.
+2. **Long term**: Pursue the **Backfill approach** (Alternative 1 below) — but this requires a deeper investigation into WHY references are stored with unexpected `ReferenceResourceTypeId` values. The data suggests that FHIR references to `subject` can point to any resource type, not just the declared targets.
+
+---
+
 ## Alternative Approaches
 
 ### Alternative 1: Backfill NULL Values
