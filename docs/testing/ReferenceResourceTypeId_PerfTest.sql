@@ -341,13 +341,20 @@ BEGIN
     CROSS APPLY sys.dm_exec_query_plan(qs.plan_handle) qp
     ORDER BY qs.last_execution_time DESC;
 
-    -- Extract index operation info
+    -- Extract index operation info from plan XML
+    -- Note: XQuery in SQL Server does not support the '|' (union) operator,
+    -- so we query RelOp nodes and filter by PhysicalOp instead.
+    -- In showplan XML: RelOp[@PhysicalOp] > IndexScan > Object[@Index]
     DECLARE @IndexName VARCHAR(200) = 'N/A', @SeekOrScan VARCHAR(50) = 'N/A';
     ;WITH XMLNAMESPACES (DEFAULT 'http://schemas.microsoft.com/sqlserver/2004/07/showplan')
     SELECT TOP 1
-        @IndexName  = ISNULL(n.value('(@Index)[1]','VARCHAR(200)'),'N/A'),
-        @SeekOrScan = ISNULL(n.value('local-name(.)','VARCHAR(50)'),'N/A')
-    FROM @PlanXml.nodes('//IndexScan | //IndexSeek') AS x(n);
+        @SeekOrScan = n.value('(@PhysicalOp)[1]','VARCHAR(50)'),
+        @IndexName  = ISNULL(
+            n.value('(*/Object/@Index)[1]','VARCHAR(200)'),
+            'N/A')
+    FROM @PlanXml.nodes('//RelOp') AS x(n)
+    WHERE n.value('(@PhysicalOp)[1]','VARCHAR(50)') IN
+        ('Index Seek','Index Scan','Clustered Index Scan','Clustered Index Seek');
 
     -- Extract estimated rows
     DECLARE @EstRows FLOAT = 0;
