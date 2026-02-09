@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(powershell.exe -Command \"gh pr view 5241 --json title,body,state,author,baseRefName,headRefName,files,additions,deletions\")",
+      "WebFetch(domain:github.com)",
+      "Bash(git show:*)"
+    ]
+  }
+}
