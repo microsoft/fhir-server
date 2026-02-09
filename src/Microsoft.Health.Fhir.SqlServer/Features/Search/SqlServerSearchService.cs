@@ -561,6 +561,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
+                        var st = DateTime.UtcNow;
                         var executionStopwatch = Stopwatch.StartNew();
 
                         try
@@ -1033,35 +1034,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             long executionTime,
             CancellationToken ct)
         {
-            using SqlCommandWrapper sqlCommandWrapper = new SqlCommandWrapper(sqlCommand);
-            var queryText = new StringBuilder();
-            if (sqlCommandWrapper.CommandType == CommandType.Text)
-            {
-                foreach (SqlParameter p in sqlCommandWrapper.Parameters)
-                {
-                    queryText.Append('(')
-                        .Append(p)
-                        .Append(' ')
-                        .Append(p.SqlDbType.ToString().ToLowerInvariant())
-                        .Append(')');
-                }
-
-                queryText.Append(RemoveDeclareAndStatisticsLines(sqlCommand.CommandText));
-            }
-            else
-            {
-                queryText = new StringBuilder(RemoveDeclareAndStatisticsLines(sqlCommand.CommandText));
-            }
+            var queryText = RemoveDeclareAndStatisticsLines(sqlCommand.CommandText);
 
             using var cmd = sqlCommand.Connection.CreateCommand();
             cmd.CommandType = CommandType.Text;
             cmd.CommandTimeout = timeoutSeconds;
 
             // Use LIKE-only matching:
-            // 1. Collapse all whitespace in both QS text and our normalized text to single spaces
-            // 2. Strip QS parameter signature prefix like "(@p0 int)" by starting from first SQL keyword
-            // 3. Use a generous substring (up to 4000 chars) for LIKE matching
-            // 4. Filter runtime stats to the last 1 hour only
+            // 1. Filter runtime stats to the last 1 hour only
             cmd.CommandText = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
 
@@ -1081,7 +1061,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
                 JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
                 WHERE @NormalizedText <> ''
-                    AND qt.query_sql_text LIKE '%' + LEFT(@NormalizedText, 4000) + '%'
+                    AND qt.query_sql_text LIKE '%' + @NormalizedText + '%'
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
