@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                await Task.Delay(1000, cancellationToken);
+                await Task.Delay(_coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 3, cancellationToken);
 
                 if (cancellationToken.IsCancellationRequested || _jobInfo.CancelRequested)
                 {
