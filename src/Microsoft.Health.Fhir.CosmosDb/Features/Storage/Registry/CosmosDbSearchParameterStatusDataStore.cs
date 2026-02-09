@@ -22,8 +22,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
     {
         private readonly Func<IScoped<Container>> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
-        private DateTimeOffset? _lastRefreshed = null;
-        private List<ResourceSearchParameterStatus> _statusList = new();
         private readonly SemaphoreSlim _statusListSemaphore = new(1, 1);
 
         public CosmosDbSearchParameterStatusDataStore(
@@ -49,22 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             await _statusListSemaphore.WaitAsync(retryDelayToken.Token);
             try
             {
-                if (_lastRefreshed.HasValue)
-                {
-                    bool updateRequired = await CheckIfSearchParameterStatusUpdateRequiredAsync(
-                        clientScope,
-                        _statusList.Count,
-                        _lastRefreshed.Value,
-                        cancellationToken);
-
-                    if (!updateRequired)
-                    {
-                        return _statusList;
-                    }
-                }
-
                 var parameterStatus = new List<ResourceSearchParameterStatus>();
-
                 do
                 {
                     var query = _queryFactory.Create<SearchParameterStatusWrapper>(
@@ -75,12 +58,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                             {
                                 PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
                             }));
-
                     do
                     {
                         FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync(cancellationToken);
 
-                        parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()).Where(_ => _.LastUpdated > lastUpdated));
+                        parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()));
                     }
                     while (query.HasMoreResults);
 
@@ -91,38 +73,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                 }
                 while (!parameterStatus.Any() && !retryDelayToken.IsCancellationRequested);
 
-                _lastRefreshed = startedCheck;
-                _statusList = parameterStatus;
-
-                return _statusList;
+                return parameterStatus.Where(_ => _.LastUpdated > lastUpdated).ToList();
             }
             finally
             {
                 _statusListSemaphore.Release();
             }
-        }
-
-        private async Task<bool> CheckIfSearchParameterStatusUpdateRequiredAsync(IScoped<Container> container, int currentCount, DateTimeOffset lastRefreshed, CancellationToken cancellationToken)
-        {
-            var lastUpdatedQuery = _queryFactory.Create<CacheQueryResponse>(
-                container.Value,
-                new CosmosQueryContext(
-                    new QueryDefinition("select count(0) as count, max(c.lastUpdated) as lastUpdated from c"),
-                    new QueryRequestOptions
-                    {
-                        PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
-                        MaxItemCount = 1,
-                    }));
-
-            FeedResponse<CacheQueryResponse> lastUpdatedResponse = await lastUpdatedQuery.ExecuteNextAsync(cancellationToken);
-            var result = lastUpdatedResponse?.FirstOrDefault();
-
-            if (result == null || result.Count != currentCount || result.LastUpdated > lastRefreshed)
-            {
-                return true;
-            }
-
-            return false;
         }
 
         public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
