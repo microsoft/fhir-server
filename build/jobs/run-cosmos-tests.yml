@@ -55,6 +55,29 @@ jobs:
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
       arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
+  - task: PowerShell@2
+    displayName: 'Verify xUnit config'
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $projects = Get-ChildItem -Path "$(Pipeline.Workspace)/source/test" -Recurse -Filter "*${{ parameters.version }}.Tests.Integration.csproj"
+        if (-not $projects) {
+          throw "No integration test projects found under $(Pipeline.Workspace)/source/test."
+        }
+
+        foreach ($project in $projects) {
+          $outputDir = Join-Path $project.Directory.FullName "bin\\$(buildConfiguration)\\$(defaultBuildFramework)"
+          $configPath = Join-Path $outputDir "xunit.runner.json"
+          if (-not (Test-Path $configPath)) {
+            throw "xunit.runner.json not found for $($project.FullName) at $configPath"
+          }
+
+          Write-Host "xUnit config for $($project.BaseName): $configPath"
+          Get-Content -Path $configPath | ForEach-Object { Write-Host $_ }
+        }
+
   - task: DotNetCoreCLI@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
