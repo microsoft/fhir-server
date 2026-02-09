@@ -28,18 +28,18 @@
 -- =====================================================================================
 -- PART 1: DATABASE SETUP AND DATA GENERATION
 -- =====================================================================================
+-- This section is idempotent: it skips database creation and data generation
+-- if the tables already exist and contain data (>100K rows).
+-- =====================================================================================
 
-USE master;
-GO
-
-IF DB_ID('FhirRefTypeIdTest') IS NOT NULL
+-- Create database only if it doesn't exist
+IF DB_ID('FhirRefTypeIdTest') IS NULL
 BEGIN
-    ALTER DATABASE FhirRefTypeIdTest SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE FhirRefTypeIdTest;
+    CREATE DATABASE FhirRefTypeIdTest;
+    PRINT 'Created database FhirRefTypeIdTest';
 END
-GO
-
-CREATE DATABASE FhirRefTypeIdTest;
+ELSE
+    PRINT 'Database FhirRefTypeIdTest already exists — reusing';
 GO
 
 USE FhirRefTypeIdTest;
@@ -47,6 +47,7 @@ GO
 
 -- =====================================================================================
 -- Helper: Create a ReferenceSearchParam table with schema and indexes
+-- Skips creation if table already exists.
 -- =====================================================================================
 IF OBJECT_ID('dbo.CreateTestTable') IS NOT NULL DROP PROCEDURE dbo.CreateTestTable;
 GO
@@ -54,6 +55,12 @@ GO
 CREATE PROCEDURE dbo.CreateTestTable @TableName SYSNAME
 AS
 BEGIN
+    IF OBJECT_ID('dbo.' + @TableName) IS NOT NULL
+    BEGIN
+        PRINT 'Table already exists: ' + @TableName + ' — skipping creation';
+        RETURN;
+    END
+
     DECLARE @Sql NVARCHAR(MAX);
 
     SET @Sql = N'
@@ -93,7 +100,8 @@ EXEC dbo.CreateTestTable @TableName = 'RefSearch_Null60';   -- 60% NULL
 GO
 
 -- =====================================================================================
--- Helper: Populate a table with test data at a given NULL percentage
+-- Helper: Populate a table with test data at a given NULL percentage.
+-- Skips population if the table already has >= 100K rows.
 -- =====================================================================================
 IF OBJECT_ID('dbo.PopulateTestTable') IS NOT NULL DROP PROCEDURE dbo.PopulateTestTable;
 GO
@@ -105,6 +113,29 @@ CREATE PROCEDURE dbo.PopulateTestTable
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    -- Skip if table already has data
+    DECLARE @ExistingRows INT;
+    DECLARE @CheckSql NVARCHAR(MAX) = N'SELECT @cnt = COUNT(*) FROM (SELECT TOP 100001 1 AS x FROM dbo.' + QUOTENAME(@TableName) + N') q';
+    EXEC sp_executesql @CheckSql, N'@cnt INT OUTPUT', @cnt = @ExistingRows OUTPUT;
+
+    IF @ExistingRows >= 100000
+    BEGIN
+        PRINT @TableName + ' already has ' + CAST(@ExistingRows AS VARCHAR) + '+ rows — skipping population';
+        -- Still report distribution
+        DECLARE @DistSql NVARCHAR(MAX) = N'
+        SELECT ''' + @TableName + N''' AS TableName,
+            COUNT(*) AS TotalRows,
+            SUM(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END) AS NullRows,
+            CAST(100.0 * SUM(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END) / COUNT(*) AS DECIMAL(5,1)) AS [NullPct],
+            SUM(CASE WHEN ReferenceResourceTypeId = 103 THEN 1 ELSE 0 END) AS PatientRows,
+            SUM(CASE WHEN ReferenceResourceTypeId = 104 THEN 1 ELSE 0 END) AS PractitionerRows,
+            COUNT(DISTINCT ReferenceResourceId) AS DistinctRefIds,
+            COUNT(DISTINCT SearchParamId) AS DistinctSearchParams
+        FROM dbo.' + QUOTENAME(@TableName) + N';';
+        EXEC sp_executesql @DistSql;
+        RETURN;
+    END
 
     DECLARE @BatchSize      INT = 50000;
     DECLARE @CurrentBatch   INT = 0;
