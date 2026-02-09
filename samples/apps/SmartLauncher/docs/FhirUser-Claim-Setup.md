@@ -56,13 +56,47 @@ This application represents the FHIR service as a resource (audience) in Entra I
 1. In the new app registration, go to **Expose an API**.
 2. Click **Set** next to **Application ID URI** and accept the default (`api://<app-id>`) or
    set a custom URI (e.g. `https://fhir.contoso.com`).
-3. Click **Add a scope**:
+3. Click **Add a scope** to create a general access scope:
    - **Scope name**: `user_impersonation`
    - **Who can consent**: Admins and users
    - **Admin consent display name**: Access FHIR Server
    - **Admin consent description**: Allows the app to access the FHIR server on behalf of the signed-in user.
    - **State**: Enabled
 4. Click **Add scope**.
+
+#### Adding SMART v2 Scopes (Optional)
+
+You can also register [SMART on FHIR v2 scopes](https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html)
+as delegated scopes on this resource application. This allows your FHIR server to validate
+that the client was granted specific SMART scopes during consent. Add each scope you want to
+support:
+
+| Scope name | Admin consent display name | Description |
+|---|---|---|
+| `patient/*.rs` | Read/Search all patient data | Read and search all FHIR resources in the patient compartment |
+| `patient/Patient.rs` | Read/Search Patient resources | Read and search Patient resources |
+| `patient/Observation.rs` | Read/Search Observations | Read and search Observation resources in the patient compartment |
+| `patient/MedicationRequest.rs` | Read/Search MedicationRequests | Read and search MedicationRequest resources |
+| `user/*.cruds` | Full access to user data | Create, read, update, delete, and search all FHIR resources accessible to the user |
+| `user/Patient.rs` | Read/Search Patient as user | Read and search Patient resources accessible to the user |
+| `launch/patient` | Launch with patient context | Receive a patient context during launch |
+| `fhirUser` | FHIR User identity | Include the fhirUser claim in the token |
+
+For example, to add the `patient/Patient.rs` scope:
+
+1. Click **Add a scope**.
+   - **Scope name**: `patient/Patient.rs`
+   - **Who can consent**: Admins and users
+   - **Admin consent display name**: Read/Search Patient resources
+   - **Admin consent description**: Allows the app to read and search Patient resources in the patient compartment.
+   - **State**: Enabled
+2. Click **Add scope**.
+3. Repeat for each additional SMART scope you need.
+
+> **Note**: Entra ID treats these as opaque strings — it does not interpret SMART scope
+> semantics. Your FHIR server is responsible for parsing and enforcing the SMART scopes from
+> the `scp` claim in the access token. Registering them here ensures they appear in the
+> `.well-known/smart-configuration` and are available for consent.
 
 ### Enable `acceptMappedClaims`
 
