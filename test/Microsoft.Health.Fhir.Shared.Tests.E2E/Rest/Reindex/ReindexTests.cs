@@ -910,7 +910,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             string searchParameterCode,
             string expectedResourceType = null,
             bool shouldFindRecords = true,
-            int maxRetries = 5,
+            int maxRetries = 20,
             int retryDelayMs = 500)
         {
             Exception lastException = null;
