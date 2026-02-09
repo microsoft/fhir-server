@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _fixture = fixture;
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -47,8 +47,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var personSearchParam = new SearchParameter();
             var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
             var testResources = new List<(string resourceType, string resourceId)>();
-            var supplyDeliveryCount = 2000;
-            var personCount = 1000;
+            var supplyDeliveryCount = 500;
+            var personCount = 500;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
@@ -103,12 +103,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(500),
+                            Value = new Integer(25),
                         },
                         new Parameters.ParameterComponent
                         {
                             Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(500),
+                            Value = new Integer(10),
                         },
                     },
                 };
@@ -123,8 +123,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
-
-                await Task.Delay(TimeSpan.FromMinutes(1));
 
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
@@ -159,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenReindexJobWithResourceAndAddedAfterSingleCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParameterShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -225,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenReindexJobWithResourceAndAddedAfterMultiCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -294,7 +292,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenBothHaveSameStatus_ThenBothShouldBeProcessedCorrectly()
         {
             // Cancel any running reindex jobs before starting this test
@@ -364,7 +362,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork()
         {
             // Cancel any running reindex jobs before starting this test
@@ -419,8 +417,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
-
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
                     $"Specimen?{specimenTypeParam.Code}=119295008",
@@ -436,7 +432,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported()
         {
             // Cancel any running reindex jobs before starting this test
@@ -914,8 +910,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             string searchParameterCode,
             string expectedResourceType = null,
             bool shouldFindRecords = true,
-            int maxRetries = 9,
-            int retryDelayMs = 20000)
+            int maxRetries = 5,
+            int retryDelayMs = 500)
         {
             Exception lastException = null;
 
