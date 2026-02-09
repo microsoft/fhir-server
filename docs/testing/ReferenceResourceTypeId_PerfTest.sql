@@ -30,6 +30,8 @@
 -- =====================================================================================
 -- This section is idempotent: it skips database creation and data generation
 -- if the tables already exist and contain data (>100K rows).
+-- To force regeneration (e.g., after fixing data distribution), drop the tables first:
+--   DROP TABLE IF EXISTS dbo.RefSearch_Null10, dbo.RefSearch_Null30, dbo.RefSearch_Null60;
 -- =====================================================================================
 
 -- Create database only if it doesn't exist
@@ -140,24 +142,24 @@ BEGIN
     DECLARE @BatchSize      INT = 50000;
     DECLARE @CurrentBatch   INT = 0;
     DECLARE @SurrogateBase  BIGINT = 100000000000;
-    DECLARE @NonNullPct     INT = 100 - @NullPercent;
 
-    -- Typed distribution (proportional within the non-null slice):
-    --   Patient=103 (44%), Practitioner=104 (17%), Organization=105 (11%),
-    --   Device=106 (6%), Group=107 (6%), Location=108 (6%), RelatedPerson=109 (5%), Medication=110 (5%)
-    -- These sum to 100% of the non-null portion.
-    -- Thresholds: we scale these into [0, @NonNullPct) of the full 0-99 range.
-    DECLARE @PatientCutoff       INT = @NonNullPct * 44 / 100;  -- ~44% of non-null
-    DECLARE @PractitionerCutoff  INT = @PatientCutoff  + @NonNullPct * 17 / 100;
-    DECLARE @OrgCutoff           INT = @PractitionerCutoff + @NonNullPct * 11 / 100;
-    DECLARE @DeviceCutoff        INT = @OrgCutoff      + @NonNullPct *  6 / 100;
-    DECLARE @GroupCutoff         INT = @DeviceCutoff    + @NonNullPct *  6 / 100;
-    DECLARE @LocationCutoff      INT = @GroupCutoff     + @NonNullPct *  6 / 100;
-    DECLARE @RelPersonCutoff     INT = @LocationCutoff  + @NonNullPct *  5 / 100;
-    -- Anything from @RelPersonCutoff to @NonNullPct-1 = Medication (110)
-    -- Anything from @NonNullPct to 99 = NULL
+    -- =====================================================================================
+    -- Realistic data model: each SearchParamId maps to specific valid target types
+    -- based on FHIR R4 spec. ReferenceResourceTypeId is chosen ONLY from targets valid
+    -- for that search parameter, plus NULL for untyped string references.
+    --
+    -- FHIR R4 target types (from search-parameters.json):
+    --   414 DiagnosticReport-subject: Patient(103), Group(107), Device(106), Location(108)
+    --   217 clinical-patient:         Patient(103), Group(107)
+    --   300 Observation-performer:    Practitioner(104), Organization(105), Patient(103)
+    --   350 Encounter-participant:    Practitioner(104), RelatedPerson(109)
+    --   500 Claim-provider:           Practitioner(104), Organization(105)
+    --   550 MedicationRequest-requester: Practitioner(104), Organization(105), Device(106),
+    --                                    Patient(103), RelatedPerson(109)
+    --   450 Encounter-managing-org:   Organization(105)
+    -- =====================================================================================
 
-    -- Resource types + search params: use a temp table so dynamic SQL can access it
+    -- Source resource types + search params (weighted for realistic volume)
     IF OBJECT_ID('tempdb..#ResourceTypes') IS NOT NULL DROP TABLE #ResourceTypes;
     CREATE TABLE #ResourceTypes (ResourceTypeId SMALLINT, SearchParamId SMALLINT, LowBound INT, HighBound INT);
     INSERT INTO #ResourceTypes VALUES
@@ -171,10 +173,61 @@ BEGIN
         (50, 550, 90, 94),   -- MedicationRequest / requester
         (25, 450, 95, 99);   -- Encounter / managing-organization
 
+    -- Valid target types per SearchParamId with weighted distribution
+    -- For each param, the most common target gets the highest weight
+    IF OBJECT_ID('tempdb..#TargetTypes') IS NOT NULL DROP TABLE #TargetTypes;
+    CREATE TABLE #TargetTypes (
+        SearchParamId   SMALLINT,
+        RefTypeId       SMALLINT NULL,   -- NULL = untyped string reference
+        LowPct          INT,             -- lower bound (0-based) within non-null range
+        HighPct         INT              -- upper bound (inclusive) within non-null range
+    );
+
+    -- SearchParamId 414: DiagnosticReport/Observation subject → Patient(103), Group(107), Device(106), Location(108)
+    --   ~80% Patient, ~8% Group, ~7% Device, ~5% Location
+    INSERT INTO #TargetTypes VALUES (414, 103,  0, 79);   -- Patient
+    INSERT INTO #TargetTypes VALUES (414, 107, 80, 87);   -- Group
+    INSERT INTO #TargetTypes VALUES (414, 106, 88, 94);   -- Device
+    INSERT INTO #TargetTypes VALUES (414, 108, 95, 99);   -- Location
+
+    -- SearchParamId 217: clinical-patient → Patient(103), Group(107)
+    --   ~90% Patient, ~10% Group
+    INSERT INTO #TargetTypes VALUES (217, 103,  0, 89);   -- Patient
+    INSERT INTO #TargetTypes VALUES (217, 107, 90, 99);   -- Group
+
+    -- SearchParamId 300: Observation-performer → Practitioner(104), Organization(105), Patient(103)
+    --   ~60% Practitioner, ~25% Organization, ~15% Patient
+    INSERT INTO #TargetTypes VALUES (300, 104,  0, 59);   -- Practitioner
+    INSERT INTO #TargetTypes VALUES (300, 105, 60, 84);   -- Organization
+    INSERT INTO #TargetTypes VALUES (300, 103, 85, 99);   -- Patient
+
+    -- SearchParamId 350: Encounter-participant → Practitioner(104), RelatedPerson(109)
+    --   ~80% Practitioner, ~20% RelatedPerson
+    INSERT INTO #TargetTypes VALUES (350, 104,  0, 79);   -- Practitioner
+    INSERT INTO #TargetTypes VALUES (350, 109, 80, 99);   -- RelatedPerson
+
+    -- SearchParamId 500: Claim-provider → Practitioner(104), Organization(105)
+    --   ~65% Practitioner, ~35% Organization
+    INSERT INTO #TargetTypes VALUES (500, 104,  0, 64);   -- Practitioner
+    INSERT INTO #TargetTypes VALUES (500, 105, 65, 99);   -- Organization
+
+    -- SearchParamId 550: MedicationRequest-requester → Practitioner(104), Organization(105), Device(106), Patient(103), RelatedPerson(109)
+    --   ~55% Practitioner, ~20% Organization, ~10% Device, ~10% Patient, ~5% RelatedPerson
+    INSERT INTO #TargetTypes VALUES (550, 104,  0, 54);   -- Practitioner
+    INSERT INTO #TargetTypes VALUES (550, 105, 55, 74);   -- Organization
+    INSERT INTO #TargetTypes VALUES (550, 106, 75, 84);   -- Device
+    INSERT INTO #TargetTypes VALUES (550, 103, 85, 94);   -- Patient
+    INSERT INTO #TargetTypes VALUES (550, 109, 95, 99);   -- RelatedPerson
+
+    -- SearchParamId 450: Encounter managing-organization → Organization(105) only
+    --   100% Organization
+    INSERT INTO #TargetTypes VALUES (450, 105,  0, 99);   -- Organization
+
     DECLARE @Sql NVARCHAR(MAX);
 
     PRINT 'Populating ' + @TableName + ' (' + CAST(@TotalRows AS VARCHAR) + ' rows, '
         + CAST(@NullPercent AS VARCHAR) + '% NULL)...';
+    PRINT '  Target types are correlated with SearchParamId per FHIR R4 spec.';
     PRINT '  Start: ' + CONVERT(VARCHAR, GETDATE(), 121);
 
     WHILE @CurrentBatch * @BatchSize < @TotalRows
@@ -188,6 +241,7 @@ BEGIN
         RandomData AS (
             SELECT N,
                 ABS(CHECKSUM(NEWID())) % 100 AS ResourceRand,
+                ABS(CHECKSUM(NEWID())) % 100 AS NullRand,
                 ABS(CHECKSUM(NEWID())) % 100 AS TypeRand,
                 ABS(CHECKSUM(NEWID())) % 20000 AS RefIdRand,
                 ' + CAST(@SurrogateBase AS NVARCHAR(20)) + N' + ('
@@ -202,16 +256,11 @@ BEGIN
             rd.SurrogateId,
             rt.SearchParamId,
             NULL,
+            -- Pick ReferenceResourceTypeId: NULL if NullRand falls in null slice,
+            -- otherwise pick a valid target type for this SearchParamId
             CASE
-                WHEN rd.TypeRand < ' + CAST(@PatientCutoff AS NVARCHAR)      + N' THEN 103
-                WHEN rd.TypeRand < ' + CAST(@PractitionerCutoff AS NVARCHAR) + N' THEN 104
-                WHEN rd.TypeRand < ' + CAST(@OrgCutoff AS NVARCHAR)          + N' THEN 105
-                WHEN rd.TypeRand < ' + CAST(@DeviceCutoff AS NVARCHAR)       + N' THEN 106
-                WHEN rd.TypeRand < ' + CAST(@GroupCutoff AS NVARCHAR)        + N' THEN 107
-                WHEN rd.TypeRand < ' + CAST(@LocationCutoff AS NVARCHAR)     + N' THEN 108
-                WHEN rd.TypeRand < ' + CAST(@RelPersonCutoff AS NVARCHAR)    + N' THEN 109
-                WHEN rd.TypeRand < ' + CAST(@NonNullPct AS NVARCHAR)         + N' THEN 110
-                ELSE NULL
+                WHEN rd.NullRand >= ' + CAST(100 - @NullPercent AS NVARCHAR) + N' THEN NULL
+                ELSE tt.RefTypeId
             END,
             CASE
                 WHEN rd.RefIdRand < 100  THEN ''common-patient-'' + RIGHT(''0000'' + CAST(rd.RefIdRand % 10 AS VARCHAR), 4)
@@ -224,7 +273,13 @@ BEGIN
             SELECT TOP 1 ResourceTypeId, SearchParamId
             FROM #ResourceTypes
             WHERE rd.ResourceRand BETWEEN LowBound AND HighBound
-        ) rt;';
+        ) rt
+        CROSS APPLY (
+            SELECT TOP 1 RefTypeId
+            FROM #TargetTypes
+            WHERE SearchParamId = rt.SearchParamId
+              AND rd.TypeRand BETWEEN LowPct AND HighPct
+        ) tt;';
 
         EXEC sp_executesql @Sql;
 
@@ -237,14 +292,16 @@ BEGIN
     DECLARE @SeedBase BIGINT = @SurrogateBase + @TotalRows + 1000;
 
     SET @Sql = N'
-    -- S2: Rare ID
+    -- S2: Rare ID — DiagnosticReport+Observation subject referencing Patient (valid target for 414)
     INSERT INTO dbo.' + QUOTENAME(@TableName) + N' VALUES
         (40, ' + CAST(@SeedBase + 1 AS NVARCHAR) + N', 414, NULL, 103, ''rare-singleton-id'', NULL),
         (57, ' + CAST(@SeedBase + 2 AS NVARCHAR) + N', 414, NULL, 103, ''rare-singleton-id'', NULL);
-    -- S3: Overlap (typed + NULL)
+    -- S3: Overlap (typed + NULL) — uses only valid targets per SearchParamId
+    --   414 targets: Patient(103), Group(107), Device(106), Location(108)
+    --   217 targets: Patient(103), Group(107)
     INSERT INTO dbo.' + QUOTENAME(@TableName) + N' VALUES
         (40, ' + CAST(@SeedBase + 11 AS NVARCHAR) + N', 414, NULL, 103, ''overlap-typed-null-id'', NULL),
-        (40, ' + CAST(@SeedBase + 12 AS NVARCHAR) + N', 414, NULL, 104, ''overlap-typed-null-id'', NULL),
+        (40, ' + CAST(@SeedBase + 12 AS NVARCHAR) + N', 414, NULL, 107, ''overlap-typed-null-id'', NULL),
         (57, ' + CAST(@SeedBase + 13 AS NVARCHAR) + N', 414, NULL, NULL, ''overlap-typed-null-id'', NULL),
         (57, ' + CAST(@SeedBase + 14 AS NVARCHAR) + N', 217, NULL, NULL, ''overlap-typed-null-id'', NULL),
         (20, ' + CAST(@SeedBase + 15 AS NVARCHAR) + N', 217, NULL, 103, ''overlap-typed-null-id'', NULL);
@@ -361,8 +418,8 @@ BEGIN
     EXEC sp_executesql @CountSql, @Params,
         @SearchParamId = 414, @ResourceTypeId = 40,
         @ReferenceResourceId = @RefId,
-        @ReferenceResourceTypeId = 103,
-        @Type1 = 103, @Type2 = 104,
+        @ReferenceResourceTypeId = 103,   -- Patient (valid target for SearchParamId 414)
+        @Type1 = 103, @Type2 = 107,       -- Patient + Group (both valid targets for 414)
         @cnt = @Cnt OUTPUT;
 
     -- Capture execution plan from cache
