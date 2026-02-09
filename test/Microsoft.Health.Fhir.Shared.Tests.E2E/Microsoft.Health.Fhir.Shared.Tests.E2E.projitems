@@ -152,7 +152,7 @@
     <None Include="$(MSBuildThisFileDirectory)Rest\Directory.Build.props" />
     <None Include="$(MSBuildThisFileDirectory)Rest\Reindex\README.md" />
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
-    <None Include="$(MSBuildThisFileDirectory)xunit.v3.runner.json">
+    <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

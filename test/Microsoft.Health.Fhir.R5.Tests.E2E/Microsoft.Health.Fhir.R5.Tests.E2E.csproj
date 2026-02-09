@@ -37,7 +37,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.R5.Web\Microsoft.Health.Fhir.R5.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="xunit.v3.runner.json">
+    <None Update="xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
