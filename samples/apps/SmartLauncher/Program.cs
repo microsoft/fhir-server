@@ -123,7 +123,7 @@ static string GenerateClientAssertion(string clientId, string tokenEndpoint, ICo
     }
     else if (!string.IsNullOrEmpty(certThumbprint))
     {
-        using var store = new X509Store(StoreLocation.CurrentUser);
+        using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
         store.Open(OpenFlags.ReadOnly);
         var certs = store.Certificates.Find(X509FindType.FindByThumbprint, certThumbprint, validOnly: false);
         cert = certs.Count > 0 ? certs[0] : throw new InvalidOperationException($"Certificate with thumbprint '{certThumbprint}' not found.");
@@ -133,7 +133,7 @@ static string GenerateClientAssertion(string clientId, string tokenEndpoint, ICo
         throw new InvalidOperationException("CertificatePath or CertificateThumbprint must be configured for asymmetric authentication.");
     }
 
-    var signingCredentials = new SigningCredentials(new X509SecurityKey(cert), SecurityAlgorithms.RsaSha384);
+    var signingCredentials = new SigningCredentials(new X509SecurityKey(cert), SecurityAlgorithms.RsaSha256);
     var now = DateTime.UtcNow;
 
     var token = new JwtSecurityToken(
