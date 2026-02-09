@@ -1,123 +1,92 @@
 # Copilot Instructions for Microsoft FHIR Server
 
-Welcome to the Microsoft FHIR Server! These guidelines help provide relevant, accurate, and context-sensitive suggestions to enhance contributions to this project.
+## Build, Test, and Lint
 
----
+```bash
+# Build the full solution
+dotnet build Microsoft.Health.Fhir.sln
 
-## General Guidelines
+# Build a single FHIR version (faster iteration)
+dotnet build R4.slnf
+dotnet build R5.slnf
 
-- Follow the project's coding standards, which adhere to C#, .NET conventions, and Azure development best practices.
-- Ensure solutions strictly align with Fast Healthcare Interoperability Resources (FHIR) standards.
-- Prioritize security, compliance, maintainability, and performance in all implementations.
+# Run all unit tests
+dotnet test **/*UnitTests/*.csproj --configuration Release
 
----
+# Run a single test project
+dotnet test src/Microsoft.Health.Fhir.Core.UnitTests/Microsoft.Health.Fhir.Core.UnitTests.csproj
+
+# Run a single test by name
+dotnet test --filter "FullyQualifiedName~MyTestClassName.MyTestMethod"
+
+# Lint/style: enforced at build time via StyleCop.Analyzers (warnings are errors)
+```
+
+Target frameworks are `net9.0` and `net8.0`. The required SDK version is defined in `global.json`.
+
+## Architecture
+
+The server follows a layered architecture with MediatR for CQRS:
+
+```
+HTTP Request → FhirController → IMediator.Send(Request)
+  → Pipeline Behaviors (validation, authorization)
+    → IRequestHandler<TRequest, TResponse>
+      → IFhirDataStore (CosmosDb or SqlServer implementation)
+```
+
+**Key layers:**
+- **API layer** (`Microsoft.Health.Fhir.Api`, `*.Shared.Api`): Controllers, filters, `FhirResult` response wrappers. Controllers use `[ServiceFilter]` attributes and inject `IMediator`.
+- **Core layer** (`Microsoft.Health.Fhir.Core`, `*.Shared.Core`): Request/response messages in `Messages/`, handlers in `Features/`, domain models (`ResourceWrapper`, `ResourceKey`, `RawResource`).
+- **Data layer** (`*.CosmosDb`, `*.SqlServer`): Implement `IFhirDataStore`, `IFhirOperationDataStore`, and search indexing.
+
+**FHIR version support (STU3, R4, R4B, R5):**
+- Version-specific projects (`*.R4.Core`, `*.R4.Api`, `*.R4.Web`) wrap shared code via `.shproj`/`.projitems` shared project files.
+- Shared logic lives in `Microsoft.Health.Fhir.Shared.Core` and `Microsoft.Health.Fhir.Shared.Api`.
+- Solution filters (`R4.slnf`, `R5.slnf`) scope builds to a single FHIR version.
+
+**DI registration:** Uses `IStartupModule` with `Load(IServiceCollection services)`. Modules are organized per feature (e.g., `FhirModule`, `OperationsModule`, `SearchModule`). Use the fluent API: `services.Add<T>().Singleton().AsSelf().AsService<IInterface>()`.
+
+**Exception handling:** Throw `FhirException` (or subclasses) with `OperationOutcomeIssue` items. `OperationOutcomeExceptionFilterAttribute` converts these to FHIR-compliant `OperationOutcome` HTTP responses.
+
+**Bulk operations** (Import, Export, Reindex, BulkDelete): Use an async job framework. Scaffold new operations with `./tools/AsyncJobGenerator`.
 
 ## Coding Conventions
 
-- Adhere to clear, explicit naming conventions:
-  - Use PascalCase for classes, methods, public properties.
-  - Use camelCase for private fields and local variables, with an underscore prefix (_fieldName).
-- Include XML documentation for all public members
-- On creation of new class, ensure there is a new line between namespace and class declaration
+- **Naming:** PascalCase for classes/methods/public properties. `_camelCase` for private fields, `s_` prefix for static fields.
+- **New classes:** Add a blank line between namespace declaration and class declaration.
+- **XML docs:** Required on all public members.
+- **Style enforcement:** StyleCop.Analyzers + `.editorconfig` + `stylecop.json`. All warnings are treated as errors — fix all violations before committing.
+- **Braces:** Always on new lines (Allman style).
+- **Using directives:** `System` first, placed outside the namespace.
 
----
+## Testing
 
-## Testing Requirements
-- Always build and fix any errors first.
-- Write unit tests for all new functionality.
-- Use xUnit for testing framework
-- Follow Arrange-Act-Assert pattern in tests
-- Use NSubstitute for external dependencies in tests.
-- Add an E2E test when relevant.
-- Implement defensive programming:
-  - Validate inputs rigorously.
-  - Handle exceptions gracefully, avoiding unhandled exceptions in runtime.
+- **Framework:** xUnit with `Arrange-Act-Assert` pattern.
+- **Mocking:** NSubstitute for new tests. Moq also exists in some older tests.
+- **Unit tests:** Located in `*UnitTests` projects alongside each component.
+- **Integration tests:** Use `IAsyncLifetime` fixtures (`*TestsFixture` classes). Separate fixtures for CosmosDb and SqlServer.
+- **E2E tests:** Use `HttpIntegrationTestFixture<TStartup>`, `TestFhirServer`, and `TestFhirClient`. Organized by feature under `test/Microsoft.Health.Fhir.*.Tests.E2E`.
+- **CI retries:** `--retry-failed-tests 3` is used in CI pipelines.
 
----
+## SQL Schema Migration
 
-## Project Structure
+Only needed for database structure changes. Not required for Core, API, or Web layer changes.
 
-Here's a high-level overview of key directories and their purposes. Consider how each component relates to typical user stories or feature implementations:
+Steps to add a new SQL schema version:
+1. Increment the version number in `SchemaVersion.cs`
+2. Update the `Max` version in `SchemaVersionConstants.cs`
+3. Define SQL in `./src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/` — tables in `Tables/*.sql`, stored procs in `Sprocs/*.sql`
+4. Create a migration file `{Version}.diff.sql` in `./src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations/` — the full snapshot `{Version}.sql` is auto-generated by a build tool
+5. Update `LatestSchemaVersion` in `Microsoft.Health.Fhir.SqlServer.csproj`
+6. Add a corresponding SQL data store implementation and integration tests
+7. Follow guidelines in `./docs/SchemaVersioning.md`
 
-- **.devcontainer/**: Development container configurations ensuring consistent environments.
-- **.github/**: GitHub-specific workflows, issue templates, and configurations.
-- **.vscode/**: Visual Studio Code settings.
-- **build/**: Scripts and tools for Azure DevOps Pipelines (YAML).
-- **docs/**: Project documentation, including setup guides and architectural diagrams.
-  - **arch/**: Project documentation, Architectural Design Records for understanding design decisions.
-  - **arch/Readme.md**: ADR instructions and template.
-  - **rest/**: Sample FHIR HTTP Rest requests demonstrating various FHIR functionality.
-  - **flow diagrams/**: Mermaid diagrams to understand the project's architecture, layers, and request flows.
-- **release/**: Release assets and notes.
-- **samples/**: Sample code illustrating FHIR server usage.
-- **src/**: Primary source code of the application.
-  - **Microsoft.Health.Fhir.Api/**: RESTful API layer conforming to HL7 FHIR specs (controllers, filters, actions).
-  - **Microsoft.Health.Fhir.Core/**: Core FHIR domain logic and models.
-  - **Microsoft.Health.Fhir.CosmosDb/**: Azure Cosmos DB data persistence logic.
-  - **Microsoft.Health.Fhir.SqlServer/**: SQL Server data persistence logic.
-    - **Features/Schema/**: SQL schema files (see "SQL migration" when updates are needed).
-  - **Microsoft.Health.Fhir.Shared.Api/**: Components shared across multiple FHIR API versions.
-  - **Microsoft.Health.Fhir.Shared.Core/**: Core components shared across multiple FHIR versions.
-  - **Microsoft.Health.Fhir.[Stu3|R4|R5].Core/**: Version-specific FHIR core components.
-  - **Microsoft.Health.Fhir.[Stu3|R4|R5].Api/**: Version-specific FHIR API implementations.
-  - **Microsoft.Health.Fhir.[Stu3|R4|R5].Web/**: Version-specific FHIR Web hosting layer.
-  - **UnitTests/** directories: Contain unit tests corresponding to each respective component.
-  - **Tests.E2E/** directories: End-to-end integration tests for FHIR implementations.
-- **tools/**: Auxiliary utilities for development and maintenance tasks.
+## ADRs
 
----
-
-## Architectural Guidance
-
-- Maintain clear separation of concerns across layers: API, Business Logic, Data Access, and Infrastructure.
-- Design implementations for modularity, extensibility, and scalability.
-- Use dependency injection and interface-based designs for improved testability and loose coupling.
-- Utilize the Request/Response/Handler pattern based on the .NET Mediatr library.
-- Clearly link architectural decisions back to user stories or business requirements to enhance traceability and clarity.
-- When creating an ADR, please think thoroughly through possible states, behaviors, outcomes and edgecases. Describe how the change may impact each of these. Use background information from the codebase, previous ADRs and the FHIR Specification. If a decision makes a previous ADR obsolete you should update it as such.
-
----
-
-## SQL migration (when needed)
-- Only changes to the database structure need a sql migration, evaluate if the functionality is related to the database or in Core, API or Web which do not need these steps.
-  - For adding new SQL schema version, follow these steps
-    - Increment the version number in the SchemaVersion.cs file
-    - Update the Max version in the SchemaVersionConstants.cs file
-    - Define sql functionality in the schema definitional files under ./src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Sql/**/*.sql.
-      - Tables are in ./Tables/*.sql
-      - Stored procs are in ./Sprocs/*.sql
-    - Create a new migration file with a format `Version.diff.sql` in ./src/Microsoft.Health.Fhir.SqlServer/Features/Schema/Migrations folder
-      - The full snapshot file `Version.sql` will be generated automatically by a build tool, so you do not need to manually create this.
-    - Update the Microsoft.Health.Fhir.SqlServer.csproj file to include the new version in LatestSchemaVersion property
-  - Let the developer know that they need to add new sql data store for the corresponding functionality and specify the new version.
-  - Let the developer know that they need to add new integration tests for the corresponding sql changes.
-  - Let the developer know to follow SQL guidelines from ./docs/SchemaVersioning.md
-
----
-
-## Other special functions
-- Async Requests and Jobs in FHIR Server, Bulk operations such as Import, Export and Reindex use these.
-  - To create background jobs (async requests) in FHIR, use the steps and tool provided in ./tools/AsyncJobGenerator
-
----
-
-## Security and Compliance
-
-- Follow Azure and industry-standard security best practices:
-  - Handle secrets securely.
-  - Maintain secure configurations.
-  - Ensure proper data encryption and data privacy compliance.
-
----
-
-## Performance
-
-- Optimize for performance:
-  - Efficient database querying and data handling.
-  - Minimize response latency.
-  - Implement caching strategically to improve efficiency.
-
----
-
-Happy coding!
+Architecture Decision Records live in `docs/arch/`. When creating one:
+- Follow the template in `docs/arch/Readme.md`
+- Think through states, behaviors, outcomes, and edge cases
+- Reference the FHIR specification and previous ADRs for context
+- If a decision obsoletes a prior ADR, update it accordingly
 
