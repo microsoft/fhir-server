@@ -57,27 +57,34 @@ A SQL performance test script has been created at:
 
 ### What the Test Does
 
-1. **Creates a test database** (`FhirRefTypeIdTest`) with the exact `ReferenceSearchParam` schema and indexes (partitioning is omitted for simplicity — it maps all partitions to PRIMARY anyway).
+1. **Creates a test database** (`FhirRefTypeIdTest`) with **three separate tables**, each with the exact `ReferenceSearchParam` schema and indexes (partitioning is omitted for simplicity — it maps all partitions to PRIMARY anyway). Each table has a different NULL distribution to cover unknown production data patterns:
 
-2. **Generates ~2M rows** with realistic data distribution:
+   | Table | NULL % | Purpose |
+   |-------|--------|---------|
+   | `RefSearch_Null10` | 10% | Low-NULL scenario (mostly typed references) |
+   | `RefSearch_Null30` | 30% | Medium-NULL scenario |
+   | `RefSearch_Null60` | 60% | High-NULL scenario (many untyped string references) |
 
-   | Segment | ReferenceResourceTypeId | % of Rows | Purpose |
-   |---------|------------------------|-----------|---------|
-   | Patient (103) | Non-NULL | 40% | Most common type |
-   | Practitioner (104) | Non-NULL | 15% | Second common type |
-   | Organization (105) | Non-NULL | 10% | Third type |
-   | Device (106) | Non-NULL | 5% | Less common |
-   | Group (107) | Non-NULL | 5% | Multi-target scenario |
-   | **Untyped** | **NULL** | **10%** | **String references** |
-   | Others (108-110) | Non-NULL | 15% | Long tail |
+2. **Generates ~2M rows per table** (~6M total). Within the non-NULL portion of each table, typed references are distributed proportionally:
 
-3. **Seeds specific test IDs** for controlled scenarios:
+   | Segment | ReferenceResourceTypeId | % of Non-NULL Portion | Purpose |
+   |---------|------------------------|-----------------------|---------|
+   | Patient (103) | Non-NULL | 44% | Most common type |
+   | Practitioner (104) | Non-NULL | 17% | Second common type |
+   | Organization (105) | Non-NULL | 11% | Third type |
+   | Device (106) | Non-NULL | 6% | Less common |
+   | Group (107) | Non-NULL | 6% | Multi-target scenario |
+   | Location (108) | Non-NULL | 6% | Additional type |
+   | RelatedPerson (109) | Non-NULL | 5% | Additional type |
+   | Medication (110) | Non-NULL | 5% | Additional type |
+
+3. **Seeds specific test IDs in each table** for controlled scenarios:
    - **S1** (`common-patient-0001`): Common ID with many matching rows
    - **S2** (`rare-singleton-id`): Rare ID with 1-2 matching rows
    - **S3** (`overlap-typed-null-id`): ID that exists in BOTH typed and NULL rows
    - **S4** (`null-only-id`): ID that exists ONLY in NULL rows
 
-4. **Runs 7 query variants** against each scenario:
+4. **Runs 7 query variants × 4 scenarios × 3 NULL distributions** (84 total test executions):
 
    | Variant | WHERE Clause Pattern | Tests |
    |---------|---------------------|-------|
@@ -98,16 +105,19 @@ A SQL performance test script has been created at:
 
 6. **Generates analysis reports**:
    - Correctness check (row count differences vs baseline Q1)
-   - Index usage comparison across variants
-   - Decision matrix
+   - Index usage comparison across variants and NULL distributions
+   - **Cross-distribution comparison** — shows whether increasing NULL % flips the optimizer's plan choice
+   - Decision matrix with degradation risk assessment
 
 ### How to Run
 
 1. Open SSMS and connect to a SQL Server 2019+ instance
 2. Open `docs/testing/ReferenceResourceTypeId_PerfTest.sql`
-3. Execute the entire script (or run Part 1 and Part 2 separately)
-4. Review the printed results and the `#TestResults` table
-5. Click on `ExecutionPlanXml` cells to view graphical plans
+3. Execute the entire script (or run Part 1, Part 2, Part 3 separately)
+4. Part 1 creates 3 tables and loads ~6M rows total (may take several minutes)
+5. Part 2 runs 84 test executions and stores results in `dbo.TestResults`
+6. Part 3 outputs analysis reports — review printed output and query `dbo.TestResults`
+7. Click on `ExecutionPlanXml` cells in SSMS to view graphical plans
 
 ### Decision Criteria
 
@@ -115,8 +125,9 @@ A SQL performance test script has been created at:
 |---------|----------|
 | Q4/Q5 use index seeks AND row counts match baseline | ✅ Proceed with NULL-inclusive approach |
 | Q4/Q5 degrade to scans while Q2/Q3 still seek | ❌ NULL-inclusive hurts; consider alternatives |
+| Q4/Q5 seek at 10% NULL but scan at 60% NULL | ⚠️ Approach is fragile — depends on data distribution |
 | Q2/Q3 miss rows that Q1 returns (S3/S4 scenarios) | ⚠️ Confirms correctness risk — must handle NULLs |
-| Q7 (UNION ALL) gets two seeks | ✅ Preferred over OR for optimizer friendliness |
+| Q7 (UNION ALL) gets two seeks at all NULL ratios | ✅ Preferred — immune to NULL distribution changes |
 | Q1 baseline performs well enough across all scenarios | 🤔 Re-evaluate whether the optimization is needed |
 
 ---
@@ -257,16 +268,28 @@ WITH (DATA_COMPRESSION = PAGE);
 ```
 Run perf test (docs/testing/ReferenceResourceTypeId_PerfTest.sql)
     │
-    ├─ Q4/Q5 achieve index seeks with good perf?
-    │     └─ YES → Use OR + IS NULL approach (simplest correct change)
+    ├─ Check CROSS-DISTRIBUTION table: does NULL ratio flip plan choices?
+    │     │
+    │     ├─ Plans are STABLE across 10%/30%/60% NULL:
+    │     │     │
+    │     │     ├─ Q4/Q5 achieve index seeks?
+    │     │     │     └─ YES → Use OR + IS NULL approach (simplest correct change)
+    │     │     │
+    │     │     ├─ Q7 (UNION ALL) achieves two seeks but Q4/Q5 don't?
+    │     │     │     └─ YES → Use UNION ALL approach (Alternative 2)
+    │     │     │
+    │     │     └─ Neither OR nor UNION helps?
+    │     │           └─ Consider Backfill (Alt 1) or Filtered Index (Alt 3)
+    │     │
+    │     └─ Plans DEGRADE at high NULL%:
+    │           │
+    │           ├─ Q7 (UNION ALL) is stable across all NULL ratios?
+    │           │     └─ YES → Use UNION ALL (immune to distribution changes)
+    │           │
+    │           └─ All approaches degrade?
+    │                 └─ Consider Backfill (Alt 1) to eliminate NULLs
     │
-    ├─ Q7 (UNION ALL) achieves two seeks but Q4/Q5 don't?
-    │     └─ YES → Use UNION ALL approach (Alternative 2)
-    │
-    ├─ Neither OR nor UNION helps?
-    │     └─ Consider Backfill (Alternative 1) or Filtered Index (Alternative 3)
-    │
-    └─ Q1 baseline is already fast enough?
+    └─ Q1 baseline is already fast enough at all NULL ratios?
           └─ Consider Leave As-Is (Alternative 4)
 ```
 
