@@ -1,5 +1,7 @@
 steps:
-- checkout: none
+- checkout: self
+  fetchDepth: 1
+  fetchTags: false
 
 # Download all coverage artifacts from all test stages
 - task: DownloadPipelineArtifact@2
@@ -32,4 +34,6 @@ steps:
   displayName: 'Publish aggregated code coverage to pipeline and 1ES telemetry'
   inputs:
     summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
+    pathToSources: '$(Build.SourcesDirectory)/src'
+    codeCoverageTool: 'Cobertura'
     failIfCoverageEmpty: false
