@@ -147,10 +147,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
                 else
                 {
-                    // Multiple target types - add OR expression
-                    var typeExpressions = targetResourceTypes
-                        .Select(t => Expression.StringEquals(FieldName.ReferenceResourceType, actualComponentIndex, t, false))
-                        .ToArray();
+                    // Multiple target types - add OR expression with IS NULL to include untyped string references
+                    var typeExpressions = new Expression[targetResourceTypes.Count + 1];
+                    for (int t = 0; t < targetResourceTypes.Count; t++)
+                    {
+                        typeExpressions[t] = Expression.StringEquals(FieldName.ReferenceResourceType, actualComponentIndex, targetResourceTypes[t], false);
+                    }
+
+                    typeExpressions[targetResourceTypes.Count] = Expression.Missing(FieldName.ReferenceResourceType, actualComponentIndex);
                     newExpressionsToBeAnded.Add(Expression.Or(typeExpressions));
                 }
             }

@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
-            Assert.Equal("(Param p2 (And (StringEquals ReferenceResourceId 'patientId') (Or (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceType 'Practitioner'))))", outputExpression.ToString());
+            Assert.Equal("(Param p2 (And (StringEquals ReferenceResourceId 'patientId') (Or (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceType 'Practitioner') (MissingField ReferenceResourceType))))", outputExpression.ToString());
         }
 
         [Fact]
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
             Assert.Equal(
-                "(Param p2 (Or (And (StringEquals ReferenceResourceId 'id1') (Or (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceType 'Practitioner'))) (And (StringEquals ReferenceResourceId 'id2') (Or (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceType 'Practitioner')))))",
+                "(Param p2 (Or (And (StringEquals ReferenceResourceId 'id1') (Or (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceType 'Practitioner') (MissingField ReferenceResourceType))) (And (StringEquals ReferenceResourceId 'id2') (Or (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceType 'Practitioner') (MissingField ReferenceResourceType)))))",
                 outputExpression.ToString());
         }
 
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
-            Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner')) (StringEquals [1].ReferenceResourceType 'Organization')))", outputExpression.ToString());
+            Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner') (MissingField [0].ReferenceResourceType)) (StringEquals [1].ReferenceResourceType 'Organization')))", outputExpression.ToString());
         }
 
         [Fact]
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
-            Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceType 'Organization') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner'))))", outputExpression.ToString());
+            Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceType 'Organization') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner') (MissingField [0].ReferenceResourceType))))", outputExpression.ToString());
         }
 
         [Fact]
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
-            Assert.Equal("(Param c (Or (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId1') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner')) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId2') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner')) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId3') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner')) (StringEquals [1].ReferenceResourceType 'Organization'))))", outputExpression.ToString());
+            Assert.Equal("(Param c (Or (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId1') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner') (MissingField [0].ReferenceResourceType)) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId2') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner') (MissingField [0].ReferenceResourceType)) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId3') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner') (MissingField [0].ReferenceResourceType)) (StringEquals [1].ReferenceResourceType 'Organization'))))", outputExpression.ToString());
         }
 
         [Fact]
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
-            Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner')) (StringEquals [1].ReferenceResourceType 'Organization')))", outputExpression.ToString());
+            Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner') (MissingField [0].ReferenceResourceType)) (StringEquals [1].ReferenceResourceType 'Organization')))", outputExpression.ToString());
         }
     }
 }
