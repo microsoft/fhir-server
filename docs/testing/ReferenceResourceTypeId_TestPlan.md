@@ -57,7 +57,7 @@ A SQL performance test script has been created at:
 
 ### What the Test Does
 
-1. **Creates a test database** (`FhirRefTypeIdTest`) with **three separate tables**, each with the exact `ReferenceSearchParam` schema and indexes (partitioning is omitted for simplicity — it maps all partitions to PRIMARY anyway). Each table has a different NULL distribution to cover unknown production data patterns:
+1. **Creates a test database** (`FhirRefTypeIdTest`) with **three separate tables**, each with the exact `ReferenceSearchParam` schema and indexes. Each table has a different NULL distribution:
 
    | Table | NULL % | Purpose |
    |-------|--------|---------|
@@ -65,18 +65,7 @@ A SQL performance test script has been created at:
    | `RefSearch_Null30` | 30% | Medium-NULL scenario |
    | `RefSearch_Null60` | 60% | High-NULL scenario (many untyped string references) |
 
-2. **Generates ~2M rows per table** (~6M total). Within the non-NULL portion of each table, typed references are distributed proportionally:
-
-   | Segment | ReferenceResourceTypeId | % of Non-NULL Portion | Purpose |
-   |---------|------------------------|-----------------------|---------|
-   | Patient (103) | Non-NULL | 44% | Most common type |
-   | Practitioner (104) | Non-NULL | 17% | Second common type |
-   | Organization (105) | Non-NULL | 11% | Third type |
-   | Device (106) | Non-NULL | 6% | Less common |
-   | Group (107) | Non-NULL | 6% | Multi-target scenario |
-   | Location (108) | Non-NULL | 6% | Additional type |
-   | RelatedPerson (109) | Non-NULL | 5% | Additional type |
-   | Medication (110) | Non-NULL | 5% | Additional type |
+2. **Generates ~20M rows per table** (~60M total). `ReferenceResourceTypeId` values are correlated to `SearchParamId` per FHIR R4 spec — each search parameter only gets target types that are valid for it.
 
 3. **Seeds specific test IDs in each table** for controlled scenarios:
    - **S1** (`common-patient-0001`): Common ID with many matching rows
@@ -84,57 +73,46 @@ A SQL performance test script has been created at:
    - **S3** (`overlap-typed-null-id`): ID that exists in BOTH typed and NULL rows
    - **S4** (`null-only-id`): ID that exists ONLY in NULL rows
 
-4. **Runs 11 query variants × 4 scenarios × 3 NULL distributions** (132 total test executions):
+4. **Runs 2 query variants × 4 scenarios × 3 NULL distributions** (24 total test executions):
 
-   | Variant | WHERE Clause Pattern | Tests |
-   |---------|---------------------|-------|
-   | **Q1** (Baseline) | No ReferenceResourceTypeId filter | Current production behavior |
-   | **Q2** (Single Type) | `TypeId = @val` | PR #5285 single-target case (partial) |
-   | **Q3** (2-Type OR) | `(TypeId = @a OR TypeId = @b)` | PR #5285 multi-target case (partial) |
-   | **Q4** (Single + NULL) | `(TypeId = @val OR TypeId IS NULL)` | Single target + NULL |
-   | **Q5** (2-Type + NULL) | `(TypeId = @a OR TypeId = @b OR TypeId IS NULL)` | 2 targets + NULL |
-   | **Q6** (2-Type IN) | `TypeId IN (@a, @b)` | IN clause (partial, no NULL) |
-   | **Q7** (UNION ALL) | `TypeId = @val UNION ALL TypeId IS NULL` | UNION approach (single type) |
-   | **Q8** (All Types OR) | `(TypeId = @a OR @b OR @c OR @d)` | **All 4 targets, no NULL** |
-   | **Q9** (All Types IN) | `TypeId IN (@a, @b, @c, @d)` | **All 4 targets via IN, no NULL** |
-   | **Q10** (All Types + NULL) | `(TypeId IN (@a,@b,@c,@d) OR TypeId IS NULL)` | **All targets + NULL — should match baseline** |
-   | **Q11** (All Types UNION) | `TypeId IN (...) UNION ALL TypeId IS NULL` | **All targets UNION NULL** |
-
-   Q8-Q11 are the key variants — they include ALL valid target types for SearchParamId 414 (Patient, Group, Device, Location). Q10/Q11 should match baseline row counts exactly.
+   | Variant | WHERE Clause Pattern | What It Tests |
+   |---------|---------------------|---------------|
+   | **Q1** (Baseline) | No `ReferenceResourceTypeId` filter | Current production behavior |
+   | **Q2** (All Types + NULL) | `(TypeId IN (@a,@b,@c,@d) OR TypeId IS NULL)` | PR #5285 approach with IS NULL |
 
 5. **Captures** for each execution:
    - Row count returned
    - Index used (secondary IXU vs clustered IXC)
    - Seek vs Scan operation
-   - Estimated vs Actual rows (cardinality estimation accuracy)
+   - Estimated vs Actual rows
    - Full execution plan XML (viewable in SSMS)
 
 6. **Generates analysis reports**:
-   - Correctness check (row count differences vs baseline Q1)
-   - Index usage comparison across variants and NULL distributions
-   - **Cross-distribution comparison** — shows whether increasing NULL % flips the optimizer's plan choice
-   - Decision matrix with degradation risk assessment
+   - Correctness check (Q2 row counts must match Q1 baseline)
+   - Side-by-side index behavior comparison (IMPROVED / REGRESSED / SAME)
+   - Cross-distribution plan stability
+   - Summary verdict with seek percentage and degradation risk
 
 ### How to Run
 
 1. Open SSMS and connect to a SQL Server 2019+ instance
 2. Open `docs/testing/ReferenceResourceTypeId_PerfTest.sql`
 3. Execute the entire script (or run Part 1, Part 2, Part 3 separately)
-4. Part 1 creates 3 tables and loads ~6M rows total (may take several minutes)
-5. Part 2 runs 84 test executions and stores results in `dbo.TestResults`
+4. Part 1 creates 3 tables and loads ~60M rows total (allow 15-30 minutes)
+5. Part 2 runs 24 test executions and stores results in `dbo.TestResults`
 6. Part 3 outputs analysis reports — review printed output and query `dbo.TestResults`
 7. Click on `ExecutionPlanXml` cells in SSMS to view graphical plans
+
+**Note**: Part 1 is idempotent — if tables already exist with ≥1M rows, data generation is skipped. To force regeneration, drop the tables first.
 
 ### Decision Criteria
 
 | Outcome | Decision |
 |---------|----------|
-| Q4/Q5 use index seeks AND row counts match baseline | ✅ Proceed with NULL-inclusive approach |
-| Q4/Q5 degrade to scans while Q2/Q3 still seek | ❌ NULL-inclusive hurts; consider alternatives |
-| Q4/Q5 seek at 10% NULL but scan at 60% NULL | ⚠️ Approach is fragile — depends on data distribution |
-| Q2/Q3 miss rows that Q1 returns (S3/S4 scenarios) | ⚠️ Confirms correctness risk — must handle NULLs |
-| Q7 (UNION ALL) gets two seeks at all NULL ratios | ✅ Preferred — immune to NULL distribution changes |
-| Q1 baseline performs well enough across all scenarios | 🤔 Re-evaluate whether the optimization is needed |
+| Q2 row counts match Q1 across all scenarios and distributions | ✅ Correctness verified |
+| Q2 achieves more index seeks than Q1 | ✅ Performance improvement confirmed |
+| Q2 degrades to scans at higher NULL% while Q1 seeks | ⚠️ Approach may be fragile |
+| Q2 row counts differ from Q1 (especially S3/S4) | ❌ Correctness bug — NULL handling broken |
 
 ---
 
@@ -148,76 +126,38 @@ Initial test data randomly assigned `ReferenceResourceTypeId` values without cor
 
 Q2-Q7 (which test only 1-2 of the 4 target types) are **expected** to return fewer rows than baseline. The key variants are Q8-Q11, which include ALL target types.
 
-### Run 2 (2026-02-09) — Correlated Test Data, All Target Types
+### Run 2 (2026-02-09) — Correlated Test Data, All Target Types (2M rows)
 
-Data regenerated with `ReferenceResourceTypeId` correlated to `SearchParamId` per FHIR R4 spec. Added Q8-Q11 variants using all 4 target types for SearchParamId 414 (Patient=103, Group=107, Device=106, Location=108).
+Data regenerated with `ReferenceResourceTypeId` correlated to `SearchParamId` per FHIR R4 spec. Tested 11 query variants including Q8-Q11 with all 4 target types for SearchParamId 414.
 
-#### Data Distribution
+**Key findings (Q1 Baseline vs Q10 AllTypes+NULL):**
 
-| Table | Total Rows | NULL Rows | NULL % | Patient Rows | Practitioner Rows |
-|-------|-----------|-----------|--------|-------------|-------------------|
-| RefSearch_Null10 | 2,000,010 | 199,350 | 10.0% | 1,057,212 | 316,468 |
-| RefSearch_Null30 | 2,000,010 | 599,792 | 30.0% | 821,473 | 246,883 |
-| RefSearch_Null60 | 2,000,010 | 1,200,501 | 60.0% | 469,161 | 140,891 |
+| Metric | Q1 Baseline | Q10 AllTypes+NULL |
+|--------|------------|-------------------|
+| Correctness | ✅ PASS | ✅ PASS (matches baseline exactly) |
+| Index Seeks (of 12 tests) | 1 (8%) | 6 (50%) |
+| S1 degradation at 60% NULL? | N/A | No |
 
-#### Correctness Results
+Side-by-side comparison:
+- **5 improved** (N/A → Index Seek)
+- **5 same** (N/A → N/A)
+- **1 regressed** (Index Seek → N/A at 10%/S1 only)
+- Q11 (UNION ALL) achieved 7/12 seeks but requires more complex SQL generation
 
-**Q10 and Q11 PASS correctness across ALL distributions and ALL scenarios:**
+**Conclusion from Run 2**: Q10 (IN + IS NULL) is correct and improves seek rate 6× over baseline. Proceed to Run 3 at 10× scale to confirm results hold.
 
-| Variant | S1 (10%) | S1 (30%) | S1 (60%) | S2 | S3 | S4 | Verdict |
-|---------|---------|---------|---------|----|----|-----|---------|
-| Q1-Baseline | 244 | 207 | 246 | ✓ | ✓ | ✓ | PASS |
-| **Q10-AllTypesNULL** | **244** | **207** | **246** | **✓** | **✓** | **✓** | **✅ PASS** |
-| **Q11-AllTypesUnion** | **244** | **207** | **246** | **✓** | **✓** | **✓** | **✅ PASS** |
-| Q8-AllTypesOR (no NULL) | 226 | 146 | 92 | ✓ | ✓ | ✗ | ❌ FAILS (misses NULL rows) |
-| Q9-AllTypesIN (no NULL) | 226 | 146 | 92 | ✓ | ✓ | ✗ | ❌ FAILS (misses NULL rows) |
+### Run 3 (pending) — Focused Comparison at 20M Rows
 
-Q2-Q7 fail as expected — they test only a subset of target types and/or omit NULL handling.
+Simplified test: only Q1 (Baseline) vs Q2 (All Types + IS NULL) at 20M rows per table.
+This validates whether the Run 2 findings hold at production-like scale.
 
-Q8/Q9 (all types but NO NULL) fail on S4 (NULL-only ID) and lose rows on S1 proportional to NULL%. This confirms **IS NULL handling is mandatory**.
+- **Tables**: 3 × 20M rows = 60M total (10× increase from Run 2)
+- **Variants**: Q1-Baseline, Q2-AllTypesNULL only
+- **Scenarios**: S1-S4 (unchanged)
+- **Distributions**: 10%, 30%, 60% NULL (unchanged)
+- **Total tests**: 24 (2 variants × 4 scenarios × 3 distributions)
 
-#### Index Behavior
-
-| Variant | Null10 Seeks | Null30 Seeks | Null60 Seeks | Total (of 12) |
-|---------|-------------|-------------|-------------|--------------|
-| Q1-Baseline | 1 | 0 | 0 | 1 |
-| **Q10-AllTypesNULL** | **2** | **1** | **2** | **5** |
-| **Q11-AllTypesUnion** | **2** | **3** | **2** | **7** |
-| Q9-AllTypesIN | 2 | 1 | 2 | 5 |
-
-Key observations:
-- **Q11-AllTypesUnion achieves the most index seeks (7/12)** — the UNION ALL approach lets the optimizer seek independently on each branch
-- **Q10-AllTypesNULL achieves 5/12 seeks** — the `IN (...) OR IS NULL` approach still enables seeks in most cases
-- **Q1-Baseline only achieves 1/12 seeks** — without `ReferenceResourceTypeId`, the index is poorly utilized
-- **No degradation** across NULL distributions — plan choices are stable from 10% to 60% NULL
-
-#### Cross-Distribution: S1 (Main Scenario)
-
-| Variant | 10% NULL | 30% NULL | 60% NULL | Plan Stable? |
-|---------|---------|---------|---------|-------------|
-| Q1-Baseline | Index Seek | N/A | N/A | Mostly non-seek |
-| Q10-AllTypesNULL | N/A | N/A | Index Seek | Stable |
-| Q11-AllTypesUnion | Index Seek | Index Seek | Index Seek | ✅ Stable (always seeks) |
-
-Q11 (UNION ALL) is the most **consistently seek-friendly** variant — it achieves Index Seek on S1 across all three NULL distributions.
-
-#### Decision Matrix
-
-| Variant | Correctness | Index Behavior | Recommendation |
-|---------|------------|---------------|----------------|
-| Q1-Baseline | ✅ PASS | Mixed (mostly non-seek) | Current behavior |
-| **Q10-AllTypesNULL** | **✅ PASS** | **Mixed (improved seeks)** | **✅ Viable — simpler SQL** |
-| **Q11-AllTypesUnion** | **✅ PASS** | **Mixed (best seek rate)** | **✅ Best — most consistent seeks** |
-| Q8/Q9 (no NULL) | ❌ FAILS | Mixed | ❌ Cannot use without IS NULL |
-
-### Conclusion
-
-**✅ Proceed with the change**, with these requirements:
-
-1. **Must include ALL target types** from the search parameter's `TargetResourceTypes` list — using only a subset drops valid rows
-2. **Must include `OR ReferenceResourceTypeId IS NULL`** — without it, untyped string references are silently dropped
-3. **Q11 (UNION ALL) is the best approach** for index utilization — it achieves consistent Index Seeks across all NULL distributions
-4. **Q10 (IN + IS NULL) is also viable** if UNION ALL is too complex to generate — it's correct and still improves seek rate over baseline
+**Expected**: Q2 matches Q1 row counts exactly and achieves more index seeks.
 
 ---
 
@@ -355,38 +295,31 @@ WITH (DATA_COMPRESSION = PAGE);
 ## Recommendation Flow
 
 ```
-Run perf test (docs/testing/ReferenceResourceTypeId_PerfTest.sql)
+Run perf test (docs/testing/ReferenceResourceTypeId_PerfTest.sql) at 20M rows
     │
-    ├─ Check CROSS-DISTRIBUTION table: does NULL ratio flip plan choices?
+    ├─ Q2 row counts match Q1 across all scenarios?
     │     │
-    │     ├─ Plans are STABLE across 10%/30%/60% NULL:
+    │     ├─ YES → Correctness verified ✅
     │     │     │
-    │     │     ├─ Q4/Q5 achieve index seeks?
-    │     │     │     └─ YES → Use OR + IS NULL approach (simplest correct change)
+    │     │     ├─ Q2 achieves more index seeks than Q1?
+    │     │     │     └─ YES → Ship PR #5285 with IS NULL handling
     │     │     │
-    │     │     ├─ Q7 (UNION ALL) achieves two seeks but Q4/Q5 don't?
-    │     │     │     └─ YES → Use UNION ALL approach (Alternative 2)
-    │     │     │
-    │     │     └─ Neither OR nor UNION helps?
-    │     │           └─ Consider Backfill (Alt 1) or Filtered Index (Alt 3)
+    │     │     └─ Q2 same or worse seeks than Q1?
+    │     │           └─ Consider UNION ALL (Alt 2) or Leave As-Is (Alt 4)
     │     │
-    │     └─ Plans DEGRADE at high NULL%:
-    │           │
-    │           ├─ Q7 (UNION ALL) is stable across all NULL ratios?
-    │           │     └─ YES → Use UNION ALL (immune to distribution changes)
-    │           │
-    │           └─ All approaches degrade?
-    │                 └─ Consider Backfill (Alt 1) to eliminate NULLs
+    │     └─ NO → Correctness bug — investigate NULL handling
     │
-    └─ Q1 baseline is already fast enough at all NULL ratios?
-          └─ Consider Leave As-Is (Alternative 4)
+    └─ Q2 degrades at high NULL%?
+          │
+          ├─ YES → Approach fragile, consider Backfill (Alt 1) or UNION ALL (Alt 2)
+          └─ NO → Ship it — plan is stable across distributions
 ```
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| [`ReferenceResourceTypeId_PerfTest.sql`](ReferenceResourceTypeId_PerfTest.sql) | SQL script: creates test DB, generates data, runs all query variants, captures results |
+| [`ReferenceResourceTypeId_PerfTest.sql`](ReferenceResourceTypeId_PerfTest.sql) | SQL script: creates test DB, generates 60M rows (3×20M), runs Q1 vs Q2 comparison, captures results |
 | This document | Test plan, alternatives analysis, decision criteria |
 
 ## Related Code

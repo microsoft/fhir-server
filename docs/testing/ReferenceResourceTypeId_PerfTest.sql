@@ -1,9 +1,9 @@
 -- =====================================================================================
--- ReferenceResourceTypeId WHERE Clause Performance Test
+-- ReferenceResourceTypeId WHERE Clause Performance Test — Focused
 -- =====================================================================================
 -- Purpose:  Determine whether adding ReferenceResourceTypeId (with IS NULL handling)
 --           to generated SQL WHERE clauses improves index utilization without harming
---           correctness or performance.
+--           correctness or performance at scale (20M rows per table).
 --
 -- Context:  PR #5285 modifies UntypedReferenceRewriter to add ReferenceResourceTypeId
 --           filters. The secondary index on ReferenceSearchParam has column order:
@@ -13,24 +13,30 @@
 --           However, ReferenceResourceTypeId is nullable — untyped string references
 --           store NULL. We must test whether including IS NULL degrades plans.
 --
--- Approach: We test across THREE NULL distribution ratios (10%, 30%, 60%) because
---           production data distribution is unknown. Each ratio gets its own table
---           with identical schema and indexes. All 7 query variants x 4 scenarios
---           are run against each table.
+-- Approach: This is a focused test comparing ONLY:
+--             Q1: Baseline (no ReferenceResourceTypeId in WHERE)
+--             Q2: All target types IN (...) OR IS NULL (the PR #5285 approach)
+--           Tested across THREE NULL distributions (10%, 30%, 60%) at 20M rows/table
+--           to validate results at production-like scale.
+--
+-- Prior:    Run 2 (2M rows, 11 variants) confirmed Q10 (all-types + NULL) passes
+--           correctness and improves index seek rate 6x over baseline. This Run 3
+--           replicates at 10x scale with a focused comparison.
 --
 -- Usage:    1. Run Part 1 to create the test database and load data (3 tables)
---           2. Run Part 2 to execute all query variants and capture results
+--           2. Run Part 2 to execute query variants and capture results
 --           3. Run Part 3 to review analysis
 --
 -- Requirements: SQL Server 2019+ (or Azure SQL). sysadmin or dbcreator for Part 1.
+--               Part 1 generates ~60M rows total — allow 15-30 minutes.
 -- =====================================================================================
 
 -- =====================================================================================
 -- PART 1: DATABASE SETUP AND DATA GENERATION
 -- =====================================================================================
 -- This section is idempotent: it skips database creation and data generation
--- if the tables already exist and contain data (>100K rows).
--- To force regeneration (e.g., after fixing data distribution), drop the tables first:
+-- if the tables already exist and contain sufficient data (>1M rows).
+-- To force regeneration, drop the tables first:
 --   DROP TABLE IF EXISTS dbo.RefSearch_Null10, dbo.RefSearch_Null30, dbo.RefSearch_Null60;
 -- =====================================================================================
 
@@ -103,7 +109,8 @@ GO
 
 -- =====================================================================================
 -- Helper: Populate a table with test data at a given NULL percentage.
--- Skips population if the table already has >= 100K rows.
+-- Skips population if the table already has >= 1M rows (allows reuse of existing data).
+-- Default is 20M rows per table (10x increase from Run 2).
 -- =====================================================================================
 IF OBJECT_ID('dbo.PopulateTestTable') IS NOT NULL DROP PROCEDURE dbo.PopulateTestTable;
 GO
@@ -111,27 +118,27 @@ GO
 CREATE PROCEDURE dbo.PopulateTestTable
     @TableName      SYSNAME,
     @NullPercent    INT,            -- 0-100: percentage of rows with NULL ReferenceResourceTypeId
-    @TotalRows      INT = 2000000
+    @TotalRows      INT = 20000000
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Skip if table already has data
-    DECLARE @ExistingRows INT;
-    DECLARE @CheckSql NVARCHAR(MAX) = N'SELECT @cnt = COUNT(*) FROM (SELECT TOP 100001 1 AS x FROM dbo.' + QUOTENAME(@TableName) + N') q';
-    EXEC sp_executesql @CheckSql, N'@cnt INT OUTPUT', @cnt = @ExistingRows OUTPUT;
+    -- Skip if table already has sufficient data
+    DECLARE @ExistingRows BIGINT;
+    DECLARE @CheckSql NVARCHAR(MAX) = N'SELECT @cnt = COUNT_BIG(*) FROM (SELECT TOP 1000001 1 AS x FROM dbo.' + QUOTENAME(@TableName) + N') q';
+    EXEC sp_executesql @CheckSql, N'@cnt BIGINT OUTPUT', @cnt = @ExistingRows OUTPUT;
 
-    IF @ExistingRows >= 100000
+    IF @ExistingRows >= 1000000
     BEGIN
         PRINT @TableName + ' already has ' + CAST(@ExistingRows AS VARCHAR) + '+ rows — skipping population';
         -- Still report distribution
         DECLARE @DistSql NVARCHAR(MAX) = N'
         SELECT ''' + @TableName + N''' AS TableName,
-            COUNT(*) AS TotalRows,
-            SUM(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END) AS NullRows,
-            CAST(100.0 * SUM(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END) / COUNT(*) AS DECIMAL(5,1)) AS [NullPct],
-            SUM(CASE WHEN ReferenceResourceTypeId = 103 THEN 1 ELSE 0 END) AS PatientRows,
-            SUM(CASE WHEN ReferenceResourceTypeId = 104 THEN 1 ELSE 0 END) AS PractitionerRows,
+            COUNT_BIG(*) AS TotalRows,
+            SUM(CAST(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END AS BIGINT)) AS NullRows,
+            CAST(100.0 * SUM(CAST(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END AS BIGINT)) / COUNT_BIG(*) AS DECIMAL(5,1)) AS [NullPct],
+            SUM(CAST(CASE WHEN ReferenceResourceTypeId = 103 THEN 1 ELSE 0 END AS BIGINT)) AS PatientRows,
+            SUM(CAST(CASE WHEN ReferenceResourceTypeId = 104 THEN 1 ELSE 0 END AS BIGINT)) AS PractitionerRows,
             COUNT(DISTINCT ReferenceResourceId) AS DistinctRefIds,
             COUNT(DISTINCT SearchParamId) AS DistinctSearchParams
         FROM dbo.' + QUOTENAME(@TableName) + N';';
@@ -147,19 +154,8 @@ BEGIN
     -- Realistic data model: each SearchParamId maps to specific valid target types
     -- based on FHIR R4 spec. ReferenceResourceTypeId is chosen ONLY from targets valid
     -- for that search parameter, plus NULL for untyped string references.
-    --
-    -- FHIR R4 target types (from search-parameters.json):
-    --   414 DiagnosticReport-subject: Patient(103), Group(107), Device(106), Location(108)
-    --   217 clinical-patient:         Patient(103), Group(107)
-    --   300 Observation-performer:    Practitioner(104), Organization(105), Patient(103)
-    --   350 Encounter-participant:    Practitioner(104), RelatedPerson(109)
-    --   500 Claim-provider:           Practitioner(104), Organization(105)
-    --   550 MedicationRequest-requester: Practitioner(104), Organization(105), Device(106),
-    --                                    Patient(103), RelatedPerson(109)
-    --   450 Encounter-managing-org:   Organization(105)
     -- =====================================================================================
 
-    -- Source resource types + search params (weighted for realistic volume)
     IF OBJECT_ID('tempdb..#ResourceTypes') IS NOT NULL DROP TABLE #ResourceTypes;
     CREATE TABLE #ResourceTypes (ResourceTypeId SMALLINT, SearchParamId SMALLINT, LowBound INT, HighBound INT);
     INSERT INTO #ResourceTypes VALUES
@@ -173,61 +169,33 @@ BEGIN
         (50, 550, 90, 94),   -- MedicationRequest / requester
         (25, 450, 95, 99);   -- Encounter / managing-organization
 
-    -- Valid target types per SearchParamId with weighted distribution
-    -- For each param, the most common target gets the highest weight
     IF OBJECT_ID('tempdb..#TargetTypes') IS NOT NULL DROP TABLE #TargetTypes;
     CREATE TABLE #TargetTypes (
         SearchParamId   SMALLINT,
-        RefTypeId       SMALLINT NULL,   -- NULL = untyped string reference
-        LowPct          INT,             -- lower bound (0-based) within non-null range
-        HighPct         INT              -- upper bound (inclusive) within non-null range
+        RefTypeId       SMALLINT NULL,
+        LowPct          INT,
+        HighPct         INT
     );
 
-    -- SearchParamId 414: DiagnosticReport/Observation subject → Patient(103), Group(107), Device(106), Location(108)
-    --   ~80% Patient, ~8% Group, ~7% Device, ~5% Location
-    INSERT INTO #TargetTypes VALUES (414, 103,  0, 79);   -- Patient
-    INSERT INTO #TargetTypes VALUES (414, 107, 80, 87);   -- Group
-    INSERT INTO #TargetTypes VALUES (414, 106, 88, 94);   -- Device
-    INSERT INTO #TargetTypes VALUES (414, 108, 95, 99);   -- Location
-
-    -- SearchParamId 217: clinical-patient → Patient(103), Group(107)
-    --   ~90% Patient, ~10% Group
-    INSERT INTO #TargetTypes VALUES (217, 103,  0, 89);   -- Patient
-    INSERT INTO #TargetTypes VALUES (217, 107, 90, 99);   -- Group
-
-    -- SearchParamId 300: Observation-performer → Practitioner(104), Organization(105), Patient(103)
-    --   ~60% Practitioner, ~25% Organization, ~15% Patient
-    INSERT INTO #TargetTypes VALUES (300, 104,  0, 59);   -- Practitioner
-    INSERT INTO #TargetTypes VALUES (300, 105, 60, 84);   -- Organization
-    INSERT INTO #TargetTypes VALUES (300, 103, 85, 99);   -- Patient
-
-    -- SearchParamId 350: Encounter-participant → Practitioner(104), RelatedPerson(109)
-    --   ~80% Practitioner, ~20% RelatedPerson
-    INSERT INTO #TargetTypes VALUES (350, 104,  0, 79);   -- Practitioner
-    INSERT INTO #TargetTypes VALUES (350, 109, 80, 99);   -- RelatedPerson
-
-    -- SearchParamId 500: Claim-provider → Practitioner(104), Organization(105)
-    --   ~65% Practitioner, ~35% Organization
-    INSERT INTO #TargetTypes VALUES (500, 104,  0, 64);   -- Practitioner
-    INSERT INTO #TargetTypes VALUES (500, 105, 65, 99);   -- Organization
-
-    -- SearchParamId 550: MedicationRequest-requester → Practitioner(104), Organization(105), Device(106), Patient(103), RelatedPerson(109)
-    --   ~55% Practitioner, ~20% Organization, ~10% Device, ~10% Patient, ~5% RelatedPerson
-    INSERT INTO #TargetTypes VALUES (550, 104,  0, 54);   -- Practitioner
-    INSERT INTO #TargetTypes VALUES (550, 105, 55, 74);   -- Organization
-    INSERT INTO #TargetTypes VALUES (550, 106, 75, 84);   -- Device
-    INSERT INTO #TargetTypes VALUES (550, 103, 85, 94);   -- Patient
-    INSERT INTO #TargetTypes VALUES (550, 109, 95, 99);   -- RelatedPerson
-
-    -- SearchParamId 450: Encounter managing-organization → Organization(105) only
-    --   100% Organization
-    INSERT INTO #TargetTypes VALUES (450, 105,  0, 99);   -- Organization
+    -- SearchParamId 414: Patient(103) 80%, Group(107) 8%, Device(106) 7%, Location(108) 5%
+    INSERT INTO #TargetTypes VALUES (414, 103,  0, 79), (414, 107, 80, 87), (414, 106, 88, 94), (414, 108, 95, 99);
+    -- SearchParamId 217: Patient(103) 90%, Group(107) 10%
+    INSERT INTO #TargetTypes VALUES (217, 103,  0, 89), (217, 107, 90, 99);
+    -- SearchParamId 300: Practitioner(104) 60%, Organization(105) 25%, Patient(103) 15%
+    INSERT INTO #TargetTypes VALUES (300, 104,  0, 59), (300, 105, 60, 84), (300, 103, 85, 99);
+    -- SearchParamId 350: Practitioner(104) 80%, RelatedPerson(109) 20%
+    INSERT INTO #TargetTypes VALUES (350, 104,  0, 79), (350, 109, 80, 99);
+    -- SearchParamId 500: Practitioner(104) 65%, Organization(105) 35%
+    INSERT INTO #TargetTypes VALUES (500, 104,  0, 64), (500, 105, 65, 99);
+    -- SearchParamId 550: Practitioner(104) 55%, Organization(105) 20%, Device(106) 10%, Patient(103) 10%, RelatedPerson(109) 5%
+    INSERT INTO #TargetTypes VALUES (550, 104,  0, 54), (550, 105, 55, 74), (550, 106, 75, 84), (550, 103, 85, 94), (550, 109, 95, 99);
+    -- SearchParamId 450: Organization(105) 100%
+    INSERT INTO #TargetTypes VALUES (450, 105,  0, 99);
 
     DECLARE @Sql NVARCHAR(MAX);
 
     PRINT 'Populating ' + @TableName + ' (' + CAST(@TotalRows AS VARCHAR) + ' rows, '
         + CAST(@NullPercent AS VARCHAR) + '% NULL)...';
-    PRINT '  Target types are correlated with SearchParamId per FHIR R4 spec.';
     PRINT '  Start: ' + CONVERT(VARCHAR, GETDATE(), 121);
 
     WHILE @CurrentBatch * @BatchSize < @TotalRows
@@ -256,8 +224,6 @@ BEGIN
             rd.SurrogateId,
             rt.SearchParamId,
             NULL,
-            -- Pick ReferenceResourceTypeId: NULL if NullRand falls in null slice,
-            -- otherwise pick a valid target type for this SearchParamId
             CASE
                 WHEN rd.NullRand >= ' + CAST(100 - @NullPercent AS NVARCHAR) + N' THEN NULL
                 ELSE tt.RefTypeId
@@ -284,21 +250,19 @@ BEGIN
         EXEC sp_executesql @Sql;
 
         SET @CurrentBatch = @CurrentBatch + 1;
-        IF @CurrentBatch % 10 = 0
+        IF @CurrentBatch % 20 = 0
             PRINT '  Inserted ' + CAST(@CurrentBatch * @BatchSize AS VARCHAR) + ' rows...';
     END
 
-    -- Seed specific scenario IDs (using surrogate offsets per table to stay unique)
+    -- Seed specific scenario IDs
     DECLARE @SeedBase BIGINT = @SurrogateBase + @TotalRows + 1000;
 
     SET @Sql = N'
-    -- S2: Rare ID — DiagnosticReport+Observation subject referencing Patient (valid target for 414)
+    -- S2: Rare ID
     INSERT INTO dbo.' + QUOTENAME(@TableName) + N' VALUES
         (40, ' + CAST(@SeedBase + 1 AS NVARCHAR) + N', 414, NULL, 103, ''rare-singleton-id'', NULL),
         (57, ' + CAST(@SeedBase + 2 AS NVARCHAR) + N', 414, NULL, 103, ''rare-singleton-id'', NULL);
-    -- S3: Overlap (typed + NULL) — uses only valid targets per SearchParamId
-    --   414 targets: Patient(103), Group(107), Device(106), Location(108)
-    --   217 targets: Patient(103), Group(107)
+    -- S3: Typed+NULL overlap
     INSERT INTO dbo.' + QUOTENAME(@TableName) + N' VALUES
         (40, ' + CAST(@SeedBase + 11 AS NVARCHAR) + N', 414, NULL, 103, ''overlap-typed-null-id'', NULL),
         (40, ' + CAST(@SeedBase + 12 AS NVARCHAR) + N', 414, NULL, 107, ''overlap-typed-null-id'', NULL),
@@ -323,11 +287,11 @@ BEGIN
     -- Report distribution
     SET @Sql = N'
     SELECT ''' + @TableName + N''' AS TableName,
-        COUNT(*) AS TotalRows,
-        SUM(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END) AS NullRows,
-        CAST(100.0 * SUM(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END) / COUNT(*) AS DECIMAL(5,1)) AS [NullPct],
-        SUM(CASE WHEN ReferenceResourceTypeId = 103 THEN 1 ELSE 0 END) AS PatientRows,
-        SUM(CASE WHEN ReferenceResourceTypeId = 104 THEN 1 ELSE 0 END) AS PractitionerRows,
+        COUNT_BIG(*) AS TotalRows,
+        SUM(CAST(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END AS BIGINT)) AS NullRows,
+        CAST(100.0 * SUM(CAST(CASE WHEN ReferenceResourceTypeId IS NULL THEN 1 ELSE 0 END AS BIGINT)) / COUNT_BIG(*) AS DECIMAL(5,1)) AS [NullPct],
+        SUM(CAST(CASE WHEN ReferenceResourceTypeId = 103 THEN 1 ELSE 0 END AS BIGINT)) AS PatientRows,
+        SUM(CAST(CASE WHEN ReferenceResourceTypeId = 104 THEN 1 ELSE 0 END AS BIGINT)) AS PractitionerRows,
         COUNT(DISTINCT ReferenceResourceId) AS DistinctRefIds,
         COUNT(DISTINCT SearchParamId) AS DistinctSearchParams
     FROM dbo.' + QUOTENAME(@TableName) + N';';
@@ -337,7 +301,7 @@ BEGIN
 END
 GO
 
--- Populate all three tables
+-- Populate all three tables (20M rows each, ~60M total)
 EXEC dbo.PopulateTestTable @TableName = 'RefSearch_Null10', @NullPercent = 10;
 EXEC dbo.PopulateTestTable @TableName = 'RefSearch_Null30', @NullPercent = 30;
 EXEC dbo.PopulateTestTable @TableName = 'RefSearch_Null60', @NullPercent = 60;
@@ -371,6 +335,9 @@ GO
 -- =====================================================================================
 -- PART 2: QUERY EXECUTION AND METRICS CAPTURE
 -- =====================================================================================
+-- Focused comparison: Q1 (Baseline) vs Q2 (All Types + NULL)
+-- 2 variants × 4 scenarios × 3 distributions = 24 test executions
+-- =====================================================================================
 
 USE FhirRefTypeIdTest;
 GO
@@ -380,7 +347,7 @@ IF OBJECT_ID('dbo.TestResults') IS NOT NULL DROP TABLE dbo.TestResults;
 CREATE TABLE dbo.TestResults (
     TestId              INT IDENTITY(1,1) PRIMARY KEY,
     NullDistribution    VARCHAR(20),    -- Null10, Null30, Null60
-    QueryVariant        VARCHAR(50),    -- Q1-Q7
+    QueryVariant        VARCHAR(50),    -- Q1-Baseline, Q2-AllTypesNULL
     Scenario            VARCHAR(10),    -- S1-S4
     Description         VARCHAR(200),
     RowsReturned        INT,
@@ -411,16 +378,15 @@ BEGIN
 
     DECLARE @CountSql NVARCHAR(MAX) = N'SELECT @cnt = COUNT(*) FROM (' + @SqlText + N') q';
     DECLARE @Params NVARCHAR(MAX) = N'@SearchParamId SMALLINT, @ResourceTypeId SMALLINT, '
-        + N'@ReferenceResourceId VARCHAR(64), @ReferenceResourceTypeId SMALLINT, '
+        + N'@ReferenceResourceId VARCHAR(64), '
         + N'@Type1 SMALLINT, @Type2 SMALLINT, @Type3 SMALLINT, @Type4 SMALLINT, @cnt INT OUTPUT';
 
     DECLARE @Cnt INT;
     EXEC sp_executesql @CountSql, @Params,
         @SearchParamId = 414, @ResourceTypeId = 40,
         @ReferenceResourceId = @RefId,
-        @ReferenceResourceTypeId = 103,   -- Patient (valid target for SearchParamId 414)
-        @Type1 = 103, @Type2 = 107,       -- Patient + Group (2 of 4 targets)
-        @Type3 = 106, @Type4 = 108,       -- Device + Location (remaining 2 targets)
+        @Type1 = 103, @Type2 = 107,       -- Patient + Group
+        @Type3 = 106, @Type4 = 108,       -- Device + Location
         @cnt = @Cnt OUTPUT;
 
     -- Capture execution plan from cache
@@ -431,9 +397,6 @@ BEGIN
     ORDER BY qs.last_execution_time DESC;
 
     -- Extract index operation info from plan XML
-    -- Note: XQuery in SQL Server does not support the '|' (union) operator,
-    -- so we query RelOp nodes and filter by PhysicalOp instead.
-    -- In showplan XML: RelOp[@PhysicalOp] > IndexScan > Object[@Index]
     DECLARE @IndexName VARCHAR(200) = 'N/A', @SeekOrScan VARCHAR(50) = 'N/A';
     ;WITH XMLNAMESPACES (DEFAULT 'http://schemas.microsoft.com/sqlserver/2004/07/showplan')
     SELECT TOP 1
@@ -466,7 +429,7 @@ END
 GO
 
 -- =====================================================================================
--- Helper: Run all 7 query variants x 4 scenarios against a given table
+-- Run Q1 (Baseline) and Q2 (All Types + NULL) across 4 scenarios per table
 -- =====================================================================================
 IF OBJECT_ID('dbo.RunAllTests') IS NOT NULL DROP PROCEDURE dbo.RunAllTests;
 GO
@@ -494,7 +457,7 @@ BEGIN
 
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        -- Q1: Baseline — no ReferenceResourceTypeId filter
+        -- Q1: Baseline — no ReferenceResourceTypeId filter (current production behavior)
         SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
             + N' WHERE SearchParamId = @SearchParamId'
             + N'   AND ReferenceResourceId = @ReferenceResourceId'
@@ -502,114 +465,14 @@ BEGIN
         EXEC dbo.RunAndCapture @NullDistribution, 'Q1-Baseline', @Scen,
             @Desc, @Q, @RefId;
 
-        -- Q2: Single type equality
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceTypeId = @ReferenceResourceTypeId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q2-SingleType', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q3: Multiple types (OR)
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE (ReferenceResourceTypeId = @Type1 OR ReferenceResourceTypeId = @Type2)'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q3-MultiTypeOR', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q4: Single type + NULL
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE (ReferenceResourceTypeId = @ReferenceResourceTypeId OR ReferenceResourceTypeId IS NULL)'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q4-SingleTypeNULL', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q5: Multiple types + NULL
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE (ReferenceResourceTypeId = @Type1 OR ReferenceResourceTypeId = @Type2 OR ReferenceResourceTypeId IS NULL)'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q5-MultiTypeNULL', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q6: IN clause (no NULL)
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE ReferenceResourceTypeId IN (@Type1, @Type2)'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q6-InClause', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q7: UNION ALL (typed seek + NULL seek)
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE ReferenceResourceTypeId = @ReferenceResourceTypeId'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId'
-            + N' UNION ALL '
-            + N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE ReferenceResourceTypeId IS NULL'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q7-UnionAll', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- =====================================================================
-        -- Q8-Q10: ALL target types for SearchParamId 414
-        --   Patient(103), Group(107), Device(106), Location(108)
-        -- These should match baseline row counts (minus NULL for Q8/Q9).
-        -- =====================================================================
-
-        -- Q8: All 4 target types via OR (no NULL)
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE (ReferenceResourceTypeId = @Type1 OR ReferenceResourceTypeId = @Type2'
-            + N'        OR ReferenceResourceTypeId = @Type3 OR ReferenceResourceTypeId = @Type4)'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q8-AllTypesOR', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q9: All 4 target types via IN (no NULL)
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE ReferenceResourceTypeId IN (@Type1, @Type2, @Type3, @Type4)'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q9-AllTypesIN', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q10: All 4 target types OR NULL (the "correct" production query)
+        -- Q2: All 4 target types + IS NULL (the PR #5285 approach with NULL handling)
         SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
             + N' WHERE (ReferenceResourceTypeId IN (@Type1, @Type2, @Type3, @Type4)'
             + N'        OR ReferenceResourceTypeId IS NULL)'
             + N'   AND SearchParamId = @SearchParamId'
             + N'   AND ReferenceResourceId = @ReferenceResourceId'
             + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q10-AllTypesNULL', @Scen,
-            @Desc, @Q, @RefId;
-
-        -- Q11: UNION ALL with all 4 types + NULL branch
-        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE ReferenceResourceTypeId IN (@Type1, @Type2, @Type3, @Type4)'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId'
-            + N' UNION ALL '
-            + N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
-            + N' WHERE ReferenceResourceTypeId IS NULL'
-            + N'   AND SearchParamId = @SearchParamId'
-            + N'   AND ReferenceResourceId = @ReferenceResourceId'
-            + N'   AND ResourceTypeId = @ResourceTypeId';
-        EXEC dbo.RunAndCapture @NullDistribution, 'Q11-AllTypesUnion', @Scen,
+        EXEC dbo.RunAndCapture @NullDistribution, 'Q2-AllTypesNULL', @Scen,
             @Desc, @Q, @RefId;
 
         FETCH NEXT FROM scen_cur INTO @Scen, @RefId, @Desc;
@@ -624,13 +487,13 @@ END
 GO
 
 -- Run tests against all three tables
-PRINT '=== Running tests on 10% NULL table ===';
+PRINT '=== Running tests on 10% NULL table (20M rows) ===';
 EXEC dbo.RunAllTests @TableName = 'RefSearch_Null10', @NullDistribution = 'Null10';
 GO
-PRINT '=== Running tests on 30% NULL table ===';
+PRINT '=== Running tests on 30% NULL table (20M rows) ===';
 EXEC dbo.RunAllTests @TableName = 'RefSearch_Null30', @NullDistribution = 'Null30';
 GO
-PRINT '=== Running tests on 60% NULL table ===';
+PRINT '=== Running tests on 60% NULL table (20M rows) ===';
 EXEC dbo.RunAllTests @TableName = 'RefSearch_Null60', @NullDistribution = 'Null60';
 GO
 
@@ -641,7 +504,7 @@ GO
 
 PRINT '';
 PRINT '=========================================================================';
-PRINT ' RESULTS SUMMARY — All distributions, all variants, all scenarios';
+PRINT ' RESULTS SUMMARY — Baseline vs AllTypesNULL at 20M rows';
 PRINT '=========================================================================';
 
 SELECT
@@ -659,60 +522,73 @@ ORDER BY NullDistribution, Scenario, QueryVariant;
 GO
 
 -- =========================================================================
--- CORRECTNESS CHECK: compare each variant's row count to Q1 baseline
+-- CORRECTNESS CHECK: Q2 row counts must match Q1 baseline
 -- =========================================================================
 PRINT '';
 PRINT '=========================================================================';
-PRINT ' CORRECTNESS CHECK — Row count differences vs baseline (Q1)';
+PRINT ' CORRECTNESS CHECK — Q2 vs Q1 row counts';
 PRINT '=========================================================================';
 
 SELECT
     t.NullDistribution,
     t.Scenario,
     t.QueryVariant,
-    t.RowsReturned,
-    bl.RowsReturned AS BaselineRows,
+    t.RowsReturned AS Q2_Rows,
+    bl.RowsReturned AS Q1_Baseline_Rows,
     t.RowsReturned - bl.RowsReturned AS RowDiff,
     CASE
+        WHEN t.RowsReturned = bl.RowsReturned THEN 'PASS'
         WHEN t.RowsReturned < bl.RowsReturned THEN '!! MISSING ROWS'
-        WHEN t.RowsReturned > bl.RowsReturned THEN '+ Extra rows'
-        ELSE 'OK'
+        WHEN t.RowsReturned > bl.RowsReturned THEN '!! EXTRA ROWS'
     END AS Status
 FROM dbo.TestResults t
 JOIN dbo.TestResults bl
     ON  bl.NullDistribution = t.NullDistribution
     AND bl.Scenario         = t.Scenario
     AND bl.QueryVariant     = 'Q1-Baseline'
-WHERE t.QueryVariant <> 'Q1-Baseline'
-ORDER BY t.NullDistribution, t.Scenario, t.QueryVariant;
+WHERE t.QueryVariant = 'Q2-AllTypesNULL'
+ORDER BY t.NullDistribution, t.Scenario;
 GO
 
 -- =========================================================================
--- INDEX USAGE COMPARISON — per variant per NULL distribution
+-- INDEX BEHAVIOR: Side-by-side seek/scan comparison
 -- =========================================================================
 PRINT '';
 PRINT '=========================================================================';
-PRINT ' INDEX USAGE — Seeks vs Scans per variant per NULL distribution';
+PRINT ' INDEX BEHAVIOR — Side-by-side: Baseline vs AllTypesNULL';
 PRINT '=========================================================================';
 
 SELECT
-    NullDistribution,
-    QueryVariant,
-    COUNT(*) AS Tests,
-    SUM(CASE WHEN SeekOrScan LIKE '%Seek%' THEN 1 ELSE 0 END) AS Seeks,
-    SUM(CASE WHEN SeekOrScan LIKE '%Scan%' THEN 1 ELSE 0 END) AS Scans,
-    SUM(CASE WHEN SeekOrScan NOT LIKE '%Seek%' AND SeekOrScan NOT LIKE '%Scan%' THEN 1 ELSE 0 END) AS Other
-FROM dbo.TestResults
-GROUP BY NullDistribution, QueryVariant
-ORDER BY NullDistribution, QueryVariant;
+    bl.NullDistribution,
+    bl.Scenario,
+    bl.SeekOrScan       AS Q1_Baseline_Plan,
+    bl.IndexUsed        AS Q1_Index,
+    t.SeekOrScan        AS Q2_AllTypesNULL_Plan,
+    t.IndexUsed         AS Q2_Index,
+    CASE
+        WHEN bl.SeekOrScan = 'N/A'         AND t.SeekOrScan LIKE '%Seek%' THEN 'IMPROVED'
+        WHEN bl.SeekOrScan LIKE '%Seek%'    AND t.SeekOrScan = 'N/A'      THEN 'REGRESSED'
+        WHEN bl.SeekOrScan LIKE '%Seek%'    AND t.SeekOrScan LIKE '%Seek%' THEN 'SAME (both seek)'
+        WHEN bl.SeekOrScan LIKE '%Scan%'    AND t.SeekOrScan LIKE '%Seek%' THEN 'IMPROVED'
+        WHEN bl.SeekOrScan LIKE '%Seek%'    AND t.SeekOrScan LIKE '%Scan%' THEN 'REGRESSED'
+        WHEN bl.SeekOrScan = t.SeekOrScan                                  THEN 'SAME'
+        ELSE 'CHANGED'
+    END AS Delta
+FROM dbo.TestResults bl
+JOIN dbo.TestResults t
+    ON  t.NullDistribution = bl.NullDistribution
+    AND t.Scenario         = bl.Scenario
+    AND t.QueryVariant     = 'Q2-AllTypesNULL'
+WHERE bl.QueryVariant = 'Q1-Baseline'
+ORDER BY bl.NullDistribution, bl.Scenario;
 GO
 
 -- =========================================================================
--- CROSS-DISTRIBUTION COMPARISON — same variant across NULL ratios
+-- CROSS-DISTRIBUTION — Plan stability across NULL ratios
 -- =========================================================================
 PRINT '';
 PRINT '=========================================================================';
-PRINT ' CROSS-DISTRIBUTION — Does NULL ratio affect plan choice?';
+PRINT ' CROSS-DISTRIBUTION — Plan stability across NULL ratios';
 PRINT '=========================================================================';
 
 SELECT
@@ -730,17 +606,18 @@ ORDER BY QueryVariant, Scenario;
 GO
 
 -- =========================================================================
--- DECISION MATRIX — Go / No-Go per variant
+-- SUMMARY VERDICT
 -- =========================================================================
 PRINT '';
 PRINT '=========================================================================';
-PRINT ' DECISION MATRIX';
+PRINT ' SUMMARY VERDICT';
 PRINT '=========================================================================';
 
 SELECT
     QueryVariant,
-    -- Correctness: does it ever miss rows vs baseline?
+    -- Correctness
     CASE
+        WHEN QueryVariant = 'Q1-Baseline' THEN 'BASELINE'
         WHEN EXISTS (
             SELECT 1 FROM dbo.TestResults t2
             JOIN dbo.TestResults bl
@@ -748,24 +625,21 @@ SELECT
                 AND bl.Scenario = t2.Scenario
                 AND bl.QueryVariant = 'Q1-Baseline'
             WHERE t2.QueryVariant = tr.QueryVariant
-              AND t2.RowsReturned < bl.RowsReturned
+              AND t2.RowsReturned <> bl.RowsReturned
         ) THEN 'FAILS'
         ELSE 'PASS'
     END AS Correctness,
-    -- Index behavior across all distributions
-    CASE
-        WHEN MIN(CASE WHEN SeekOrScan LIKE '%Seek%' THEN 1 ELSE 0 END) = 1 THEN 'All Seeks'
-        WHEN MAX(CASE WHEN SeekOrScan LIKE '%Seek%' THEN 1 ELSE 0 END) = 1 THEN 'Mixed'
-        ELSE 'All Scans'
-    END AS IndexBehavior,
-    -- Does behavior degrade as NULL% increases?
+    -- Index seeks
+    SUM(CASE WHEN SeekOrScan LIKE '%Seek%' THEN 1 ELSE 0 END) AS SeekCount,
+    COUNT(*) AS TotalTests,
+    CAST(100.0 * SUM(CASE WHEN SeekOrScan LIKE '%Seek%' THEN 1 ELSE 0 END) / COUNT(*) AS DECIMAL(5,1)) AS [SeekPct],
+    -- Degradation risk
     CASE
         WHEN MAX(CASE WHEN NullDistribution = 'Null10' AND SeekOrScan LIKE '%Seek%' THEN 1 ELSE 0 END) = 1
          AND MAX(CASE WHEN NullDistribution = 'Null60' AND SeekOrScan LIKE '%Scan%' THEN 1 ELSE 0 END) = 1
         THEN 'YES - degrades at high NULL%'
         ELSE 'No degradation observed'
-    END AS DegradationRisk,
-    COUNT(*) AS TotalTests
+    END AS DegradationRisk
 FROM dbo.TestResults tr
 GROUP BY QueryVariant
 ORDER BY QueryVariant;
@@ -773,13 +647,10 @@ GO
 
 PRINT '';
 PRINT '=========================================================================';
-PRINT ' RECOMMENDED NEXT STEPS';
+PRINT ' TO INSPECT EXECUTION PLANS:';
 PRINT '=========================================================================';
-PRINT '1. Review the CROSS-DISTRIBUTION table to see if NULL ratio flips plans';
-PRINT '2. Review the DECISION MATRIX for correctness + index behavior summary';
-PRINT '3. Click ExecutionPlanXml cells in SSMS to inspect graphical plans:';
-PRINT '   SELECT NullDistribution, QueryVariant, Scenario, ExecutionPlanXml';
-PRINT '   FROM dbo.TestResults ORDER BY 1, 2, 3;';
+PRINT '  SELECT NullDistribution, QueryVariant, Scenario, ExecutionPlanXml';
+PRINT '  FROM dbo.TestResults ORDER BY 1, 2, 3;';
 PRINT '';
 PRINT '=== ANALYSIS COMPLETE ===';
 GO
