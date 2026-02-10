@@ -1,0 +1,577 @@
+Database FhirRefTypeIdTest already exists — reusing
+Table already exists: RefSearch_Null10 — skipping creation
+Table already exists: RefSearch_Null30 — skipping creation
+Table already exists: RefSearch_Null60 — skipping creation
+RefSearch_Null10 already has 100001+ rows — skipping population
+TableName        TotalRows   NullRows    NullPct                                 PatientRows PractitionerRows DistinctRefIds DistinctSearchParams
+---------------- ----------- ----------- --------------------------------------- ----------- ---------------- -------------- --------------------
+RefSearch_Null10 2000010     199350      10.0                                    1057212     316468           19913          7
+
+RefSearch_Null30 already has 100001+ rows — skipping population
+TableName        TotalRows   NullRows    NullPct                                 PatientRows PractitionerRows DistinctRefIds DistinctSearchParams
+---------------- ----------- ----------- --------------------------------------- ----------- ---------------- -------------- --------------------
+RefSearch_Null30 2000010     599792      30.0                                    821473      246883           19913          7
+
+RefSearch_Null60 already has 100001+ rows — skipping population
+TableName        TotalRows   NullRows    NullPct                                 PatientRows PractitionerRows DistinctRefIds DistinctSearchParams
+---------------- ----------- ----------- --------------------------------------- ----------- ---------------- -------------- --------------------
+RefSearch_Null60 2000010     1200501     60.0                                    469161      140891           19913          7
+
+Tbl              ReferenceResourceId                                              Cnt         NullCnt
+---------------- ---------------------------------------------------------------- ----------- -----------
+RefSearch_Null10 common-patient-0001                                              992         87
+RefSearch_Null10 null-only-id                                                     3           3
+RefSearch_Null10 overlap-typed-null-id                                            5           2
+RefSearch_Null10 rare-singleton-id                                                2           0
+RefSearch_Null30 common-patient-0001                                              969         304
+RefSearch_Null30 null-only-id                                                     3           3
+RefSearch_Null30 overlap-typed-null-id                                            5           2
+RefSearch_Null30 rare-singleton-id                                                2           0
+RefSearch_Null60 common-patient-0001                                              1018        619
+RefSearch_Null60 null-only-id                                                     3           3
+RefSearch_Null60 overlap-typed-null-id                                            5           2
+RefSearch_Null60 rare-singleton-id                                                2           0
+
+(12 rows affected)
+
+=== PART 1 COMPLETE: All 3 tables ready ===
+=== Running tests on 10% NULL table ===
+Null10 | Q1-Baseline | S1: 244 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q2-SingleType | S1: 186 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q3-MultiTypeOR | S1: 200 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q4-SingleTypeNULL | S1: 204 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q5-MultiTypeNULL | S1: 218 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q6-InClause | S1: 200 rows, N/A on N/A
+Null10 | Q7-UnionAll | S1: 204 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q8-AllTypesOR | S1: 226 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q9-AllTypesIN | S1: 226 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q10-AllTypesNULL | S1: 244 rows, N/A on N/A
+Null10 | Q11-AllTypesUnion | S1: 244 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q1-Baseline | S2: 1 rows, N/A on N/A
+Null10 | Q2-SingleType | S2: 1 rows, N/A on N/A
+Null10 | Q3-MultiTypeOR | S2: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q4-SingleTypeNULL | S2: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q5-MultiTypeNULL | S2: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q6-InClause | S2: 1 rows, N/A on N/A
+Null10 | Q7-UnionAll | S2: 1 rows, N/A on N/A
+Null10 | Q8-AllTypesOR | S2: 1 rows, N/A on N/A
+Null10 | Q9-AllTypesIN | S2: 1 rows, N/A on N/A
+Null10 | Q10-AllTypesNULL | S2: 1 rows, N/A on N/A
+Null10 | Q11-AllTypesUnion | S2: 1 rows, N/A on N/A
+Null10 | Q1-Baseline | S3: 2 rows, N/A on N/A
+Null10 | Q2-SingleType | S3: 1 rows, N/A on N/A
+Null10 | Q3-MultiTypeOR | S3: 2 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q4-SingleTypeNULL | S3: 1 rows, N/A on N/A
+Null10 | Q5-MultiTypeNULL | S3: 2 rows, N/A on N/A
+Null10 | Q6-InClause | S3: 2 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q7-UnionAll | S3: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q8-AllTypesOR | S3: 2 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q9-AllTypesIN | S3: 2 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q10-AllTypesNULL | S3: 2 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q11-AllTypesUnion | S3: 2 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q1-Baseline | S4: 1 rows, N/A on N/A
+Null10 | Q2-SingleType | S4: 0 rows, N/A on N/A
+Null10 | Q3-MultiTypeOR | S4: 0 rows, N/A on N/A
+Null10 | Q4-SingleTypeNULL | S4: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q5-MultiTypeNULL | S4: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q6-InClause | S4: 0 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q7-UnionAll | S4: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q8-AllTypesOR | S4: 0 rows, N/A on N/A
+Null10 | Q9-AllTypesIN | S4: 0 rows, N/A on N/A
+Null10 | Q10-AllTypesNULL | S4: 1 rows, Index Seek on [IXU_RefSearch_Null10]
+Null10 | Q11-AllTypesUnion | S4: 1 rows, N/A on N/A
+ 
+Null10 tests complete.
+=== Running tests on 30% NULL table ===
+Null30 | Q1-Baseline | S1: 207 rows, N/A on N/A
+Null30 | Q2-SingleType | S1: 123 rows, N/A on N/A
+Null30 | Q3-MultiTypeOR | S1: 134 rows, N/A on N/A
+Null30 | Q4-SingleTypeNULL | S1: 184 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q5-MultiTypeNULL | S1: 195 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q6-InClause | S1: 134 rows, N/A on N/A
+Null30 | Q7-UnionAll | S1: 184 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q8-AllTypesOR | S1: 146 rows, N/A on N/A
+Null30 | Q9-AllTypesIN | S1: 146 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q10-AllTypesNULL | S1: 207 rows, N/A on N/A
+Null30 | Q11-AllTypesUnion | S1: 207 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q1-Baseline | S2: 1 rows, N/A on N/A
+Null30 | Q2-SingleType | S2: 1 rows, N/A on N/A
+Null30 | Q3-MultiTypeOR | S2: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q4-SingleTypeNULL | S2: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q5-MultiTypeNULL | S2: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q6-InClause | S2: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q7-UnionAll | S2: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q8-AllTypesOR | S2: 1 rows, N/A on N/A
+Null30 | Q9-AllTypesIN | S2: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q10-AllTypesNULL | S2: 1 rows, N/A on N/A
+Null30 | Q11-AllTypesUnion | S2: 1 rows, N/A on N/A
+Null30 | Q1-Baseline | S3: 2 rows, N/A on N/A
+Null30 | Q2-SingleType | S3: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q3-MultiTypeOR | S3: 2 rows, N/A on N/A
+Null30 | Q4-SingleTypeNULL | S3: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q5-MultiTypeNULL | S3: 2 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q6-InClause | S3: 2 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q7-UnionAll | S3: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q8-AllTypesOR | S3: 2 rows, N/A on N/A
+Null30 | Q9-AllTypesIN | S3: 2 rows, N/A on N/A
+Null30 | Q10-AllTypesNULL | S3: 2 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q11-AllTypesUnion | S3: 2 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q1-Baseline | S4: 1 rows, N/A on N/A
+Null30 | Q2-SingleType | S4: 0 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q3-MultiTypeOR | S4: 0 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q4-SingleTypeNULL | S4: 1 rows, N/A on N/A
+Null30 | Q5-MultiTypeNULL | S4: 1 rows, N/A on N/A
+Null30 | Q6-InClause | S4: 0 rows, Index Seek on [IXU_RefSearch_Null30]
+Null30 | Q7-UnionAll | S4: 1 rows, N/A on N/A
+Null30 | Q8-AllTypesOR | S4: 0 rows, N/A on N/A
+Null30 | Q9-AllTypesIN | S4: 0 rows, N/A on N/A
+Null30 | Q10-AllTypesNULL | S4: 1 rows, N/A on N/A
+Null30 | Q11-AllTypesUnion | S4: 1 rows, Index Seek on [IXU_RefSearch_Null30]
+ 
+Null30 tests complete.
+=== Running tests on 60% NULL table ===
+Null60 | Q1-Baseline | S1: 246 rows, N/A on N/A
+Null60 | Q2-SingleType | S1: 79 rows, N/A on N/A
+Null60 | Q3-MultiTypeOR | S1: 85 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q4-SingleTypeNULL | S1: 233 rows, N/A on N/A
+Null60 | Q5-MultiTypeNULL | S1: 239 rows, N/A on N/A
+Null60 | Q6-InClause | S1: 85 rows, N/A on N/A
+Null60 | Q7-UnionAll | S1: 233 rows, N/A on N/A
+Null60 | Q8-AllTypesOR | S1: 92 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q9-AllTypesIN | S1: 92 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q10-AllTypesNULL | S1: 246 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q11-AllTypesUnion | S1: 246 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q1-Baseline | S2: 1 rows, N/A on N/A
+Null60 | Q2-SingleType | S2: 1 rows, N/A on N/A
+Null60 | Q3-MultiTypeOR | S2: 1 rows, N/A on N/A
+Null60 | Q4-SingleTypeNULL | S2: 1 rows, N/A on N/A
+Null60 | Q5-MultiTypeNULL | S2: 1 rows, N/A on N/A
+Null60 | Q6-InClause | S2: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q7-UnionAll | S2: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q8-AllTypesOR | S2: 1 rows, N/A on N/A
+Null60 | Q9-AllTypesIN | S2: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q10-AllTypesNULL | S2: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q11-AllTypesUnion | S2: 1 rows, N/A on N/A
+Null60 | Q1-Baseline | S3: 2 rows, N/A on N/A
+Null60 | Q2-SingleType | S3: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q3-MultiTypeOR | S3: 2 rows, N/A on N/A
+Null60 | Q4-SingleTypeNULL | S3: 1 rows, N/A on N/A
+Null60 | Q5-MultiTypeNULL | S3: 2 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q6-InClause | S3: 2 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q7-UnionAll | S3: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q8-AllTypesOR | S3: 2 rows, N/A on N/A
+Null60 | Q9-AllTypesIN | S3: 2 rows, N/A on N/A
+Null60 | Q10-AllTypesNULL | S3: 2 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q11-AllTypesUnion | S3: 2 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q1-Baseline | S4: 1 rows, N/A on N/A
+Null60 | Q2-SingleType | S4: 0 rows, N/A on N/A
+Null60 | Q3-MultiTypeOR | S4: 0 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q4-SingleTypeNULL | S4: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q5-MultiTypeNULL | S4: 1 rows, N/A on N/A
+Null60 | Q6-InClause | S4: 0 rows, N/A on N/A
+Null60 | Q7-UnionAll | S4: 1 rows, Index Seek on [IXU_RefSearch_Null60]
+Null60 | Q8-AllTypesOR | S4: 0 rows, N/A on N/A
+Null60 | Q9-AllTypesIN | S4: 0 rows, N/A on N/A
+Null60 | Q10-AllTypesNULL | S4: 1 rows, N/A on N/A
+Null60 | Q11-AllTypesUnion | S4: 1 rows, N/A on N/A
+ 
+Null60 tests complete.
+ 
+=========================================================================
+ RESULTS SUMMARY — All distributions, all variants, all scenarios
+=========================================================================
+NullDistribution     QueryVariant                                       Scenario   RowsReturned IndexUsed                                                                                                                                                                                                SeekOrScan                                         EstRows     ActualRows  Description
+-------------------- -------------------------------------------------- ---------- ------------ -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- -------------------------------------------------- ----------- ----------- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Null10               Q1-Baseline                                        S1         244          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         517         244         Common ID (many rows)
+Null10               Q10-AllTypesNULL                                   S1         244          N/A                                                                                                                                                                                                      N/A                                                0           244         Common ID (many rows)
+Null10               Q11-AllTypesUnion                                  S1         244          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         489         244         Common ID (many rows)
+Null10               Q2-SingleType                                      S1         186          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         477         186         Common ID (many rows)
+Null10               Q3-MultiTypeOR                                     S1         200          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         483         200         Common ID (many rows)
+Null10               Q4-SingleTypeNULL                                  S1         204          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         488         204         Common ID (many rows)
+Null10               Q5-MultiTypeNULL                                   S1         218          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         493         218         Common ID (many rows)
+Null10               Q6-InClause                                        S1         200          N/A                                                                                                                                                                                                      N/A                                                0           200         Common ID (many rows)
+Null10               Q7-UnionAll                                        S1         204          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         477         204         Common ID (many rows)
+Null10               Q8-AllTypesOR                                      S1         226          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         489         226         Common ID (many rows)
+Null10               Q9-AllTypesIN                                      S1         226          [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         489         226         Common ID (many rows)
+Null10               Q1-Baseline                                        S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q10-AllTypesNULL                                   S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q11-AllTypesUnion                                  S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q2-SingleType                                      S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q3-MultiTypeOR                                     S2         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         483         1           Rare ID (few rows)
+Null10               Q4-SingleTypeNULL                                  S2         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         488         1           Rare ID (few rows)
+Null10               Q5-MultiTypeNULL                                   S2         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         493         1           Rare ID (few rows)
+Null10               Q6-InClause                                        S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q7-UnionAll                                        S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q8-AllTypesOR                                      S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q9-AllTypesIN                                      S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null10               Q1-Baseline                                        S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null10               Q10-AllTypesNULL                                   S3         2            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         497         2           Typed+NULL overlap
+Null10               Q11-AllTypesUnion                                  S3         2            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         489         2           Typed+NULL overlap
+Null10               Q2-SingleType                                      S3         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Typed+NULL overlap
+Null10               Q3-MultiTypeOR                                     S3         2            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         483         2           Typed+NULL overlap
+Null10               Q4-SingleTypeNULL                                  S3         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Typed+NULL overlap
+Null10               Q5-MultiTypeNULL                                   S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null10               Q6-InClause                                        S3         2            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         483         2           Typed+NULL overlap
+Null10               Q7-UnionAll                                        S3         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         477         1           Typed+NULL overlap
+Null10               Q8-AllTypesOR                                      S3         2            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         489         2           Typed+NULL overlap
+Null10               Q9-AllTypesIN                                      S3         2            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         489         2           Typed+NULL overlap
+Null10               Q1-Baseline                                        S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null10               Q10-AllTypesNULL                                   S4         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         497         1           NULL-only ID
+Null10               Q11-AllTypesUnion                                  S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null10               Q2-SingleType                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null10               Q3-MultiTypeOR                                     S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null10               Q4-SingleTypeNULL                                  S4         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         488         1           NULL-only ID
+Null10               Q5-MultiTypeNULL                                   S4         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         493         1           NULL-only ID
+Null10               Q6-InClause                                        S4         0            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         483         0           NULL-only ID
+Null10               Q7-UnionAll                                        S4         1            [IXU_RefSearch_Null10]                                                                                                                                                                                   Index Seek                                         477         1           NULL-only ID
+Null10               Q8-AllTypesOR                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null10               Q9-AllTypesIN                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null30               Q1-Baseline                                        S1         207          N/A                                                                                                                                                                                                      N/A                                                0           207         Common ID (many rows)
+Null30               Q10-AllTypesNULL                                   S1         207          N/A                                                                                                                                                                                                      N/A                                                0           207         Common ID (many rows)
+Null30               Q11-AllTypesUnion                                  S1         207          [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         466         207         Common ID (many rows)
+Null30               Q2-SingleType                                      S1         123          N/A                                                                                                                                                                                                      N/A                                                0           123         Common ID (many rows)
+Null30               Q3-MultiTypeOR                                     S1         134          N/A                                                                                                                                                                                                      N/A                                                0           134         Common ID (many rows)
+Null30               Q4-SingleTypeNULL                                  S1         184          [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         488         184         Common ID (many rows)
+Null30               Q5-MultiTypeNULL                                   S1         195          [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         491         195         Common ID (many rows)
+Null30               Q6-InClause                                        S1         134          N/A                                                                                                                                                                                                      N/A                                                0           134         Common ID (many rows)
+Null30               Q7-UnionAll                                        S1         184          [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         450         184         Common ID (many rows)
+Null30               Q8-AllTypesOR                                      S1         146          N/A                                                                                                                                                                                                      N/A                                                0           146         Common ID (many rows)
+Null30               Q9-AllTypesIN                                      S1         146          [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         466         146         Common ID (many rows)
+Null30               Q1-Baseline                                        S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null30               Q10-AllTypesNULL                                   S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null30               Q11-AllTypesUnion                                  S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null30               Q2-SingleType                                      S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null30               Q3-MultiTypeOR                                     S2         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         461         1           Rare ID (few rows)
+Null30               Q4-SingleTypeNULL                                  S2         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         488         1           Rare ID (few rows)
+Null30               Q5-MultiTypeNULL                                   S2         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         491         1           Rare ID (few rows)
+Null30               Q6-InClause                                        S2         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         461         1           Rare ID (few rows)
+Null30               Q7-UnionAll                                        S2         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         450         1           Rare ID (few rows)
+Null30               Q8-AllTypesOR                                      S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null30               Q9-AllTypesIN                                      S2         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         466         1           Rare ID (few rows)
+Null30               Q1-Baseline                                        S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null30               Q10-AllTypesNULL                                   S3         2            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         495         2           Typed+NULL overlap
+Null30               Q11-AllTypesUnion                                  S3         2            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         466         2           Typed+NULL overlap
+Null30               Q2-SingleType                                      S3         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         450         1           Typed+NULL overlap
+Null30               Q3-MultiTypeOR                                     S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null30               Q4-SingleTypeNULL                                  S3         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         488         1           Typed+NULL overlap
+Null30               Q5-MultiTypeNULL                                   S3         2            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         491         2           Typed+NULL overlap
+Null30               Q6-InClause                                        S3         2            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         461         2           Typed+NULL overlap
+Null30               Q7-UnionAll                                        S3         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         450         1           Typed+NULL overlap
+Null30               Q8-AllTypesOR                                      S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null30               Q9-AllTypesIN                                      S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null30               Q1-Baseline                                        S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null30               Q10-AllTypesNULL                                   S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null30               Q11-AllTypesUnion                                  S4         1            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         466         1           NULL-only ID
+Null30               Q2-SingleType                                      S4         0            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         450         0           NULL-only ID
+Null30               Q3-MultiTypeOR                                     S4         0            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         461         0           NULL-only ID
+Null30               Q4-SingleTypeNULL                                  S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null30               Q5-MultiTypeNULL                                   S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null30               Q6-InClause                                        S4         0            [IXU_RefSearch_Null30]                                                                                                                                                                                   Index Seek                                         461         0           NULL-only ID
+Null30               Q7-UnionAll                                        S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null30               Q8-AllTypesOR                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null30               Q9-AllTypesIN                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null60               Q1-Baseline                                        S1         246          N/A                                                                                                                                                                                                      N/A                                                0           246         Common ID (many rows)
+Null60               Q10-AllTypesNULL                                   S1         246          [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         507         246         Common ID (many rows)
+Null60               Q11-AllTypesUnion                                  S1         246          [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         379         246         Common ID (many rows)
+Null60               Q2-SingleType                                      S1         79           N/A                                                                                                                                                                                                      N/A                                                0           79          Common ID (many rows)
+Null60               Q3-MultiTypeOR                                     S1         85           [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         363         85          Common ID (many rows)
+Null60               Q4-SingleTypeNULL                                  S1         233          N/A                                                                                                                                                                                                      N/A                                                0           233         Common ID (many rows)
+Null60               Q5-MultiTypeNULL                                   S1         239          N/A                                                                                                                                                                                                      N/A                                                0           239         Common ID (many rows)
+Null60               Q6-InClause                                        S1         85           N/A                                                                                                                                                                                                      N/A                                                0           85          Common ID (many rows)
+Null60               Q7-UnionAll                                        S1         233          N/A                                                                                                                                                                                                      N/A                                                0           233         Common ID (many rows)
+Null60               Q8-AllTypesOR                                      S1         92           [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         379         92          Common ID (many rows)
+Null60               Q9-AllTypesIN                                      S1         92           [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         379         92          Common ID (many rows)
+Null60               Q1-Baseline                                        S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null60               Q10-AllTypesNULL                                   S2         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         507         1           Rare ID (few rows)
+Null60               Q11-AllTypesUnion                                  S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null60               Q2-SingleType                                      S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null60               Q3-MultiTypeOR                                     S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null60               Q4-SingleTypeNULL                                  S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null60               Q5-MultiTypeNULL                                   S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null60               Q6-InClause                                        S2         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         363         1           Rare ID (few rows)
+Null60               Q7-UnionAll                                        S2         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         346         1           Rare ID (few rows)
+Null60               Q8-AllTypesOR                                      S2         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Rare ID (few rows)
+Null60               Q9-AllTypesIN                                      S2         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         379         1           Rare ID (few rows)
+Null60               Q1-Baseline                                        S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null60               Q10-AllTypesNULL                                   S3         2            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         507         2           Typed+NULL overlap
+Null60               Q11-AllTypesUnion                                  S3         2            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         379         2           Typed+NULL overlap
+Null60               Q2-SingleType                                      S3         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         346         1           Typed+NULL overlap
+Null60               Q3-MultiTypeOR                                     S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null60               Q4-SingleTypeNULL                                  S3         1            N/A                                                                                                                                                                                                      N/A                                                0           1           Typed+NULL overlap
+Null60               Q5-MultiTypeNULL                                   S3         2            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         505         2           Typed+NULL overlap
+Null60               Q6-InClause                                        S3         2            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         363         2           Typed+NULL overlap
+Null60               Q7-UnionAll                                        S3         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         346         1           Typed+NULL overlap
+Null60               Q8-AllTypesOR                                      S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null60               Q9-AllTypesIN                                      S3         2            N/A                                                                                                                                                                                                      N/A                                                0           2           Typed+NULL overlap
+Null60               Q1-Baseline                                        S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null60               Q10-AllTypesNULL                                   S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null60               Q11-AllTypesUnion                                  S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null60               Q2-SingleType                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null60               Q3-MultiTypeOR                                     S4         0            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         363         0           NULL-only ID
+Null60               Q4-SingleTypeNULL                                  S4         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         503         1           NULL-only ID
+Null60               Q5-MultiTypeNULL                                   S4         1            N/A                                                                                                                                                                                                      N/A                                                0           1           NULL-only ID
+Null60               Q6-InClause                                        S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null60               Q7-UnionAll                                        S4         1            [IXU_RefSearch_Null60]                                                                                                                                                                                   Index Seek                                         346         1           NULL-only ID
+Null60               Q8-AllTypesOR                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+Null60               Q9-AllTypesIN                                      S4         0            N/A                                                                                                                                                                                                      N/A                                                0           0           NULL-only ID
+
+(132 rows affected)
+
+ 
+=========================================================================
+ CORRECTNESS CHECK — Row count differences vs baseline (Q1)
+=========================================================================
+NullDistribution     Scenario   QueryVariant                                       RowsReturned BaselineRows RowDiff     Status
+-------------------- ---------- -------------------------------------------------- ------------ ------------ ----------- ---------------
+Null10               S1         Q10-AllTypesNULL                                   244          244          0           OK
+Null10               S1         Q11-AllTypesUnion                                  244          244          0           OK
+Null10               S1         Q2-SingleType                                      186          244          -58         !! MISSING ROWS
+Null10               S1         Q3-MultiTypeOR                                     200          244          -44         !! MISSING ROWS
+Null10               S1         Q4-SingleTypeNULL                                  204          244          -40         !! MISSING ROWS
+Null10               S1         Q5-MultiTypeNULL                                   218          244          -26         !! MISSING ROWS
+Null10               S1         Q6-InClause                                        200          244          -44         !! MISSING ROWS
+Null10               S1         Q7-UnionAll                                        204          244          -40         !! MISSING ROWS
+Null10               S1         Q8-AllTypesOR                                      226          244          -18         !! MISSING ROWS
+Null10               S1         Q9-AllTypesIN                                      226          244          -18         !! MISSING ROWS
+Null10               S2         Q10-AllTypesNULL                                   1            1            0           OK
+Null10               S2         Q11-AllTypesUnion                                  1            1            0           OK
+Null10               S2         Q2-SingleType                                      1            1            0           OK
+Null10               S2         Q3-MultiTypeOR                                     1            1            0           OK
+Null10               S2         Q4-SingleTypeNULL                                  1            1            0           OK
+Null10               S2         Q5-MultiTypeNULL                                   1            1            0           OK
+Null10               S2         Q6-InClause                                        1            1            0           OK
+Null10               S2         Q7-UnionAll                                        1            1            0           OK
+Null10               S2         Q8-AllTypesOR                                      1            1            0           OK
+Null10               S2         Q9-AllTypesIN                                      1            1            0           OK
+Null10               S3         Q10-AllTypesNULL                                   2            2            0           OK
+Null10               S3         Q11-AllTypesUnion                                  2            2            0           OK
+Null10               S3         Q2-SingleType                                      1            2            -1          !! MISSING ROWS
+Null10               S3         Q3-MultiTypeOR                                     2            2            0           OK
+Null10               S3         Q4-SingleTypeNULL                                  1            2            -1          !! MISSING ROWS
+Null10               S3         Q5-MultiTypeNULL                                   2            2            0           OK
+Null10               S3         Q6-InClause                                        2            2            0           OK
+Null10               S3         Q7-UnionAll                                        1            2            -1          !! MISSING ROWS
+Null10               S3         Q8-AllTypesOR                                      2            2            0           OK
+Null10               S3         Q9-AllTypesIN                                      2            2            0           OK
+Null10               S4         Q10-AllTypesNULL                                   1            1            0           OK
+Null10               S4         Q11-AllTypesUnion                                  1            1            0           OK
+Null10               S4         Q2-SingleType                                      0            1            -1          !! MISSING ROWS
+Null10               S4         Q3-MultiTypeOR                                     0            1            -1          !! MISSING ROWS
+Null10               S4         Q4-SingleTypeNULL                                  1            1            0           OK
+Null10               S4         Q5-MultiTypeNULL                                   1            1            0           OK
+Null10               S4         Q6-InClause                                        0            1            -1          !! MISSING ROWS
+Null10               S4         Q7-UnionAll                                        1            1            0           OK
+Null10               S4         Q8-AllTypesOR                                      0            1            -1          !! MISSING ROWS
+Null10               S4         Q9-AllTypesIN                                      0            1            -1          !! MISSING ROWS
+Null30               S1         Q10-AllTypesNULL                                   207          207          0           OK
+Null30               S1         Q11-AllTypesUnion                                  207          207          0           OK
+Null30               S1         Q2-SingleType                                      123          207          -84         !! MISSING ROWS
+Null30               S1         Q3-MultiTypeOR                                     134          207          -73         !! MISSING ROWS
+Null30               S1         Q4-SingleTypeNULL                                  184          207          -23         !! MISSING ROWS
+Null30               S1         Q5-MultiTypeNULL                                   195          207          -12         !! MISSING ROWS
+Null30               S1         Q6-InClause                                        134          207          -73         !! MISSING ROWS
+Null30               S1         Q7-UnionAll                                        184          207          -23         !! MISSING ROWS
+Null30               S1         Q8-AllTypesOR                                      146          207          -61         !! MISSING ROWS
+Null30               S1         Q9-AllTypesIN                                      146          207          -61         !! MISSING ROWS
+Null30               S2         Q10-AllTypesNULL                                   1            1            0           OK
+Null30               S2         Q11-AllTypesUnion                                  1            1            0           OK
+Null30               S2         Q2-SingleType                                      1            1            0           OK
+Null30               S2         Q3-MultiTypeOR                                     1            1            0           OK
+Null30               S2         Q4-SingleTypeNULL                                  1            1            0           OK
+Null30               S2         Q5-MultiTypeNULL                                   1            1            0           OK
+Null30               S2         Q6-InClause                                        1            1            0           OK
+Null30               S2         Q7-UnionAll                                        1            1            0           OK
+Null30               S2         Q8-AllTypesOR                                      1            1            0           OK
+Null30               S2         Q9-AllTypesIN                                      1            1            0           OK
+Null30               S3         Q10-AllTypesNULL                                   2            2            0           OK
+Null30               S3         Q11-AllTypesUnion                                  2            2            0           OK
+Null30               S3         Q2-SingleType                                      1            2            -1          !! MISSING ROWS
+Null30               S3         Q3-MultiTypeOR                                     2            2            0           OK
+Null30               S3         Q4-SingleTypeNULL                                  1            2            -1          !! MISSING ROWS
+Null30               S3         Q5-MultiTypeNULL                                   2            2            0           OK
+Null30               S3         Q6-InClause                                        2            2            0           OK
+Null30               S3         Q7-UnionAll                                        1            2            -1          !! MISSING ROWS
+Null30               S3         Q8-AllTypesOR                                      2            2            0           OK
+Null30               S3         Q9-AllTypesIN                                      2            2            0           OK
+Null30               S4         Q10-AllTypesNULL                                   1            1            0           OK
+Null30               S4         Q11-AllTypesUnion                                  1            1            0           OK
+Null30               S4         Q2-SingleType                                      0            1            -1          !! MISSING ROWS
+Null30               S4         Q3-MultiTypeOR                                     0            1            -1          !! MISSING ROWS
+Null30               S4         Q4-SingleTypeNULL                                  1            1            0           OK
+Null30               S4         Q5-MultiTypeNULL                                   1            1            0           OK
+Null30               S4         Q6-InClause                                        0            1            -1          !! MISSING ROWS
+Null30               S4         Q7-UnionAll                                        1            1            0           OK
+Null30               S4         Q8-AllTypesOR                                      0            1            -1          !! MISSING ROWS
+Null30               S4         Q9-AllTypesIN                                      0            1            -1          !! MISSING ROWS
+Null60               S1         Q10-AllTypesNULL                                   246          246          0           OK
+Null60               S1         Q11-AllTypesUnion                                  246          246          0           OK
+Null60               S1         Q2-SingleType                                      79           246          -167        !! MISSING ROWS
+Null60               S1         Q3-MultiTypeOR                                     85           246          -161        !! MISSING ROWS
+Null60               S1         Q4-SingleTypeNULL                                  233          246          -13         !! MISSING ROWS
+Null60               S1         Q5-MultiTypeNULL                                   239          246          -7          !! MISSING ROWS
+Null60               S1         Q6-InClause                                        85           246          -161        !! MISSING ROWS
+Null60               S1         Q7-UnionAll                                        233          246          -13         !! MISSING ROWS
+Null60               S1         Q8-AllTypesOR                                      92           246          -154        !! MISSING ROWS
+Null60               S1         Q9-AllTypesIN                                      92           246          -154        !! MISSING ROWS
+Null60               S2         Q10-AllTypesNULL                                   1            1            0           OK
+Null60               S2         Q11-AllTypesUnion                                  1            1            0           OK
+Null60               S2         Q2-SingleType                                      1            1            0           OK
+Null60               S2         Q3-MultiTypeOR                                     1            1            0           OK
+Null60               S2         Q4-SingleTypeNULL                                  1            1            0           OK
+Null60               S2         Q5-MultiTypeNULL                                   1            1            0           OK
+Null60               S2         Q6-InClause                                        1            1            0           OK
+Null60               S2         Q7-UnionAll                                        1            1            0           OK
+Null60               S2         Q8-AllTypesOR                                      1            1            0           OK
+Null60               S2         Q9-AllTypesIN                                      1            1            0           OK
+Null60               S3         Q10-AllTypesNULL                                   2            2            0           OK
+Null60               S3         Q11-AllTypesUnion                                  2            2            0           OK
+Null60               S3         Q2-SingleType                                      1            2            -1          !! MISSING ROWS
+Null60               S3         Q3-MultiTypeOR                                     2            2            0           OK
+Null60               S3         Q4-SingleTypeNULL                                  1            2            -1          !! MISSING ROWS
+Null60               S3         Q5-MultiTypeNULL                                   2            2            0           OK
+Null60               S3         Q6-InClause                                        2            2            0           OK
+Null60               S3         Q7-UnionAll                                        1            2            -1          !! MISSING ROWS
+Null60               S3         Q8-AllTypesOR                                      2            2            0           OK
+Null60               S3         Q9-AllTypesIN                                      2            2            0           OK
+Null60               S4         Q10-AllTypesNULL                                   1            1            0           OK
+Null60               S4         Q11-AllTypesUnion                                  1            1            0           OK
+Null60               S4         Q2-SingleType                                      0            1            -1          !! MISSING ROWS
+Null60               S4         Q3-MultiTypeOR                                     0            1            -1          !! MISSING ROWS
+Null60               S4         Q4-SingleTypeNULL                                  1            1            0           OK
+Null60               S4         Q5-MultiTypeNULL                                   1            1            0           OK
+Null60               S4         Q6-InClause                                        0            1            -1          !! MISSING ROWS
+Null60               S4         Q7-UnionAll                                        1            1            0           OK
+Null60               S4         Q8-AllTypesOR                                      0            1            -1          !! MISSING ROWS
+Null60               S4         Q9-AllTypesIN                                      0            1            -1          !! MISSING ROWS
+
+(120 rows affected)
+
+ 
+=========================================================================
+ INDEX USAGE — Seeks vs Scans per variant per NULL distribution
+=========================================================================
+NullDistribution     QueryVariant                                       Tests       Seeks       Scans       Other
+-------------------- -------------------------------------------------- ----------- ----------- ----------- -----------
+Null10               Q1-Baseline                                        4           1           0           3
+Null10               Q10-AllTypesNULL                                   4           2           0           2
+Null10               Q11-AllTypesUnion                                  4           2           0           2
+Null10               Q2-SingleType                                      4           1           0           3
+Null10               Q3-MultiTypeOR                                     4           3           0           1
+Null10               Q4-SingleTypeNULL                                  4           3           0           1
+Null10               Q5-MultiTypeNULL                                   4           3           0           1
+Null10               Q6-InClause                                        4           2           0           2
+Null10               Q7-UnionAll                                        4           3           0           1
+Null10               Q8-AllTypesOR                                      4           2           0           2
+Null10               Q9-AllTypesIN                                      4           2           0           2
+Null30               Q1-Baseline                                        4           0           0           4
+Null30               Q10-AllTypesNULL                                   4           1           0           3
+Null30               Q11-AllTypesUnion                                  4           3           0           1
+Null30               Q2-SingleType                                      4           2           0           2
+Null30               Q3-MultiTypeOR                                     4           2           0           2
+Null30               Q4-SingleTypeNULL                                  4           3           0           1
+Null30               Q5-MultiTypeNULL                                   4           3           0           1
+Null30               Q6-InClause                                        4           3           0           1
+Null30               Q7-UnionAll                                        4           3           0           1
+Null30               Q8-AllTypesOR                                      4           0           0           4
+Null30               Q9-AllTypesIN                                      4           2           0           2
+Null60               Q1-Baseline                                        4           0           0           4
+Null60               Q10-AllTypesNULL                                   4           3           0           1
+Null60               Q11-AllTypesUnion                                  4           2           0           2
+Null60               Q2-SingleType                                      4           1           0           3
+Null60               Q3-MultiTypeOR                                     4           2           0           2
+Null60               Q4-SingleTypeNULL                                  4           1           0           3
+Null60               Q5-MultiTypeNULL                                   4           1           0           3
+Null60               Q6-InClause                                        4           2           0           2
+Null60               Q7-UnionAll                                        4           3           0           1
+Null60               Q8-AllTypesOR                                      4           1           0           3
+Null60               Q9-AllTypesIN                                      4           2           0           2
+
+(33 rows affected)
+
+ 
+=========================================================================
+ CROSS-DISTRIBUTION — Does NULL ratio affect plan choice?
+=========================================================================
+QueryVariant                                       Scenario   10%_NULL                                           30%_NULL                                           60%_NULL                                           10%_Rows    30%_Rows    60%_Rows
+-------------------------------------------------- ---------- -------------------------------------------------- -------------------------------------------------- -------------------------------------------------- ----------- ----------- -----------
+Q1-Baseline                                        S1         Index Seek                                         N/A                                                N/A                                                244         207         246
+Q1-Baseline                                        S2         N/A                                                N/A                                                N/A                                                1           1           1
+Q1-Baseline                                        S3         N/A                                                N/A                                                N/A                                                2           2           2
+Q1-Baseline                                        S4         N/A                                                N/A                                                N/A                                                1           1           1
+Q10-AllTypesNULL                                   S1         N/A                                                N/A                                                Index Seek                                         244         207         246
+Q10-AllTypesNULL                                   S2         N/A                                                N/A                                                Index Seek                                         1           1           1
+Q10-AllTypesNULL                                   S3         Index Seek                                         Index Seek                                         Index Seek                                         2           2           2
+Q10-AllTypesNULL                                   S4         Index Seek                                         N/A                                                N/A                                                1           1           1
+Q11-AllTypesUnion                                  S1         Index Seek                                         Index Seek                                         Index Seek                                         244         207         246
+Q11-AllTypesUnion                                  S2         N/A                                                N/A                                                N/A                                                1           1           1
+Q11-AllTypesUnion                                  S3         Index Seek                                         Index Seek                                         Index Seek                                         2           2           2
+Q11-AllTypesUnion                                  S4         N/A                                                Index Seek                                         N/A                                                1           1           1
+Q2-SingleType                                      S1         Index Seek                                         N/A                                                N/A                                                186         123         79
+Q2-SingleType                                      S2         N/A                                                N/A                                                N/A                                                1           1           1
+Q2-SingleType                                      S3         N/A                                                Index Seek                                         Index Seek                                         1           1           1
+Q2-SingleType                                      S4         N/A                                                Index Seek                                         N/A                                                0           0           0
+Q3-MultiTypeOR                                     S1         Index Seek                                         N/A                                                Index Seek                                         200         134         85
+Q3-MultiTypeOR                                     S2         Index Seek                                         Index Seek                                         N/A                                                1           1           1
+Q3-MultiTypeOR                                     S3         Index Seek                                         N/A                                                N/A                                                2           2           2
+Q3-MultiTypeOR                                     S4         N/A                                                Index Seek                                         Index Seek                                         0           0           0
+Q4-SingleTypeNULL                                  S1         Index Seek                                         Index Seek                                         N/A                                                204         184         233
+Q4-SingleTypeNULL                                  S2         Index Seek                                         Index Seek                                         N/A                                                1           1           1
+Q4-SingleTypeNULL                                  S3         N/A                                                Index Seek                                         N/A                                                1           1           1
+Q4-SingleTypeNULL                                  S4         Index Seek                                         N/A                                                Index Seek                                         1           1           1
+Q5-MultiTypeNULL                                   S1         Index Seek                                         Index Seek                                         N/A                                                218         195         239
+Q5-MultiTypeNULL                                   S2         Index Seek                                         Index Seek                                         N/A                                                1           1           1
+Q5-MultiTypeNULL                                   S3         N/A                                                Index Seek                                         Index Seek                                         2           2           2
+Q5-MultiTypeNULL                                   S4         Index Seek                                         N/A                                                N/A                                                1           1           1
+Q6-InClause                                        S1         N/A                                                N/A                                                N/A                                                200         134         85
+Q6-InClause                                        S2         N/A                                                Index Seek                                         Index Seek                                         1           1           1
+Q6-InClause                                        S3         Index Seek                                         Index Seek                                         Index Seek                                         2           2           2
+Q6-InClause                                        S4         Index Seek                                         Index Seek                                         N/A                                                0           0           0
+Q7-UnionAll                                        S1         Index Seek                                         Index Seek                                         N/A                                                204         184         233
+Q7-UnionAll                                        S2         N/A                                                Index Seek                                         Index Seek                                         1           1           1
+Q7-UnionAll                                        S3         Index Seek                                         Index Seek                                         Index Seek                                         1           1           1
+Q7-UnionAll                                        S4         Index Seek                                         N/A                                                Index Seek                                         1           1           1
+Q8-AllTypesOR                                      S1         Index Seek                                         N/A                                                Index Seek                                         226         146         92
+Q8-AllTypesOR                                      S2         N/A                                                N/A                                                N/A                                                1           1           1
+Q8-AllTypesOR                                      S3         Index Seek                                         N/A                                                N/A                                                2           2           2
+Q8-AllTypesOR                                      S4         N/A                                                N/A                                                N/A                                                0           0           0
+Q9-AllTypesIN                                      S1         Index Seek                                         Index Seek                                         Index Seek                                         226         146         92
+Q9-AllTypesIN                                      S2         N/A                                                Index Seek                                         Index Seek                                         1           1           1
+Q9-AllTypesIN                                      S3         Index Seek                                         N/A                                                N/A                                                2           2           2
+Q9-AllTypesIN                                      S4         N/A                                                N/A                                                N/A                                                0           0           0
+Warning: Null value is eliminated by an aggregate or other SET operation.
+
+(44 rows affected)
+
+ 
+=========================================================================
+ DECISION MATRIX
+=========================================================================
+QueryVariant                                       Correctness IndexBehavior DegradationRisk              TotalTests
+-------------------------------------------------- ----------- ------------- ---------------------------- -----------
+Q1-Baseline                                        PASS        Mixed         No degradation observed      12
+Q10-AllTypesNULL                                   PASS        Mixed         No degradation observed      12
+Q11-AllTypesUnion                                  PASS        Mixed         No degradation observed      12
+Q2-SingleType                                      FAILS       Mixed         No degradation observed      12
+Q3-MultiTypeOR                                     FAILS       Mixed         No degradation observed      12
+Q4-SingleTypeNULL                                  FAILS       Mixed         No degradation observed      12
+Q5-MultiTypeNULL                                   FAILS       Mixed         No degradation observed      12
+Q6-InClause                                        FAILS       Mixed         No degradation observed      12
+Q7-UnionAll                                        FAILS       Mixed         No degradation observed      12
+Q8-AllTypesOR                                      FAILS       Mixed         No degradation observed      12
+Q9-AllTypesIN                                      FAILS       Mixed         No degradation observed      12
+
+(11 rows affected)
+
+ 
+=========================================================================
+ RECOMMENDED NEXT STEPS
+=========================================================================
+1. Review the CROSS-DISTRIBUTION table to see if NULL ratio flips plans
+2. Review the DECISION MATRIX for correctness + index behavior summary
+3. Click ExecutionPlanXml cells in SSMS to inspect graphical plans:
+   SELECT NullDistribution, QueryVariant, Scenario, ExecutionPlanXml
+   FROM dbo.TestResults ORDER BY 1, 2, 3;
+ 
+=== ANALYSIS COMPLETE ===
+
+Completion time: 2026-02-09T17:15:10.8694594-08:00

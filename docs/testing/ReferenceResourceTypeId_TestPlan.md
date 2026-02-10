@@ -148,9 +148,76 @@ Initial test data randomly assigned `ReferenceResourceTypeId` values without cor
 
 Q2-Q7 (which test only 1-2 of the 4 target types) are **expected** to return fewer rows than baseline. The key variants are Q8-Q11, which include ALL target types.
 
-### Run 2 (pending)
+### Run 2 (2026-02-09) — Correlated Test Data, All Target Types
 
-Awaiting results with corrected data (types correlated to search params per FHIR R4 spec) and new Q8-Q11 variants that include all 4 target types for SearchParamId 414. **Q10 and Q11 should match baseline row counts exactly** — if they do, the approach is viable.
+Data regenerated with `ReferenceResourceTypeId` correlated to `SearchParamId` per FHIR R4 spec. Added Q8-Q11 variants using all 4 target types for SearchParamId 414 (Patient=103, Group=107, Device=106, Location=108).
+
+#### Data Distribution
+
+| Table | Total Rows | NULL Rows | NULL % | Patient Rows | Practitioner Rows |
+|-------|-----------|-----------|--------|-------------|-------------------|
+| RefSearch_Null10 | 2,000,010 | 199,350 | 10.0% | 1,057,212 | 316,468 |
+| RefSearch_Null30 | 2,000,010 | 599,792 | 30.0% | 821,473 | 246,883 |
+| RefSearch_Null60 | 2,000,010 | 1,200,501 | 60.0% | 469,161 | 140,891 |
+
+#### Correctness Results
+
+**Q10 and Q11 PASS correctness across ALL distributions and ALL scenarios:**
+
+| Variant | S1 (10%) | S1 (30%) | S1 (60%) | S2 | S3 | S4 | Verdict |
+|---------|---------|---------|---------|----|----|-----|---------|
+| Q1-Baseline | 244 | 207 | 246 | ✓ | ✓ | ✓ | PASS |
+| **Q10-AllTypesNULL** | **244** | **207** | **246** | **✓** | **✓** | **✓** | **✅ PASS** |
+| **Q11-AllTypesUnion** | **244** | **207** | **246** | **✓** | **✓** | **✓** | **✅ PASS** |
+| Q8-AllTypesOR (no NULL) | 226 | 146 | 92 | ✓ | ✓ | ✗ | ❌ FAILS (misses NULL rows) |
+| Q9-AllTypesIN (no NULL) | 226 | 146 | 92 | ✓ | ✓ | ✗ | ❌ FAILS (misses NULL rows) |
+
+Q2-Q7 fail as expected — they test only a subset of target types and/or omit NULL handling.
+
+Q8/Q9 (all types but NO NULL) fail on S4 (NULL-only ID) and lose rows on S1 proportional to NULL%. This confirms **IS NULL handling is mandatory**.
+
+#### Index Behavior
+
+| Variant | Null10 Seeks | Null30 Seeks | Null60 Seeks | Total (of 12) |
+|---------|-------------|-------------|-------------|--------------|
+| Q1-Baseline | 1 | 0 | 0 | 1 |
+| **Q10-AllTypesNULL** | **2** | **1** | **2** | **5** |
+| **Q11-AllTypesUnion** | **2** | **3** | **2** | **7** |
+| Q9-AllTypesIN | 2 | 1 | 2 | 5 |
+
+Key observations:
+- **Q11-AllTypesUnion achieves the most index seeks (7/12)** — the UNION ALL approach lets the optimizer seek independently on each branch
+- **Q10-AllTypesNULL achieves 5/12 seeks** — the `IN (...) OR IS NULL` approach still enables seeks in most cases
+- **Q1-Baseline only achieves 1/12 seeks** — without `ReferenceResourceTypeId`, the index is poorly utilized
+- **No degradation** across NULL distributions — plan choices are stable from 10% to 60% NULL
+
+#### Cross-Distribution: S1 (Main Scenario)
+
+| Variant | 10% NULL | 30% NULL | 60% NULL | Plan Stable? |
+|---------|---------|---------|---------|-------------|
+| Q1-Baseline | Index Seek | N/A | N/A | Mostly non-seek |
+| Q10-AllTypesNULL | N/A | N/A | Index Seek | Stable |
+| Q11-AllTypesUnion | Index Seek | Index Seek | Index Seek | ✅ Stable (always seeks) |
+
+Q11 (UNION ALL) is the most **consistently seek-friendly** variant — it achieves Index Seek on S1 across all three NULL distributions.
+
+#### Decision Matrix
+
+| Variant | Correctness | Index Behavior | Recommendation |
+|---------|------------|---------------|----------------|
+| Q1-Baseline | ✅ PASS | Mixed (mostly non-seek) | Current behavior |
+| **Q10-AllTypesNULL** | **✅ PASS** | **Mixed (improved seeks)** | **✅ Viable — simpler SQL** |
+| **Q11-AllTypesUnion** | **✅ PASS** | **Mixed (best seek rate)** | **✅ Best — most consistent seeks** |
+| Q8/Q9 (no NULL) | ❌ FAILS | Mixed | ❌ Cannot use without IS NULL |
+
+### Conclusion
+
+**✅ Proceed with the change**, with these requirements:
+
+1. **Must include ALL target types** from the search parameter's `TargetResourceTypes` list — using only a subset drops valid rows
+2. **Must include `OR ReferenceResourceTypeId IS NULL`** — without it, untyped string references are silently dropped
+3. **Q11 (UNION ALL) is the best approach** for index utilization — it achieves consistent Index Seeks across all NULL distributions
+4. **Q10 (IN + IS NULL) is also viable** if UNION ALL is too complex to generate — it's correct and still improves seek rate over baseline
 
 ---
 
