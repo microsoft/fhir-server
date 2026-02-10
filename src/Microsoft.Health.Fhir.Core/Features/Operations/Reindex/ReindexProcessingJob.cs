@@ -112,23 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _jobInfo = jobInfo;
             _reindexProcessingJobDefinition = DeserializeJobDefinition(_jobInfo);
 
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
-            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
-            var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
-            //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
-            //// Cannot just refresh here because we might be missing resources updated via API.
-            if (isBad)
-            {
-                _logger.LogJobWarning(jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
-            }
-            else // normal
-            {
-                _logger.LogJobInformation(jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
-            }
+            await CheckDiscrepancies(cancellationToken);
 
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
@@ -138,6 +122,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             await ProcessQueryAsync(cancellationToken);
 
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
+        }
+
+        private async Task CheckDiscrepancies(CancellationToken cancellationToken)
+        {
+            var resourceType = _reindexProcessingJobDefinition.ResourceType;
+            var searchParameterHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(resourceType);
+            var requestedSearchParameterHash = _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap;
+            var isBad = requestedSearchParameterHash != searchParameterHash;
+            var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
+            if (requestedSearchParameterHash == searchParameterHash)
+            {
+                _logger.LogJobInformation(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+            else
+            {
+                _logger.LogJobWarning(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+
+            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
+            msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
+            //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
+            //// Cannot just refresh here because we might be missing resources updated via API.
+            if (isBad)
+            {
+                _logger.LogJobWarning(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+            else // normal
+            {
+                _logger.LogJobInformation(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken, int? maxBatchSize = null)
