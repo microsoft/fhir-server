@@ -1,7 +1,4 @@
 {
     "$schema": "https://xunit.net/schema/v3/configuration",
-    "parallelAlgorithm": "aggressive",
-    "parallelizeAssembly": true,
-    "parallelizeTestCollections": true,
-    "maxParallelThreads": "2x"
+    "parallelizeAssembly": true
 }
