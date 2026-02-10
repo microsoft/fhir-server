@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkUpdate)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkUpdate)]
-        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0, [FromQuery(Name =KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
+        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             CheckIfOperationIsSupported();
             return await SendUpdateRequest(null, paramsResource, isParallel, maxCount, metaHistory);
