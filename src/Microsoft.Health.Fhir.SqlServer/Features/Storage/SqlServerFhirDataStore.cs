@@ -850,7 +850,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
-            await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
+            short resourceTypeId = _model.GetResourceTypeId(key.ResourceType);
+
+            // Handles hard delete within a transaction scope.
+            if (_sqlTransactionHandler.SqlTransactionScope != null)
+            {
+                using (SqlCommand cmd = SqlStoreClient.CreateHardDeleteSqlCommand(resourceTypeId, key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture))
+                using (SqlConnectionWrapper conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true))
+                {
+                    cmd.Connection = conn.SqlConnection;
+                    cmd.Transaction = conn.SqlTransaction;
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+            else
+            {
+                await _sqlStoreClient.HardDeleteAsync(resourceTypeId, key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
+            }
         }
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)

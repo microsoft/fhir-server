@@ -5,19 +5,19 @@
         {
             "request": {
                 "method": "DELETE",
-                "url": "Patient/patient-rollback-0"
+                "url": "Patient/patient-validresource-0"
             }
         },
         {
             "request": {
                 "method": "DELETE",
-                "url": "Patient/patient-rollback-1"
+                "url": "Patient/patient-validresource-1"
             }
         },
         {
             "resource": {
                 "resourceType": "Patient",
-                "id": "patient-rollback-2",
+                "id": "patient-validresource-2",
                 "identifier": [
                     {
                         "use": "official",
@@ -52,14 +52,13 @@
             },
             "request": {
                 "method": "PUT",
-                "url": "Patient/patient-rollback-2",
-                "ifMatch": "W/\"2112\""
+                "url": "Patient/patient-validresource-2"
             }
         },
         {
             "resource": {
                 "resourceType": "Observation",
-                "id": "observation-rollback-0",
+                "id": "observation-validresource-0",
                 "status": "final",
                 "code": {
                     "coding": [
@@ -81,8 +80,7 @@
             },
             "request": {
                 "method": "PUT",
-                "url": "Observation/observation-rollback-0",
-                "ifMatch": "W/\"2112\""
+                "url": "Observation/observation-validresource-0"
             }
         }
     ]
