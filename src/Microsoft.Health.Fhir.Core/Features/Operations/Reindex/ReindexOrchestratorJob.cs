@@ -589,7 +589,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     SearchParamLastUpdated = _searchParamLastUpdated,
                     TypeId = (int)JobType.ReindexProcessing,
                     GroupId = _jobInfo.GroupId,
-                    SearchParameterHash = GetHashByResourceType(resourceType),
+                    ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
                     ResourceCount = new SearchResultReindex
                     {
                         StartResourceSurrogateId = range.StartId,
@@ -710,7 +710,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = string.Empty;
-            searchParameterHash = GetHashByResourceType(queryStatus.ResourceType);
+            searchParameterHash = GetHashMapByResourceType(queryStatus.ResourceType);
 
             // Ensure searchParameterHash is never null - for Cosmos DB scenarios, this will be empty string
             searchParameterHash ??= string.Empty;
@@ -832,7 +832,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return searchResultReindex;
         }
 
-        private string GetHashByResourceType(string resourceType)
+        private string GetHashMapByResourceType(string resourceType)
         {
             _reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string searchResultHashMap);
             return searchResultHashMap;

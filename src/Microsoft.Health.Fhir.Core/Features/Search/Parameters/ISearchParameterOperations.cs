@@ -31,6 +31,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <returns>A task.</returns>
         Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
 
-        string GetSearchParameterHash(string resourceType);
+        string GetResourceTypeSearchParameterHashMap(string resourceType);
     }
 }
