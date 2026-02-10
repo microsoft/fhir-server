@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -32,9 +33,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));
 
             var sb = new StringBuilder();
-            foreach (var searchParamInfo in searchParamaterInfos
-                                                .Where(_ => _.SearchParameterStatus == Registry.SearchParameterStatus.Supported || _.SearchParameterStatus == Registry.SearchParameterStatus.Enabled)
-                                                .OrderBy(x => x.Url.ToString()))
+            foreach (var searchParamInfo in searchParamaterInfos.Where(_ => _.SearchParameterStatus == SearchParameterStatus.Supported
+                                                                            || _.SearchParameterStatus == SearchParameterStatus.Enabled)
+                                                                .OrderBy(x => x.Url.ToString()))
             {
                 sb.Append(searchParamInfo.Url);
                 sb.Append(searchParamInfo.Type);
