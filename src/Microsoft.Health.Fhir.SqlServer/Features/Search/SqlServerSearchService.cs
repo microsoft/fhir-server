@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
+        private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
@@ -988,11 +989,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return string.Empty;
             }
 
-            var lines = queryText.Split(["\r\n", "\n"], StringSplitOptions.None);
+            var lines = queryText.Split(NewLineSeparators, StringSplitOptions.None);
             var sb = new StringBuilder(queryText.Length);
+            bool hasContent = false;
+            int pendingNewlines = 0;
             foreach (var line in lines)
             {
-                var trimmed = line.Trim();
+                ReadOnlySpan<char> trimmed = line.AsSpan().Trim();
+
+                // Track blank lines but defer emitting them
+                if (trimmed.IsEmpty)
+                {
+                    if (hasContent)
+                    {
+                        pendingNewlines++;
+                    }
+
+                    continue;
+                }
 
                 // Skip SET STATISTICS lines
                 if (trimmed.StartsWith("SET STATISTICS IO", StringComparison.OrdinalIgnoreCase) ||
@@ -1014,17 +1028,71 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     continue;
                 }
 
-                // Replace ;With <> With
-                string processedLine = line;
-                if (trimmed.StartsWith(";WITH", StringComparison.OrdinalIgnoreCase))
+                // Emit deferred newlines only when another content line follows
+                if (hasContent)
                 {
-                    processedLine = line.Replace(";WITH", "WITH", StringComparison.OrdinalIgnoreCase);
+                    for (int i = 0; i <= pendingNewlines; i++)
+                    {
+                        sb.Append("\r\n");
+                    }
                 }
 
-                sb.AppendLine(processedLine);
+                pendingNewlines = 0;
+
+                // Replace ;WITH with WITH using slicing instead of string.Replace
+                if (trimmed.StartsWith(";WITH", StringComparison.OrdinalIgnoreCase))
+                {
+                    int semiPos = line.IndexOf(';', StringComparison.Ordinal);
+                    sb.Append(line.AsSpan(0, semiPos));
+                    sb.Append(line.AsSpan(semiPos + 1));
+                }
+                else
+                {
+                    sb.Append(line);
+                }
+
+                hasContent = true;
             }
 
-            return sb.ToString().TrimStart().TrimEnd();
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Splits a normalized query text into search fragments for Query Store lookup.
+        /// Query Store splits multi-statement batches at INSERT INTO @FilteredData boundaries.
+        /// </summary>
+        internal static List<string> SplitIntoSearchFragments(string normalizedQueryText)
+        {
+            const string BatchSeparator = "INSERT INTO @FilteredData";
+            var searchFragments = new List<string>();
+
+            int separatorIndex = normalizedQueryText.IndexOf(BatchSeparator, StringComparison.OrdinalIgnoreCase);
+            if (separatorIndex < 0)
+            {
+                searchFragments.Add(normalizedQueryText);
+            }
+            else
+            {
+                int insertLineEnd = normalizedQueryText.IndexOfAny(['\r', '\n'], separatorIndex);
+                if (insertLineEnd < 0)
+                {
+                    insertLineEnd = normalizedQueryText.Length;
+                }
+
+                string firstSegment = normalizedQueryText[..insertLineEnd].Trim();
+                if (firstSegment.Length > 0)
+                {
+                    searchFragments.Add(firstSegment);
+                }
+
+                string remainingSegment = normalizedQueryText[insertLineEnd..].Trim();
+                if (remainingSegment.Length > 0)
+                {
+                    searchFragments.Add(remainingSegment);
+                }
+            }
+
+            return searchFragments;
         }
 
         private static async Task LogQueryStoreByTextAsync(
@@ -1035,13 +1103,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             CancellationToken ct)
         {
             var queryText = RemoveDeclareAndStatisticsLines(sqlCommand.CommandText);
+            var searchFragments = SplitIntoSearchFragments(queryText);
 
             using var cmd = sqlCommand.Connection.CreateCommand();
             cmd.CommandType = CommandType.Text;
             cmd.CommandTimeout = timeoutSeconds;
 
-            // Use LIKE-only matching:
-            // 1. Filter runtime stats to the last 1 hour only
+            // Identify the most recently executed plan per query by finding the plan with the latest
+            // execution time. This approach is compatible with all SQL Server versions that support
+            // Query Store (2016+), unlike q.last_plan_id which requires SQL Server 2022+.
+            // TRY_CAST(p.query_plan AS nvarchar(max)) retrieves the XML showplan for that plan.
             cmd.CommandText = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
 
@@ -1055,7 +1126,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     rs.avg_rowcount,
                     rs.max_duration / 1000.0 AS max_duration_ms,
                     rs.last_execution_time,
-                    qt.query_sql_text
+                    p.plan_id,
+                    q.query_id,
+                    CASE WHEN p.plan_id = (
+                        SELECT TOP 1 p2.plan_id
+                        FROM sys.query_store_plan p2
+                        JOIN sys.query_store_runtime_stats rs2 ON rs2.plan_id = p2.plan_id
+                        WHERE p2.query_id = q.query_id
+                        ORDER BY rs2.last_execution_time DESC
+                    ) THEN 1 ELSE 0 END AS is_last_used_plan,
+                    TRY_CAST(p.query_plan AS nvarchar(max)) AS query_plan_xml
                 FROM sys.query_store_query_text qt
                 JOIN sys.query_store_query q ON q.query_text_id = qt.query_text_id
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
@@ -1065,47 +1145,75 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
-            cmd.Parameters.AddWithValue("@NormalizedText", queryText.ToString());
+            var sb = new StringBuilder();
+            string lastUsedPlanXml = null;
 
-            using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-            if (!reader.HasRows)
+            for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
             {
-                logger.LogWarning(
-                    "Long-running SQL ({ElapsedMilliseconds}ms). Normalized query did not match any Query Store entries.",
-                    executionTime);
-                return;
-            }
+                string searchFragment = searchFragments[segmentIndex];
 
-            int rowIndex = 0;
-            while (await reader.ReadAsync(ct).ConfigureAwait(false))
-            {
-                if (await reader.IsDBNullAsync(0, ct).ConfigureAwait(false))
+                // Truncate to limit LIKE pattern scan cost against Query Store.
+                // The first 4000 chars is sufficient to uniquely identify the query.
+                if (searchFragment.Length > 4000)
                 {
-                    continue;
+                    searchFragment = searchFragment[..4000];
                 }
 
-                rowIndex++;
-                logger.LogWarning(
-                    "Long-running SQL ({ElapsedMilliseconds}ms). QS match [{RowIndex}] execs={Count} avgDurMs={AvgDurMs} avgCpuMs={AvgCpuMs} avgLReads={AvgLReads} avgPReads={AvgPReads} avgLWrites={AvgLWrites} avgRows={AvgRows} maxDurMs={MaxDurMs} lastExec={LastExec:o} QSText={QueryStoreText}",
-                    executionTime,
-                    rowIndex,
-                    reader.GetInt64(0),                        // count_executions
-                    Convert.ToDouble(reader.GetValue(1)),      // avg_duration_ms
-                    Convert.ToDouble(reader.GetValue(2)),      // avg_cpu_ms
-                    Convert.ToDouble(reader.GetValue(3)),      // avg_logical_io_reads
-                    Convert.ToDouble(reader.GetValue(4)),      // avg_physical_io_reads
-                    Convert.ToDouble(reader.GetValue(5)),      // avg_logical_io_writes
-                    Convert.ToDouble(reader.GetValue(6)),      // avg_rowcount
-                    Convert.ToDouble(reader.GetValue(7)),      // max_duration_ms
-                    reader.GetDateTimeOffset(8),               // last_execution_time (datetimeoffset)
-                    reader.GetString(9));                      // query_sql_text
+                cmd.Parameters.Clear();
+                cmd.Parameters.AddWithValue("@NormalizedText", searchFragment);
+
+                using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+                int matchIndex = 0;
+                while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                {
+                    if (await reader.IsDBNullAsync(0, ct).ConfigureAwait(false))
+                    {
+                        continue;
+                    }
+
+                    matchIndex++;
+                    long planId = reader.GetInt64(9);
+                    long queryId = reader.GetInt64(10);
+                    bool isLastUsedPlan = reader.GetInt32(11) == 1;
+
+                    sb.AppendLine()
+                      .Append($"  batch[{segmentIndex + 1}] match[{matchIndex}]")
+                      .Append($" execs={reader.GetInt64(0)}")
+                      .Append($" avgDurMs={Convert.ToDouble(reader.GetValue(1)):F1}")
+                      .Append($" avgCpuMs={Convert.ToDouble(reader.GetValue(2)):F1}")
+                      .Append($" avgLReads={Convert.ToDouble(reader.GetValue(3)):F0}")
+                      .Append($" avgPReads={Convert.ToDouble(reader.GetValue(4)):F0}")
+                      .Append($" avgLWrites={Convert.ToDouble(reader.GetValue(5)):F0}")
+                      .Append($" avgRows={Convert.ToDouble(reader.GetValue(6)):F0}")
+                      .Append($" maxDurMs={Convert.ToDouble(reader.GetValue(7)):F1}")
+                      .Append($" lastExec={reader.GetDateTimeOffset(8):o}")
+                      .Append($" queryId={queryId}")
+                      .Append($" planId={planId}")
+                      .Append($" isLastUsedPlan={isLastUsedPlan}");
+
+                    if (isLastUsedPlan && !await reader.IsDBNullAsync(12, ct).ConfigureAwait(false))
+                    {
+                        lastUsedPlanXml = reader.GetString(12);
+                    }
+                }
             }
 
-            if (rowIndex == 0)
+            if (sb.Length > 0)
             {
                 logger.LogWarning(
-                    "Long-running SQL ({ElapsedMilliseconds}ms). Normalized query did not match any Query Store entries.",
-                    executionTime);
+                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats} QueryPlan={QueryPlan}",
+                    executionTime,
+                    sqlCommand.CommandText,
+                    sb.ToString(),
+                    lastUsedPlanXml);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                    executionTime,
+                    sqlCommand.CommandText,
+                    "No Query Store matches found.");
             }
         }
 
