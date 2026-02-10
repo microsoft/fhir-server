@@ -533,3 +533,5 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/aggregate-coverage.yml
+      parameters:
+        postCoverageComparison: true
