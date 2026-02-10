@@ -818,9 +818,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             try
                             {
-                                var loggingCancellationToken = CancellationToken.None;
                                 if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
+                                    // Use a short timeout to bound the diagnostic Query Store lookup.
+                                    // This avoids holding the connection indefinitely if the original
+                                    // request was cancelled (e.g. client disconnect, load balancer timeout).
+                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                                     try
                                     {
                                         await LogQueryStoreByTextAsync(
@@ -828,7 +831,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             _logger,
                                             (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
                                             executionStopwatch.ElapsedMilliseconds,
-                                            loggingCancellationToken);
+                                            loggingCts.Token);
                                     }
                                     catch (SqlException ex)
                                     {
@@ -980,9 +983,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Strips SET STATISTICS, DECLARE statements
+        /// Strips diagnostic preamble lines (SET STATISTICS, DECLARE, OPTION (RECOMPILE), timeout comments)
+        /// and normalizes leading ;WITH to WITH, producing a query body suitable for Query Store text matching.
         /// </summary>
-        private static string RemoveDeclareAndStatisticsLines(string queryText)
+        private static string StripQueryPreambleLines(string queryText)
         {
             if (string.IsNullOrWhiteSpace(queryText))
             {
@@ -1102,7 +1106,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             long executionTime,
             CancellationToken ct)
         {
-            var queryText = RemoveDeclareAndStatisticsLines(sqlCommand.CommandText);
+            if (sqlCommand.CommandType == CommandType.StoredProcedure)
+            {
+                return;
+            }
+
+            var queryText = StripQueryPreambleLines(sqlCommand.CommandText);
             var searchFragments = SplitIntoSearchFragments(queryText);
 
             using var cmd = sqlCommand.Connection.CreateCommand();
@@ -1980,9 +1989,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             try
                             {
-                                var loggingCancellationToken = CancellationToken.None;
                                 if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
+                                    // Use a short timeout to bound the diagnostic Query Store lookup.
+                                    // This avoids holding the connection indefinitely if the original
+                                    // request was cancelled (e.g. client disconnect, load balancer timeout).
+                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                                     try
                                     {
                                         await LogQueryStoreByTextAsync(
@@ -1990,7 +2002,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             _logger,
                                             (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
                                             executionStopwatch.ElapsedMilliseconds,
-                                            loggingCancellationToken);
+                                            loggingCts.Token);
                                     }
                                     catch (SqlException ex)
                                     {

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
-    /// Reads a numeric parameter from dbo.Parameters and caches it with a configurable TTL.
+    /// Reads a numeric parameter from dbo.Parameters and caches it with a 10-minute TTL.
     /// </summary>
     /// <typeparam name="TLogger">The type used for logging category.</typeparam>
     internal class CachedParameter<TLogger>
