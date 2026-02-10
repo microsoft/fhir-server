@@ -194,7 +194,13 @@ public class SqlQueryGeneratorTests
         Assert.Contains(" OR ", generatedSql);
         Assert.Contains("IS NULL", generatedSql);
 
-        // Verify both target resource types appear in the SQL
-        Assert.Contains("@p", generatedSql); // Parameters are used for the type IDs
+        // Verify both target resource type IDs appear as separate equality checks
+        // Patient=1 and Practitioner=2, each generating "ReferenceResourceTypeId = @pN"
+        int typeIdOccurrences = generatedSql.Split("ReferenceResourceTypeId").Length - 1;
+        Assert.True(typeIdOccurrences >= 3, $"Expected ReferenceResourceTypeId to appear at least 3 times (2 type equality checks + 1 IS NULL), but found {typeIdOccurrences} in: {generatedSql}");
+
+        // Verify both type IDs were passed as parameters by checking the mock was called
+        _fhirModel.Received(1).GetResourceTypeId("Patient");
+        _fhirModel.Received(1).GetResourceTypeId("Practitioner");
     }
 }
