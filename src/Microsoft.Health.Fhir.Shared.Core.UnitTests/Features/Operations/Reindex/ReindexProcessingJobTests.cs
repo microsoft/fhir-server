@@ -976,6 +976,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Status = JobStatus.Running,
             };
 
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.ResourceTypeSearchParameterHashMap);
+
             var successfulEntries = Enumerable.Range(1, 5)
                 .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
                 .ToList();
