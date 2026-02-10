@@ -118,181 +118,114 @@ A SQL performance test script has been created at:
 
 ## Test Results
 
-### Run 1 (2026-02-09) — Uncorrelated Test Data
+### Run 1 (2026-02-09) — Uncorrelated Test Data (2M rows)
 
-Initial test data randomly assigned `ReferenceResourceTypeId` values without correlating them to `SearchParamId`. This caused ALL query variants to fail correctness because rows had target types invalid for the search parameter being queried. For example, a `SearchParamId=414` (DiagnosticReport-subject) row might have `ReferenceResourceTypeId=104` (Practitioner), which is not a valid target for that search parameter.
+Initial test data randomly assigned `ReferenceResourceTypeId` values without correlating them to `SearchParamId`. ALL query variants failed correctness. **Root cause**: Test data bug, not a real issue. Fixed by correlating target types to search parameters per FHIR R4 spec.
 
-**Root cause**: Test data generation bug, not a real issue with the approach. The data generator was fixed to only assign `ReferenceResourceTypeId` values that are valid FHIR targets for each `SearchParamId`.
+### Run 2 (2026-02-09) — Correlated Test Data (2M rows, 11 variants)
 
-Q2-Q7 (which test only 1-2 of the 4 target types) are **expected** to return fewer rows than baseline. The key variants are Q8-Q11, which include ALL target types.
+Tested 11 query variants including Q10 (all types + NULL) and Q11 (UNION ALL). Key findings:
+- **Q10 (IN + IS NULL)**: ✅ PASS correctness, 6/12 seeks (50%) vs 1/12 baseline (8%)
+- **Q11 (UNION ALL)**: ✅ PASS correctness, 7/12 seeks (58%)
+- **Q8/Q9 (no NULL)**: ❌ FAILS — confirms IS NULL is mandatory
+- 1 regression at 10%/S1 (baseline seek → Q10 N/A)
 
-### Run 2 (2026-02-09) — Correlated Test Data, All Target Types (2M rows)
+### Run 3 (2026-02-10) — Focused Comparison at 20M Rows ⭐
 
-Data regenerated with `ReferenceResourceTypeId` correlated to `SearchParamId` per FHIR R4 spec. Tested 11 query variants including Q8-Q11 with all 4 target types for SearchParamId 414.
+Simplified to Q1 (Baseline) vs Q2 (All Types + IS NULL) only, at 20M rows per table (10× increase). This is the definitive test.
 
-**Key findings (Q1 Baseline vs Q10 AllTypes+NULL):**
+#### Data Distribution
 
-| Metric | Q1 Baseline | Q10 AllTypes+NULL |
-|--------|------------|-------------------|
-| Correctness | ✅ PASS | ✅ PASS (matches baseline exactly) |
-| Index Seeks (of 12 tests) | 1 (8%) | 6 (50%) |
-| S1 degradation at 60% NULL? | N/A | No |
+| Table | Total Rows | NULL Rows | NULL % | Patient Rows | Distinct RefIds |
+|-------|-----------|-----------|--------|-------------|-----------------|
+| RefSearch_Null10 | 20,000,010 | 1,998,085 | 10.0% | 10,569,843 | 19,913 |
+| RefSearch_Null30 | 20,000,010 | 5,996,357 | 30.0% | 8,219,814 | 19,913 |
+| RefSearch_Null60 | 20,000,010 | 12,000,027 | 60.0% | 4,695,960 | 19,913 |
+
+#### Correctness: ✅ PASS — 12/12
+
+Q2 matches Q1 row counts **exactly** across all 12 test cases. Zero row differences.
+
+| Distribution | S1 (Common ID) | S2 (Rare ID) | S3 (Typed+NULL) | S4 (NULL-only) |
+|-------------|----------------|-------------|-----------------|----------------|
+| 10% NULL | 2,482 ✅ | 1 ✅ | 2 ✅ | 1 ✅ |
+| 30% NULL | 2,486 ✅ | 1 ✅ | 2 ✅ | 1 ✅ |
+| 60% NULL | 2,479 ✅ | 1 ✅ | 2 ✅ | 1 ✅ |
+
+#### Index Behavior: Q2 achieves 6× more seeks
+
+| Metric | Q1-Baseline | Q2-AllTypesNULL |
+|--------|------------|-----------------|
+| **Index Seeks** | **1 of 12 (8.3%)** | **6 of 12 (50.0%)** |
+| Degradation at high NULL% | No | No |
 
 Side-by-side comparison:
-- **5 improved** (N/A → Index Seek)
-- **5 same** (N/A → N/A)
-- **1 regressed** (Index Seek → N/A at 10%/S1 only)
-- Q11 (UNION ALL) achieved 7/12 seeks but requires more complex SQL generation
 
-**Conclusion from Run 2**: Q10 (IN + IS NULL) is correct and improves seek rate 6× over baseline. Proceed to Run 3 at 10× scale to confirm results hold.
+| Distribution | Scenario | Q1 Baseline | Q2 AllTypes+NULL | Delta |
+|-------------|----------|-------------|------------------|-------|
+| 10% NULL | S1 (Common ID) | **Index Seek** | **Index Seek** | SAME (both seek) |
+| 10% NULL | S2 (Rare ID) | N/A | N/A | SAME |
+| 10% NULL | S3 (Typed+NULL) | N/A | N/A | SAME |
+| 10% NULL | S4 (NULL-only) | N/A | N/A | SAME |
+| 30% NULL | S1 (Common ID) | N/A | N/A | SAME |
+| 30% NULL | S2 (Rare ID) | N/A | **Index Seek** | ✅ IMPROVED |
+| 30% NULL | S3 (Typed+NULL) | N/A | N/A | SAME |
+| 30% NULL | S4 (NULL-only) | N/A | N/A | SAME |
+| 60% NULL | S1 (Common ID) | N/A | **Index Seek** | ✅ IMPROVED |
+| 60% NULL | S2 (Rare ID) | N/A | **Index Seek** | ✅ IMPROVED |
+| 60% NULL | S3 (Typed+NULL) | N/A | **Index Seek** | ✅ IMPROVED |
+| 60% NULL | S4 (NULL-only) | N/A | **Index Seek** | ✅ IMPROVED |
 
-### Run 3 (pending) — Focused Comparison at 20M Rows
+Key observations:
+- **5 improved, 7 same, 0 regressed** — zero regressions at 20M rows (Run 2 had 1)
+- **Q2 improves as NULL% increases**: 1 seek at 10%, 1 at 30%, 4 at 60%
+- The optimizer benefits more from the type filter when NULLs are a larger data fraction
+- The Run 2 regression (10%/S1) disappeared at scale — optimizer makes better decisions with more data
 
-Simplified test: only Q1 (Baseline) vs Q2 (All Types + IS NULL) at 20M rows per table.
-This validates whether the Run 2 findings hold at production-like scale.
+#### Summary Verdict
 
-- **Tables**: 3 × 20M rows = 60M total (10× increase from Run 2)
-- **Variants**: Q1-Baseline, Q2-AllTypesNULL only
-- **Scenarios**: S1-S4 (unchanged)
-- **Distributions**: 10%, 30%, 60% NULL (unchanged)
-- **Total tests**: 24 (2 variants × 4 scenarios × 3 distributions)
-
-**Expected**: Q2 matches Q1 row counts exactly and achieves more index seeks.
+| Variant | Correctness | Seek % | Degradation Risk |
+|---------|------------|--------|------------------|
+| Q1-Baseline | BASELINE | 8.3% | No |
+| Q2-AllTypesNULL | ✅ PASS | **50.0%** | No |
 
 ---
 
-## Alternative Approaches
+## Conclusion
+
+**✅ Ship PR #5285 with IS NULL handling.** Three test runs confirm:
+
+1. **Correctness**: Q2 matches baseline row counts exactly across all distributions and scenarios (12/12 PASS at 20M rows)
+2. **Performance**: 6× improvement in index seek rate (8.3% → 50.0%) with zero regressions
+3. **Stability**: No degradation as NULL% increases from 10% to 60% — the change actually performs *better* at higher NULL ratios
+4. **Scale**: Results consistent from 2M to 20M rows
+
+**Requirements for the code change**:
+- Include **all** target types from `TargetResourceTypes` — partial lists drop valid rows
+- Include `OR ReferenceResourceTypeId IS NULL` — without it, untyped string references are silently dropped
+- The `IN (...) OR IS NULL` pattern is sufficient — UNION ALL offers marginally better seek rates but is not needed
+
+---
+
+## Alternative Approaches (Evaluated)
 
 ### Alternative 1: Backfill NULL Values
 
-**Description**: Run a one-time data migration to populate `ReferenceResourceTypeId` for all existing NULL rows, then make the column NOT NULL going forward.
+Populate `ReferenceResourceTypeId` for all NULL rows, then make column NOT NULL. Eliminates the NULL problem permanently but requires schema migration, careful data backfill, and handling of genuinely untyped references. **High complexity, best long-term solution.**
 
-**Implementation**:
-1. Add a new schema migration version per [SchemaVersioning.md](../SchemaVersioning.md)
-2. Create a migration script that infers the correct `ReferenceResourceTypeId` from the `ReferenceResourceId` and `SearchParamId` context
-3. For rows where the type genuinely cannot be determined, either:
-   - Assign a sentinel value (e.g., `-1`) to represent "unknown type"
-   - Keep them NULL but add a separate filtered index for `WHERE ReferenceResourceTypeId IS NULL`
-4. Update `ReferenceSearchParamListRowGenerator.cs` to always populate the column
-5. Alter the column to `NOT NULL` (with default) once all rows are populated
+### Alternative 2: UNION ALL
 
-**Pros**:
-- Eliminates the NULL problem permanently — all future queries can use simple equality
-- Index becomes fully seekable without OR/IS NULL predicates
-- Cleanest long-term solution (aligns with the existing TODO in the code)
-- No runtime query performance cost
+Generate `SELECT ... WHERE TypeId IN (...) UNION ALL SELECT ... WHERE TypeId IS NULL`. Run 2 showed 7/12 seeks (vs 6/12 for IN+NULL), but the marginal improvement doesn't justify the SQL generation complexity. **Medium complexity, marginally better seeks.**
 
-**Cons**:
-- Requires a schema version bump (backward compatibility considerations)
-- Data migration on large tables can be slow and lock-intensive (needs careful batching)
-- Must handle the "unknown type" case — what ResourceTypeId do you assign to truly untyped references?
-- Risk: If the migration misassigns types, search results will be incorrect
-- Cannot be deployed atomically — old code reading during migration may see inconsistent data
+### Alternative 3: Filtered Index
 
-**Complexity**: High — requires schema migration, data backfill logic, rollback plan, and extensive testing.
+Add `CREATE INDEX ... WHERE ReferenceResourceTypeId IS NULL`. Small storage footprint but filtered indexes have limitations with parameterized queries (`sp_executesql`). **Low-medium complexity, unreliable with parameters.**
 
-**When to choose**: When the team is willing to invest in a permanent fix and the NULL rows can be reliably typed. This is the best long-term solution but the highest effort.
+### Alternative 4: Leave As-Is
+
+Keep current SQL without `ReferenceResourceTypeId` in WHERE. Baseline only achieves 8.3% seek rate. **Not recommended** — the IN+NULL approach is a clear improvement with no downside.
 
 ---
-
-### Alternative 2: UNION ALL Approach
-
-**Description**: Instead of `(ReferenceResourceTypeId = @val OR ReferenceResourceTypeId IS NULL)`, generate two separate queries joined with `UNION ALL`:
-
-```sql
--- Typed references
-SELECT ResourceTypeId, ResourceSurrogateId
-FROM dbo.ReferenceSearchParam
-WHERE ReferenceResourceTypeId = @type
-  AND SearchParamId = @paramId
-  AND ReferenceResourceId = @refId
-  AND ResourceTypeId = @resTypeId
-
-UNION ALL
-
--- Untyped (NULL) references
-SELECT ResourceTypeId, ResourceSurrogateId
-FROM dbo.ReferenceSearchParam
-WHERE ReferenceResourceTypeId IS NULL
-  AND SearchParamId = @paramId
-  AND ReferenceResourceId = @refId
-  AND ResourceTypeId = @resTypeId
-```
-
-**Implementation**:
-1. Modify the SQL query generator (`SqlQueryGenerator.cs` / `SearchParameterQueryGenerator.cs`) to detect when a `ReferenceResourceTypeId` filter is being added
-2. Instead of emitting an OR predicate, emit a UNION ALL of two CTE branches — one with the type equality and one with IS NULL
-3. For multiple target types, the first branch becomes `ReferenceResourceTypeId IN (@type1, @type2)` and the second remains `IS NULL`
-
-**Pros**:
-- SQL Server can optimize each UNION ALL branch independently — each branch can do an index seek
-- The IS NULL branch seeks on `(ReferenceResourceId, NULL, ...)` which is a valid seek into the B-tree (NULL sorts first in SQL Server indexes)
-- No schema changes or data migration needed
-- Preserves correctness — both typed and untyped rows are always returned
-- Often produces better plans than OR predicates because the optimizer doesn't have to decide between seek and scan for a combined predicate
-
-**Cons**:
-- More complex SQL generation code — the CTE/query structure must accommodate two branches
-- May produce duplicate rows if a `ReferenceResourceId` appears with both a matching type AND NULL (can be handled with UNION instead of UNION ALL, at slight dedup cost)
-- Makes the generated SQL larger and harder to read/debug
-- Interaction with the existing CTE-based query structure may be complex
-
-**Complexity**: Medium — requires changes to the SQL generation layer but no schema changes.
-
-**When to choose**: If the perf test shows that OR + IS NULL prevents index seeks, but UNION ALL achieves seeks on both branches. This is a common SQL optimization pattern.
-
----
-
-### Alternative 3: Filtered Index for NULL Rows
-
-**Description**: Add a secondary filtered index specifically for rows where `ReferenceResourceTypeId IS NULL`:
-
-```sql
-CREATE INDEX IX_ReferenceSearchParam_NullType
-ON dbo.ReferenceSearchParam (ReferenceResourceId, SearchParamId, ResourceSurrogateId, ResourceTypeId)
-WHERE ReferenceResourceTypeId IS NULL
-WITH (DATA_COMPRESSION = PAGE);
-```
-
-**Implementation**:
-1. Add a new schema migration version
-2. Create the filtered index in the migration script
-3. No changes to C# query generation needed — SQL Server can automatically use this index for queries with `ReferenceResourceTypeId IS NULL` predicates
-4. The existing secondary index handles typed (non-NULL) queries; the filtered index handles NULL queries
-
-**Pros**:
-- Very targeted — only indexes the NULL rows, which are a small percentage (~10%)
-- Small additional storage footprint
-- SQL Server automatically considers filtered indexes when the WHERE clause matches
-- No changes to query generation code needed (the optimizer picks the index)
-- Can be combined with OR or UNION ALL approaches
-
-**Cons**:
-- Requires a schema version bump
-- Filtered indexes have limitations:
-  - Cannot be used with parameterized queries unless `OPTION (RECOMPILE)` is used or the parameter is sniffed correctly
-  - The query must have a literal or compatible predicate `ReferenceResourceTypeId IS NULL` for the optimizer to consider the index
-  - Parameterized `sp_executesql` queries may not match the filter
-- Adds write overhead (one more index to maintain on every INSERT/UPDATE/DELETE)
-- Does not help if the primary issue is the OR predicate on the existing index
-
-**Complexity**: Low-Medium — simple schema change, but filtered index matching with parameterized queries can be unreliable.
-
-**When to choose**: If NULL rows are queried independently (not mixed with typed queries), and the filtered index reliably matches. Best as a supplementary optimization, not a standalone solution.
-
----
-
-### Alternative 4: Leave As-Is (No Change)
-
-**Description**: Keep the current SQL generation without `ReferenceResourceTypeId` in the WHERE clause.
-
-**Rationale**: The existing query works correctly (returns all rows regardless of type). The index can still do a partial seek on `ReferenceResourceId` (column 1). Adding `ReferenceResourceTypeId` only helps if the optimizer can leverage it for a deeper seek.
-
-**When to choose**: If performance testing shows that the baseline (Q1) already produces acceptable plans and the additional complexity of handling NULLs does not justify the marginal index improvement. Also appropriate if the data is small enough that the performance difference is negligible.
-
----
-
-## Recommendation Flow
 
 ```
 Run perf test (docs/testing/ReferenceResourceTypeId_PerfTest.sql) at 20M rows
