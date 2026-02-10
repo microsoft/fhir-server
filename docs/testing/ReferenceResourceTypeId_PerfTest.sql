@@ -412,14 +412,15 @@ BEGIN
     DECLARE @CountSql NVARCHAR(MAX) = N'SELECT @cnt = COUNT(*) FROM (' + @SqlText + N') q';
     DECLARE @Params NVARCHAR(MAX) = N'@SearchParamId SMALLINT, @ResourceTypeId SMALLINT, '
         + N'@ReferenceResourceId VARCHAR(64), @ReferenceResourceTypeId SMALLINT, '
-        + N'@Type1 SMALLINT, @Type2 SMALLINT, @cnt INT OUTPUT';
+        + N'@Type1 SMALLINT, @Type2 SMALLINT, @Type3 SMALLINT, @Type4 SMALLINT, @cnt INT OUTPUT';
 
     DECLARE @Cnt INT;
     EXEC sp_executesql @CountSql, @Params,
         @SearchParamId = 414, @ResourceTypeId = 40,
         @ReferenceResourceId = @RefId,
         @ReferenceResourceTypeId = 103,   -- Patient (valid target for SearchParamId 414)
-        @Type1 = 103, @Type2 = 107,       -- Patient + Group (both valid targets for 414)
+        @Type1 = 103, @Type2 = 107,       -- Patient + Group (2 of 4 targets)
+        @Type3 = 106, @Type4 = 108,       -- Device + Location (remaining 2 targets)
         @cnt = @Cnt OUTPUT;
 
     -- Capture execution plan from cache
@@ -559,6 +560,56 @@ BEGIN
             + N'   AND ReferenceResourceId = @ReferenceResourceId'
             + N'   AND ResourceTypeId = @ResourceTypeId';
         EXEC dbo.RunAndCapture @NullDistribution, 'Q7-UnionAll', @Scen,
+            @Desc, @Q, @RefId;
+
+        -- =====================================================================
+        -- Q8-Q10: ALL target types for SearchParamId 414
+        --   Patient(103), Group(107), Device(106), Location(108)
+        -- These should match baseline row counts (minus NULL for Q8/Q9).
+        -- =====================================================================
+
+        -- Q8: All 4 target types via OR (no NULL)
+        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
+            + N' WHERE (ReferenceResourceTypeId = @Type1 OR ReferenceResourceTypeId = @Type2'
+            + N'        OR ReferenceResourceTypeId = @Type3 OR ReferenceResourceTypeId = @Type4)'
+            + N'   AND SearchParamId = @SearchParamId'
+            + N'   AND ReferenceResourceId = @ReferenceResourceId'
+            + N'   AND ResourceTypeId = @ResourceTypeId';
+        EXEC dbo.RunAndCapture @NullDistribution, 'Q8-AllTypesOR', @Scen,
+            @Desc, @Q, @RefId;
+
+        -- Q9: All 4 target types via IN (no NULL)
+        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
+            + N' WHERE ReferenceResourceTypeId IN (@Type1, @Type2, @Type3, @Type4)'
+            + N'   AND SearchParamId = @SearchParamId'
+            + N'   AND ReferenceResourceId = @ReferenceResourceId'
+            + N'   AND ResourceTypeId = @ResourceTypeId';
+        EXEC dbo.RunAndCapture @NullDistribution, 'Q9-AllTypesIN', @Scen,
+            @Desc, @Q, @RefId;
+
+        -- Q10: All 4 target types OR NULL (the "correct" production query)
+        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
+            + N' WHERE (ReferenceResourceTypeId IN (@Type1, @Type2, @Type3, @Type4)'
+            + N'        OR ReferenceResourceTypeId IS NULL)'
+            + N'   AND SearchParamId = @SearchParamId'
+            + N'   AND ReferenceResourceId = @ReferenceResourceId'
+            + N'   AND ResourceTypeId = @ResourceTypeId';
+        EXEC dbo.RunAndCapture @NullDistribution, 'Q10-AllTypesNULL', @Scen,
+            @Desc, @Q, @RefId;
+
+        -- Q11: UNION ALL with all 4 types + NULL branch
+        SET @Q = N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
+            + N' WHERE ReferenceResourceTypeId IN (@Type1, @Type2, @Type3, @Type4)'
+            + N'   AND SearchParamId = @SearchParamId'
+            + N'   AND ReferenceResourceId = @ReferenceResourceId'
+            + N'   AND ResourceTypeId = @ResourceTypeId'
+            + N' UNION ALL '
+            + N'SELECT ResourceTypeId, ResourceSurrogateId FROM dbo.' + QUOTENAME(@TableName)
+            + N' WHERE ReferenceResourceTypeId IS NULL'
+            + N'   AND SearchParamId = @SearchParamId'
+            + N'   AND ReferenceResourceId = @ReferenceResourceId'
+            + N'   AND ResourceTypeId = @ResourceTypeId';
+        EXEC dbo.RunAndCapture @NullDistribution, 'Q11-AllTypesUnion', @Scen,
             @Desc, @Q, @RefId;
 
         FETCH NEXT FROM scen_cur INTO @Scen, @RefId, @Desc;
