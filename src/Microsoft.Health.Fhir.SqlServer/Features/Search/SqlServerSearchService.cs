@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static ProcessingFlag<SqlServerSearchService> _longRunningQueryDetails;
         internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
         internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
-        internal const int LongRunningThresholdMillisecondsDefault = 60000;
+        internal const int LongRunningThresholdMillisecondsDefault = 5000;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
 
         public SqlServerSearchService(
@@ -147,13 +147,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private static void InitializeProcessingFlags(ILogger<SqlServerSearchService> logger)
         {
-            if (_reuseQueryPlans == null)
+            lock (_locker)
             {
-                lock (_locker)
+                if (_reuseQueryPlans == null)
                 {
-                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, logger);
-                    _longRunningQueryDetails ??= new ProcessingFlag<SqlServerSearchService>(LongRunningQueryDetailsParameterId, true, logger);
-                    _longRunningThreshold ??= new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault, logger);
+                    _reuseQueryPlans = new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, logger);
+                }
+
+                if (_longRunningQueryDetails == null)
+                {
+                    _longRunningQueryDetails = new ProcessingFlag<SqlServerSearchService>(LongRunningQueryDetailsParameterId, true, logger);
+                }
+
+                if (_longRunningThreshold == null)
+                {
+                    _longRunningThreshold = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault, logger);
                 }
             }
         }
@@ -820,32 +828,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             {
                                 if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
-                                    // Use a short timeout to bound the diagnostic Query Store lookup.
-                                    // This avoids holding the connection indefinitely if the original
-                                    // request was cancelled (e.g. client disconnect, load balancer timeout).
-                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                                    try
+                                    // Capture the query text BEFORE the connection closes
+                                    string queryTextSnapshot = sqlCommand.CommandText;
+                                    long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
+                                    int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+
+                                    // Fire-and-forget: Log query details without blocking the response
+                                    _ = Task.Run(async () =>
                                     {
-                                        await LogQueryStoreByTextAsync(
-                                            sqlCommand,
-                                            _logger,
-                                            (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
-                                            executionStopwatch.ElapsedMilliseconds,
-                                            loggingCts.Token);
-                                    }
-                                    catch (SqlException ex)
-                                    {
-                                        _logger.LogWarning(
-                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryTextWithParams}. Query Store lookup failed for long-running query.",
-                                            executionStopwatch.ElapsedMilliseconds,
-                                            sqlCommand.CommandText);
-                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                    }
+                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                                        try
+                                        {
+                                            await LogQueryStoreByTextAsync(
+                                                queryTextSnapshot,
+                                                _logger,
+                                                timeoutSnapshot,
+                                                executionTimeSnapshot,
+                                                loggingCts.Token);
+                                        }
+                                        catch (SqlException ex)
+                                        {
+                                            _logger.LogWarning(
+                                                "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                                executionTimeSnapshot,
+                                                queryTextSnapshot);
+                                            _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
+                                        }
+                                    });
                                 }
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
+                                _logger.LogDebug(ex, "Failed to initiate long-running SQL query logging.");
                             }
                         }
                     }
@@ -1035,7 +1053,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // Emit deferred newlines only when another content line follows
                 if (hasContent)
                 {
-                    for (int i = 0; i <= pendingNewlines; i++)
+                    // Always emit one newline to separate from previous line,
+                    // plus at most one additional blank line if there were blank lines
+                    sb.Append("\r\n");
+                    if (pendingNewlines > 0)
                     {
                         sb.Append("\r\n");
                     }
@@ -1099,30 +1120,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchFragments;
         }
 
-        private static async Task LogQueryStoreByTextAsync(
-            SqlCommand sqlCommand,
+        private async Task LogQueryStoreByTextAsync(
+            string queryText,
             ILogger logger,
             int timeoutSeconds,
             long executionTime,
             CancellationToken ct)
         {
-            if (sqlCommand.CommandType == CommandType.StoredProcedure)
-            {
-                return;
-            }
+            var normalizedText = StripQueryPreambleLines(queryText);
+            var searchFragments = SplitIntoSearchFragments(normalizedText);
 
-            var queryText = StripQueryPreambleLines(sqlCommand.CommandText);
-            var searchFragments = SplitIntoSearchFragments(queryText);
+            // Create a NEW connection for this diagnostic query
+            await _sqlRetryService.ExecuteSql(
+                async (connection, cancel, sqlException) =>
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandType = CommandType.Text;
+                    cmd.CommandTimeout = timeoutSeconds;
 
-            using var cmd = sqlCommand.Connection.CreateCommand();
-            cmd.CommandType = CommandType.Text;
-            cmd.CommandTimeout = timeoutSeconds;
-
-            // Identify the most recently executed plan per query by finding the plan with the latest
-            // execution time. This approach is compatible with all SQL Server versions that support
-            // Query Store (2016+), unlike q.last_plan_id which requires SQL Server 2022+.
-            // TRY_CAST(p.query_plan AS nvarchar(max)) retrieves the XML showplan for that plan.
-            cmd.CommandText = @"
+                    // ... rest of your Query Store lookup logic (same as before)
+                    cmd.CommandText = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
 
                 SELECT TOP (5)
@@ -1154,76 +1171,78 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
-            var sb = new StringBuilder();
-            string lastUsedPlanXml = null;
+                    var sb = new StringBuilder();
+                    string lastUsedPlanXml = null;
 
-            for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
-            {
-                string searchFragment = searchFragments[segmentIndex];
-
-                // Truncate to limit LIKE pattern scan cost against Query Store.
-                // The first 4000 chars is sufficient to uniquely identify the query.
-                if (searchFragment.Length > 4000)
-                {
-                    searchFragment = searchFragment[..4000];
-                }
-
-                cmd.Parameters.Clear();
-                cmd.Parameters.AddWithValue("@NormalizedText", searchFragment);
-
-                using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-                int matchIndex = 0;
-                while (await reader.ReadAsync(ct).ConfigureAwait(false))
-                {
-                    if (await reader.IsDBNullAsync(0, ct).ConfigureAwait(false))
+                    for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
                     {
-                        continue;
+                        string searchFragment = searchFragments[segmentIndex];
+
+                        if (searchFragment.Length > 4000)
+                        {
+                            searchFragment = searchFragment[..4000];
+                        }
+
+                        cmd.Parameters.Clear();
+                        cmd.Parameters.AddWithValue("@NormalizedText", searchFragment);
+
+                        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+                        int matchIndex = 0;
+                        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                        {
+                            if (await reader.IsDBNullAsync(0, ct).ConfigureAwait(false))
+                            {
+                                continue;
+                            }
+
+                            matchIndex++;
+                            long planId = reader.GetInt64(9);
+                            long queryId = reader.GetInt64(10);
+                            bool isLastUsedPlan = reader.GetInt32(11) == 1;
+
+                            sb.AppendLine()
+                              .Append($"  batch[{segmentIndex + 1}] match[{matchIndex}]")
+                              .Append($" execs={reader.GetInt64(0)}")
+                              .Append($" avgDurMs={Convert.ToDouble(reader.GetValue(1)):F1}")
+                              .Append($" avgCpuMs={Convert.ToDouble(reader.GetValue(2)):F1}")
+                              .Append($" avgLReads={Convert.ToDouble(reader.GetValue(3)):F0}")
+                              .Append($" avgPReads={Convert.ToDouble(reader.GetValue(4)):F0}")
+                              .Append($" avgLWrites={Convert.ToDouble(reader.GetValue(5)):F0}")
+                              .Append($" avgRows={Convert.ToDouble(reader.GetValue(6)):F0}")
+                              .Append($" maxDurMs={Convert.ToDouble(reader.GetValue(7)):F1}")
+                              .Append($" lastExec={reader.GetDateTimeOffset(8):o}")
+                              .Append($" queryId={queryId}")
+                              .Append($" planId={planId}")
+                              .Append($" isLastUsedPlan={isLastUsedPlan}");
+
+                            if (isLastUsedPlan && !await reader.IsDBNullAsync(12, ct).ConfigureAwait(false))
+                            {
+                                lastUsedPlanXml = reader.GetString(12);
+                            }
+                        }
                     }
 
-                    matchIndex++;
-                    long planId = reader.GetInt64(9);
-                    long queryId = reader.GetInt64(10);
-                    bool isLastUsedPlan = reader.GetInt32(11) == 1;
-
-                    sb.AppendLine()
-                      .Append($"  batch[{segmentIndex + 1}] match[{matchIndex}]")
-                      .Append($" execs={reader.GetInt64(0)}")
-                      .Append($" avgDurMs={Convert.ToDouble(reader.GetValue(1)):F1}")
-                      .Append($" avgCpuMs={Convert.ToDouble(reader.GetValue(2)):F1}")
-                      .Append($" avgLReads={Convert.ToDouble(reader.GetValue(3)):F0}")
-                      .Append($" avgPReads={Convert.ToDouble(reader.GetValue(4)):F0}")
-                      .Append($" avgLWrites={Convert.ToDouble(reader.GetValue(5)):F0}")
-                      .Append($" avgRows={Convert.ToDouble(reader.GetValue(6)):F0}")
-                      .Append($" maxDurMs={Convert.ToDouble(reader.GetValue(7)):F1}")
-                      .Append($" lastExec={reader.GetDateTimeOffset(8):o}")
-                      .Append($" queryId={queryId}")
-                      .Append($" planId={planId}")
-                      .Append($" isLastUsedPlan={isLastUsedPlan}");
-
-                    if (isLastUsedPlan && !await reader.IsDBNullAsync(12, ct).ConfigureAwait(false))
+                    if (sb.Length > 0)
                     {
-                        lastUsedPlanXml = reader.GetString(12);
+                        logger.LogWarning(
+                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats} QueryPlan={QueryPlan}",
+                            executionTime,
+                            queryText,
+                            sb.ToString(),
+                            lastUsedPlanXml);
                     }
-                }
-            }
-
-            if (sb.Length > 0)
-            {
-                logger.LogWarning(
-                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats} QueryPlan={QueryPlan}",
-                    executionTime,
-                    sqlCommand.CommandText,
-                    sb.ToString(),
-                    lastUsedPlanXml);
-            }
-            else
-            {
-                logger.LogWarning(
-                    "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
-                    executionTime,
-                    sqlCommand.CommandText,
-                    "No Query Store matches found.");
-            }
+                    else
+                    {
+                        logger.LogWarning(
+                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                            executionTime,
+                            queryText,
+                            "No Query Store matches found.");
+                    }
+                },
+                logger,
+                ct,
+                isReadOnly: true);
         }
 
         private static (long StartId, long EndId, int Count) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
@@ -1991,32 +2010,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             {
                                 if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                                 {
-                                    // Use a short timeout to bound the diagnostic Query Store lookup.
-                                    // This avoids holding the connection indefinitely if the original
-                                    // request was cancelled (e.g. client disconnect, load balancer timeout).
-                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                                    try
+                                    // Capture the query text BEFORE the connection closes
+                                    string queryTextSnapshot = sqlCommand.CommandText;
+                                    long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
+                                    int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+
+                                    // Fire-and-forget: Log query details without blocking the response
+                                    _ = Task.Run(async () =>
                                     {
-                                        await LogQueryStoreByTextAsync(
-                                            sqlCommand,
-                                            _logger,
-                                            (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds,
-                                            executionStopwatch.ElapsedMilliseconds,
-                                            loggingCts.Token);
-                                    }
-                                    catch (SqlException ex)
-                                    {
-                                        _logger.LogWarning(
-                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryTextWithParams}. Query Store lookup failed for long-running query.",
-                                            executionStopwatch.ElapsedMilliseconds,
-                                            sqlCommand.CommandText);
-                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                    }
+                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                                        try
+                                        {
+                                            await LogQueryStoreByTextAsync(
+                                                queryTextSnapshot,
+                                                _logger,
+                                                timeoutSnapshot,
+                                                executionTimeSnapshot,
+                                                loggingCts.Token);
+                                        }
+                                        catch (SqlException ex)
+                                        {
+                                            _logger.LogWarning(
+                                                "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                                executionTimeSnapshot,
+                                                queryTextSnapshot);
+                                            _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
+                                        }
+                                    });
                                 }
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
+                                _logger.LogDebug(ex, "Failed to initiate long-running SQL query logging.");
                             }
                         }
                     }

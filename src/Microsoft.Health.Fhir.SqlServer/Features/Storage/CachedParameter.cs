@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// Reads a numeric parameter from dbo.Parameters and caches it with a 10-minute TTL.
     /// </summary>
     /// <typeparam name="TLogger">The type used for logging category.</typeparam>
-    internal class CachedParameter<TLogger>
+    public class CachedParameter<TLogger>
     {
         private readonly ILogger<TLogger> _logger;
         private readonly string _parameterId;
@@ -67,7 +67,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id";
                 cmd.Parameters.AddWithValue("@Id", _parameterId);
                 var value = cmd.ExecuteScalarAsync(sqlRetryService, _logger, CancellationToken.None, disableRetries: true).Result;
-                return value == null ? _defaultValue : (double)value;
+                if (value == null || Convert.IsDBNull(value))
+                {
+                    return _defaultValue;
+                }
+
+                return Convert.ToDouble(value);
             }
             catch (Exception)
             {
