@@ -219,5 +219,10 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
         {
             throw new NotImplementedException();
         }
+
+        public (string Hash, int Count) CalculateSearchParameterHash(string resourceType)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
