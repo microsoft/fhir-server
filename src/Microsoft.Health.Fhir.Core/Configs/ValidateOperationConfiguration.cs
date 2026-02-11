@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         public const int DefaultCacheDurationInSeconds = 14400;
         public const int DefaultMaxExpansionSize = 20000;
+        public const int DefaultBackgroundProfileStatusDelayedStartInSeconds = 300;
+        public const int DefaultBackgroundProfileStatusCheckIntervalInSeconds = 300;
 
         /// <summary>
         /// For how long we cache profile in memory.
@@ -19,5 +21,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Max number of codes in a ValueSet.
         /// </summary>
         public int MaxExpansionSize { get; set; } = DefaultMaxExpansionSize;
+
+        /// <summary>
+        /// Background profile status delayed start in seconds.
+        /// </summary>
+        public int BackgroundProfileStatusDelayedStartInSeconds { get; set; } = DefaultBackgroundProfileStatusDelayedStartInSeconds;
+
+        /// <summary>
+        /// Background profile status check interval in seconds.
+        /// </summary>
+        public int BackgroundProfileStatusCheckIntervalInSeconds { get; set; } = DefaultBackgroundProfileStatusCheckIntervalInSeconds;
     }
 }

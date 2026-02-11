@@ -76,6 +76,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlDeletionServiceDataStoreFactory>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<SqlServerFhirOperationDataStore>()
                 .Scoped()
                 .AsSelf()

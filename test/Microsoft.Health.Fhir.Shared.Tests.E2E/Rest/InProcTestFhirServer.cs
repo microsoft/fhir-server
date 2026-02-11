@@ -75,10 +75,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var validateConfiguration = new ValidateOperationConfiguration();
             configuration["FhirServer:Operations:Validate:CacheDurationInSeconds"] = validateConfiguration.CacheDurationInSeconds.ToString();
             configuration["FhirServer:Operations:Validate:MaxExpansionSize"] = validateConfiguration.MaxExpansionSize.ToString();
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = validateConfiguration.BackgroundProfileStatusCheckIntervalInSeconds.ToString();
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = validateConfiguration.BackgroundProfileStatusDelayedStartInSeconds.ToString();
 
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
+            configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
@@ -93,7 +96,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     temp.InitialCatalog = databaseName;
                     ConnectionString = temp.ToString();
                     configuration["SqlServer:ConnectionString"] = connectionStringBuilder.ToString();
-                    configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
 
                     _cleanupDatabase = async () =>
                     {

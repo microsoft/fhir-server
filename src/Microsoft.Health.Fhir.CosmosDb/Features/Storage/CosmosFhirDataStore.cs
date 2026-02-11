@@ -132,16 +132,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return results;
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
         {
             if (resources == null || resources.Count == 0)
             {
-                return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
+                return MergeOutcome.Empty;
             }
 
             Stopwatch watch = Stopwatch.StartNew();
@@ -169,7 +169,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 _logger.LogDebug("CosmosDbMergeAsync - Resource: {CountOfResources} - {ElapsedTime}ms", resources.Count, watch.ElapsedMilliseconds);
             }
 
-            return results;
+            // Cosmos DB does not support atomic merge operations.
+            // For this reason, even if there are unsuccessful results, the operation state will be set as 'Completed'.
+            return new MergeOutcome(MergeOutcomeFinalState.Completed, results);
         }
 
         private async Task MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> results, int? maxParallelism, CancellationToken cancellationToken)
