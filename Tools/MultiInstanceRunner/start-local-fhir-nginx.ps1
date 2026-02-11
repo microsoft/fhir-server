@@ -210,7 +210,15 @@ $SqlConnectionString = Normalize-SqlConnectionString -ConnectionString $SqlConne
 # Paths / validation
 # ---------------------------
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$projectFullPath = Join-Path $repoRoot $ProjectPath
+
+# Support both absolute and relative project paths
+if ([System.IO.Path]::IsPathRooted($ProjectPath)) {
+    $projectFullPath = $ProjectPath
+} else {
+    $projectFullPath = Join-Path $repoRoot $ProjectPath
+}
+
+Write-Host "Using project path: $projectFullPath" -ForegroundColor Cyan
 
 if (-not (Test-Path $projectFullPath)) {
     throw "Project not found at '$projectFullPath'."
@@ -435,7 +443,7 @@ try {
                 Write-Host "  Started instance on port $newPort (PID $($inst.Process.Id))" -ForegroundColor Green
             }
 
-            $allPorts = $script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port }
+            $allPorts = @($script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port })
             Write-NginxConfig -Ports $allPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
             Reload-Nginx
             Write-Host "NGINX reloaded. Now $($script:instances.Count) instances ($($allPorts.Count) alive)." -ForegroundColor Green
@@ -460,7 +468,7 @@ try {
                 $script:instances.Remove($inst) | Out-Null
             }
 
-            $allPorts = $script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port }
+            $allPorts = @($script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port })
             if ($allPorts.Count -gt 0) {
                 Write-NginxConfig -Ports $allPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
                 Reload-Nginx
@@ -492,7 +500,7 @@ try {
                 $script:instances.Remove($inst) | Out-Null
             }
 
-            $allPorts = $script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port }
+            $allPorts = @($script:instances | Where-Object { -not $_.Process.HasExited } | ForEach-Object { $_.Port })
             if ($allPorts.Count -gt 0) {
                 Write-NginxConfig -Ports $allPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
                 Reload-Nginx
