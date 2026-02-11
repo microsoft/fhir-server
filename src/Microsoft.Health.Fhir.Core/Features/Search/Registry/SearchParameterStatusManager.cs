@@ -264,6 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
+        /// <param name="updateCacheTimestamp">Whether to update the cache timestamp after applying statuses.</param>
         public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken, bool updateCacheTimestamp = true)
         {
             if (!updatedSearchParameterStatus.Any())
