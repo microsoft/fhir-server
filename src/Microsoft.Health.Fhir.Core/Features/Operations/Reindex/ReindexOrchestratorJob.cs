@@ -226,12 +226,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(validUri, out var searchInfo))
                 {
                     possibleNotYetIndexedParams.Add(searchInfo);
-                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateReindexProcessingJobsAsync.GetDefinitionFromCache", "Warn", $"status={searchInfo.SearchParameterStatus} uri={validUri}", null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Warn", $"status={searchInfo.SearchParameterStatus} uri={validUri}", null, cancellationToken);
                 }
                 else
                 {
                     // TODO: We should throw here otherwise we will reindex incorrectly
-                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateReindexProcessingJobsAsync.GetDefinitionFromCache", "Error", $"status={searchInfo.SearchParameterStatus} uri={validUri}", null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Error", $"status={searchInfo.SearchParameterStatus} uri={validUri}", null, cancellationToken);
                 }
             }
 
@@ -564,11 +564,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             List<string> validSearchParameterUrls,
             CancellationToken cancellationToken)
         {
-            // Check hash
+            var searchInfos = _searchParameterDefinitionManager.GetSearchParameters(resourceType).ToList();
+            foreach (var searchInfo in searchInfos)
+            {
+                if (validSearchParameterUrls.Any(_ => _ == searchInfo.Url.OriginalString))
+                {
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetInfoFromType", "Warn", $"type={resourceType} status={searchInfo.SearchParameterStatus} uri={searchInfo.Url.OriginalString}", null, cancellationToken);
+                }
+            }
+
             var searchParameterHash = GetHashMapByResourceType(resourceType);
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateAndEnqueueJobDefinitionsAsync", "Warn", $"ResourceType={resourceType} hash={searchParameterHash}", null, _cancellationToken);
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateAndEnqueueJobDefinitionsAsync", "Warn", $"type={resourceType} hash={searchParameterHash}", null, _cancellationToken);
             var result = _searchParameterDefinitionManager.CalculateSearchParameterHash(resourceType);
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateAndEnqueueJobDefinitionsAsync", "Warn", $"ResourceType={resourceType} calculated hash={result.Hash} count={result.Count}", null, _cancellationToken);
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateAndEnqueueJobDefinitionsAsync", "Warn", $"type={resourceType} calculated params={result.Count} hash={result.Hash}", null, _cancellationToken);
             searchParameterHash = result.Hash;
 
             var definitions = new List<string>();
