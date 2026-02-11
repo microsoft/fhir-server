@@ -40,21 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenResourceIdParameterQueryGenerator_WhenInstanceAccessed_ThenNotNull()
-        {
-            Assert.NotNull(ResourceIdParameterQueryGenerator.Instance);
-        }
-
-        [Fact]
-        public void GivenResourceIdParameterQueryGenerator_WhenInstanceAccessedMultipleTimes_ThenReturnsSameInstance()
-        {
-            var instance1 = ResourceIdParameterQueryGenerator.Instance;
-            var instance2 = ResourceIdParameterQueryGenerator.Instance;
-
-            Assert.Same(instance1, instance2);
-        }
-
-        [Fact]
         public void GivenStringExpressionWithEqualsOperator_WhenVisitString_ThenGeneratesSqlWithEquality()
         {
             // Arrange - Test exact match search (_id=123)

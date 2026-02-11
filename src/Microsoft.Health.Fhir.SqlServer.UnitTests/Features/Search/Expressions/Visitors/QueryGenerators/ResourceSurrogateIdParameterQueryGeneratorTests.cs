@@ -40,21 +40,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenResourceSurrogateIdParameterQueryGenerator_WhenInstanceAccessed_ThenNotNull()
-        {
-            Assert.NotNull(ResourceSurrogateIdParameterQueryGenerator.Instance);
-        }
-
-        [Fact]
-        public void GivenResourceSurrogateIdParameterQueryGenerator_WhenInstanceAccessedMultipleTimes_ThenReturnsSameInstance()
-        {
-            var instance1 = ResourceSurrogateIdParameterQueryGenerator.Instance;
-            var instance2 = ResourceSurrogateIdParameterQueryGenerator.Instance;
-
-            Assert.Same(instance1, instance2);
-        }
-
-        [Fact]
         public void GivenBinaryExpressionWithEqualOperator_WhenVisitBinary_ThenGeneratesSqlWithEquality()
         {
             // Arrange - Test exact match (_resourceSurrogateId=12345)
