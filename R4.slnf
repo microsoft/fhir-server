@@ -16,6 +16,8 @@
       "src\\Microsoft.Health.Fhir.CosmosDb.Initialization\\Microsoft.Health.Fhir.CosmosDb.Initialization.csproj",
       "src\\Microsoft.Health.Fhir.CosmosDb.UnitTests\\Microsoft.Health.Fhir.CosmosDb.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.CosmosDb\\Microsoft.Health.Fhir.CosmosDb.csproj",
+      "src\\Microsoft.Health.Fhir.Ignixa\\Microsoft.Health.Fhir.Ignixa.csproj",
+      "src\\Microsoft.Health.Fhir.Ignixa.UnitTests\\Microsoft.Health.Fhir.Ignixa.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.R4.Api\\Microsoft.Health.Fhir.R4.Api.csproj",
       "src\\Microsoft.Health.Fhir.R4.Client\\Microsoft.Health.Fhir.R4.Client.csproj",
       "src\\Microsoft.Health.Fhir.R4.Core.UnitTests\\Microsoft.Health.Fhir.R4.Core.UnitTests.csproj",

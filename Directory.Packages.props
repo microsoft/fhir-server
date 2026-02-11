@@ -7,7 +7,7 @@
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
     <DotNetSdkPackageVersion>9.0.12</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>6.2.0</OpenIddictPackageVersion>
-    <IgnixaPackageVersion>0.0.160</IgnixaPackageVersion>
+    <IgnixaPackageVersion>0.0.163</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages (net9.0 only) -->
   <PropertyGroup>

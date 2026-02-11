@@ -13,6 +13,8 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
@@ -42,7 +44,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             EnsureArg.IsNotNull(type, nameof(type));
 
-            return typeof(Resource).IsAssignableFrom(type);
+            return typeof(Resource).IsAssignableFrom(type) ||
+                   typeof(ResourceElement).IsAssignableFrom(type);
         }
 
         /// <inheritdoc />
@@ -112,6 +115,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 if (model != null)
                 {
+                    // Wrap in ResourceElement when the controller expects that type
+                    if (typeof(ResourceElement).IsAssignableFrom(context.ModelType))
+                    {
+                        return await InputFormatterResult.SuccessAsync(model.ToResourceElement());
+                    }
+
                     return await InputFormatterResult.SuccessAsync(model);
                 }
 
