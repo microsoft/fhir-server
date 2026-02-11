@@ -281,6 +281,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
+        public (string Hash, int Count) CalculateSearchParameterHash(string resourceType)
+        {
+            var searchParams = TypeLookup[resourceType].Values.SelectMany(x => x).ToList();
+            var searchParamHash = searchParams.CalculateSearchParameterHash();
+            return (searchParamHash, searchParams.Count);
+        }
+
         public void DeleteSearchParameter(ITypedElement searchParam)
         {
             var searchParamWrapper = new SearchParameterWrapper(searchParam);

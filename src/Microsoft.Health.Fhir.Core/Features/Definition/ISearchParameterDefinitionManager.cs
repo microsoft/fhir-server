@@ -126,5 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="url">The url identifying the custom search parameter to update.</param>
         /// <param name="desiredStatus">The desired status for the custom search parameter to update.</param>
         void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus);
+
+        (string Hash, int Count) CalculateSearchParameterHash(string resourceType);
     }
 }
