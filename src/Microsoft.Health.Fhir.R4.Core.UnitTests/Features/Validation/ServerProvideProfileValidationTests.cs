@@ -65,6 +65,15 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
         }
 
         [Fact]
+        public void GivenAValidateOperationConfiguration_ThenEnsureThatLimitsAndIntervalsAreUsingSafeValues()
+        {
+            Assert.Equal(14400, ValidateOperationConfiguration.DefaultCacheDurationInSeconds);
+            Assert.Equal(20000, ValidateOperationConfiguration.DefaultMaxExpansionSize);
+            Assert.Equal(300, ValidateOperationConfiguration.DefaultBackgroundProfileStatusCheckIntervalInSeconds);
+            Assert.Equal(300, ValidateOperationConfiguration.DefaultBackgroundProfileStatusDelayedStartInSeconds);
+        }
+
+        [Fact]
         public void GivenServerProvideProfileValidation_WhenGettingProfileTypes_ThenCorrectTypesAreReturned()
         {
             // Act

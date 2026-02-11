@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             // Give the server time to refresh its profile cache
-            await Task.Delay(TimeSpan.FromSeconds(10));
+            await Task.Delay(TimeSpan.FromSeconds(12));
 
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
 #if !Stu3
