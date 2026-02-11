@@ -61,8 +61,9 @@ jobs:
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~SqlServer" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~SqlServer" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-output-format coverage --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
+      publishTestResults: false
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -80,6 +81,7 @@ jobs:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
+      publishRunAttachments: true
       # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
       failTaskOnFailedTests: false
     condition: succeededOrFailed()

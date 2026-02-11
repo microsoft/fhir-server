@@ -32,6 +32,4 @@ steps:
   displayName: 'Publish aggregated code coverage to pipeline and 1ES telemetry'
   inputs:
     summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
-    pathToSources: '$(Build.SourcesDirectory)/src'
-    codeCoverageTool: 'Cobertura'
     failIfCoverageEmpty: false
