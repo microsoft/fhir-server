@@ -432,6 +432,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var searchParamResources = await GetSearchParametersByUrls(statusesToProcess.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
 
             var paramsToAdd = new List<ITypedElement>();
+            var missingResources = false;
             foreach (var searchParam in statusesToProcess)
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
@@ -439,6 +440,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     _logger.LogInformation(
                         "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
+                    missingResources = true;
                     continue;
                 }
 
@@ -460,7 +462,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(
                 updatedSearchParameterStatus,
-                cancellationToken);
+                cancellationToken,
+                updateCacheTimestamp: !missingResources);
         }
 
         private void DeleteSearchParameter(string url)

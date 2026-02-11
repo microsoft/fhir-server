@@ -264,14 +264,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken, bool updateCacheTimestamp = true)
         {
             if (!updatedSearchParameterStatus.Any())
             {
-                // Even when there are no updates to apply, we need to update our cache timestamp
-                // to reflect that we've successfully synchronized with the database
-                await UpdateCacheTimestampAsync(cancellationToken);
-                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Updated cache timestamp.");
+                if (updateCacheTimestamp)
+                {
+                    // Even when there are no updates to apply, we need to update our cache timestamp
+                    // to reflect that we've successfully synchronized with the database
+                    await UpdateCacheTimestampAsync(cancellationToken);
+                    _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Updated cache timestamp.");
+                }
+                else
+                {
+                    _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply. Cache timestamp update skipped.");
+                }
+
                 return;
             }
 
@@ -302,9 +310,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
-            await UpdateCacheTimestampAsync(cancellationToken);
-
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            if (updateCacheTimestamp)
+            {
+                await UpdateCacheTimestampAsync(cancellationToken);
+                await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+                _logger.LogInformation("ApplySearchParameterStatus: Cache timestamp updated after applying {Count} statuses.", updatedSearchParameterStatus.Count);
+            }
+            else
+            {
+                _logger.LogInformation("ApplySearchParameterStatus: Cache timestamp update skipped due to missing SearchParameter resources.");
+            }
         }
 
         /// <summary>
