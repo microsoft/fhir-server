@@ -1138,7 +1138,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     cmd.CommandType = CommandType.Text;
                     cmd.CommandTimeout = timeoutSeconds;
 
-                    // ... rest of your Query Store lookup logic (same as before)
                     cmd.CommandText = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
 
@@ -1153,15 +1152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     rs.max_duration / 1000.0 AS max_duration_ms,
                     rs.last_execution_time,
                     p.plan_id,
-                    q.query_id,
-                    CASE WHEN p.plan_id = (
-                        SELECT TOP 1 p2.plan_id
-                        FROM sys.query_store_plan p2
-                        JOIN sys.query_store_runtime_stats rs2 ON rs2.plan_id = p2.plan_id
-                        WHERE p2.query_id = q.query_id
-                        ORDER BY rs2.last_execution_time DESC
-                    ) THEN 1 ELSE 0 END AS is_last_used_plan,
-                    TRY_CAST(p.query_plan AS nvarchar(max)) AS query_plan_xml
+                    q.query_id
                 FROM sys.query_store_query_text qt
                 JOIN sys.query_store_query q ON q.query_text_id = qt.query_text_id
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
@@ -1172,7 +1163,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 ORDER BY rs.last_execution_time DESC;";
 
                     var sb = new StringBuilder();
-                    string lastUsedPlanXml = null;
 
                     for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
                     {
@@ -1198,7 +1188,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             matchIndex++;
                             long planId = reader.GetInt64(9);
                             long queryId = reader.GetInt64(10);
-                            bool isLastUsedPlan = reader.GetInt32(11) == 1;
 
                             sb.AppendLine()
                               .Append($"  batch[{segmentIndex + 1}] match[{matchIndex}]")
@@ -1212,24 +1201,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                               .Append($" maxDurMs={Convert.ToDouble(reader.GetValue(7)):F1}")
                               .Append($" lastExec={reader.GetDateTimeOffset(8):o}")
                               .Append($" queryId={queryId}")
-                              .Append($" planId={planId}")
-                              .Append($" isLastUsedPlan={isLastUsedPlan}");
-
-                            if (isLastUsedPlan && !await reader.IsDBNullAsync(12, ct).ConfigureAwait(false))
-                            {
-                                lastUsedPlanXml = reader.GetString(12);
-                            }
+                              .Append($" planId={planId}");
                         }
                     }
 
                     if (sb.Length > 0)
                     {
                         logger.LogWarning(
-                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats} QueryPlan={QueryPlan}",
+                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
                             executionTime,
                             queryText,
-                            sb.ToString(),
-                            lastUsedPlanXml);
+                            sb.ToString());
                     }
                     else
                     {
