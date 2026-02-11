@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
         private readonly Func<ReindexProcessingJob> _reindexProcessingJobTaskFactory;
         private readonly CancellationToken _cancellationToken;
-        private readonly ISearchParameterStatusManager _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
 
         public ReindexProcessingJobTests()
         {
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      fhirDataStoreScope,
                      _resourceWrapperFactory,
                      _searchParameterOperations,
-                     _searchParameterStatusManager,
+                     _searchParameterDefinitionManager,
                      NullLogger<ReindexProcessingJob>.Instance);
         }
 
