@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Configuration>
+  <Format>cobertura,coverage</Format>
   <IncludeTestAssembly>false</IncludeTestAssembly>
   <DeterministicReport>true</DeterministicReport>
   <ExcludeAssembliesWithoutSources>None</ExcludeAssembliesWithoutSources>
