@@ -564,6 +564,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             List<string> validSearchParameterUrls,
             CancellationToken cancellationToken)
         {
+            // Check hash
+            var searchParameterHash = GetHashMapByResourceType(resourceType);
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateAndEnqueueJobDefinitionsAsync", "Warn", $"ResourceType={resourceType} hash={searchParameterHash}", null, _cancellationToken);
+            var result = _searchParameterDefinitionManager.CalculateSearchParameterHash(resourceType);
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.CreateAndEnqueueJobDefinitionsAsync", "Warn", $"ResourceType={resourceType} calculated hash={result.Hash} count={result.Count}", null, _cancellationToken);
+            searchParameterHash = result.Hash;
+
             var definitions = new List<string>();
 
             foreach (var range in ranges)
@@ -589,7 +596,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     SearchParamLastUpdated = _searchParamLastUpdated,
                     TypeId = (int)JobType.ReindexProcessing,
                     GroupId = _jobInfo.GroupId,
-                    ResourceTypeSearchParameterHashMap = await GetHashMapByResourceType(resourceType),
+                    ResourceTypeSearchParameterHashMap = searchParameterHash,
                     ResourceCount = new SearchResultReindex
                     {
                         StartResourceSurrogateId = range.StartId,
@@ -710,7 +717,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = string.Empty;
-            searchParameterHash = await GetHashMapByResourceType(queryStatus.ResourceType);
+            searchParameterHash = GetHashMapByResourceType(queryStatus.ResourceType);
 
             // Ensure searchParameterHash is never null - for Cosmos DB scenarios, this will be empty string
             searchParameterHash ??= string.Empty;
@@ -832,12 +839,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return searchResultReindex;
         }
 
-        private async Task<string> GetHashMapByResourceType(string resourceType)
+        private string GetHashMapByResourceType(string resourceType)
         {
             _reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string searchParameterHash);
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetHashMapByResourceType", "Warn", $"ResourceType={resourceType} job record hash={searchParameterHash}", null, _cancellationToken);
-            searchParameterHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(resourceType);
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetHashMapByResourceType", "Warn", $"ResourceType={resourceType} current hash={searchParameterHash}", null, _cancellationToken);
             return searchParameterHash;
         }
 
