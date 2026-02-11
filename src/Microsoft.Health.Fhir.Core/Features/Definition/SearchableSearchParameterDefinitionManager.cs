@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return false;
         }
 
-        public void DeleteSearchParameter(string url, bool calculateHash = true)
+        public void DeleteSearchParameter(string url)
         {
             throw new NotImplementedException();
         }

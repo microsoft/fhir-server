@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             DeleteSearchParameter(searchParamWrapper.Url);
         }
 
-        public void DeleteSearchParameter(string url, bool calculateHash = true)
+        public void DeleteSearchParameter(string url)
         {
             SearchParameterInfo searchParameterInfo = null;
 
@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
 
-            if (calculateHash && updated)
+            if (updated)
             {
                 CalculateSearchParameterHash();
             }

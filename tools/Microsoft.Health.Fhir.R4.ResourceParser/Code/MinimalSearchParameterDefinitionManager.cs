@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
             DeleteSearchParameter(searchParamWrapper.Url);
         }
 
-        public void DeleteSearchParameter(string url, bool calculateHash = true)
+        public void DeleteSearchParameter(string url)
         {
             SearchParameterInfo searchParameterInfo = null;
 
@@ -182,10 +182,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
             }
 
-            if (calculateHash)
-            {
-                CalculateSearchParameterHash();
-            }
+            CalculateSearchParameterHash();
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(ICollection<string> resourceTypes)

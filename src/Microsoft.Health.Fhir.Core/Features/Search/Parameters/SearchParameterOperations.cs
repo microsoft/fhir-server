@@ -377,7 +377,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             try
             {
-                _searchParameterDefinitionManager.DeleteSearchParameter(url, false);
+                _searchParameterDefinitionManager.DeleteSearchParameter(url);
             }
             catch (ResourceNotFoundException)
             {

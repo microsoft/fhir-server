@@ -118,8 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// Allows removal of a custom search parameter.
         /// </summary>
         /// <param name="url">The url identifying the custom search parameter to remove.</param>
-        /// <param name="calculateHash">Indicated whether the search parameter hash values should be recalulated after this delete.</param>
-        void DeleteSearchParameter(string url, bool calculateHash = true);
+        void DeleteSearchParameter(string url);
 
         /// <summary>
         /// Allows update of a custom search parameter status.
