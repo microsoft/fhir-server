@@ -681,6 +681,45 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [SkippableTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenBulkUpdateWithMetaHistoryEnabled_WhenCompleted_ThenHistoricalVersionWasCreated(bool includeParameter)
+        {
+            CheckBulkUpdateEnabled();
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatients(tag, 10);
+            await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
+
+            // Create a patch request that updates a field on Patient
+            var patchRequest = new Parameters()
+                .AddAddPatchParameter("Patient.meta", "security", new Coding("http://example.org/security-system", "SECURITY_TAG_CODE"));
+            ChangeTypeToUpsertPatchParameter(patchRequest);
+
+            var queryParam = new Dictionary<string, string>();
+            if (includeParameter)
+            {
+                queryParam.Add("_meta-history", "true");
+            }
+
+            using HttpResponseMessage response = await SendBulkUpdateRequest(tag, patchRequest, "Patient/$bulk-update", queryParam);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            BulkUpdateResult expectedResults = new BulkUpdateResult();
+            expectedResults.ResourcesUpdated.Add("Patient", 10);
+            await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
+
+            // Verify historical versions were created
+            var patients = await _fhirClient.SearchAsync(ResourceType.Patient, $"_tag={tag}");
+            Assert.True(patients.Resource.Entry.Count == 10);
+            foreach (var entry in patients.Resource.Entry)
+            {
+                var patient = (Patient)entry.Resource;
+                var history = await _fhirClient.ReadHistoryAsync(ResourceType.Patient, patient.Id);
+                Assert.True(history.Resource.Entry.Count == 2); // Two versions should exist
+            }
+        }
+
         private async Task RunBulkUpdateRequest(
             Parameters patchRequest,
             BulkUpdateResult expectedResults,
