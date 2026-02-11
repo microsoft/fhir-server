@@ -1148,6 +1148,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
+            await _searchParameterOperations.AddSearchParameterStatusAsync(searchParam.ToTypedElement(), CancellationToken.None);
+
             return searchParam;
         }
 
