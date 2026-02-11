@@ -127,5 +127,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="url">The url identifying the custom search parameter to update.</param>
         /// <param name="desiredStatus">The desired status for the custom search parameter to update.</param>
         void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus);
+
+        /// <summary>
+        /// Updates status-related properties on ALL matching SearchParameterInfo objects in both UrlLookup and TypeLookup.
+        /// This is necessary because Build can create separate objects for UrlLookup vs TypeLookup.
+        /// </summary>
+        void ApplyStatusToAllMatchingObjects(
+            string url,
+            bool isSearchable,
+            bool isSupported,
+            bool isPartiallySupported,
+            SortParameterStatus sortStatus,
+            SearchParameterStatus searchParameterStatus);
     }
 }

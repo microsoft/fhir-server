@@ -177,6 +177,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _inner.UpdateSearchParameterStatus(url, desiredStatus);
         }
 
+        public void ApplyStatusToAllMatchingObjects(
+            string url,
+            bool isSearchable,
+            bool isSupported,
+            bool isPartiallySupported,
+            SortParameterStatus sortStatus,
+            SearchParameterStatus searchParameterStatus)
+        {
+            _inner.ApplyStatusToAllMatchingObjects(url, isSearchable, isSupported, isPartiallySupported, sortStatus, searchParameterStatus);
+        }
+
         private bool UsePartialSearchParams(SearchParameterInfo parameter)
         {
             return _fhirReqeustContextAccessor.RequestContext != null &&

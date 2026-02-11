@@ -187,9 +187,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
-                try
+                // Use TryGetSearchParameter instead of GetSearchParameter to handle new params
+                // that may not yet be in the cache (eventual consistency model).
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(uri, out SearchParameterInfo paramInfo))
                 {
-                    SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
                     updated.Add(paramInfo);
                     paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                     paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
@@ -215,17 +216,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                         });
                     }
                 }
-                catch (SearchParameterNotSupportedException ex)
+                else
                 {
-                    _logger.LogError(ex, "The search parameter '{Uri}' not supported.", uri);
+                    // Param not in cache yet (newly created, eventual consistency model).
+                    // Just persist the status - the background refresh will sync the cache.
+                    _logger.LogInformation("Search parameter '{Uri}' not in cache yet. Persisting status only.", uri);
 
-                    // Note: SearchParameterNotSupportedException can be thrown by SearchParameterDefinitionManager.GetSearchParameter
-                    // when the given url is not found in its cache that can happen when the cache becomes out of sync with the store.
-                    // Use this flag to ignore the exception and continue the update process for the rest of search parameters.
-                    // (e.g. $bulk-delete ensuring deletion of as many search parameters as possible.)
-                    if (!ignoreSearchParameterNotSupportedException)
+                    if (parameters.TryGetValue(uri, out var existingStatus))
                     {
-                        throw;
+                        existingStatus.Status = status;
+                        searchParameterStatusList.Add(existingStatus);
+                    }
+                    else
+                    {
+                        searchParameterStatusList.Add(new ResourceSearchParameterStatus
+                        {
+                            Status = status,
+                            Uri = new Uri(uri),
+                        });
                     }
                 }
             }
@@ -292,11 +300,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     var tempStatus = EvaluateSearchParamStatus(paramStatus);
 
-                    param.IsSearchable = tempStatus.IsSearchable;
-                    param.IsSupported = tempStatus.IsSupported;
-                    param.IsPartiallySupported = tempStatus.IsPartiallySupported;
-                    param.SortStatus = paramStatus.SortStatus;
-                    param.SearchParameterStatus = paramStatus.Status;
+                    // Use ApplyStatusToAllMatchingObjects to update objects in BOTH UrlLookup and TypeLookup
+                    // (they can be different object instances due to how SearchParameterDefinitionBuilder.Build works)
+                    _searchParameterDefinitionManager.ApplyStatusToAllMatchingObjects(
+                        paramStatus.Uri.OriginalString,
+                        tempStatus.IsSearchable,
+                        tempStatus.IsSupported,
+                        tempStatus.IsPartiallySupported,
+                        paramStatus.SortStatus,
+                        paramStatus.Status);
+
                     updated.Add(param);
                 }
                 else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && (p.Status == SearchParameterStatus.Deleted || p.Status == SearchParameterStatus.Disabled)))

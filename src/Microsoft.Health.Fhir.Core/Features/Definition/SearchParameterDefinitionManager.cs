@@ -331,6 +331,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
+        /// <summary>
+        /// Updates status-related properties on ALL matching SearchParameterInfo objects in both UrlLookup and TypeLookup.
+        /// This is necessary because Build can create separate objects for UrlLookup vs TypeLookup.
+        /// </summary>
+        public void ApplyStatusToAllMatchingObjects(
+            string url,
+            bool isSearchable,
+            bool isSupported,
+            bool isPartiallySupported,
+            SortParameterStatus sortStatus,
+            SearchParameterStatus searchParameterStatus)
+        {
+            // Update the object in UrlLookup
+            if (UrlLookup.TryGetValue(url, out var urlLookupParam))
+            {
+                urlLookupParam.IsSearchable = isSearchable;
+                urlLookupParam.IsSupported = isSupported;
+                urlLookupParam.IsPartiallySupported = isPartiallySupported;
+                urlLookupParam.SortStatus = sortStatus;
+                urlLookupParam.SearchParameterStatus = searchParameterStatus;
+
+                // Also update objects in TypeLookup (they may be different object instances)
+                var allResourceTypes = GetDerivedResourceTypes(urlLookupParam.BaseResourceTypes);
+                foreach (var resourceType in allResourceTypes)
+                {
+                    if (TypeLookup.TryGetValue(resourceType, out var typeLookup) &&
+                        typeLookup.TryGetValue(urlLookupParam.Code, out var queue))
+                    {
+                        foreach (var param in queue.Where(p => string.Equals(p.Url?.OriginalString, url, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            param.IsSearchable = isSearchable;
+                            param.IsSupported = isSupported;
+                            param.IsPartiallySupported = isPartiallySupported;
+                            param.SortStatus = sortStatus;
+                            param.SearchParameterStatus = searchParameterStatus;
+                        }
+                    }
+                }
+            }
+        }
+
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;

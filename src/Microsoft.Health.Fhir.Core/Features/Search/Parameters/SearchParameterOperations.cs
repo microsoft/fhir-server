@@ -111,11 +111,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         {
                             throw new SearchParameterNotSupportedException(errorMessage);
                         }
-
-                        _logger.LogInformation("Adding the search parameter '{Url}'", searchParameterWrapper.Url);
-                        _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
-
-                        // Status persistence is intentionally deferred until after the resource write succeeds.
                     }
                     catch (FhirException fex)
                     {
@@ -294,9 +289,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                                 // do nothing, there may not be a search parameter to remove
                             }
                         }
-
-                        _logger.LogInformation("Adding the search parameter '{Url}' to the definition manager (update step 2/2)", searchParameterWrapper.Url);
-                        _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
                     }
                     catch (FhirException fex)
                     {
