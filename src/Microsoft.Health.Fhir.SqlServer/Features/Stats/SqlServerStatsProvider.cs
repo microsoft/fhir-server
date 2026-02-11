@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Stats
             _logger = logger;
         }
 
-        public async Task<StatsResponse> GetStatsAsync(DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
+        public async Task<StatsResponse> GetStatsAsync(CancellationToken cancellationToken)
         {
             var stats = new StatsResponse();
 
@@ -40,15 +40,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Stats
                 CommandType = CommandType.StoredProcedure,
             };
 
-            cmd.Parameters.AddWithValue("@StartDate", (object)startDate ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@EndDate", (object)endDate ?? DBNull.Value);
-
             using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
                 var resourceType = reader.GetString(0);
-                var totalCount = reader.GetInt32(1);
-                var activeCount = reader.GetInt32(2);
+                var totalCount = reader.GetInt64(1);
+                var activeCount = reader.GetInt64(2);
                 stats.ResourceStats[resourceType] = new ResourceTypeStats
                 {
                     TotalCount = totalCount,

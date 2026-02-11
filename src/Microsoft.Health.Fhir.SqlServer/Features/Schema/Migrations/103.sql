@@ -3140,31 +3140,57 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.GetResourceStats
-@StartDate DATETIME=NULL, @EndDate DATETIME=NULL
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'GetResourceStats', @Mode AS VARCHAR (200) = 'S=' + isnull(CONVERT (VARCHAR (30), @StartDate, 121), 'NULL') + ' E=' + isnull(CONVERT (VARCHAR (30), @EndDate, 121), 'NULL'), @st AS DATETIME = getUTCdate();
-DECLARE @StartId AS BIGINT = NULL, @EndId AS BIGINT = NULL;
 BEGIN TRY
-    IF @StartDate IS NOT NULL
-        SET @StartId = CONVERT (BIGINT, datediff_big(millisecond, '0001-01-01', @StartDate)) * 80000;
-    IF @EndDate IS NOT NULL
-        SET @EndId = CONVERT (BIGINT, datediff_big(millisecond, '0001-01-01', @EndDate)) * 80000 + 79999;
-    SELECT   RT.Name AS ResourceType,
-             count(*) AS TotalCount,
-             sum(CASE WHEN R.IsHistory = 0
-                           AND R.IsDeleted = 0 THEN 1 ELSE 0 END) AS ActiveCount
-    FROM     dbo.Resource AS R
+    SELECT   (SELECT Name
+              FROM   ResourceType
+              WHERE  ResourceTypeId = (SELECT TOP 1 ResourceTypeId
+                                       FROM   Resource
+                                       WHERE  $PARTITION.PartitionFunction_ResourceTypeId (ResourceTypeId) = A.partition_number)) AS ResourceType,
+             A.Rows AS TotalRows,
+             B.Rows AS ActiveRows
+    FROM     (SELECT   partition_number,
+                       sum(row_count) AS Rows,
+                       S.index_id
+              FROM     (SELECT object_name(object_id) AS object_name,
+                               *
+                        FROM   sys.dm_db_partition_stats
+                        WHERE  reserved_page_count > 0) AS S
+                       INNER JOIN
+                       sys.indexes AS I
+                       ON I.object_id = S.object_id
+                          AND I.index_id = S.index_id
+              WHERE    EXISTS (SELECT *
+                               FROM   sys.partition_schemes AS PS
+                               WHERE  PS.data_space_id = I.data_space_id
+                                      AND PS.name = 'PartitionScheme_ResourceTypeId')
+                       AND object_name LIKE 'Resource'
+                       AND I.index_id = 1
+              GROUP BY partition_number, S.object_id, S.index_id, is_disabled) AS A
              INNER JOIN
-             dbo.ResourceType AS RT
-             ON RT.ResourceTypeId = R.ResourceTypeId
-    WHERE    (@StartId IS NULL
-              OR R.ResourceSurrogateId >= @StartId)
-             AND (@EndId IS NULL
-                  OR R.ResourceSurrogateId <= @EndId)
-    GROUP BY RT.Name
-    ORDER BY RT.Name;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+             (SELECT   partition_number,
+                       sum(row_count) AS Rows,
+                       S.index_id
+              FROM     (SELECT object_name(object_id) AS object_name,
+                               *
+                        FROM   sys.dm_db_partition_stats
+                        WHERE  reserved_page_count > 0) AS S
+                       INNER JOIN
+                       sys.indexes AS I
+                       ON I.object_id = S.object_id
+                          AND I.index_id = S.index_id
+              WHERE    EXISTS (SELECT *
+                               FROM   sys.partition_schemes AS PS
+                               WHERE  PS.data_space_id = I.data_space_id
+                                      AND PS.name = 'PartitionScheme_ResourceTypeId')
+                       AND object_name LIKE 'Resource'
+                       AND I.name = 'IX_Resource_ResourceTypeId_ResourceSurrgateId'
+              GROUP BY partition_number, S.object_id, S.index_id, is_disabled) AS B
+             ON A.partition_number = B.partition_number
+    WHERE    A.Rows > 0
+    ORDER BY ResourceType;
 END TRY
 BEGIN CATCH
     IF error_number() = 1750

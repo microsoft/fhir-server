@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Stats
 
         public async Task<StatsResponse> Handle(StatsRequest request, CancellationToken cancellationToken)
         {
-            return await _statsProvider.GetStatsAsync(request.StartDate, request.EndDate, cancellationToken);
+            return await _statsProvider.GetStatsAsync(cancellationToken);
         }
     }
 }

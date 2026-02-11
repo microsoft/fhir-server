@@ -669,18 +669,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns statistics about resources in the database.
         /// </summary>
         [HttpGet]
+        [AuditEventType(AuditEventSubType.Stats)]
         [Route(KnownRoutes.Stats, Name = RouteNames.Stats)]
-        public async Task<IActionResult> Stats([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
+        public async Task<IActionResult> Stats()
         {
             var response = await _mediator.Send(
-                new StatsRequest
-                {
-                    StartDate = startDate,
-                    EndDate = endDate,
-                },
+                new StatsRequest(),
                 HttpContext.RequestAborted);
 
-            return Ok(response);
+            return FhirResult.Create(response.ToParameters());
         }
 
         /// <summary>

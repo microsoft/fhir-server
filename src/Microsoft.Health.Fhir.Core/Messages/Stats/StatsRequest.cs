@@ -13,14 +13,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.Stats
     /// </summary>
     public class StatsRequest : IRequest<StatsResponse>
     {
-        /// <summary>
-        /// Start date filter (inclusive).
-        /// </summary>
-        public DateTime? StartDate { get; set; }
-
-        /// <summary>
-        /// End date filter (inclusive).
-        /// </summary>
-        public DateTime? EndDate { get; set; }
     }
 }

@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Stats;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -191,8 +192,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
             // Register StatsProvider and StatsHandler for $stats endpoint
-            services.AddSingleton<Microsoft.Health.Fhir.SqlServer.Features.Stats.SqlServerStatsProvider>();
-            services.Add<Microsoft.Health.Fhir.SqlServer.Features.Stats.StatsHandler>()
+            services.Add<SqlServerStatsProvider>().Scoped().AsSelf();
+            services.Add<StatsHandler>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();

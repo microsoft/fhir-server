@@ -13,11 +13,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Stats
         /// <summary>
         /// Total number of resources of this type.
         /// </summary>
-        public int TotalCount { get; set; }
+        public long TotalCount { get; set; }
 
         /// <summary>
         /// Number of resources of this type that are not historical or deleted.
         /// </summary>
-        public int ActiveCount { get; set; }
+        public long ActiveCount { get; set; }
     }
 }
