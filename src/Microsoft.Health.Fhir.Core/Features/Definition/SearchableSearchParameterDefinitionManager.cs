@@ -183,5 +183,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                    _fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams &&
                    parameter.IsSupported;
         }
+
+        public (string Hash, int Count) CalculateSearchParameterHash(string resourceType)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -146,5 +146,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _inner.UpdateSearchParameterStatus(url, desiredStatus);
         }
+
+        public (string Hash, int Count) CalculateSearchParameterHash(string resourceType)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
