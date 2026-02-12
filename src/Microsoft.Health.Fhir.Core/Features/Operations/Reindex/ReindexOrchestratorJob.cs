@@ -227,6 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     possibleNotYetIndexedParams.Add(searchInfo);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Warn", $"status={searchInfo.SearchParameterStatus} uri={validUri}", null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Warn", JsonConvert.SerializeObject(searchInfo), null, cancellationToken);
                 }
                 else
                 {
@@ -570,6 +571,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (validSearchParameterUrls.Any(_ => _ == searchInfo.Url.OriginalString))
                 {
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetInfoFromType", "Warn", $"type={resourceType} status={searchInfo.SearchParameterStatus} uri={searchInfo.Url.OriginalString}", null, cancellationToken);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetInfoFromType", "Warn", JsonConvert.SerializeObject(searchInfo), null, cancellationToken);
                 }
             }
 

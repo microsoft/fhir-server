@@ -12,6 +12,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Antlr4.Runtime.Atn;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -131,8 +132,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             foreach (var uri in _reindexProcessingJobDefinition.SearchParameterUrls)
             {
-                _searchParameterDefinitionManager.TryGetSearchParameter(uri, out var paramInfo);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Warn", $"type={resourceType} status={paramInfo?.SearchParameterStatus} uri={uri}", null, cancellationToken);
+                _searchParameterDefinitionManager.TryGetSearchParameter(uri, out var searchInfo);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Warn", $"type={resourceType} status={searchInfo?.SearchParameterStatus} uri={uri}", null, cancellationToken);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Warn", JsonConvert.SerializeObject(searchInfo), null, cancellationToken);
             }
 
             var searchInfos = _searchParameterDefinitionManager.GetSearchParameters(resourceType).ToList();
@@ -141,6 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_reindexProcessingJobDefinition.SearchParameterUrls.Any(_ => _ == searchInfo.Url.OriginalString))
                 {
                     await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetInfoFromType", "Warn", $"type={resourceType} status={searchInfo.SearchParameterStatus} uri={searchInfo.Url.OriginalString}", null, cancellationToken);
+                    await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetInfoFromType", "Warn", JsonConvert.SerializeObject(searchInfo), null, cancellationToken);
                 }
             }
 
