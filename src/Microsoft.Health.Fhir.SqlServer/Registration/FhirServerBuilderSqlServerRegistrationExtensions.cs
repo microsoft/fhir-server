@@ -86,6 +86,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlJobStatusService>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<SqlQueryHashCalculator>()
                 .Singleton()
                 .AsImplementedInterfaces();

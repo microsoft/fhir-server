@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\IncludesController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\JobStatusController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\MemberMatchController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationDefinitionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexController.cs" />
@@ -49,6 +50,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleRouter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\IProvenanceHeaderState.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\JobStatusResponseExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProfileResourcesBehaviour.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProvenanceHeaderBehavior.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProvenanceHeaderState.cs" />

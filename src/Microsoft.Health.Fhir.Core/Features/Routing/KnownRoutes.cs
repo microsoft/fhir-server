@@ -114,5 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string ExpandResourceType = KnownResourceTypes.ValueSet + "/" + Expand;
         public const string ExpandResourceId = KnownResourceTypes.ValueSet + "/" + IdRouteSegment + "/" + Expand;
         public const string ExpandOperationDefinition = OperationDefinition + "/" + OperationsConstants.ValueSetExpand;
+
+        public const string JobStatus = OperationsConstants.Operations + "/" + OperationsConstants.Jobs;
     }
 }
