@@ -132,7 +132,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             foreach (var uri in _reindexProcessingJobDefinition.SearchParameterUrls)
             {
                 _searchParameterDefinitionManager.TryGetSearchParameter(uri, out var paramInfo);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", $"status={paramInfo?.SearchParameterStatus} uri={uri}", null, cancellationToken);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetInfoFromLookupByUri", "Warn", $"type={resourceType} status={paramInfo?.SearchParameterStatus} uri={uri}", null, cancellationToken);
+            }
+
+            var searchInfos = _searchParameterDefinitionManager.GetSearchParameters(resourceType).ToList();
+            foreach (var searchInfo in searchInfos)
+            {
+                if (_reindexProcessingJobDefinition.SearchParameterUrls.Any(_ => _ == searchInfo.Url.OriginalString))
+                {
+                    await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetInfoFromType", "Warn", $"type={resourceType} status={searchInfo.SearchParameterStatus} uri={searchInfo.Url.OriginalString}", null, cancellationToken);
+                }
             }
 
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
@@ -166,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // log extra info
                 var infos = _searchParameterDefinitionManager.GetSearchParameters(resourceType);
                 var hash = infos.CalculateSearchParameterHash();
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", $"typ={resourceType} params={infos.Count()} calculated={hash}", null, cancellationToken);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", $"type={resourceType} params={infos.Count()} calculated={hash}", null, cancellationToken);
 
                 throw new InvalidOperationException(msg);
             }
