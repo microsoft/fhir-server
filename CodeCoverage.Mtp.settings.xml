@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration>
+  <IncludeTestAssembly>false</IncludeTestAssembly>
+  <DeterministicReport>true</DeterministicReport>
+  <ExcludeAssembliesWithoutSources>None</ExcludeAssembliesWithoutSources>
+  <CodeCoverage>
+    <ModulePaths>
+      <Include>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\.[^\\/]*\.dll$</ModulePath>
+      </Include>
+      <Exclude>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\.[^\\/]*Tests[^\\/]*\.dll$</ModulePath>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\..*\.Web(\..*)?\.dll$</ModulePath>
+        <ModulePath>(^|.*[\\/])Microsoft\.Health\.Fhir\..*\.ValueSets(\..*)?\.dll$</ModulePath>
+      </Exclude>
+    </ModulePaths>
+    <Attributes>
+      <Exclude>
+        <Attribute>^System\.Diagnostics\.CodeAnalysis\.ExcludeFromCodeCoverageAttribute$</Attribute>
+      </Exclude>
+    </Attributes>
+    <Sources>
+      <Exclude>
+        <Source>.*[\\/].*\.g\.cs$</Source>
+        <Source>.*[\\/]test[\\/].*</Source>
+        <Source>.*\.Designer\.cs$</Source>
+        <Source>.*RegistrationExtensions\.cs$</Source>
+        <Source>.*[\\/]Registration[\\/][^\\/]*Extensions\.cs$</Source>
+        <Source>.*[\\/]Modules[\\/][^\\/]*Module\.cs$</Source>
+        <Source>.*[\\/]Extensions[\\/]ServiceCollectionExtensions\.cs$</Source>
+        <Source>.*[\\/]((Microsoft\.Health\.Fhir\.)?Api\.OpenIddict)[\\/]Configuration[\\/][^\\/]*\.cs$</Source>
+        <Source>.*[\\/]Microsoft\.Health\.Fhir\.SqlServer[\\/]Features[\\/]Schema[\\/]Model[\\/].*\.cs$</Source>
+        <Source>.*[\\/]SchemaManager[\\/]Command[^\\/]*\.cs$</Source>
+        <Source>.*[\\/]SchemaManager[\\/][^\\/]*ParserBuilder\.cs$</Source>
+        <Source>.*[\\/]Modules[\\/]KnownAssemblies\.cs$</Source>
+        <Source>.*[\\/]Modules[\\/]FeatureFlags[\\/][^\\/]+[\\/]ValidatePostConfigureOptions\.cs$</Source>
+        <Source>.*[\\/]XmlFormatterConfiguration\.cs$</Source>
+        <Source>.*[\\/]Core[\\/]Configs[\\/][^\\/]*Configuration\.cs$</Source>
+        <Source>.*[\\/]CosmosDb\.Core[\\/]Configs[\\/][^\\/]*Configuration\.cs$</Source>
+      </Exclude>
+    </Sources>
+  </CodeCoverage>
+</Configuration>

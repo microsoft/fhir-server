@@ -60,20 +60,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkUpdate)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkUpdate)]
-        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0)
+        public async Task<IActionResult> BulkUpdate([FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             CheckIfOperationIsSupported();
-            return await SendUpdateRequest(null, paramsResource, isParallel, maxCount);
+            return await SendUpdateRequest(null, paramsResource, isParallel, maxCount, metaHistory);
         }
 
         [HttpPatch]
         [Route(KnownRoutes.BulkUpdateResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkUpdate)]
-        public async Task<IActionResult> BulkUpdateByResourceType(string typeParameter, [FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0)
+        public async Task<IActionResult> BulkUpdateByResourceType(string typeParameter, [FromBody] Parameters paramsResource, [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool? isParallel = null, [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             CheckIfOperationIsSupported();
-            return await SendUpdateRequest(typeParameter, paramsResource, isParallel, maxCount);
+            return await SendUpdateRequest(typeParameter, paramsResource, isParallel, maxCount, metaHistory);
         }
 
         [HttpGet]
@@ -102,11 +102,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new JobResult(result.StatusCode);
         }
 
-        private async Task<IActionResult> SendUpdateRequest(string typeParameter, Parameters parameters, bool? isParallel, uint maxCount = 0)
+        private async Task<IActionResult> SendUpdateRequest(string typeParameter, Parameters parameters, bool? isParallel, uint maxCount = 0, bool metaHistory = true)
         {
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
 
-            CreateBulkUpdateResponse result = await _mediator.BulkUpdateAsync(typeParameter, searchParameters, parameters, isParallel ?? true, maxCount, HttpContext.RequestAborted);
+            CreateBulkUpdateResponse result = await _mediator.BulkUpdateAsync(typeParameter, searchParameters, parameters, isParallel ?? true, maxCount, metaHistory, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkUpdate, result.Id.ToString());
