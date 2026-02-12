@@ -28,6 +28,7 @@ stages:
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
+        pwsh: true
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(resourceGroupRoot)" -Location "$(ResourceGroupRegion)" -Force
@@ -36,6 +37,7 @@ stages:
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
+        pwsh: true
         ScriptType: inlineScript
         Inline: |
           $testConfig = (ConvertFrom-Json (Get-Content -Raw "*/**/testconfiguration.json"))
@@ -72,6 +74,7 @@ stages:
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
+        pwsh: true
         ScriptType: InlineScript
         Inline: 'Get-AzResourceGroup -Name $(resourceGroupRoot) | Remove-AzResourceGroup -Verbose -Force'
 
