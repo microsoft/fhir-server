@@ -85,7 +85,4 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Features\Stats\" />
-  </ItemGroup>
 </Project>
