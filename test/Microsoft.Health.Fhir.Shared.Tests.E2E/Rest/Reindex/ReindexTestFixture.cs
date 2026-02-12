@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// the SearchParameterCacheRefreshIntervalSeconds for consistency with production behavior.
         /// Also initializes the test fixture by cleaning up test data resources.
         /// </summary>
-        protected override async Task OnInitializedAsync()
+        protected override async ValueTask OnInitializedAsync()
         {
             await base.OnInitializedAsync();
 

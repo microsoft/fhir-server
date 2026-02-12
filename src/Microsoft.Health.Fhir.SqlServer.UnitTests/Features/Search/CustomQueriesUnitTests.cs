@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection("CustomQueriesTests")]
     public class CustomQueriesUnitTests
     {
         [Fact]

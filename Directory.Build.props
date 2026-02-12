@@ -29,14 +29,16 @@
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('UnitTest'))">
       <ItemGroup>
-        <Content Include="$(MSBuildThisFileDirectory)/xunit.runner.json">
+        <None Include="$(MSBuildThisFileDirectory)/xunit.runner.json">
           <Link>xunit.runner.json</Link>
           <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
+          <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+        </None>
       </ItemGroup>
     </When>
   </Choose>
 
+  <!-- Test project configuration for xUnit 3 and Microsoft Testing Platform -->
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test')) AND '$(IsTestProject)' != 'false'">
       <PropertyGroup>
@@ -45,13 +47,15 @@
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <TestingPlatformCaptureOutput>false</TestingPlatformCaptureOutput>
         <OutputType>Exe</OutputType>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+        <NoWarn>$(NoWarn);xUnit1031;xUnit1051;SA1208;SA1209;SA1518</NoWarn>
       </PropertyGroup>
       <ItemGroup>
-        <PackageReference Include="YTest.MTP.XUnit2" />
         <PackageReference Include="Microsoft.Testing.Extensions.Retry" />
         <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
-        <PackageReference Remove="xunit.runner.visualstudio" />
+        <PackageReference Include="Microsoft.Testing.Extensions.Telemetry" />
+        <PackageReference Include="Microsoft.Testing.Platform.MSBuild" />
       </ItemGroup>
     </When>
     <When Condition="$(MSBuildProjectName.Contains('Test')) AND '$(IsTestProject)' == 'false'">

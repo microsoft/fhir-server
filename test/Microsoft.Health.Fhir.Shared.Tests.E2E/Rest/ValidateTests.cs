@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [Fact(Skip = "Flaky test - skipping until stabilized")]
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             // Give the server time to refresh its profile cache

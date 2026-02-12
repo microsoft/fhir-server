@@ -39,12 +39,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _fixture.Start();
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         // Basic Queries with 0-2 include search parameters with all the pair combinations
 

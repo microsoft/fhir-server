@@ -4,8 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime.CompilerServices;
 using Xunit;
-using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
@@ -13,10 +14,20 @@ namespace Microsoft.Health.Extensions.Xunit
     /// Attribute that marks a theory method to be retried a specified number of times if it fails.
     /// Useful for handling transient failures in integration and end-to-end tests with parameterized data.
     /// </summary>
-    [XunitTestCaseDiscoverer("Microsoft.Health.Extensions.Xunit.RetryTheoryDiscoverer", "Microsoft.Health.Extensions.Xunit")]
+    [XunitTestCaseDiscoverer(typeof(RetryTheoryDiscoverer))]
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class RetryTheoryAttribute : TheoryAttribute
     {
+        public RetryTheoryAttribute([CallerFilePath] string sourceFilePath = "", [CallerLineNumber] int sourceLineNumber = 0)
+        {
+            SourceFilePath = sourceFilePath;
+            SourceLineNumber = sourceLineNumber;
+        }
+
+        internal new string SourceFilePath { get; }
+
+        internal new int SourceLineNumber { get; }
+
         /// <summary>
         /// Gets or sets the maximum number of retry attempts (default is 3).
         /// </summary>

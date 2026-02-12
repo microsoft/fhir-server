@@ -27,7 +27,6 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Polly;
 using Xunit;
-using Xunit.Abstractions;
 using static Hl7.Fhir.Model.Encounter;
 using Task = System.Threading.Tasks.Task;
 

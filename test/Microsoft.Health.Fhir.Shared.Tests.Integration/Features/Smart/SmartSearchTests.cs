@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _testHelper = _fixture.TestHelper;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
                 ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
@@ -154,9 +154,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             }
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         [SkippableFact]

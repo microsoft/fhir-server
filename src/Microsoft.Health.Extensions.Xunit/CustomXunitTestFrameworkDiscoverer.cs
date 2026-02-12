@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,51 +6,55 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 using EnsureThat;
-using Xunit.Abstractions;
+using Xunit;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
     /// <summary>
     /// An implementation of <see cref="XunitTestFrameworkDiscoverer"/> that supports discovering tests with parameterized fixtures.
     /// </summary>
-    internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer, ITestFrameworkDiscoverer
+    internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer
     {
-        public CustomXunitTestFrameworkDiscoverer(IAssemblyInfo assemblyInfo, ISourceInformationProvider sourceProvider, IMessageSink diagnosticMessageSink, IXunitTestCollectionFactory collectionFactory = null)
-            : base(assemblyInfo, sourceProvider, diagnosticMessageSink, collectionFactory)
+        public CustomXunitTestFrameworkDiscoverer(Assembly assembly, IXunitTestCollectionFactory collectionFactory = null)
+            : base(new XunitTestAssembly(assembly, configFileName: null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null)), collectionFactory)
         {
         }
 
-        protected override bool FindTestsForType(ITestClass testClass, bool includeSourceInformation, IMessageBus messageBus, ITestFrameworkDiscoveryOptions discoveryOptions)
+        protected override async ValueTask<bool> FindTestsForType(IXunitTestClass testClass, ITestFrameworkDiscoveryOptions discoveryOptions, Func<ITestCase, ValueTask<bool>> callback)
         {
             EnsureArg.IsNotNull(testClass, nameof(testClass));
-            EnsureArg.IsNotNull(messageBus, nameof(messageBus));
+            EnsureArg.IsNotNull(callback, nameof(callback));
             EnsureArg.IsNotNull(discoveryOptions, nameof(discoveryOptions));
 
-            var attributeInfo = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).SingleOrDefault();
+            var attribute = testClass.Class.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
 
-            if (attributeInfo == null)
+            if (attribute == null)
             {
-                return base.FindTestsForType(testClass, includeSourceInformation, messageBus, discoveryOptions);
+                return await base.FindTestsForType(testClass, discoveryOptions, callback);
             }
 
             // get the class-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
-            SingleFlag[][] classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attributeInfo);
+            SingleFlag[][] classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attribute);
 
             // convert these to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
             SingleFlag[][] classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
 
-            foreach (var method in testClass.Class.GetMethods(true))
+            foreach (var method in testClass.Methods)
             {
-                IAttributeInfo fixtureParameterAttributeInfo = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).SingleOrDefault();
+                var fixtureParameterAttribute = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
+                var effectiveAttribute = fixtureParameterAttribute ?? attribute;
 
                 SingleFlag[][] closedSets = classLevelClosedParameterSets;
 
-                if (fixtureParameterAttributeInfo != null)
+                if (fixtureParameterAttribute != null)
                 {
                     // get the method-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
-                    SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttributeInfo);
+                    SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttribute);
 
                     bool hasOverride = false;
                     for (int i = 0; i < methodLevelOpenParameterSets.Length; i++)
@@ -75,10 +79,17 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 foreach (SingleFlag[] closedVariant in closedSets)
                 {
-                    var closedVariantTestClass = new TestClassWithFixtureArguments(testClass.TestCollection, testClass.Class, closedVariant);
-                    var closedVariantTestMethod = new TestMethod(closedVariantTestClass, method);
+                    var testClassName = effectiveAttribute.CollectionBehavior == FixtureArgumentSetCollectionBehavior.PerClass
+                        ? testClass.Class.FullName
+                        : null;
+                    var closedVariantTestCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant, testClassName);
+                    var closedVariantTestClass = new FixtureArgumentSetTestClass(testClass.Class, closedVariantTestCollection, closedVariant, UniqueIDGenerator.ForTestClass(closedVariantTestCollection.UniqueID, testClass.Class.FullName));
+                    closedVariantTestClass.ApplyFixtureArguments(closedVariant);
+                    var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));
 
-                    if (!FindTestsForMethod(closedVariantTestMethod, includeSourceInformation, messageBus, discoveryOptions))
+                    closedVariantTestMethod.UpdateArgumentsFromMethod();
+
+                    if (!await FindTestsForMethod(closedVariantTestMethod, discoveryOptions, callback))
                     {
                         return false;
                     }
@@ -88,7 +99,7 @@ namespace Microsoft.Health.Extensions.Xunit
             return true;
         }
 
-        private static SingleFlag[][] ExpandEnumFlagsFromAttributeData(IAttributeInfo attributeInfo)
+        private static SingleFlag[][] ExpandEnumFlagsFromAttributeData(FixtureArgumentSetsAttribute attribute)
         {
             bool IsPowerOfTwo(long x)
             {
@@ -117,9 +128,7 @@ namespace Microsoft.Health.Extensions.Xunit
                 }
             }
 
-            return attributeInfo
-                .GetConstructorArguments()
-                .Cast<Enum>()
+            return attribute.GetArgumentSets()
                 .Select(e => GetSingleValuedFlags(e).ToArray())
                 .ToArray();
         }

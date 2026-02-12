@@ -20,13 +20,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private SearchParameterSupportResolver _resolver;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _resolver = new SearchParameterSupportResolver(
                 await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync());
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         [Fact]
         public void GivenASupportedSearchParameter_WhenResolvingSupport_ThenTrueIsReturned()

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,7 +9,7 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using NSubstitute;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 
@@ -63,3 +63,4 @@ public class XUnitLogger<T> : ILogger<T>, IDisposable
         return new XUnitLogger<T>(output, 0);
     }
 }
+

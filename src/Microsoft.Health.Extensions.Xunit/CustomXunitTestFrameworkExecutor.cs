@@ -5,16 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using EnsureThat;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
+using Xunit.v3;
 
 namespace Microsoft.Health.Extensions.Xunit
 {
@@ -23,228 +20,294 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     internal sealed class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
-        public CustomXunitTestFrameworkExecutor(AssemblyName assemblyName, ISourceInformationProvider sourceInformationProvider, IMessageSink diagnosticMessageSink)
-            : base(assemblyName, sourceInformationProvider, diagnosticMessageSink)
+        public CustomXunitTestFrameworkExecutor(Assembly assembly)
+            : base(new FixtureArgumentSetTestAssembly(assembly))
         {
-            AssemblyInfo = new CustomAssemblyInfo(AssemblyInfo);
         }
 
-        protected override void RunTestCases(IEnumerable<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
+        public override async ValueTask RunTestCases(IReadOnlyCollection<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions, CancellationToken cancellationToken)
         {
-            using (var assemblyRunner = new AssemblyRunner(TestAssembly, testCases, DiagnosticMessageSink, executionMessageSink, executionOptions))
-            {
-                assemblyRunner.RunAsync().GetAwaiter().GetResult();
-            }
+            var runner = new FixtureArgumentSetAssemblyRunner();
+            await runner.Run((IXunitTestAssembly)TestAssembly, testCases, executionMessageSink, executionOptions, cancellationToken);
         }
 
-        private sealed class AssemblyRunner : XunitTestAssemblyRunner
+        private sealed class FixtureArgumentSetTestAssembly : XunitTestAssembly
         {
-            private readonly Dictionary<Type, object> _assemblyFixtureMappings = new Dictionary<Type, object>();
-            private ExecutionContext _context;
+            private readonly Assembly _assembly;
+            private IReadOnlyCollection<Type> _assemblyFixtureTypes;
+            private static readonly FieldInfo AssemblyFixtureTypesField = typeof(XunitTestAssembly).GetField("assemblyFixtureTypes", BindingFlags.Instance | BindingFlags.NonPublic);
 
-            public AssemblyRunner(ITestAssembly testAssembly, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
-                : base(testAssembly, testCases, diagnosticMessageSink, executionMessageSink, executionOptions)
+            public FixtureArgumentSetTestAssembly(Assembly assembly)
+                : base(assembly, configFileName: null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null))
             {
+                _assembly = assembly;
             }
 
-            protected override async Task AfterTestAssemblyStartingAsync()
+#pragma warning disable CS0618 // Called by the de-serializer; should only be called by deriving classes for de-serialization purposes
+            public FixtureArgumentSetTestAssembly()
             {
-                // Let everything initialize
-                await base.AfterTestAssemblyStartingAsync();
-
-                // Find the AssemblyFixtureAttributes placed on the test assembly
-                Aggregator.Run(() =>
-                {
-                    var fixtureAttributes = ((IReflectionAssemblyInfo)TestAssembly.Assembly).Assembly
-                        .GetCustomAttributes(typeof(AssemblyFixtureAttribute), false)
-                        .Cast<AssemblyFixtureAttribute>();
-
-                    foreach (var fixtureAttr in fixtureAttributes)
-                    {
-                        _assemblyFixtureMappings[fixtureAttr.FixtureType] = Activator.CreateInstance(fixtureAttr.FixtureType);
-                    }
-                });
-
-                _context = ExecutionContext.Capture();
             }
+#pragma warning restore CS0618
 
-            protected override async Task BeforeTestAssemblyFinishedAsync()
+            public new IReadOnlyCollection<Type> AssemblyFixtureTypes
             {
-                foreach (var fixture in _assemblyFixtureMappings.Values)
+                get
                 {
-                    switch (fixture)
+                    if (_assemblyFixtureTypes == null)
                     {
-                        case IAsyncLifetime d:
-                            await d.DisposeAsync();
-                            break;
-                        case IAsyncDisposable d:
-                            await d.DisposeAsync();
-                            break;
-                        case IDisposable d:
-                            d.Dispose();
-                            break;
+#pragma warning disable CS0618 // AssemblyFixtureAttribute is obsolete; usage is required for assembly fixture discovery.
+                        _assemblyFixtureTypes = _assembly
+                            .GetCustomAttributes(typeof(global::Xunit.AssemblyFixtureAttribute), inherit: false)
+                            .Cast<global::Xunit.AssemblyFixtureAttribute>()
+                            .Select(attribute => attribute.AssemblyFixtureType)
+                            .ToArray();
+#pragma warning restore CS0618
+
+                        AssemblyFixtureTypesField?.SetValue(this, new Lazy<IReadOnlyCollection<Type>>(() => _assemblyFixtureTypes));
                     }
+
+                    return _assemblyFixtureTypes;
                 }
-
-                await base.BeforeTestAssemblyFinishedAsync();
-            }
-
-            protected override Task<RunSummary> RunTestCollectionAsync(IMessageBus messageBus, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, CancellationTokenSource cancellationTokenSource)
-            {
-                Task<RunSummary> result = null;
-                ExecutionContext.Run(_context, state => result = new CollectionRunner(_assemblyFixtureMappings, testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync(), state: null);
-                return result;
-            }
-
-            public override void Dispose()
-            {
-                _context?.Dispose();
-                base.Dispose();
             }
         }
 
-        private sealed class CollectionRunner : XunitTestCollectionRunner
+        private sealed class FixtureArgumentSetAssemblyRunner : XunitTestAssemblyRunner
         {
-            private readonly Dictionary<Type, object> _assemblyFixtureMappings;
-
-            public CollectionRunner(Dictionary<Type, object> assemblyFixtureMappings, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource)
-                : base(testCollection, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource)
+            protected override async ValueTask<RunSummary> RunTestCollection(XunitTestAssemblyRunnerContext context, IXunitTestCollection testCollection, IReadOnlyCollection<IXunitTestCase> testCases)
             {
-                _assemblyFixtureMappings = assemblyFixtureMappings;
+                var testCaseOrderer = context.AssemblyTestCaseOrderer ?? DefaultTestCaseOrderer.Instance ?? StableFallbackTestCaseOrderer.Instance;
+                var runner = new FixtureArgumentSetCollectionRunner();
+                var summary = await runner.Run(testCollection, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.AssemblyFixtureMappings);
+                return summary;
+            }
+        }
+
+        private sealed class FixtureArgumentSetCollectionRunner : XunitTestCollectionRunner
+        {
+            protected override async ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
+            {
+                var testCaseOrderer = context.TestCaseOrderer ?? DefaultTestCaseOrderer.Instance ?? StableFallbackTestCaseOrderer.Instance;
+                var classRunner = new FixtureArgumentSetClassRunner();
+                var summary = await classRunner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, testCaseOrderer, context.Aggregator, context.CancellationTokenSource, context.CollectionFixtureMappings);
+                return summary;
+            }
+        }
+
+        private sealed class FixtureArgumentSetClassRunner : XunitTestClassRunner
+        {
+            private static readonly FieldInfo FixtureCacheField = typeof(FixtureMappingManager)
+                .GetField("fixtureCache", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            private static readonly FieldInfo ParentMappingManagerField = typeof(FixtureMappingManager)
+                .GetField("parentMappingManager", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            protected override ValueTask<bool> OnTestClassStarting(XunitTestClassRunnerContext context)
+            {
+                InjectFixtureArguments(context);
+                return base.OnTestClassStarting(context);
             }
 
-            protected override Task<RunSummary> RunTestClassAsync(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases)
+            protected override ValueTask<object> GetConstructorArgument(XunitTestClassRunnerContext context, ConstructorInfo constructor, int index, ParameterInfo parameter)
             {
-                EnsureArg.IsNotNull(testClass, nameof(testClass));
-                EnsureArg.IsNotNull(@class, nameof(@class));
-                EnsureArg.IsNotNull(testCases, nameof(testCases));
-
-                Dictionary<Type, object> combinedMappings = null;
-
-                if (testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments)
+                if (context?.TestClass is FixtureArgumentSetTestClass fixtureTestClass)
                 {
-                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
-
-                    foreach (var variant in classWithFixtureArguments.FixtureArguments)
+                    var fixtureArguments = fixtureTestClass.GetFixtureArguments();
+                    if (fixtureArguments.Count > 0)
                     {
-                        combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
+                        foreach (var argument in fixtureArguments)
+                        {
+                            var enumValue = argument.EnumValue;
+                            if (enumValue != null && parameter.ParameterType == enumValue.GetType())
+                            {
+                                return new ValueTask<object>(enumValue);
+                            }
+                        }
                     }
                 }
 
-                if (_assemblyFixtureMappings.Count > 0 && combinedMappings == null)
+                return base.GetConstructorArgument(context, constructor, index, parameter);
+            }
+
+            protected override ValueTask<object[]> CreateTestClassConstructorArguments(XunitTestClassRunnerContext context)
+            {
+                return base.CreateTestClassConstructorArguments(context);
+            }
+
+            private static void InjectFixtureArguments(XunitTestClassRunnerContext context)
+            {
+                if (context?.TestClass == null)
                 {
-                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
+                    return;
                 }
 
-                foreach (var assemblyFixtureMapping in _assemblyFixtureMappings)
+                if (FixtureCacheField == null)
                 {
-                    combinedMappings.Add(assemblyFixtureMapping.Key, assemblyFixtureMapping.Value);
+                    return;
                 }
 
-                return new ExecutionContextFlowingClassRunner(
-                        testClass,
-                        @class,
-                        testCases,
-                        DiagnosticMessageSink,
-                        MessageBus,
-                        TestCaseOrderer,
-                        new ExceptionAggregator(Aggregator),
-                        CancellationTokenSource,
-                        combinedMappings ?? CollectionFixtureMappings)
-                    .RunAsync();
+                var cacheOwner = context.ClassFixtureMappings;
+                if (ParentMappingManagerField?.GetValue(cacheOwner) is FixtureMappingManager parentMappingManager)
+                {
+                    cacheOwner = parentMappingManager;
+                }
+
+                var cache = FixtureCacheField.GetValue(cacheOwner) as IDictionary<Type, object>;
+                if (cache == null)
+                {
+                    return;
+                }
+
+                var fixtureArguments = new List<Enum>();
+                if (context.TestClass is FixtureArgumentSetTestClass fixtureTestClass)
+                {
+                    fixtureArguments.AddRange(fixtureTestClass.GetFixtureArguments().Select(argument => argument.EnumValue));
+                }
+
+                var fixtureParameterTypes = new HashSet<Type>();
+                var classFixtureTypes = context.TestClass.ClassFixtureTypes;
+                if (classFixtureTypes != null)
+                {
+                    foreach (var fixtureType in classFixtureTypes)
+                    {
+                        var constructor = fixtureType.GetConstructors()
+                            .SingleOrDefault(ctor => !ctor.IsStatic && ctor.IsPublic);
+                        if (constructor == null)
+                        {
+                            continue;
+                        }
+
+                        foreach (var parameter in constructor.GetParameters())
+                        {
+                            if (parameter.ParameterType.IsEnum)
+                            {
+                                fixtureParameterTypes.Add(parameter.ParameterType);
+                            }
+                        }
+                    }
+                }
+
+                var resolvedArguments = new Dictionary<Type, object>();
+
+                foreach (var enumValue in fixtureArguments)
+                {
+                    var argumentType = enumValue.GetType();
+
+                    foreach (var parameterType in fixtureParameterTypes)
+                    {
+                        if (string.Equals(parameterType.FullName, argumentType.FullName, StringComparison.Ordinal)
+                            && !resolvedArguments.ContainsKey(parameterType))
+                        {
+                            resolvedArguments[parameterType] = parameterType == argumentType
+                                ? enumValue
+                                : Enum.ToObject(parameterType, Convert.ToInt64(enumValue));
+                        }
+                    }
+                }
+
+                if (resolvedArguments.Count == 0 && fixtureParameterTypes.Count > 0)
+                {
+                    var traits = GetTraits(context.TestCases);
+                    foreach (var parameterType in fixtureParameterTypes)
+                    {
+                        var traitKey = parameterType.Name;
+                        if (!traits.TryGetValue(traitKey, out var values) || values.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        if (values.Count > 1)
+                        {
+                            throw new TestPipelineException($"Fixture argument '{traitKey}' had multiple values: {string.Join(", ", values)}");
+                        }
+
+                        var value = values.First();
+                        if (string.IsNullOrWhiteSpace(value))
+                        {
+                            continue;
+                        }
+
+                        if (!Enum.TryParse(parameterType, value, ignoreCase: true, out var parsedValue))
+                        {
+                            throw new TestPipelineException($"Fixture argument '{traitKey}' value '{value}' could not be parsed as {parameterType.FullName}.");
+                        }
+
+                        resolvedArguments[parameterType] = parsedValue;
+                    }
+                }
+
+                foreach (var resolvedArgument in resolvedArguments)
+                {
+                    if (!cache.ContainsKey(resolvedArgument.Key))
+                    {
+                        cache[resolvedArgument.Key] = resolvedArgument.Value;
+                    }
+                }
+            }
+
+            private static Dictionary<string, IReadOnlyCollection<string>> GetTraits(IReadOnlyCollection<IXunitTestCase> testCases)
+            {
+                var traits = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var testCase in testCases)
+                {
+                    if (testCase is XunitTestCase xunitTestCase)
+                    {
+                        MergeTraits(traits, xunitTestCase.Traits.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => (IReadOnlyCollection<string>)kvp.Value.ToArray(),
+                            StringComparer.OrdinalIgnoreCase));
+                        continue;
+                    }
+
+                    if (testCase is ITestCaseMetadata metadata)
+                    {
+                        MergeTraits(traits, metadata.Traits);
+                    }
+                }
+
+                return traits.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => (IReadOnlyCollection<string>)kvp.Value.ToArray(),
+                    StringComparer.OrdinalIgnoreCase);
+            }
+
+            private static void MergeTraits(Dictionary<string, HashSet<string>> target, IReadOnlyDictionary<string, IReadOnlyCollection<string>> source)
+            {
+                foreach (var kvp in source)
+                {
+                    if (!target.TryGetValue(kvp.Key, out var values))
+                    {
+                        values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        target[kvp.Key] = values;
+                    }
+
+                    values.UnionWith(kvp.Value);
+                }
             }
         }
 
-        /// <summary>
-        /// An <see cref="XunitTestClassRunner"/> that runs tests in the same <see cref="ExecutionContext"/> as when all fixture constructors ran.
-        /// This means that <see cref="AsyncLocal{T}"/>s set during a fixture constructor can be read during test method execution.
-        /// </summary>
-        private sealed class ExecutionContextFlowingClassRunner : XunitTestClassRunner
+        private sealed class StableFallbackTestCaseOrderer : ITestCaseOrderer
         {
-            private ExecutionContext _context;
+            internal static ITestCaseOrderer Instance { get; } = new StableFallbackTestCaseOrderer();
 
-            public ExecutionContextFlowingClassRunner(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource, IDictionary<Type, object> collectionFixtureMappings)
-                : base(testClass, @class, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource, collectionFixtureMappings)
+            public IReadOnlyCollection<TTestCase> OrderTestCases<TTestCase>(IReadOnlyCollection<TTestCase> testCases)
+                where TTestCase : ITestCase
             {
-            }
+                ArgumentNullException.ThrowIfNull(testCases);
 
-            protected override void CreateClassFixture(Type fixtureType)
-            {
-                base.CreateClassFixture(fixtureType);
-                _context = ExecutionContext.Capture();
-            }
-
-            protected override Task<RunSummary> RunTestMethodsAsync()
-            {
-                if (_context == null)
-                {
-                    // no class fixtures, so context needed
-
-                    return base.RunTestMethodsAsync();
-                }
-
-                Task<RunSummary> result = null;
-                ExecutionContext.Run(_context, state => result = base.RunTestMethodsAsync(), null);
-                return result;
-            }
-        }
-
-        /// <summary>
-        /// <see cref="XunitTestCase"/> facts have special optimized serialization. Their deserialization needs to be able to instantiate
-        /// the synthetic classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
-        /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
-        /// </summary>
-        private sealed class CustomAssemblyInfo : LongLivedMarshalByRefObject, IAssemblyInfo
-        {
-            private readonly IAssemblyInfo _assemblyInfoImplementation;
-            private readonly Regex _argumentsRegex = new Regex(@"\((\s*(?<VALUE>[^, )]+)\s*,?)*\)");
-
-            public CustomAssemblyInfo(IAssemblyInfo assemblyInfoImplementation)
-            {
-                _assemblyInfoImplementation = assemblyInfoImplementation;
-            }
-
-            public string AssemblyPath => _assemblyInfoImplementation.AssemblyPath;
-
-            public string Name => _assemblyInfoImplementation.Name;
-
-            public IEnumerable<IAttributeInfo> GetCustomAttributes(string assemblyQualifiedAttributeTypeName)
-            {
-                return _assemblyInfoImplementation.GetCustomAttributes(assemblyQualifiedAttributeTypeName);
-            }
-
-            public ITypeInfo GetType(string typeName)
-            {
-                EnsureArg.IsNotNull(typeName, nameof(typeName));
-
-                // parse out the (Arg1, Arg2)
-                var match = _argumentsRegex.Match(typeName);
-                if (!match.Success)
-                {
-                    return _assemblyInfoImplementation.GetType(typeName);
-                }
-
-                // retrieve the real type
-                var typeInfo = _assemblyInfoImplementation.GetType(typeName.Substring(0, match.Index));
-                Debug.Assert(typeInfo != null, $"Could not find type {typeName} in assembly");
-
-                // now get the the arguments. We don't know what type they are, so we look at the FixtureArgumentSetsAttribute on the class and look at its arguments
-                IAttributeInfo attributeInfo = typeInfo.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).Single();
-
-                SingleFlag[] arguments = attributeInfo
-                    .GetConstructorArguments()
-                    .Cast<Enum>()
-                    .Zip(
-                        match.Groups["VALUE"].Captures,
-                        (e, c) => new SingleFlag((Enum)Enum.Parse(e.GetType(), c.Value)))
+                return testCases
+                    .OrderBy(testCase => GetSortKey(testCase))
                     .ToArray();
-
-                return new TestClassWithFixtureArgumentsTypeInfo(typeInfo, arguments);
             }
 
-            public IEnumerable<ITypeInfo> GetTypes(bool includePrivateTypes)
+            private static string GetSortKey<TTestCase>(TTestCase testCase)
             {
-                return _assemblyInfoImplementation.GetTypes(includePrivateTypes);
+                if (testCase is ITestCaseMetadata metadata)
+                {
+                    return metadata.TestCaseDisplayName ?? string.Empty;
+                }
+
+                return testCase?.ToString() ?? string.Empty;
             }
         }
     }

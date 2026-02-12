@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Hl7.Fhir.Model.OperationOutcome;
 
