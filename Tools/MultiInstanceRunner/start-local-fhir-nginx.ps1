@@ -27,9 +27,7 @@ param(
 
     [switch]$RedirectOutput,
 
-    [switch]$DisableSecurity = $true,
-
-    [switch]$PersistTestEnvironment
+    [switch]$DisableSecurity = $true
 )
 
 Set-StrictMode -Version Latest
@@ -289,6 +287,8 @@ for ($i = 0; $i -lt $InstanceCount; $i++) {
 Write-NginxConfig -Ports $initialPorts -ListenPort $NginxListenPort -ConfPath $nginxConfPath
 
 $testEnvUrl = "http://localhost:$NginxListenPort"
+
+# Set process-scoped env vars
 $env:TestEnvironmentUrl = $testEnvUrl
 $env:TestEnvironmentUrl_R4 = $testEnvUrl
 $env:TestEnvironmentUrl_Sql = $testEnvUrl
@@ -297,15 +297,16 @@ $env:TestEnvironmentName = "local"
 $env:TestProxyForwardedHost = "localhost"
 $env:TestProxyForwardedPrefix = ""
 
-if ($PersistTestEnvironment) {
-    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl", $testEnvUrl, "User")
-    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_R4", $testEnvUrl, "User")
-    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_Sql", $testEnvUrl, "User")
-    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_R4_Sql", $testEnvUrl, "User")
-    [Environment]::SetEnvironmentVariable("TestEnvironmentName", "local", "User")
-    [Environment]::SetEnvironmentVariable("TestProxyForwardedHost", "localhost", "User")
-    [Environment]::SetEnvironmentVariable("TestProxyForwardedPrefix", "", "User")
-}
+# Persist to User scope so other terminals can run tests against this cluster
+Write-Host "Persisting test environment variables to User scope..." -ForegroundColor Cyan
+[Environment]::SetEnvironmentVariable("TestEnvironmentUrl", $testEnvUrl, "User")
+[Environment]::SetEnvironmentVariable("TestEnvironmentUrl_R4", $testEnvUrl, "User")
+[Environment]::SetEnvironmentVariable("TestEnvironmentUrl_Sql", $testEnvUrl, "User")
+[Environment]::SetEnvironmentVariable("TestEnvironmentUrl_R4_Sql", $testEnvUrl, "User")
+[Environment]::SetEnvironmentVariable("TestEnvironmentName", "local", "User")
+[Environment]::SetEnvironmentVariable("TestProxyForwardedHost", "localhost", "User")
+[Environment]::SetEnvironmentVariable("TestProxyForwardedPrefix", "", "User")
+Write-Host "  Other terminals can now run tests against $testEnvUrl" -ForegroundColor Green
 
 $logRoot = Join-Path $repoRoot ".local\logs"
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
@@ -544,6 +545,16 @@ finally {
         & $nginxExe -p $nginxRoot -c $nginxConfRelativePath -s stop 2>&1 | Out-Null
     }
     catch { }
+
+    # Clean up User-scoped environment variables
+    Write-Host "  Removing test environment variables from User scope..." -ForegroundColor Yellow
+    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl", $null, "User")
+    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_R4", $null, "User")
+    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_Sql", $null, "User")
+    [Environment]::SetEnvironmentVariable("TestEnvironmentUrl_R4_Sql", $null, "User")
+    [Environment]::SetEnvironmentVariable("TestEnvironmentName", $null, "User")
+    [Environment]::SetEnvironmentVariable("TestProxyForwardedHost", $null, "User")
+    [Environment]::SetEnvironmentVariable("TestProxyForwardedPrefix", $null, "User")
 
     Write-Host "All instances and NGINX stopped." -ForegroundColor Green
 }
