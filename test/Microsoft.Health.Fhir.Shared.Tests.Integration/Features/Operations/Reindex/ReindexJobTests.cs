@@ -904,10 +904,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
-            var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam);
-
-            await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(searchParamWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
-
             using var cancellationTokenSource = new CancellationTokenSource();
 
             try
@@ -948,8 +944,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-
-                await _fixture.DataStore.HardDeleteAsync(searchParamWrapper.ToResourceKey(), false, false, CancellationToken.None);
             }
         }
 
@@ -985,10 +979,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
-
-                // CRITICAL: Force the search parameter definition manager to refresh/sync
-                // This is the missing piece - the search service needs to know about status changes
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // Now test the actual search functionality
                 // Rerun the same search as above
@@ -1148,7 +1138,50 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
+            // Save the SearchParameter resource to the database first (mimicking what the API does)
+            var searchParamWrapper = CreateSearchParamResourceWrapperWithId(searchParam);
+            await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(searchParamWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+
+            await _searchParameterOperations.AddSearchParameterStatusAsync(searchParam.ToTypedElement(), CancellationToken.None);
+
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None, false);
+
             return searchParam;
+        }
+
+        /// <summary>
+        /// Creates a ResourceWrapper for a SearchParameter without overwriting the ID.
+        /// </summary>
+        private ResourceWrapper CreateSearchParamResourceWrapperWithId(SearchParameter searchParam)
+        {
+            var resourceElement = searchParam.ToResourceElement();
+            var rawResource = new RawResource(searchParam.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Post);
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            SearchParameterInfo searchParamInfo = null;
+
+            switch (ModelInfoProvider.Instance.Version)
+            {
+                case FhirSpecification.Stu3:
+                    searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/SearchParameter-url"));
+                    break;
+
+                case FhirSpecification.R5:
+                    searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/CanonicalResource-url"));
+                    break;
+
+                default:
+                    searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/conformance-url"));
+                    break;
+            }
+
+            var searchParamValue = new UriSearchValue(searchParam.Url, false);
+            List<SearchIndexEntry> searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(searchParamInfo, searchParamValue) };
+
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("SearchParameter"));
+            wrapper.SearchParameterHash = "hash";
+
+            return wrapper;
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)

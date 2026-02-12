@@ -222,5 +222,16 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
         {
             throw new NotImplementedException();
         }
+
+        public void ApplyStatusToAllMatchingObjects(
+            string url,
+            bool isSearchable,
+            bool isSupported,
+            bool isPartiallySupported,
+            SortParameterStatus sortStatus,
+            SearchParameterStatus searchParameterStatus)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

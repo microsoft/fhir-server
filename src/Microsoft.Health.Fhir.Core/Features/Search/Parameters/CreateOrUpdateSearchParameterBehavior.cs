@@ -41,7 +41,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Allow the resource to be updated with the normal handler
-            return await next(cancellationToken);
+            var response = await next(cancellationToken);
+
+            if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal) && response.Outcome.Outcome == SaveOutcomeType.Created)
+            {
+                // Persist status only after the resource is successfully written.
+                await _searchParameterOperations.AddSearchParameterStatusAsync(request.Resource.Instance, cancellationToken);
+            }
+
+            return response;
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
@@ -49,10 +57,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // if the resource type being updated is a SearchParameter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
             // and the user could be changing the Url as part of this update
-            if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            var isSearchParameter = request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal);
+            ResourceWrapper prevSearchParamResource = null;
+
+            if (isSearchParameter)
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
-                ResourceWrapper prevSearchParamResource = null;
 
                 try
                 {
@@ -79,7 +89,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             // Now allow the resource to updated per the normal behavior
-            return await next(cancellationToken);
+            var response = await next(cancellationToken);
+
+            if (isSearchParameter && (response.Outcome.Outcome == SaveOutcomeType.Created || response.Outcome.Outcome == SaveOutcomeType.Updated))
+            {
+                // Persist status only after the resource is successfully written.
+                if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
+                {
+                    await _searchParameterOperations.UpdateSearchParameterStatusAsync(request.Resource.Instance, prevSearchParamResource.RawResource, cancellationToken);
+                }
+                else
+                {
+                    await _searchParameterOperations.AddSearchParameterStatusAsync(request.Resource.Instance, cancellationToken);
+                }
+            }
+
+            return response;
         }
     }
 }
