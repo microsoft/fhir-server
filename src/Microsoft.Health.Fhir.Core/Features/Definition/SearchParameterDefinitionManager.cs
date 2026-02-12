@@ -284,6 +284,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public (string Hash, int Count) CalculateSearchParameterHash(string resourceType)
         {
             var searchParams = TypeLookup[resourceType].Values.SelectMany(x => x).ToList();
+            if (searchParams.Count != searchParams.Select(_ => _.Url.OriginalString).Distinct().Count())
+            {
+                throw new InvalidOperationException("Duplicate Urls");
+            }
+
             var searchParamHash = searchParams.CalculateSearchParameterHash();
             return (searchParamHash, searchParams.Count);
         }
