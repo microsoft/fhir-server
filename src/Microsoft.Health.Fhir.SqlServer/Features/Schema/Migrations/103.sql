@@ -3152,7 +3152,7 @@ BEGIN TRY
              A.Rows AS TotalRows,
              B.Rows AS ActiveRows
     FROM     (SELECT   partition_number,
-                       sum(row_count) AS Rows,
+                       sum(CAST (row_count AS BIGINT)) AS Rows,
                        S.index_id
               FROM     (SELECT object_name(object_id) AS object_name,
                                *
@@ -3171,7 +3171,7 @@ BEGIN TRY
               GROUP BY partition_number, S.object_id, S.index_id, is_disabled) AS A
              INNER JOIN
              (SELECT   partition_number,
-                       sum(row_count) AS Rows,
+                       sum(CAST (row_count AS BIGINT)) AS Rows,
                        S.index_id
               FROM     (SELECT object_name(object_id) AS object_name,
                                *

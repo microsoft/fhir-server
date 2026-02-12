@@ -10,7 +10,7 @@ BEGIN TRY
       ,A.Rows as TotalRows
 	  ,B.Rows as ActiveRows
   FROM (SELECT partition_number
-              ,Rows = sum(row_count)
+              ,Rows = sum(cast(row_count as bigint))
 			  ,S.index_id
           FROM (SELECT object_name = object_name(object_id), * FROM sys.dm_db_partition_stats WHERE reserved_page_count > 0) S
                JOIN sys.indexes I ON I.object_id = S.object_id AND I.index_id = S.index_id
@@ -24,7 +24,7 @@ BEGIN TRY
               ,is_disabled
        ) A
   JOIN (SELECT partition_number
-              ,Rows = sum(row_count)
+              ,Rows = sum(cast(row_count as bigint))
 			  ,S.index_id
           FROM (SELECT object_name = object_name(object_id), * FROM sys.dm_db_partition_stats WHERE reserved_page_count > 0) S
                JOIN sys.indexes I ON I.object_id = S.object_id AND I.index_id = S.index_id
