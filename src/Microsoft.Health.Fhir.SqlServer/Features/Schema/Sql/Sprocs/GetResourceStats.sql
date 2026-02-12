@@ -4,7 +4,6 @@ CREATE PROCEDURE dbo.GetResourceStats
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourceStats'
-       ,@Mode varchar(200) = 'S='+isnull(convert(varchar(30),@StartDate,121),'NULL')+' E='+isnull(convert(varchar(30),@EndDate,121),'NULL')
        ,@st datetime = getUTCdate()
 
 BEGIN TRY
@@ -46,7 +45,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Status='Error',@Start=@st;
   THROW
 END CATCH
 GO

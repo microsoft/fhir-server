@@ -3142,7 +3142,7 @@ GO
 CREATE PROCEDURE dbo.GetResourceStats
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetResourceStats', @Mode AS VARCHAR (200) = 'S=' + isnull(CONVERT (VARCHAR (30), @StartDate, 121), 'NULL') + ' E=' + isnull(CONVERT (VARCHAR (30), @EndDate, 121), 'NULL'), @st AS DATETIME = getUTCdate();
+DECLARE @SP AS VARCHAR (100) = 'GetResourceStats', @st AS DATETIME = getUTCdate();
 BEGIN TRY
     SELECT   (SELECT Name
               FROM   ResourceType
@@ -3195,7 +3195,7 @@ END TRY
 BEGIN CATCH
     IF error_number() = 1750
         THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
+    EXECUTE dbo.LogEvent @Process = @SP, @Status = 'Error', @Start = @st;
     THROW;
 END CATCH
 
