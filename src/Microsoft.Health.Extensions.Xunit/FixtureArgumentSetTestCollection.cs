@@ -19,16 +19,14 @@ namespace Microsoft.Health.Extensions.Xunit
         private static readonly FieldInfo UniqueIdField = typeof(XunitTestCollection).GetField("uniqueID", BindingFlags.Instance | BindingFlags.NonPublic);
 
         private IReadOnlyList<SingleFlag> _fixtureArguments;
-        private string _testClassName;
 
-        public FixtureArgumentSetTestCollection(IXunitTestAssembly testAssembly, IReadOnlyList<SingleFlag> fixtureArguments, string testClassName = null)
+        public FixtureArgumentSetTestCollection(IXunitTestAssembly testAssembly, IReadOnlyList<SingleFlag> fixtureArguments)
             : base(testAssembly, collectionDefinition: null, disableParallelization: false, displayName: string.Empty, uniqueID: string.Empty)
         {
             EnsureArg.IsNotNull(testAssembly, nameof(testAssembly));
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
 
             _fixtureArguments = fixtureArguments;
-            _testClassName = testClassName;
 
             UpdateDisplayAndUniqueId(testAssembly.UniqueID);
         }
@@ -58,12 +56,11 @@ namespace Microsoft.Health.Extensions.Xunit
                 return;
             }
 
-            // Include test class name so each class gets its own collection, enabling parallel execution across classes.
+            // Collection display name is the variant label (e.g., "SqlServer, Json").
+            // All test classes with the same variant share a collection, matching xUnit v2 behavior
+            // where fixtures are shared per variant — not per class.
 #pragma warning disable SA1100 // Do not prefix calls with base unless local implementation exists
-            var argsLabel = string.Join(", ", _fixtureArguments.Select(v => v.EnumValue));
-            var displayName = string.IsNullOrEmpty(_testClassName)
-                ? $"{base.TestCollectionDisplayName}({argsLabel})"
-                : $"{_testClassName}({argsLabel})";
+            var displayName = $"{base.TestCollectionDisplayName}({string.Join(", ", _fixtureArguments.Select(v => v.EnumValue))})";
             TestCollectionDisplayNameField?.SetValue(this, displayName);
             UniqueIdField?.SetValue(this, UniqueIDGenerator.ForTestCollection(assemblyUniqueId, displayName, base.TestCollectionClassName));
 #pragma warning restore SA1100
