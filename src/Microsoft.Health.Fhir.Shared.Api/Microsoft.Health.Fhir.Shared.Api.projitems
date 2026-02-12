@@ -52,6 +52,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProfileResourcesBehaviour.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProvenanceHeaderBehavior.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProvenanceHeaderState.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\StatsResponseExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\QueryStringParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidateFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidatePostConfigureOptions.cs" />
