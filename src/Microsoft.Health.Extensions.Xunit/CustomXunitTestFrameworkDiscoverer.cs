@@ -47,6 +47,7 @@ namespace Microsoft.Health.Extensions.Xunit
             foreach (var method in testClass.Methods)
             {
                 var fixtureParameterAttribute = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute), inherit: false).SingleOrDefault() as FixtureArgumentSetsAttribute;
+                var effectiveAttribute = fixtureParameterAttribute ?? attribute;
 
                 SingleFlag[][] closedSets = classLevelClosedParameterSets;
 
@@ -78,7 +79,10 @@ namespace Microsoft.Health.Extensions.Xunit
 
                 foreach (SingleFlag[] closedVariant in closedSets)
                 {
-                    var closedVariantTestCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant);
+                    var testClassName = effectiveAttribute.CollectionBehavior == FixtureArgumentSetCollectionBehavior.PerClass
+                        ? testClass.Class.FullName
+                        : null;
+                    var closedVariantTestCollection = new FixtureArgumentSetTestCollection(testClass.TestCollection.TestAssembly, closedVariant, testClassName);
                     var closedVariantTestClass = new FixtureArgumentSetTestClass(testClass.Class, closedVariantTestCollection, closedVariant, UniqueIDGenerator.ForTestClass(closedVariantTestCollection.UniqueID, testClass.Class.FullName));
                     closedVariantTestClass.ApplyFixtureArguments(closedVariant);
                     var closedVariantTestMethod = new FixtureArgumentSetTestMethod(closedVariantTestClass, method, closedVariant, uniqueId: UniqueIDGenerator.ForTestMethod(closedVariantTestClass.UniqueID, method.Name));

@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public FhirStorageTestsFixtureArgumentSetsAttribute(DataStore dataStores = 0)
             : base(dataStores)
         {
+            CollectionBehavior = FixtureArgumentSetCollectionBehavior.PerClass;
         }
     }
 }
