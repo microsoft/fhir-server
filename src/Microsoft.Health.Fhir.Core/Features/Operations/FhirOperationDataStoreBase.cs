@@ -79,10 +79,18 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var status = jobInfo.Status;
         var result = jobInfo.Result;
         var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
+        record.Id = jobInfo.Id.ToString();
+        record.GroupId = jobInfo.GroupId.ToString();
+        var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+        bool isGroupJobCancelled = groupJobs.Where(x => x.Id == jobInfo.GroupId).FirstOrDefault().CancelRequested;
 
         if (status == JobStatus.Completed)
         {
-            var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+            if (isGroupJobCancelled)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+            }
+
             var inFlightJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created || (x.EndDate != null && x.EndDate > DateTime.UtcNow.AddSeconds(-15)));
             var cancelledJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
             var failedJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Failed);
@@ -157,24 +165,35 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
                 status = JobStatus.Running;
             }
         }
+        else if (status == JobStatus.Cancelled)
+        {
+            throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+        }
+        else if (status == JobStatus.Failed)
+        {
+            if (isGroupJobCancelled)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+            }
+        }
 
-        return CreateExportJobOutcome(jobId, result ?? def, jobInfo.Version, (byte)status, jobInfo.CreateDate);
+        return CreateExportJobOutcome(jobId, result ?? def, jobInfo.Version, (byte)status, jobInfo.CreateDate, jobInfo.GroupId);
     }
 
     public virtual async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
-        if (jobRecord.Status != OperationStatus.Canceled)
-        {
-            throw new NotSupportedException($"Calls to this method with status={jobRecord.Status} are deprecated.");
-        }
-
         eTag ??= WeakETag.FromVersionId("0");
 
         try
         {
             var jobWithGroupId = await _queueClient.GetJobByIdAsync(QueueType.Export, long.Parse(jobRecord.Id), false, cancellationToken);
+            if (jobWithGroupId == null)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+            }
+
             await _queueClient.CancelJobByGroupIdAsync(QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
         }
         catch (JobNotExistException ex)
@@ -527,12 +546,12 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return (firstActiveJob != null, firstActiveJob?.Id.ToString() ?? null);
     }
 
-    private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status, DateTime createDate)
+    private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status, DateTime createDate, long? groupId = null)
     {
         try
         {
             var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
-            return CreateExportJobOutcome(jobId, exportJobRecord, version, status, createDate);
+            return CreateExportJobOutcome(jobId, exportJobRecord, version, status, createDate, groupId);
         }
         catch (Exception ex)
         {
@@ -542,14 +561,19 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
     private static ExportJobOutcome CreateExportJobOutcome(JobInfo jobInfo, ExportJobRecord jobRecord)
     {
-        return CreateExportJobOutcome(jobInfo.Id, jobRecord, jobInfo.Version, (byte)jobInfo.Status, jobInfo.CreateDate);
+        return CreateExportJobOutcome(jobInfo.Id, jobRecord, jobInfo.Version, (byte)jobInfo.Status, jobInfo.CreateDate, jobInfo.GroupId);
     }
 
-    private static ExportJobOutcome CreateExportJobOutcome(long jobId, ExportJobRecord jobRecord, long version, byte status, DateTime createDate)
+    private static ExportJobOutcome CreateExportJobOutcome(long jobId, ExportJobRecord jobRecord, long version, byte status, DateTime createDate, long? groupId = null)
     {
         jobRecord.Id = jobId.ToString();
         jobRecord.QueuedTime = createDate;
         jobRecord.Status = (OperationStatus)status;
+        if (groupId.HasValue)
+        {
+            jobRecord.GroupId = groupId.Value.ToString();
+        }
+
         var etag = GetRowVersionAsEtag(BitConverter.GetBytes(version));
         return new ExportJobOutcome(jobRecord, etag);
     }

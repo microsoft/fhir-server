@@ -9,12 +9,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
+using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -131,6 +133,73 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             definitions = new[] { "job2" };
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await _queueClient.EnqueueAsync(queueType, definitions, jobInfos.First().GroupId, false, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenCompletedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenCancelRequestedShouldBeSetOnOrchestratorJob()
+        {
+            byte queueType = (byte)QueueType.Export;
+
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, null, false, CancellationToken.None);
+            long groupId = jobInfos.First().GroupId;
+
+            // Dequeue and complete the orchestrator job (first job where Id == GroupId)
+            JobInfo orchestratorJob = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            orchestratorJob.Status = JobStatus.Completed;
+            orchestratorJob.Result = "Completed";
+            await _queueClient.CompleteJobAsync(orchestratorJob, false, CancellationToken.None);
+
+            // Cancel the group
+            await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
+
+            // Verify the orchestrator job has CancelRequested = true
+            JobInfo updatedOrchestratorJob = await _queueClient.GetJobByIdAsync(queueType, orchestratorJob.Id, false, CancellationToken.None);
+            Assert.True(updatedOrchestratorJob.CancelRequested);
+        }
+
+        [Fact]
+        public async Task GivenFailedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenCancelRequestedShouldBeSetOnOrchestratorJob()
+        {
+            byte queueType = (byte)QueueType.Export;
+
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, null, false, CancellationToken.None);
+            long groupId = jobInfos.First().GroupId;
+
+            // Dequeue and fail the orchestrator job (first job where Id == GroupId)
+            JobInfo orchestratorJob = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            orchestratorJob.Status = JobStatus.Failed;
+            orchestratorJob.Result = "Failed";
+            await _queueClient.CompleteJobAsync(orchestratorJob, false, CancellationToken.None);
+
+            // Cancel the group
+            await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
+
+            // Verify the orchestrator job has CancelRequested = true
+            JobInfo updatedOrchestratorJob = await _queueClient.GetJobByIdAsync(queueType, orchestratorJob.Id, false, CancellationToken.None);
+            Assert.NotNull(updatedOrchestratorJob);
+            Assert.True(updatedOrchestratorJob.CancelRequested);
+        }
+
+        [Fact]
+        public async Task GivenCompletedNonExportOrchestratorJob_WhenCancelJobsByGroupId_ThenCancelRequestedShouldNotBeSet()
+        {
+            byte queueType = (byte)QueueType.Reindex;
+
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, CancellationToken.None);
+            long groupId = jobInfos.First().GroupId;
+
+            // Dequeue and complete the job
+            JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            job.Status = JobStatus.Completed;
+            job.Result = "Completed";
+            await _queueClient.CompleteJobAsync(job, false, CancellationToken.None);
+
+            // Cancel the group
+            await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
+
+            // For non-export queue types, completed jobs should NOT have CancelRequested set
+            JobInfo updatedJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, false, CancellationToken.None);
+            Assert.False(updatedJob.CancelRequested);
         }
 
         [Fact]

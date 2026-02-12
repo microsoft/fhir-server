@@ -19,10 +19,12 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
 using Polly;
+using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 
@@ -420,6 +422,15 @@ public class CosmosQueueClient : IQueueClient
                     item.Status = (byte)JobStatus.Cancelled;
                     item.CancelRequested = true;
                     saveRequired = true;
+                }
+                else if (queueType == (byte)QueueType.Export && item.JobId == groupId.ToString())
+                {
+                    // Only for export, we want to set the cancel requested as True for already completed or Failed Orchestrator job
+                    if (item.Status == (byte)JobStatus.Completed || item.Status == (byte)JobStatus.Failed)
+                    {
+                        item.CancelRequested = true;
+                        saveRequired = true;
+                    }
                 }
             }
 

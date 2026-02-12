@@ -8,6 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
@@ -67,16 +68,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 cancelResponse = await _retryPolicy.ExecuteAsync(async () =>
                 {
+                    ExportJobOutcome groupJobDetails;
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
+                    groupJobDetails = outcome;
 
-                    // If the job is already completed for any reason, return conflict status.
-                    if (outcome.JobRecord.Status.IsFinished())
+                    if (request.JobId != outcome.JobRecord.GroupId)
                     {
-                        throw new OperationFailedException(Core.Resources.BulkUpdateOperationCompleted, HttpStatusCode.Conflict);
+                        groupJobDetails = await _fhirOperationDataStore.GetExportJobByIdAsync(outcome.JobRecord.GroupId, cancellationToken);
                     }
 
-                    // Try to cancel the job.
-                    outcome.JobRecord.Status = OperationStatus.Canceled;
+                    // If the job is already canceled return 404 Job not found
+                    // If the job is completed or failed then check the flag CancelRequested for Orchestrator job
+                    // If CancelRequested is set to true then return 404 Job not found
+                    // Else set the CancelRequested = true for Orchestrator job -> this is handled in SP
+                    if (outcome.JobRecord.Status == OperationStatus.Canceled)
+                    {
+                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+                    }
+                    else if (outcome.JobRecord.Status == OperationStatus.Completed || outcome.JobRecord.Status == OperationStatus.Failed)
+                    {
+                        if (groupJobDetails.JobRecord.CancelRequested)
+                        {
+                            throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+                        }
+                    }
+                    else
+                    {
+                        // Try to cancel the job.
+                        outcome.JobRecord.Status = OperationStatus.Canceled;
+                    }
+
                     outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
                     outcome.JobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
