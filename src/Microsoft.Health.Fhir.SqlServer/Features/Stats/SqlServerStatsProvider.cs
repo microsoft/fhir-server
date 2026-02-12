@@ -3,15 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Operations.Stats;
 using Microsoft.Health.Fhir.Core.Messages.Stats;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Stats
@@ -19,17 +18,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Stats
     /// <summary>
     /// Provides resource statistics from SQL Server.
     /// </summary>
-    public class SqlServerStatsProvider
+    public class SqlServerStatsProvider : IStatsProvider
     {
         private readonly SqlConnectionWrapperFactory _connectionFactory;
         private readonly ILogger<SqlServerStatsProvider> _logger;
 
         public SqlServerStatsProvider(SqlConnectionWrapperFactory connectionFactory, ILogger<SqlServerStatsProvider> logger)
         {
+            EnsureArg.IsNotNull(connectionFactory, nameof(connectionFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _connectionFactory = connectionFactory;
             _logger = logger;
         }
 
+        /// <inheritdoc />
         public async Task<StatsResponse> GetStatsAsync(CancellationToken cancellationToken)
         {
             var stats = new StatsResponse();
