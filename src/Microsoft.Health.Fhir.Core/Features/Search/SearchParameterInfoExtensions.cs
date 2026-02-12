@@ -33,8 +33,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));
 
             var sb = new StringBuilder();
-            foreach (var searchParamInfo in searchParamaterInfos.Where(_ => _.SearchParameterStatus == SearchParameterStatus.Supported
-                                                                            || _.SearchParameterStatus == SearchParameterStatus.Enabled)
+            foreach (var searchParamInfo in searchParamaterInfos.Where(_ => _.SearchParameterStatus == SearchParameterStatus.Supported)
+                                                                            ////|| _.SearchParameterStatus == SearchParameterStatus.Enabled)
                                                                 .OrderBy(x => x.Url.ToString()))
             {
                 sb.Append(searchParamInfo.Url);
