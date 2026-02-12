@@ -38,25 +38,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                                                 .OrderBy(x => x.Url.ToString()))
             {
                 sb.Append(searchParamInfo.Url);
-                sb.Append(searchParamInfo.Type);
-                sb.Append(searchParamInfo.Expression);
+                ////sb.Append(searchParamInfo.Type);
+                ////sb.Append(searchParamInfo.Expression);
 
-                if (searchParamInfo.SortStatus != SortParameterStatus.Disabled)
-                {
-                    sb.Append("sortable");
-                }
+                ////if (searchParamInfo.SortStatus != SortParameterStatus.Disabled)
+                ////{
+                ////    sb.Append("sortable");
+                ////}
 
-                if (searchParamInfo.TargetResourceTypes != null &&
-                    searchParamInfo.TargetResourceTypes.Any())
-                {
-                    sb.Append(string.Join(null, searchParamInfo.TargetResourceTypes.OrderBy(s => s)));
-                }
+                ////if (searchParamInfo.TargetResourceTypes != null &&
+                ////    searchParamInfo.TargetResourceTypes.Any())
+                ////{
+                ////    sb.Append(string.Join(null, searchParamInfo.TargetResourceTypes.OrderBy(s => s)));
+                ////}
 
-                if (searchParamInfo.BaseResourceTypes != null &&
-                    searchParamInfo.BaseResourceTypes.Any())
-                {
-                    sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
-                }
+                ////if (searchParamInfo.BaseResourceTypes != null &&
+                ////    searchParamInfo.BaseResourceTypes.Any())
+                ////{
+                ////    sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
+                ////}
             }
 
             string hash = sb.ToString().ComputeHash();
