@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
             // Check if the current schema version supports the GetGeoReplicationLag stored procedure
-            if (_schemaInformation.Current < MinRequiredSchemaVersion)
+            if (_schemaInformation.Current > 0)
             {
                 _logger.LogDebug(
                     "GeoReplicationLagWatchdog: Current schema version {CurrentVersion} is below minimum required version {MinRequiredVersion}. Skipping execution.",
