@@ -1079,7 +1079,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 hasContent = true;
             }
 
-            return sb.ToString();
+            return sb.ToString().Trim();
         }
 
         /// <summary>

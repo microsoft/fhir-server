@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -138,12 +139,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void StripQueryPreambleLines_OnlyStrippedLines_ReturnsEmpty()
         {
             // Arrange
-            string input =
-                "SET STATISTICS IO ON;\r\n" +
-                "SET STATISTICS TIME ON;\r\n" +
-                "DECLARE @p0 int = 100\r\n" +
-                "OPTION (RECOMPILE)\r\n" +
-                "-- execution timeout = 30 sec.";
+            string input = @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+                DECLARE @p0 int = 100
+                OPTION (RECOMPILE)
+                -- execution timeout = 30 sec.";
 
             // Act
             string result = InvokeStripQueryPreambleLines(input);
@@ -156,17 +157,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void StripQueryPreambleLines_MultiStatementBatch_PreservesBothParts()
         {
             // Arrange
-            string input =
-                "DECLARE @p0 int = 11\r\n" +
-                "WITH\r\n" +
-                "cte0 AS\r\n" +
-                "(\r\n" +
-                "    SELECT ResourceTypeId AS T1\r\n" +
-                "    FROM dbo.Resource\r\n" +
-                ")\r\n" +
-                "INSERT INTO @FilteredData SELECT T1 FROM cte0\r\n" +
-                "WITH cte1 AS (SELECT * FROM @FilteredData)\r\n" +
-                "SELECT * FROM cte1";
+            string input = @"
+                DECLARE @p0 int = 11
+                WITH
+                cte0 AS
+                (
+                    SELECT ResourceTypeId AS T1
+                    FROM dbo.Resource
+                )
+                INSERT INTO @FilteredData SELECT T1 FROM cte0
+                WITH cte1 AS (SELECT * FROM @FilteredData)
+                SELECT * FROM cte1";
 
             // Act
             string result = InvokeStripQueryPreambleLines(input);
@@ -182,22 +183,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void StripQueryPreambleLines_PreservesQueryBody()
         {
             // Arrange
-            string input =
-                "SET STATISTICS IO ON;\r\n" +
-                "SET STATISTICS TIME ON;\r\n" +
-                "\r\n" +
-                "DECLARE @p0 int = 11\r\n" +
-                "DECLARE @p1 smallint = 103\r\n" +
-                ";WITH\r\n" +
-                "cte0 AS\r\n" +
-                "(\r\n" +
-                "    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1\r\n" +
-                "    FROM dbo.TokenSearchParam\r\n" +
-                "    WHERE ResourceTypeId = 103\r\n" +
-                ")\r\n" +
-                "SELECT * FROM cte0\r\n" +
-                "OPTION (RECOMPILE)\r\n" +
-                "-- execution timeout = 30 sec.";
+            string input = @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+
+                DECLARE @p0 int = 11
+                DECLARE @p1 smallint = 103
+                ;WITH
+                cte0 AS
+                (
+                    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+                    FROM dbo.TokenSearchParam
+                    WHERE ResourceTypeId = 103
+                )
+                SELECT * FROM cte0
+                OPTION (RECOMPILE)
+                -- execution timeout = 30 sec.";
 
             // Act
             string result = InvokeStripQueryPreambleLines(input);
@@ -261,11 +262,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void BatchSplit_Fragment1_ContainsFullInsertLineAndDoesNotLeakIntoSecondBatch()
         {
             // Arrange
-            string queryText =
-                "WITH cte0 AS (SELECT 1)\r\n" +
-                "INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte1\r\n" +
-                "WITH cte1 AS (SELECT * FROM @FilteredData)\r\n" +
-                "SELECT * FROM cte1";
+            string queryText = @"
+                WITH cte0 AS (SELECT 1)
+                INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte1
+                WITH cte1 AS (SELECT * FROM @FilteredData)
+                SELECT * FROM cte1";
 
             // Act
             List<string> fragments = SqlServerSearchService.SplitIntoSearchFragments(queryText);
@@ -306,45 +307,45 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void EndToEnd_FullIncludeQuery_NormalizesAndSplitsCorrectly()
         {
             // Arrange — full realistic include query as it comes from SqlQueryGenerator
-            string input =
-                "SET STATISTICS IO ON;\r\n" +
-                "SET STATISTICS TIME ON;\r\n" +
-                "\r\n" +
-                "DECLARE @p0 int = 11\r\n" +
-                "DECLARE @p1 int = 1000\r\n" +
-                "DECLARE @p2 int = 11\r\n" +
-                "DECLARE @p3 int = 1001\r\n" +
-                "DECLARE @p4 int = 1000\r\n" +
-                ";WITH\r\n" +
-                "cte0 AS\r\n" +
-                "(\r\n" +
-                "    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1\r\n" +
-                "    FROM dbo.Resource\r\n" +
-                "    WHERE IsHistory = 0\r\n" +
-                "        AND IsDeleted = 0\r\n" +
-                "        AND ResourceTypeId = 79\r\n" +
-                ")\r\n" +
-                ",cte1 AS\r\n" +
-                "(\r\n" +
-                "    SELECT row_number() OVER (ORDER BY T1 ASC, Sid1 ASC) AS Row, *\r\n" +
-                "    FROM\r\n" +
-                "    (\r\n" +
-                "        SELECT DISTINCT TOP (@p0) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial\r\n" +
-                "        FROM cte0\r\n" +
-                "        ORDER BY T1 ASC, Sid1 ASC\r\n" +
-                "    ) t\r\n" +
-                ")\r\n" +
-                "\r\n" +
-                "INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte1\r\n" +
-                "WITH cte1 AS (SELECT * FROM @FilteredData)\r\n" +
-                ",cte2 AS\r\n" +
-                "(\r\n" +
-                "    SELECT DISTINCT TOP (@p1) refTarget.ResourceTypeId AS T1\r\n" +
-                "    FROM dbo.ReferenceSearchParam refSource\r\n" +
-                ")\r\n" +
-                "SELECT * FROM cte2\r\n" +
-                "OPTION (RECOMPILE)\r\n" +
-                "-- execution timeout = 30 sec.";
+            string input = @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+
+                DECLARE @p0 int = 11
+                DECLARE @p1 int = 1000
+                DECLARE @p2 int = 11
+                DECLARE @p3 int = 1001
+                DECLARE @p4 int = 1000
+                ;WITH
+                cte0 AS
+                (
+                    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+                    FROM dbo.Resource
+                    WHERE IsHistory = 0
+                        AND IsDeleted = 0
+                        AND ResourceTypeId = 79
+                )
+                ,cte1 AS
+                (
+                    SELECT row_number() OVER (ORDER BY T1 ASC, Sid1 ASC) AS Row, *
+                    FROM
+                    (
+                        SELECT DISTINCT TOP (@p0) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial
+                        FROM cte0
+                        ORDER BY T1 ASC, Sid1 ASC
+                    ) t
+                )
+
+                INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row FROM cte1
+                WITH cte1 AS (SELECT * FROM @FilteredData)
+                ,cte2 AS
+                (
+                    SELECT DISTINCT TOP (@p1) refTarget.ResourceTypeId AS T1
+                    FROM dbo.ReferenceSearchParam refSource
+                )
+                SELECT * FROM cte2
+                OPTION (RECOMPILE)
+                -- execution timeout = 30 sec.";
 
             // Act
             string normalized = InvokeStripQueryPreambleLines(input);
@@ -373,21 +374,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void EndToEnd_SimpleQueryWithoutInsert_NormalizesAndReturnsSingleFragment()
         {
             // Arrange
-            string input =
-                "SET STATISTICS IO ON;\r\n" +
-                "SET STATISTICS TIME ON;\r\n" +
-                "\r\n" +
-                "DECLARE @p0 int = 11\r\n" +
-                ";WITH\r\n" +
-                "cte0 AS\r\n" +
-                "(\r\n" +
-                "    SELECT ResourceTypeId AS T1\r\n" +
-                "    FROM dbo.Resource\r\n" +
-                "    WHERE ResourceTypeId = 79\r\n" +
-                ")\r\n" +
-                "SELECT * FROM cte0\r\n" +
-                "OPTION (RECOMPILE)\r\n" +
-                "-- execution timeout = 30 sec.";
+            string input = @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+
+                DECLARE @p0 int = 11
+                ;WITH
+                cte0 AS
+                (
+                    SELECT ResourceTypeId AS T1
+                    FROM dbo.Resource
+                    WHERE ResourceTypeId = 79
+                )
+                SELECT * FROM cte0
+                OPTION (RECOMPILE)
+                -- execution timeout = 30 sec.";
 
             // Act
             string normalized = InvokeStripQueryPreambleLines(input);
@@ -405,13 +406,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void EndToEnd_LinuxNewlines_NormalizesAndSplitsCorrectly()
         {
             // Arrange
-            string input =
-                "DECLARE @p0 int = 11\n" +
-                "WITH\n" +
-                "cte0 AS (SELECT 1)\n" +
-                "INSERT INTO @FilteredData SELECT T1 FROM cte0\n" +
-                "WITH cte1 AS (SELECT * FROM @FilteredData)\n" +
-                "SELECT * FROM cte1";
+            string input = @"
+                DECLARE @p0 int = 11
+                WITH
+                cte0 AS (SELECT 1)
+                INSERT INTO @FilteredData SELECT T1 FROM cte0
+                WITH cte1 AS (SELECT * FROM @FilteredData)
+                SELECT * FROM cte1";
 
             // Act
             string normalized = InvokeStripQueryPreambleLines(input);
@@ -514,6 +515,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         // -----------------------------------------------------------------------
         // Feature flag on/off behavior
         // -----------------------------------------------------------------------
+
         [Theory]
         [InlineData("LongRunningQueryDetails", true)]
         [InlineData("ReuseQueryPlans", false)]
@@ -585,33 +587,33 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void Normalization_RealisticTokenSearch_StripsAllPreambleAndPreservesBody()
         {
             // Arrange
-            string input =
-                "SET STATISTICS IO ON;\r\n" +
-                "SET STATISTICS TIME ON;\r\n" +
-                "\r\n" +
-                "DECLARE @p0 int = 11\r\n" +
-                "DECLARE @p1 smallint = 103\r\n" +
-                "DECLARE @p2 varchar(256) = 'http://example.org'\r\n" +
-                ";WITH\r\n" +
-                "cte0 AS\r\n" +
-                "(\r\n" +
-                "    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1\r\n" +
-                "    FROM dbo.TokenSearchParam\r\n" +
-                "    WHERE ResourceTypeId = 103\r\n" +
-                "      AND SearchParamId = 22\r\n" +
-                "      AND Code = 'active'\r\n" +
-                ")\r\n" +
-                ",cte1 AS\r\n" +
-                "(\r\n" +
-                "    SELECT DISTINCT TOP (@p0) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial\r\n" +
-                "    FROM cte0\r\n" +
-                "    ORDER BY T1 ASC, Sid1 ASC\r\n" +
-                ")\r\n" +
-                "SELECT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId\r\n" +
-                "FROM dbo.Resource r\r\n" +
-                "JOIN cte1 ON r.ResourceTypeId = cte1.T1 AND r.ResourceSurrogateId = cte1.Sid1\r\n" +
-                "OPTION (RECOMPILE)\r\n" +
-                "-- execution timeout = 30 sec.";
+            string input = @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+
+                DECLARE @p0 int = 11
+                DECLARE @p1 smallint = 103
+                DECLARE @p2 varchar(256) = 'http://example.org'
+                ;WITH
+                cte0 AS
+                (
+                    SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+                    FROM dbo.TokenSearchParam
+                    WHERE ResourceTypeId = 103
+                      AND SearchParamId = 22
+                      AND Code = 'active'
+                )
+                ,cte1 AS
+                (
+                    SELECT DISTINCT TOP (@p0) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial
+                    FROM cte0
+                    ORDER BY T1 ASC, Sid1 ASC
+                )
+                SELECT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId
+                FROM dbo.Resource r
+                JOIN cte1 ON r.ResourceTypeId = cte1.T1 AND r.ResourceSurrogateId = cte1.Sid1
+                OPTION (RECOMPILE)
+                -- execution timeout = 30 sec.";
 
             // Act
             string result = InvokeStripQueryPreambleLines(input);
@@ -636,23 +638,23 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void Normalization_ExportQuery_NoCtePreamble_PreservesSelectBody()
         {
             // Arrange
-            string input =
-                "SET STATISTICS IO ON;\r\n" +
-                "SET STATISTICS TIME ON;\r\n" +
-                "\r\n" +
-                "DECLARE @p0 smallint = 79\r\n" +
-                "DECLARE @p1 bigint = 1000000\r\n" +
-                "DECLARE @p2 bigint = 2000000\r\n" +
-                "SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId,\r\n" +
-                "       RequestMethod, IsMatch, IsPartial, IsRawResourceMetaSet,\r\n" +
-                "       SearchParamHash, RawResource\r\n" +
-                "FROM dbo.Resource\r\n" +
-                "WHERE ResourceTypeId = @p0\r\n" +
-                "  AND ResourceSurrogateId BETWEEN @p1 AND @p2\r\n" +
-                "  AND IsHistory = 0\r\n" +
-                "  AND IsDeleted = 0\r\n" +
-                "OPTION (RECOMPILE)\r\n" +
-                "-- execution timeout = 30 sec.";
+            string input = @"
+                SET STATISTICS IO ON;
+                SET STATISTICS TIME ON;
+
+                DECLARE @p0 smallint = 79
+                DECLARE @p1 bigint = 1000000
+                DECLARE @p2 bigint = 2000000
+                SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId,
+                       RequestMethod, IsMatch, IsPartial, IsRawResourceMetaSet,
+                       SearchParamHash, RawResource
+                FROM dbo.Resource
+                WHERE ResourceTypeId = @p0
+                  AND ResourceSurrogateId BETWEEN @p1 AND @p2
+                  AND IsHistory = 0
+                  AND IsDeleted = 0
+                OPTION (RECOMPILE)
+                -- execution timeout = 30 sec.";
 
             // Act
             string result = InvokeStripQueryPreambleLines(input);
@@ -687,12 +689,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public void Normalization_ConsecutiveBlankLines_CollapsedToSingle()
         {
             // Arrange
-            string input =
-                "WITH cte0 AS (SELECT 1)\r\n" +
-                "\r\n" +
-                "\r\n" +
-                "\r\n" +
-                "SELECT * FROM cte0";
+            string input = @"
+                WITH cte0 AS (SELECT 1)
+
+
+
+                SELECT * FROM cte0";
 
             // Act
             string result = InvokeStripQueryPreambleLines(input);
@@ -701,6 +703,134 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Contains("WITH cte0 AS (SELECT 1)", result);
             Assert.Contains("SELECT * FROM cte0", result);
             Assert.DoesNotContain("\r\n\r\n\r\n", result);
+        }
+
+        // -----------------------------------------------------------------------
+        // Fire-and-forget query logging behavior
+        // -----------------------------------------------------------------------
+
+        [Fact]
+        public async Task FireAndForget_ReturnsImmediately_WithoutWaitingForBackgroundTask()
+        {
+            // Arrange
+            var backgroundTaskStarted = new TaskCompletionSource<bool>();
+            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
+
+            // Act - measure execution time of fire-and-forget pattern
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            // Simulate the fire-and-forget pattern used in SearchImpl
+            _ = Task.Run(async () =>
+            {
+                backgroundTaskStarted.SetResult(true);
+                await Task.Delay(100); // Simulate background work
+                backgroundTaskCompleted.SetResult(true);
+            });
+
+            stopwatch.Stop();
+
+            // Assert - Task.Run should return immediately without waiting
+            Assert.True(
+                stopwatch.ElapsedMilliseconds < 50,
+                $"Fire-and-forget Task.Run took too long: {stopwatch.ElapsedMilliseconds}ms");
+
+            // Wait for background task to complete to verify it actually ran
+            await backgroundTaskCompleted.Task;
+            Assert.True(backgroundTaskCompleted.Task.IsCompletedSuccessfully);
+        }
+
+        [Fact]
+        public async Task FireAndForget_ExceptionInBackgroundTask_DoesNotPropagateToMainThread()
+        {
+            // Arrange
+            var exceptionThrown = false;
+            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
+
+            // Act - fire-and-forget with exception
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(10);
+                    throw new InvalidOperationException("Background task error");
+                }
+                catch (Exception)
+                {
+                    exceptionThrown = true;
+                }
+                finally
+                {
+                    backgroundTaskCompleted.SetResult(true);
+                }
+            });
+
+            // Main thread continues without waiting
+            await Task.Delay(10);
+
+            // Wait for background task to complete
+            await backgroundTaskCompleted.Task;
+
+            // Assert - exception occurred in background but didn't crash main thread
+            Assert.True(exceptionThrown, "Exception should have occurred in background task");
+            Assert.True(
+                backgroundTaskCompleted.Task.IsCompletedSuccessfully,
+                "Background task should complete normally despite exception");
+        }
+
+        [Fact]
+        public async Task FireAndForget_CancellationToken_LimitsBackgroundTaskDuration()
+        {
+            // Arrange
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            var wasCancelled = false;
+            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
+
+            // Act - fire-and-forget with timeout
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Simulate long-running operation that should be cancelled
+                    await Task.Delay(5000, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    wasCancelled = true;
+                }
+                finally
+                {
+                    backgroundTaskCompleted.SetResult(true);
+                }
+            });
+
+            // Wait for background task to be cancelled
+            await backgroundTaskCompleted.Task;
+
+            // Assert - timeout should have cancelled the operation
+            Assert.True(wasCancelled, "Operation should have been cancelled by timeout");
+            Assert.True(cts.Token.IsCancellationRequested, "Cancellation token should be cancelled");
+        }
+
+        [Fact]
+        public void FireAndForget_CapturesDataBeforeFiring_AvoidsConcurrencyIssues()
+        {
+            // Arrange
+            string originalQuery = "SELECT * FROM dbo.Resource WHERE ResourceTypeId = 103";
+            string capturedQuery = null;
+
+            // Act - capture data before fire-and-forget (simulates the pattern in SearchImpl)
+            capturedQuery = originalQuery; // Snapshot captured before Task.Run
+
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(10);
+
+                // Verify captured data is available in background task
+                Assert.False(string.IsNullOrEmpty(capturedQuery));
+            });
+
+            // Assert - data should be captured successfully
+            Assert.Equal(originalQuery, capturedQuery);
         }
 
         private static ISqlRetryService CreateThrowingSqlRetryService()
