@@ -146,5 +146,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _inner.UpdateSearchParameterStatus(url, desiredStatus);
         }
+
+        public bool ApplyStatusToAllMatchingObjects(
+            string url,
+            bool isSearchable,
+            bool isSupported,
+            bool isPartiallySupported,
+            SortParameterStatus sortStatus,
+            SearchParameterStatus searchParameterStatus)
+        {
+            return _inner.ApplyStatusToAllMatchingObjects(url, isSearchable, isSupported, isPartiallySupported, sortStatus, searchParameterStatus);
+        }
     }
 }

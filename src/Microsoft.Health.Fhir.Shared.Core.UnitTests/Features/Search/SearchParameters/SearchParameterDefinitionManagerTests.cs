@@ -580,6 +580,196 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenSearchParameterInBothLookups_WhenApplyingStatus_ThenBothLookupsAreUpdated()
+        {
+            // Arrange: Create search parameters with separate object instances for UrlLookup and TypeLookup
+            // to simulate the scenario where BuildSearchParameterDefinition creates different objects
+            // due to inheritance caching
+            var url = "http://test/Patient-status-test";
+            var code = "status-test";
+
+            var urlLookupParam = new SearchParameterInfo(
+                name: "status-test",
+                code: code,
+                searchParamType: SearchParamType.String,
+                url: new Uri(url),
+                expression: "Patient.name",
+                baseResourceTypes: new List<string> { "Patient" })
+            {
+                IsSearchable = false,
+                IsSupported = false,
+                IsPartiallySupported = false,
+                SortStatus = SortParameterStatus.Disabled,
+                SearchParameterStatus = SearchParameterStatus.Disabled,
+            };
+
+            // Create a DIFFERENT object instance for TypeLookup to simulate the bug scenario
+            var typeLookupParam = new SearchParameterInfo(
+                name: "status-test",
+                code: code,
+                searchParamType: SearchParamType.String,
+                url: new Uri(url),
+                expression: "Patient.name",
+                baseResourceTypes: new List<string> { "Patient" })
+            {
+                IsSearchable = false,
+                IsSupported = false,
+                IsPartiallySupported = false,
+                SortStatus = SortParameterStatus.Disabled,
+                SearchParameterStatus = SearchParameterStatus.Disabled,
+            };
+
+            _searchParameterDefinitionManager.UrlLookup.TryAdd(url, urlLookupParam);
+
+            // Add to TypeLookup for Patient resource type
+            if (!_searchParameterDefinitionManager.TypeLookup.TryGetValue("Patient", out var patientLookup))
+            {
+                patientLookup = new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>();
+                _searchParameterDefinitionManager.TypeLookup.TryAdd("Patient", patientLookup);
+            }
+
+            patientLookup.TryAdd(code, new ConcurrentQueue<SearchParameterInfo>(new[] { typeLookupParam }));
+
+            // Act: Apply status to all matching objects
+            var result = _searchParameterDefinitionManager.ApplyStatusToAllMatchingObjects(
+                url,
+                isSearchable: true,
+                isSupported: true,
+                isPartiallySupported: true,
+                sortStatus: SortParameterStatus.Enabled,
+                searchParameterStatus: SearchParameterStatus.Enabled);
+
+            // Assert: Both objects should be updated
+            Assert.True(result);
+
+            // Verify UrlLookup object is updated
+            Assert.True(_searchParameterDefinitionManager.UrlLookup.TryGetValue(url, out var updatedUrlParam));
+            Assert.True(updatedUrlParam.IsSearchable);
+            Assert.True(updatedUrlParam.IsSupported);
+            Assert.True(updatedUrlParam.IsPartiallySupported);
+            Assert.Equal(SortParameterStatus.Enabled, updatedUrlParam.SortStatus);
+            Assert.Equal(SearchParameterStatus.Enabled, updatedUrlParam.SearchParameterStatus);
+
+            // Verify TypeLookup object is updated (this is the key assertion for the bug fix)
+            Assert.True(_searchParameterDefinitionManager.TypeLookup.TryGetValue("Patient", out var updatedPatientLookup));
+            Assert.True(updatedPatientLookup.TryGetValue(code, out var queue));
+            Assert.True(queue.TryPeek(out var updatedTypeParam));
+            Assert.True(updatedTypeParam.IsSearchable);
+            Assert.True(updatedTypeParam.IsSupported);
+            Assert.True(updatedTypeParam.IsPartiallySupported);
+            Assert.Equal(SortParameterStatus.Enabled, updatedTypeParam.SortStatus);
+            Assert.Equal(SearchParameterStatus.Enabled, updatedTypeParam.SearchParameterStatus);
+        }
+
+        [Fact]
+        public void GivenNonExistentSearchParameter_WhenApplyingStatus_ThenReturnsFalse()
+        {
+            // Act
+            var result = _searchParameterDefinitionManager.ApplyStatusToAllMatchingObjects(
+                "http://nonexistent/param",
+                isSearchable: true,
+                isSupported: true,
+                isPartiallySupported: false,
+                sortStatus: SortParameterStatus.Enabled,
+                searchParameterStatus: SearchParameterStatus.Enabled);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void GivenSearchParameterWithResourceBaseType_WhenApplyingStatus_ThenAllDerivedTypesAreUpdated()
+        {
+            // Arrange: Create a search parameter with base type "Resource" which applies to all resources
+            var url = "http://test/Resource-global-test";
+            var code = "global-test";
+
+            var urlLookupParam = new SearchParameterInfo(
+                name: "global-test",
+                code: code,
+                searchParamType: SearchParamType.String,
+                url: new Uri(url),
+                expression: "Resource.id",
+                baseResourceTypes: new List<string> { "Resource" })
+            {
+                IsSearchable = false,
+                IsSupported = false,
+                SearchParameterStatus = SearchParameterStatus.Disabled,
+            };
+
+            // Create different object instances for TypeLookup entries on Patient and Observation
+            var patientParam = new SearchParameterInfo(
+                name: "global-test",
+                code: code,
+                searchParamType: SearchParamType.String,
+                url: new Uri(url),
+                expression: "Resource.id",
+                baseResourceTypes: new List<string> { "Resource" })
+            {
+                IsSearchable = false,
+                IsSupported = false,
+                SearchParameterStatus = SearchParameterStatus.Disabled,
+            };
+
+            var observationParam = new SearchParameterInfo(
+                name: "global-test",
+                code: code,
+                searchParamType: SearchParamType.String,
+                url: new Uri(url),
+                expression: "Resource.id",
+                baseResourceTypes: new List<string> { "Resource" })
+            {
+                IsSearchable = false,
+                IsSupported = false,
+                SearchParameterStatus = SearchParameterStatus.Disabled,
+            };
+
+            _searchParameterDefinitionManager.UrlLookup.TryAdd(url, urlLookupParam);
+
+            // Add to TypeLookup for Patient
+            if (!_searchParameterDefinitionManager.TypeLookup.TryGetValue("Patient", out var patientLookup))
+            {
+                patientLookup = new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>();
+                _searchParameterDefinitionManager.TypeLookup.TryAdd("Patient", patientLookup);
+            }
+
+            patientLookup.TryAdd(code, new ConcurrentQueue<SearchParameterInfo>(new[] { patientParam }));
+
+            // Add to TypeLookup for Observation
+            if (!_searchParameterDefinitionManager.TypeLookup.TryGetValue("Observation", out var observationLookup))
+            {
+                observationLookup = new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>();
+                _searchParameterDefinitionManager.TypeLookup.TryAdd("Observation", observationLookup);
+            }
+
+            observationLookup.TryAdd(code, new ConcurrentQueue<SearchParameterInfo>(new[] { observationParam }));
+
+            // Act
+            var result = _searchParameterDefinitionManager.ApplyStatusToAllMatchingObjects(
+                url,
+                isSearchable: true,
+                isSupported: true,
+                isPartiallySupported: false,
+                sortStatus: SortParameterStatus.Enabled,
+                searchParameterStatus: SearchParameterStatus.Enabled);
+
+            // Assert
+            Assert.True(result);
+
+            // Verify Patient TypeLookup is updated
+            Assert.True(_searchParameterDefinitionManager.TypeLookup["Patient"].TryGetValue(code, out var patientQueue));
+            Assert.True(patientQueue.TryPeek(out var updatedPatientParam));
+            Assert.True(updatedPatientParam.IsSearchable);
+            Assert.Equal(SearchParameterStatus.Enabled, updatedPatientParam.SearchParameterStatus);
+
+            // Verify Observation TypeLookup is updated
+            Assert.True(_searchParameterDefinitionManager.TypeLookup["Observation"].TryGetValue(code, out var obsQueue));
+            Assert.True(obsQueue.TryPeek(out var updatedObsParam));
+            Assert.True(updatedObsParam.IsSearchable);
+            Assert.Equal(SearchParameterStatus.Enabled, updatedObsParam.SearchParameterStatus);
+        }
+
+        [Fact]
         public void GivenExistingSearchParameters_WhenDeletingSearchParameter_ThenSearchParameterShouldBeDeleted()
         {
             var searchParameters = new SearchParameterInfo[]

@@ -213,6 +213,17 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
             throw new NotImplementedException();
         }
 
+        public bool ApplyStatusToAllMatchingObjects(
+            string url,
+            bool isSearchable,
+            bool isSupported,
+            bool isPartiallySupported,
+            SortParameterStatus sortStatus,
+            SearchParameterStatus searchParameterStatus)
+        {
+            throw new NotImplementedException();
+        }
+
         public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
         {
             throw new NotImplementedException();

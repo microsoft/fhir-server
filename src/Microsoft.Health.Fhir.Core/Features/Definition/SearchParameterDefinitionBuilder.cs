@@ -123,20 +123,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
-        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, IDictionary<string, SearchParameterInfo> uriDictionary)
+        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, ConcurrentDictionary<string, SearchParameterInfo> uriDictionary)
         {
-            // Return SearchParameterInfo that has already been created for this Uri
-            if (uriDictionary.TryGetValue(searchParameter.Url, out var spi))
-            {
-                return spi;
-            }
-
-            return new SearchParameterInfo(searchParameter);
+            // Use GetOrAdd to atomically ensure we always use the same SearchParameterInfo instance
+            // for a given URL across both UrlLookup and TypeLookup. This prevents the bug where
+            // separate instances could exist in UrlLookup vs TypeLookup due to race conditions.
+            return uriDictionary.GetOrAdd(
+                searchParameter.Url,
+                _ => new SearchParameterInfo(searchParameter));
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
             IReadOnlyCollection<ITypedElement> searchParamCollection,
-            IDictionary<string, SearchParameterInfo> uriDictionary,
+            ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider,
             bool isSystemDefined = false)
         {
@@ -166,6 +165,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 try
                 {
+                    // GetOrCreateSearchParameterInfo now atomically adds to uriDictionary via GetOrAdd,
+                    // ensuring we always use the same instance across UrlLookup and TypeLookup.
                     SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
 
                     // Mark spec-defined search parameters as system-defined
@@ -175,12 +176,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     {
                         // _profile can't be handled as a reference since it points to an external permalink
                         searchParameterInfo.Type = SearchParamType.Uri;
-                    }
-
-                    // TODO: We need a way to update the uri dictionary with one from the store when the dictionary already have the uri.
-                    if (!uriDictionary.TryGetValue(searchParameter.Url, out _))
-                    {
-                        uriDictionary.Add(searchParameter.Url, searchParameterInfo);
                     }
                 }
                 catch (FormatException)
