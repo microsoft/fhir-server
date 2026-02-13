@@ -127,37 +127,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckDiscrepancies(CancellationToken cancellationToken)
         {
             var resourceType = _reindexProcessingJobDefinition.ResourceType;
-            var searchParameterHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(resourceType);
-            var requestedSearchParameterHash = _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap;
-            var isBad = requestedSearchParameterHash != searchParameterHash;
-            var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
-            if (isBad)
-            {
-                _logger.LogJobWarning(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
-            }
-            else
-            {
-                _logger.LogJobInformation(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
-            }
 
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
-            msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
+            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
+            var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
             //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
             //// Cannot just refresh here because we might be missing resources updated via API.
             if (isBad)
             {
                 _logger.LogJobWarning(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken);
             }
-            else // normal
+            else
             {
                 _logger.LogJobInformation(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken);
+            }
+
+            var searchParameterHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(resourceType);
+            var requestedSearchParameterHash = _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap;
+            isBad = requestedSearchParameterHash != searchParameterHash;
+            msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
+            if (isBad)
+            {
+                _logger.LogJobWarning(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken);
+                throw new InvalidOperationException(msg);
+            }
+            else
+            {
+                _logger.LogJobInformation(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken);
             }
         }
 
