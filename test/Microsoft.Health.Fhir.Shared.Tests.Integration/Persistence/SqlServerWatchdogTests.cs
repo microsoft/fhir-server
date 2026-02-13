@@ -55,6 +55,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public void DateTimeOffsetRoundTrip()
+        {
+            ExecuteSql("IF object_id('DateTimeOffsetRoundTripProcedure') IS NOT NULL DROP PROCEDURE DateTimeOffsetRoundTripProcedure");
+            ExecuteSql(@"
+CREATE PROCEDURE DateTimeOffsetRoundTripProcedure @Date datetimeoffset(7)
+AS
+set nocount on
+SELECT @Date
+            ");
+
+            for (var i = 0; i < 2000; i++)
+            {
+                var input = DateTimeOffset.UtcNow;
+                var output = ExecuteDateTimeOffsetRoundTripProcedure(input);
+                Assert.Equal(input, output);
+            }
+        }
+
+        private DateTimeOffset ExecuteDateTimeOffsetRoundTripProcedure(DateTimeOffset date)
+        {
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("dbo.DateTimeOffsetRoundTripProcedure", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@Date", date);
+            return (DateTimeOffset)cmd.ExecuteScalar();
+        }
+
+        [Fact]
         public async Task DefragBlocking()
         {
             // I don't know why blocking is not 100% reproduced. Hence this workaround.
