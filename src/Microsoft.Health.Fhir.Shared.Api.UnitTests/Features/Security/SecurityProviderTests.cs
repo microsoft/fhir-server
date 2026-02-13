@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -27,7 +26,6 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
-using static Hl7.Fhir.Model.CapabilityStatement;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 {
@@ -39,12 +37,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         private const string OpenIdTokenEndpointUri = "http://test/openid/token";
         private const string SmartAuthorizationEndpointUri = "http://test/smart/authorize";
         private const string SmartTokenEndpointUri = "http://test/smart/token";
+        private const string ThirdPartyAuthorizeRootUri = "http://test/thirdparty";
+        private const string IntrospectionEndpointUri = "http://test/thirdparty/introspection";
+        private const string ManagementEndpointUri = "http://test/thirdparty/management";
+        private const string RevocationEndpointUri = "http://test/thirdparty/revocation";
 
         private readonly SecurityProvider _provider;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IUrlResolver _urlResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly SmartIdentityProviderConfiguration _smartIdentityProviderConfiguration;
 
         public SecurityProviderTests()
         {
@@ -72,12 +75,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             _modelInfoProvider = Substitute.For<IModelInfoProvider>();
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);
 
+            _smartIdentityProviderConfiguration = new SmartIdentityProviderConfiguration();
             _provider = new SecurityProvider(
                 Options.Create(_securityConfiguration),
                 _httpClientFactory,
                 Substitute.For<ILogger<SecurityConfiguration>>(),
                 _urlResolver,
-                _modelInfoProvider);
+                _modelInfoProvider,
+                Options.Create(_smartIdentityProviderConfiguration));
         }
 
         [Theory]
@@ -115,6 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                 enabled,
                 restComponent,
                 specification,
+                _smartIdentityProviderConfiguration,
                 SmartAuthorizationEndpointUri,
                 SmartTokenEndpointUri);
             _urlResolver.Received(enabled ? 1 : 0).ResolveRouteNameUrl(
@@ -189,6 +195,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                     enabled,
                     restComponent,
                     specification,
+                    _smartIdentityProviderConfiguration,
                     OpenIdAuthorizationEndpointUri,
                     OpenIdTokenEndpointUri);
             }
@@ -200,6 +207,61 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             _httpClientFactory.Received(enabled ? 1 : 0).CreateClient();
         }
 
+        [Theory]
+        [InlineData(null, null, null, null)]
+        [InlineData(ThirdPartyAuthorizeRootUri, null, null, null)]
+        [InlineData(ThirdPartyAuthorizeRootUri, IntrospectionEndpointUri, null, null)]
+        [InlineData(null, IntrospectionEndpointUri, null, null)]
+        [InlineData(ThirdPartyAuthorizeRootUri, null, ManagementEndpointUri, null)]
+        [InlineData(ThirdPartyAuthorizeRootUri, null, null, RevocationEndpointUri)]
+        [InlineData(ThirdPartyAuthorizeRootUri, IntrospectionEndpointUri, ManagementEndpointUri, RevocationEndpointUri)]
+        public async Task GivenConfigurations_WhenBuildingCapabilityStatement_ThenCapabilityStatementShouldHaveSmartCapabilities(
+            string authority,
+            string introspection,
+            string management,
+            string revocation)
+        {
+            _securityConfiguration.Enabled = true;
+            _securityConfiguration.EnableAadSmartOnFhirProxy = true;
+
+            _smartIdentityProviderConfiguration.Authority = authority;
+            _smartIdentityProviderConfiguration.Introspection = introspection;
+            _smartIdentityProviderConfiguration.Management = management;
+            _smartIdentityProviderConfiguration.Revocation = revocation;
+
+            var authorize = !string.IsNullOrEmpty(authority) ? $"{authority.TrimEnd('/')}/{Constants.SmartOAuthUriExtensionAuthorize}" : SmartAuthorizationEndpointUri;
+            var token = !string.IsNullOrEmpty(authority) ? $"{authority.TrimEnd('/')}/{Constants.SmartOAuthUriExtensionToken}" : SmartTokenEndpointUri;
+            var restComponent = new ListedRestComponent()
+            {
+                Mode = ListedCapabilityStatement.ServerMode,
+            };
+
+            var capabilityStatement = new ListedCapabilityStatement();
+            capabilityStatement.Rest.Add(restComponent);
+
+            var builder = Substitute.For<ICapabilityStatementBuilder>();
+            builder
+                .When(x => x.Apply(Arg.Any<Action<ListedCapabilityStatement>>()))
+                .Do(
+                    x =>
+                    {
+                        var action = x.Arg<Action<ListedCapabilityStatement>>();
+                        action.Invoke(capabilityStatement);
+                    });
+            await _provider.BuildAsync(builder, CancellationToken.None);
+
+            Validate(
+                true,
+                restComponent,
+                FhirSpecification.R4,
+                _smartIdentityProviderConfiguration,
+                authorize,
+                token,
+                introspection,
+                management,
+                revocation);
+        }
+
         private static bool IsSuccessStatusCode(HttpStatusCode statusCode)
         {
             return ((int)statusCode >= 200) && ((int)statusCode <= 299);
@@ -209,21 +271,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             bool enabled,
             ListedRestComponent component,
             FhirSpecification specification,
-            string authorizationEndpointUri,
-            string tokenEndpointUri)
+            SmartIdentityProviderConfiguration configuration,
+            string authorize,
+            string token,
+            string introspection = null,
+            string management = null,
+            string revocation = null)
         {
             if (enabled)
             {
                 Assert.NotNull(component?.Security?.Extension);
                 Assert.NotNull(component?.Security?.Service);
 
-                ValidateExtension(
+                ValidateOAuthUriExtension(
                     component.Security.Extension,
-                    authorizationEndpointUri,
-                    tokenEndpointUri);
+                    authorize,
+                    token,
+                    introspection,
+                    management,
+                    revocation);
                 ValidateSecurity(
                     component.Security.Service,
                     specification);
+                ValidateSmartCapabilities(
+                    configuration,
+                    component.Security.Extension);
             }
             else
             {
@@ -231,40 +303,83 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             }
         }
 
-        private static void ValidateExtension(
-            ICollection<JObject> extension,
-            string authorizationEndpointUri,
-            string tokenEndpointUri)
+        private static void ValidateOAuthUriExtension(
+            ICollection<JObject> extensions,
+            string authorize,
+            string token,
+            string introspection = null,
+            string management = null,
+            string revocation = null)
         {
-            Assert.Single(extension);
-
-            var ext = extension.FirstOrDefault();
+            var ext = extensions
+                .Where(x => string.Equals(x[Constants.UrlPropertyName]?.Value<string>(), Constants.SmartOAuthUriExtension, StringComparison.OrdinalIgnoreCase))
+                .FirstOrDefault();
             Assert.NotNull(ext);
 
-            var rootUrl = ext["url"]?.Value<string>();
-            Assert.Equal(Constants.SmartOAuthUriExtension, rootUrl, StringComparer.OrdinalIgnoreCase);
+            var urls = ext[Constants.ExtensionPropertyName]?
+                .ToDictionary(x => x[Constants.UrlPropertyName]?.ToString(), x => x[Constants.ValueUriPropertyName]?.ToString());
+            Assert.True(urls.ContainsKey(Constants.SmartOAuthUriExtensionAuthorize));
+            Assert.Contains(
+                urls,
+                x =>
+                {
+                    return string.Equals(x.Key, Constants.SmartOAuthUriExtensionAuthorize, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.Value, authorize, StringComparison.OrdinalIgnoreCase);
+                });
 
-            var exts = ext["extension"]?.ToArray();
-            Assert.NotNull(exts);
-            Assert.Equal(2, exts.Length);
+            Assert.True(urls.ContainsKey(Constants.SmartOAuthUriExtensionToken));
             Assert.Contains(
-                exts,
+                urls,
                 x =>
                 {
-                    var url = x["url"]?.ToString();
-                    var val = x["valueUri"]?.ToString();
-                    return string.Equals(url, Constants.SmartOAuthUriExtensionAuthorize, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(val, authorizationEndpointUri, StringComparison.OrdinalIgnoreCase);
+                    return string.Equals(x.Key, Constants.SmartOAuthUriExtensionToken, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.Value, token, StringComparison.OrdinalIgnoreCase);
                 });
-            Assert.Contains(
-                exts,
-                x =>
-                {
-                    var url = x["url"]?.ToString();
-                    var val = x["valueUri"]?.ToString();
-                    return string.Equals(url, Constants.SmartOAuthUriExtensionToken, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(val, tokenEndpointUri, StringComparison.OrdinalIgnoreCase);
-                });
+
+            if (!string.IsNullOrEmpty(introspection))
+            {
+                Assert.Contains(
+                    urls,
+                    x =>
+                    {
+                        return string.Equals(x.Key, Constants.SmartOAuthUriExtensionIntrospection, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(x.Value, introspection, StringComparison.OrdinalIgnoreCase);
+                    });
+            }
+            else
+            {
+                Assert.False(urls.ContainsKey(Constants.SmartOAuthUriExtensionIntrospection));
+            }
+
+            if (!string.IsNullOrEmpty(management))
+            {
+                Assert.Contains(
+                    urls,
+                    x =>
+                    {
+                        return string.Equals(x.Key, Constants.SmartOAuthUriExtensionManagement, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(x.Value, management, StringComparison.OrdinalIgnoreCase);
+                    });
+            }
+            else
+            {
+                Assert.False(urls.ContainsKey(Constants.SmartOAuthUriExtensionManagement));
+            }
+
+            if (!string.IsNullOrEmpty(revocation))
+            {
+                Assert.Contains(
+                    urls,
+                    x =>
+                    {
+                        return string.Equals(x.Key, Constants.SmartOAuthUriExtensionRevocation, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(x.Value, revocation, StringComparison.OrdinalIgnoreCase);
+                    });
+            }
+            else
+            {
+                Assert.False(urls.ContainsKey(Constants.SmartOAuthUriExtensionRevocation));
+            }
         }
 
         private static void ValidateSecurity(
@@ -286,6 +401,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                 Assert.Equal(Constants.RestfulSecurityServiceOAuth.System, coding.System, StringComparer.OrdinalIgnoreCase);
                 Assert.Equal(Constants.RestfulSecurityServiceOAuth.Code, coding.Code, StringComparer.OrdinalIgnoreCase);
             }
+        }
+
+        private static void ValidateSmartCapabilities(
+            SmartIdentityProviderConfiguration configuration,
+            ICollection<JObject> extensions)
+        {
+            var actual = extensions
+                .Where(x => string.Equals(x[Constants.UrlPropertyName]?.Value<string>(), Constants.SmartCapabilitiesUriExtension, StringComparison.OrdinalIgnoreCase))
+                .Select(x => x[Constants.ValueCodePropertyName].ToString())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            Assert.NotNull(actual);
+
+            var capabilities = new List<string>(Constants.SmartCapabilityClients
+                .Concat(Constants.SmartCapabilityAdditional)
+                .Concat(Constants.SmartCapabilityLaunches)
+                .Concat(Constants.SmartCapabilityPermissions)
+                .Concat(Constants.SmartCapabilitySSOs));
+            if (!string.IsNullOrEmpty(configuration?.Authority))
+            {
+                capabilities.AddRange(Constants.SmartCapabilityThirdPartyContexts);
+            }
+
+            var expected = capabilities.ToHashSet();
+            Assert.True(actual.SetEquals(expected));
         }
     }
 }
