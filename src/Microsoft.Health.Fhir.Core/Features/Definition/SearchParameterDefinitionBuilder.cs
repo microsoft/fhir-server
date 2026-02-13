@@ -356,9 +356,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Look up the canonical instance from uriDictionary to ensure TypeLookup
                 // uses the same object instances as UrlLookup. This prevents the bug where
                 // status updates to UrlLookup objects wouldn't be reflected in TypeLookup.
-                SearchParameterInfo canonicalParam = uriDictionary.TryGetValue(searchParam.Url.OriginalString, out var found)
-                    ? found
-                    : searchParam;
+                // Only use the canonical instance when its type matches. In R5, _type has
+                // URL http://hl7.org/fhir/SearchParameter/Resource-type with type Special,
+                // while ResourceTypeSearchParameter uses the same URL with type Token.
+                // Choosing the wrong type causes parser failures for _type queries.
+                SearchParameterInfo canonicalParam = searchParam;
+                if (searchParam.Url != null &&
+                    uriDictionary.TryGetValue(searchParam.Url.OriginalString, out var found) &&
+                    found.Type == searchParam.Type)
+                {
+                    canonicalParam = found;
+                }
 
                 searchParameterDictionary.AddOrUpdate(
                     canonicalParam.Code,
