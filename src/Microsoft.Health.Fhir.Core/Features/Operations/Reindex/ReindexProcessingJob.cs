@@ -139,6 +139,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobWarning(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken);
+                throw new InvalidOperationException(msg);
             }
             else
             {

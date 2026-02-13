@@ -236,6 +236,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var msg = $"status=null uri={validUri}";
                     _logger.LogJobWarning(_jobInfo, msg);
                     await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.GetDefinitionFromCache", "Error", msg, null, cancellationToken);
+                    throw new InvalidOperationException(msg);
                 }
             }
 
