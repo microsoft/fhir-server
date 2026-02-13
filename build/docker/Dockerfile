@@ -38,6 +38,9 @@ COPY ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.cspro
 COPY ./src/Microsoft.Health.Fhir.Api.OpenIddict/Microsoft.Health.Fhir.Api.OpenIddict.csproj \
      ./src/Microsoft.Health.Fhir.Api.OpenIddict/Microsoft.Health.Fhir.Api.OpenIddict.csproj
 
+COPY ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj \
+     ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj
+
 COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
      ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj
 

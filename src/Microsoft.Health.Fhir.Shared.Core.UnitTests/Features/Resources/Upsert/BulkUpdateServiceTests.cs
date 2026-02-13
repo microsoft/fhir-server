@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.JobManagement;
@@ -70,8 +71,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
 
         public BulkUpdateServiceTests()
         {
+            var ignixaSerializer = new IgnixaJsonSerializer();
             var serializer = new FhirJsonSerializer();
-            _rawResourceFactory = new RawResourceFactory(serializer);
+            _rawResourceFactory = new RawResourceFactory(ignixaSerializer, serializer);
 
             var dummyRequestContext = new FhirRequestContext(
                 "POST",

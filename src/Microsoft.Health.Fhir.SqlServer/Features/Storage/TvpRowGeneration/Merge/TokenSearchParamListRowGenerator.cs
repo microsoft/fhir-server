@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 resourceTypeId,
                 resourceSurrogateId,
                 searchParamId,
-                searchValue.System == null ? null : Model.GetSystemId(searchValue.System),
+                string.IsNullOrWhiteSpace(searchValue.System) ? null : Model.GetSystemId(searchValue.System),
                 indexedPrefix,
                 overflow);
 
