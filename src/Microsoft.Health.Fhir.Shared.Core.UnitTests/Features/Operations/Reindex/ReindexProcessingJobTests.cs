@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             JobInfo jobInfo = new JobInfo()
             {
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 SearchParameterHash = "accountHash",
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             JobInfo jobInfo = new JobInfo()
             {
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {
@@ -494,7 +494,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {
@@ -543,7 +543,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {
@@ -592,7 +592,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {
@@ -655,7 +655,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {
@@ -722,7 +722,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {
@@ -779,7 +779,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {
@@ -839,7 +839,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns(job.SearchParameterHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
 
             var jobInfo = new JobInfo()
             {

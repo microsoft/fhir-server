@@ -359,7 +359,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return true;
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Get all resource types from the model info provider
@@ -463,7 +463,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.SearchParameterHashMap
                 .Returns(paramHashMap);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Set up search results for various resource types
@@ -557,7 +557,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameter(searchParam.Url.OriginalString)
                 .Returns(searchParam);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Mock SearchParameterHashMap for RefreshSearchParameterCache
@@ -573,7 +573,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.SearchParameterHashMap
                 .Returns(paramHashMap);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
             .Returns("hash");
 
             // Create a search result with 100 resources
@@ -660,7 +660,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameter(searchParam.Url.OriginalString)
                 .Returns(searchParam);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResultWithData = CreateSearchResult(resourceCount: 250);
@@ -741,7 +741,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return true;
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var emptySearchResult = new SearchResult(0, new List<Tuple<string, string>>());
@@ -790,7 +790,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return true;
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var emptySearchResult = new SearchResult(0, new List<Tuple<string, string>>());
@@ -912,7 +912,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 10);
@@ -1008,7 +1008,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 10);
@@ -1148,7 +1148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Return different results for different resource types
@@ -1328,7 +1328,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return true;
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Return different counts for different resource types
@@ -1444,7 +1444,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Track whether jobs have been marked complete to change mock behavior
@@ -1644,7 +1644,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameter(patientParam.Url.OriginalString)
                 .Returns(patientParam);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResultWithData = CreateSearchResult(resourceCount: 250);
@@ -1719,7 +1719,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return true;
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Return zero count for the search result
@@ -1796,7 +1796,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 10);
@@ -1881,7 +1881,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 0);
@@ -1949,7 +1949,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     return true;
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var emptySearchResult = new SearchResult(0, new List<Tuple<string, string>>());
@@ -2016,7 +2016,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameters("Observation")
                 .Returns(new List<SearchParameterInfo> { searchParam1, searchParam2 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 100);

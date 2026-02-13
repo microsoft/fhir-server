@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckDiscrepancies(CancellationToken cancellationToken)
         {
             var resourceType = _reindexProcessingJobDefinition.ResourceType;
-            var searchParameterHash = _searchParameterOperations.GetResourceTypeSearchParameterHashMap(resourceType);
+            var searchParameterHash = _searchParameterOperations.GetSearchParameterHash(resourceType);
             var requestedSearchParameterHash = _reindexProcessingJobDefinition.SearchParameterHash;
             var isBad = requestedSearchParameterHash != searchParameterHash;
             var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
