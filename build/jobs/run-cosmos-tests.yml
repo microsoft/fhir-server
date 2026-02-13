@@ -94,6 +94,14 @@ jobs:
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
 
+  - task: CopyFiles@2
+    displayName: 'Include native coverage files in artifact'
+    condition: succeededOrFailed()
+    inputs:
+      sourceFolder: '$(Agent.TempDirectory)/coverage'
+      contents: '**/*.coverage'
+      targetFolder: '$(Agent.TempDirectory)/coverage-aggregated'
+
   - task: PublishBuildArtifacts@1
     displayName: 'Publish Cosmos integration test coverage'
     inputs:
