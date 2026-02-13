@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             foreach (var paramStatus in updatedSearchParameterStatus)
             {
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri.OriginalString, out var param))
-                {                    
+                {
                     var tempStatus = EvaluateSearchParamStatus(paramStatus);
 
                     param.IsSearchable = tempStatus.IsSearchable;
