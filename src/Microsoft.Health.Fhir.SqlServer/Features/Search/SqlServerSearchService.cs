@@ -836,7 +836,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     // Fire-and-forget: Log query details without blocking the response
                                     _ = Task.Run(async () =>
                                     {
-                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                                         try
                                         {
                                             await LogQueryStoreByTextAsync(
@@ -846,17 +846,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                 executionTimeSnapshot,
                                                 loggingCts.Token);
                                         }
-                                        catch (SqlException ex)
+                                        catch (Exception ex)
                                         {
                                             _logger.LogWarning(
                                                 "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
                                                 executionTimeSnapshot,
                                                 queryTextSnapshot);
                                             _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
                                         }
                                     });
                                 }
@@ -2000,7 +1996,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     // Fire-and-forget: Log query details without blocking the response
                                     _ = Task.Run(async () =>
                                     {
-                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                                         try
                                         {
                                             await LogQueryStoreByTextAsync(
@@ -2010,17 +2006,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                 executionTimeSnapshot,
                                                 loggingCts.Token);
                                         }
-                                        catch (SqlException ex)
+                                        catch (Exception ex)
                                         {
                                             _logger.LogWarning(
                                                 "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
                                                 executionTimeSnapshot,
                                                 queryTextSnapshot);
                                             _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogDebug(ex, "Failed to log long-running SQL query details.");
                                         }
                                     });
                                 }
