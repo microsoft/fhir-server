@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _cosmosCollectionConfiguration = new CosmosCollectionConfiguration
             {
                 CollectionId = Guid.NewGuid().ToString(),
-                InitialCollectionThroughput = 1500,
+                InitialCollectionThroughput = 5000,
             };
         }
 
