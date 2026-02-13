@@ -40,59 +40,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenGetMaxLastUpdatedAsync_WhenCalledWithExistingData_ThenReturnsValidTimestamp()
-        {
-            // Arrange
-            var dataStore = _fixture.SearchParameterStatusDataStore as SqlServerSearchParameterStatusDataStore;
-            Assert.NotNull(dataStore);
-
-            // Act
-            var maxLastUpdated = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
-
-            // Assert
-            Assert.NotEqual(DateTimeOffset.MinValue, maxLastUpdated);
-            Assert.True(maxLastUpdated <= DateTimeOffset.UtcNow.AddMinutes(1)); // Allow 1 min clock skew
-        }
-
-        [Fact]
-        public async Task GivenGetMaxLastUpdatedAsync_WhenDataIsUpserted_ThenMaxLastUpdatedIncreases()
-        {
-            // Arrange
-            var dataStore = _fixture.SearchParameterStatusDataStore as SqlServerSearchParameterStatusDataStore;
-            Assert.NotNull(dataStore);
-
-            var testUri = "http://hl7.org/fhir/SearchParameter/Test-MaxLastUpdated-" + Guid.NewGuid();
-            var status = new ResourceSearchParameterStatus
-            {
-                Uri = new Uri(testUri),
-                Status = SearchParameterStatus.Disabled,
-                IsPartiallySupported = false,
-                LastUpdated = DateTimeOffset.UtcNow,
-            };
-
-            try
-            {
-                // Get initial max
-                var maxBefore = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
-
-                // Small delay to ensure different timestamp
-                await Task.Delay(100);
-
-                // Act - Upsert new status
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(new[] { status }, CancellationToken.None);
-
-                var maxAfter = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
-
-                // Assert - Max should increase
-                Assert.True(maxAfter >= maxBefore, $"Expected maxAfter ({maxAfter}) >= maxBefore ({maxBefore})");
-            }
-            finally
-            {
-                await _testHelper.DeleteSearchParameterStatusAsync(testUri);
-            }
-        }
-
-        [Fact]
         public async Task GivenUpsertStatuses_WhenUpsertingWithSameUri_ThenLastUpdatedIsRefreshed()
         {
             // Arrange
@@ -278,26 +225,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenMaxLastUpdated_WhenComparedToStatusTimestamps_ThenIsGreaterOrEqual()
-        {
-            // Arrange
-            var dataStore = _fixture.SearchParameterStatusDataStore as SqlServerSearchParameterStatusDataStore;
-            Assert.NotNull(dataStore);
-
-            // Act
-            var maxLastUpdated = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
-            var allStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
-
-            // Assert - MaxLastUpdated should be >= all individual LastUpdated values
-            Assert.All(allStatuses, status =>
-            {
-                Assert.True(
-                    maxLastUpdated >= status.LastUpdated,
-                    $"MaxLastUpdated ({maxLastUpdated}) should be >= status.LastUpdated ({status.LastUpdated}) for {status.Uri}");
-            });
-        }
-
-        [Fact]
         public async Task GivenUpsertStatuses_WhenUpdatingExistingStatus_ThenPreservesOtherStatuses()
         {
             // Arrange
@@ -404,54 +331,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 await _testHelper.DeleteSearchParameterStatusAsync(testUri);
-            }
-        }
-
-        [Fact]
-        public async Task GivenGetMaxLastUpdatedAsync_WhenStatusesHaveVariedTimestamps_ThenReturnsMaximum()
-        {
-            // Arrange
-            var dataStore = _fixture.SearchParameterStatusDataStore as SqlServerSearchParameterStatusDataStore;
-            Assert.NotNull(dataStore);
-
-            var testUri1 = "http://hl7.org/fhir/SearchParameter/Test-MaxTime1-" + Guid.NewGuid();
-            var testUri2 = "http://hl7.org/fhir/SearchParameter/Test-MaxTime2-" + Guid.NewGuid();
-
-            var now = DateTimeOffset.UtcNow;
-            var statuses = new List<ResourceSearchParameterStatus>
-            {
-                new ResourceSearchParameterStatus
-                {
-                    Uri = new Uri(testUri1),
-                    Status = SearchParameterStatus.Disabled,
-                    IsPartiallySupported = false,
-                    LastUpdated = now.AddMinutes(-5),
-                },
-                new ResourceSearchParameterStatus
-                {
-                    Uri = new Uri(testUri2),
-                    Status = SearchParameterStatus.Enabled,
-                    IsPartiallySupported = false,
-                    LastUpdated = now,
-                },
-            };
-
-            try
-            {
-                // Act - Insert statuses with different timestamps
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statuses, CancellationToken.None);
-
-                var maxLastUpdated = await dataStore!.GetMaxLastUpdatedAsync(CancellationToken.None);
-
-                // Assert - MaxLastUpdated should be at least as recent as our latest timestamp
-                Assert.True(
-                    maxLastUpdated >= now.AddSeconds(-1),
-                    $"Expected MaxLastUpdated ({maxLastUpdated}) to be >= our latest timestamp ({now})");
-            }
-            finally
-            {
-                await _testHelper.DeleteSearchParameterStatusAsync(testUri1);
-                await _testHelper.DeleteSearchParameterStatusAsync(testUri2);
             }
         }
 

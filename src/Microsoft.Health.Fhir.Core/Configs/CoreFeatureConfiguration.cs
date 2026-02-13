@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// The background service will call EnsureCacheFreshnessAsync at this interval to keep
         /// SearchParameter cache synchronized across instances. Default is 60 seconds if not specified.
         /// </summary>
-        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 60;
+        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 20;
 
         /// <summary>
         /// Gets or sets the maximum initial delay in seconds for the SearchParameter cache background service timer.

@@ -1,41 +1,4 @@
-ALTER PROCEDURE dbo.GetSearchParamStatuses @StartLastUpdated datetimeoffset(7) = NULL, @LastUpdated datetimeoffset(7) = NULL OUT
-AS
-set nocount on
-DECLARE @SP varchar(100) = 'GetSearchParamStatuses'
-       ,@Mode varchar(100) = 'S='+isnull(substring(convert(varchar,@StartLastUpdated),1,23),'NULL')
-       ,@st datetime = getUTCdate()
-       ,@msg varchar(100)
-       ,@Rows int
-
-BEGIN TRY
-  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
-  
-  BEGIN TRANSACTION
-
-  SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
-  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)
-
-  IF @StartLastUpdated IS NULL
-    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam
-  ELSE
-    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam WHERE LastUpdated > @StartLastUpdated
-  
-  SET @Rows = @@rowcount
-
-  COMMIT TRANSACTION
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Action='Select',@Target='SearchParam',@Text=@msg
-END TRY
-BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
-  THROW
-END CATCH
-GO
-INSERT INTO dbo.Parameters (Id,Char) SELECT 'GetSearchParamStatuses', 'LogEvent'
-GO
-CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
+﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
@@ -107,12 +70,14 @@ END CATCH
 GO
 INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent'
 GO
-IF object_id('UpsertSearchParams') IS NOT NULL DROP PROCEDURE UpsertSearchParams
-GO
-IF EXISTS (SELECT * FROM systypes WHERE name = 'SearchParamTableType_2') DROP TYPE dbo.SearchParamTableType_2
-GO
-IF EXISTS (SELECT * FROM systypes WHERE name = 'BulkReindexResourceTableType_1') DROP TYPE dbo.BulkReindexResourceTableType_1
-GO
-INSERT INTO Parameters (Id,Char) SELECT 'EnqueueJobs','LogEvent'
-GO
-
+--DECLARE @SearchParams dbo.SearchParamList
+--INSERT INTO @SearchParams
+--  --SELECT 'http://example.org/fhir/SearchParameter/custom-mixed-base-d9e18fc8', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--  SELECT 'Test', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--INSERT INTO @SearchParams
+--  SELECT 'Test2', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
+--SELECT * FROM @SearchParams
+--EXECUTE dbo.MergeSearchParams @SearchParams
+--SELECT TOP 100 * FROM SearchParam ORDER BY SearchParamId DESC
+--DELETE FROM SearchParam WHERE Uri LIKE 'Test%'
+--SELECT TOP 10 * FROM EventLog ORDER BY EventDate DESC
