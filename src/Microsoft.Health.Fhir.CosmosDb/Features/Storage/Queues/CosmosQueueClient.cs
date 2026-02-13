@@ -423,14 +423,13 @@ public class CosmosQueueClient : IQueueClient
                     item.CancelRequested = true;
                     saveRequired = true;
                 }
-                else if (queueType == (byte)QueueType.Export && item.JobId == groupId.ToString())
+                else if (queueType == (byte)QueueType.Export
+                         && item.JobId == groupId.ToString()
+                         && (item.Status == (byte)JobStatus.Completed || item.Status == (byte)JobStatus.Failed))
                 {
                     // Only for export, we want to set the cancel requested as True for already completed or Failed Orchestrator job
-                    if (item.Status == (byte)JobStatus.Completed || item.Status == (byte)JobStatus.Failed)
-                    {
-                        item.CancelRequested = true;
-                        saveRequired = true;
-                    }
+                    item.CancelRequested = true;
+                    saveRequired = true;
                 }
             }
 

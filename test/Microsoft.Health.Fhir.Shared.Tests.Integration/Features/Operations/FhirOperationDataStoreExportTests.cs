@@ -445,8 +445,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.Equal(OperationStatus.Completed, outcome.JobRecord.Status);
-            Assert.True(outcome.JobRecord.Output.ContainsKey("Patient"));
-            Assert.Single(outcome.JobRecord.Output["Patient"]);
+            var hasPatientOutput = outcome.JobRecord.Output.TryGetValue("Patient", out var patientOutput);
+            Assert.True(hasPatientOutput);
+            Assert.Single(patientOutput);
         }
 
         [Fact]
@@ -494,8 +495,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.Equal(OperationStatus.Completed, outcome.JobRecord.Status);
-            Assert.True(outcome.JobRecord.Output.ContainsKey("Patient"));
-            Assert.Equal(2, outcome.JobRecord.Output["Patient"].Count);
+            Assert.True(outcome.JobRecord.Output.TryGetValue("Patient", out var patientFiles));
+            Assert.Equal(2, patientFiles.Count);
         }
 
         [Fact]
