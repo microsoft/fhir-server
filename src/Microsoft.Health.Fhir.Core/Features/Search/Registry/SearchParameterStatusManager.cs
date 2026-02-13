@@ -227,16 +227,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (var paramStatus in updatedSearchParameterStatus)
             {
-                var tempStatus = EvaluateSearchParamStatus(paramStatus);
-
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri.OriginalString, out var param))
-                {
+                {                    
+                    var tempStatus = EvaluateSearchParamStatus(paramStatus);
+
                     param.IsSearchable = tempStatus.IsSearchable;
                     param.IsSupported = tempStatus.IsSupported;
                     param.IsPartiallySupported = tempStatus.IsPartiallySupported;
                     param.SortStatus = paramStatus.SortStatus;
                     param.SearchParameterStatus = paramStatus.Status;
-
                     updated.Add(param);
                 }
                 else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && (p.Status == SearchParameterStatus.Deleted || p.Status == SearchParameterStatus.Disabled)))
