@@ -193,16 +193,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken); // elevate in SQL to log w/o extra settings
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
             await WaitForRefresh(); // wait for M * cache refresh intervals
 
             // Update the reindex job record with the latest hash map
-            _reindexJobRecord.ResourceTypeSearchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             _searchParamLastUpdated = currentDate;
 
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}, SearchParameterHashMap.Count={_reindexJobRecord.ResourceTypeSearchParameterHashMap.Count}", null, _cancellationToken); // elevate in SQL to log w/o extra settings
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, _cancellationToken);
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)
@@ -593,7 +592,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     SearchParamLastUpdated = _searchParamLastUpdated,
                     TypeId = (int)JobType.ReindexProcessing,
                     GroupId = _jobInfo.GroupId,
-                    ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(resourceType),
+                    SearchParameterHash = GetSearchParameterHash(resourceType),
                     ResourceCount = new SearchResultReindex
                     {
                         StartResourceSurrogateId = range.StartId,
@@ -714,7 +713,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             string searchParameterHash = string.Empty;
-            searchParameterHash = GetHashMapByResourceType(queryStatus.ResourceType);
+            searchParameterHash = GetSearchParameterHash(queryStatus.ResourceType);
 
             // Ensure searchParameterHash is never null - for Cosmos DB scenarios, this will be empty string
             searchParameterHash ??= string.Empty;
@@ -836,10 +835,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return searchResultReindex;
         }
 
-        private string GetHashMapByResourceType(string resourceType)
+        private string GetSearchParameterHash(string resourceType)
         {
-            _reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string searchResultHashMap);
-            return searchResultHashMap;
+            _searchParameterDefinitionManager.SearchParameterHashMap.TryGetValue(resourceType, out string hash);
+            return hash;
         }
 
         private bool CheckJobRecordForAnyWork()
