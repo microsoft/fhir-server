@@ -133,6 +133,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
         public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             return await MergeAsync(resources, MergeOptions.Default, cancellationToken);

@@ -4,13 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -29,24 +29,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IUrlResolver _urlResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly SmartIdentityProviderConfiguration _smartIdentityProviderConfiguration;
 
         public SecurityProvider(
             IOptions<SecurityConfiguration> securityConfiguration,
             IHttpClientFactory httpClientFactory,
             ILogger<SecurityConfiguration> logger,
             IUrlResolver urlResolver,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            IOptions<SmartIdentityProviderConfiguration> smartIdentityProviderConfiguration)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
             EnsureArg.IsNotNull(securityConfiguration.Value.Authentication.Authority, nameof(securityConfiguration.Value.Authentication.Authority));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(smartIdentityProviderConfiguration?.Value, nameof(smartIdentityProviderConfiguration));
 
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _urlResolver = urlResolver;
             _modelInfoProvider = modelInfoProvider;
+            _smartIdentityProviderConfiguration = smartIdentityProviderConfiguration.Value;
         }
 
         public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
@@ -96,25 +102,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             Uri tokenEndpoint = _urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
             Uri authorizationEndpoint = _urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
 
-            var smartExtension = new
+            var smartExtensions = CreateSmartExtensions(authorizationEndpoint.AbsoluteUri, tokenEndpoint.AbsoluteUri);
+            foreach (var extension in smartExtensions)
             {
-                url = Constants.SmartOAuthUriExtension,
-                extension = new[]
-                {
-                    new
-                    {
-                        url = Constants.SmartOAuthUriExtensionToken,
-                        valueUri = tokenEndpoint,
-                    },
-                    new
-                    {
-                        url = Constants.SmartOAuthUriExtensionAuthorize,
-                        valueUri = authorizationEndpoint,
-                    },
-                },
-            };
+                security.Extension.Add(extension);
+            }
 
-            security.Extension.Add(JObject.FromObject(smartExtension));
             restComponent.Security = security;
         }
 
@@ -167,25 +160,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     openIdConfigurationResponse.Dispose();
                 }
 
-                var smartExtension = new
+                var smartExtensions = CreateSmartExtensions(authorizationEndpoint, tokenEndpoint);
+                foreach (var extension in smartExtensions)
                 {
-                    url = Constants.SmartOAuthUriExtension,
-                    extension = new[]
-                    {
-                        new
-                        {
-                            url = Constants.SmartOAuthUriExtensionToken,
-                            valueUri = tokenEndpoint,
-                        },
-                        new
-                        {
-                            url = Constants.SmartOAuthUriExtensionAuthorize,
-                            valueUri = authorizationEndpoint,
-                        },
-                    },
-                };
-
-                security.Extension.Add(JObject.FromObject(smartExtension));
+                    security.Extension.Add(extension);
+                }
             }
             else
             {
@@ -195,6 +174,203 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             }
 
             restComponent.Security = security;
+        }
+
+        private List<JObject> CreateSmartExtensions(string authorizationEndpoint, string tokenEndpoint)
+        {
+            var extensions = new List<JObject>();
+            extensions.Add(GetUrlExtension(authorizationEndpoint, tokenEndpoint));
+            extensions.AddRange(GetAdditionalCapabilities());
+            extensions.AddRange(GetClientCapabilities());
+            extensions.AddRange(GetContextCapabilities());
+            extensions.AddRange(GetLaunchCapabilities());
+            extensions.AddRange(GetPermissionCapabilities());
+            extensions.AddRange(GetSSOCapabilities());
+            return extensions;
+        }
+
+        private string GetAuthorizationEndpoint(string authorizationEndpoint)
+        {
+            if (string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority))
+            {
+                return authorizationEndpoint;
+            }
+
+            return string.Format(
+                "{0}/{1}",
+                _smartIdentityProviderConfiguration.Authority.TrimEnd('/'),
+                Constants.SmartOAuthUriExtensionAuthorize);
+        }
+
+        private string GetTokenEndpoint(string tokenEndpoint)
+        {
+            if (string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority))
+            {
+                return tokenEndpoint;
+            }
+
+            return string.Format(
+                "{0}/{1}",
+                _smartIdentityProviderConfiguration.Authority.TrimEnd('/'),
+                Constants.SmartOAuthUriExtensionToken);
+        }
+
+        private JObject GetUrlExtension(string authorizationEndpoint, string tokenEndpoint)
+        {
+            var urls = new JArray(
+                new JObject[]
+                {
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionToken },
+                        { Constants.ValueUriPropertyName, GetTokenEndpoint(tokenEndpoint) },
+                    },
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionAuthorize },
+                        { Constants.ValueUriPropertyName, GetAuthorizationEndpoint(authorizationEndpoint) },
+                    },
+                });
+
+            if (!string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Introspection))
+            {
+                urls.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionIntrospection },
+                        { Constants.ValueUriPropertyName, _smartIdentityProviderConfiguration.Introspection },
+                    });
+            }
+
+            if (!string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Management))
+            {
+                urls.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionManagement },
+                        { Constants.ValueUriPropertyName, _smartIdentityProviderConfiguration.Management },
+                    });
+            }
+
+            if (!string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Revocation))
+            {
+                urls.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartOAuthUriExtensionRevocation },
+                        { Constants.ValueUriPropertyName, _smartIdentityProviderConfiguration.Revocation },
+                    });
+            }
+
+            return new JObject
+            {
+                { Constants.UrlPropertyName, Constants.SmartOAuthUriExtension },
+                { Constants.ExtensionPropertyName, urls },
+            };
+        }
+
+        private List<JObject> GetContextCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            if (IsThirdPartyIdentityProvider())
+            {
+                foreach (var context in Constants.SmartCapabilityThirdPartyContexts)
+                {
+                    capabilities.Add(
+                        new JObject
+                        {
+                            { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                            { Constants.ValueCodePropertyName, context },
+                        });
+                }
+            }
+
+            return capabilities;
+        }
+
+        private static List<JObject> GetAdditionalCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            foreach (var client in Constants.SmartCapabilityAdditional)
+            {
+                capabilities.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                        { Constants.ValueCodePropertyName, client },
+                    });
+            }
+
+            return capabilities;
+        }
+
+        private static List<JObject> GetClientCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            foreach (var client in Constants.SmartCapabilityClients)
+            {
+                capabilities.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                        { Constants.ValueCodePropertyName, client },
+                    });
+            }
+
+            return capabilities;
+        }
+
+        private static List<JObject> GetLaunchCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            foreach (var launch in Constants.SmartCapabilityLaunches)
+            {
+                capabilities.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                        { Constants.ValueCodePropertyName, launch },
+                    });
+            }
+
+            return capabilities;
+        }
+
+        private static List<JObject> GetPermissionCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            foreach (var permission in Constants.SmartCapabilityPermissions)
+            {
+                capabilities.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                        { Constants.ValueCodePropertyName, permission },
+                    });
+            }
+
+            return capabilities;
+        }
+
+        private static List<JObject> GetSSOCapabilities()
+        {
+            var capabilities = new List<JObject>();
+            foreach (var sso in Constants.SmartCapabilitySSOs)
+            {
+                capabilities.Add(
+                    new JObject
+                    {
+                        { Constants.UrlPropertyName, Constants.SmartCapabilitiesUriExtension },
+                        { Constants.ValueCodePropertyName, sso },
+                    });
+            }
+
+            return capabilities;
+        }
+
+        private bool IsThirdPartyIdentityProvider()
+        {
+            return !string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority);
         }
     }
 }
