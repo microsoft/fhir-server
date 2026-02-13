@@ -103,14 +103,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private async Task<JobInfo> CreateReindexJobRecord(
             uint maxResourcePerQuery = 100,
-            IReadOnlyDictionary<string, string> paramHashMap = null,
             List<string> targetResourceTypes = null)
         {
-            paramHashMap ??= new Dictionary<string, string> { { "Patient", "patientHash" } };
             targetResourceTypes ??= new List<string>();
 
             var jobRecord = new ReindexJobRecord(
-                paramHashMap,
                 targetResourceTypes,
                 new List<string>(),
                 new List<string>(),
@@ -628,8 +625,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(100, jobDef.ResourceCount.EndResourceSurrogateId);
 
             // Assert - Verify search parameter hash is set
-            Assert.NotNull(jobDef.ResourceTypeSearchParameterHashMap);
-            Assert.Equal("patientHash", jobDef.ResourceTypeSearchParameterHashMap);
+            Assert.NotNull(jobDef.SearchParameterHash);
+            Assert.Equal("patientHash", jobDef.SearchParameterHash);
 
             // Assert - Verify search parameter URLs are included
             Assert.NotNull(jobDef.SearchParameterUrls);
