@@ -901,7 +901,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     // Continue polling even if there are errors
                 }
 
-                await Task.Delay(10000);
+                await Task.Delay(5000);
             }
 
             return lastStatus;
