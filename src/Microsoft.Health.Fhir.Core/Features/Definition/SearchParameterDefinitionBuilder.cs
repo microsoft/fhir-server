@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
-                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, modelInfoProvider, searchParameterComparer, logger);
+                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, uriDictionary, modelInfoProvider, searchParameterComparer, logger);
             }
         }
 
@@ -321,6 +321,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType,
             ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> resourceTypeDictionary,
+            ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             ILogger logger)
@@ -343,7 +344,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (baseType != null && !string.Equals(KnownResourceTypes.Base, baseType, StringComparison.OrdinalIgnoreCase))
             {
-                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider, searchParameterComparer, logger);
+                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, uriDictionary, modelInfoProvider, searchParameterComparer, logger);
                 results.UnionWith(baseResults);
             }
 
@@ -352,30 +353,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var searchParameterDictionary = new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>();
             foreach (SearchParameterInfo searchParam in results)
             {
+                // Look up the canonical instance from uriDictionary to ensure TypeLookup
+                // uses the same object instances as UrlLookup. This prevents the bug where
+                // status updates to UrlLookup objects wouldn't be reflected in TypeLookup.
+                SearchParameterInfo canonicalParam = uriDictionary.TryGetValue(searchParam.Url.OriginalString, out var found)
+                    ? found
+                    : searchParam;
+
                 searchParameterDictionary.AddOrUpdate(
-                    searchParam.Code,
-                    _ => new ConcurrentQueue<SearchParameterInfo>(new[] { searchParam }),
+                    canonicalParam.Code,
+                    _ => new ConcurrentQueue<SearchParameterInfo>(new[] { canonicalParam }),
                     (_, existing) =>
                     {
-                        var isBaseTypeSearchParameter = searchParam.IsBaseTypeSearchParameter();
+                        var isBaseTypeSearchParameter = canonicalParam.IsBaseTypeSearchParameter();
                         if (existing.TryPeek(out var sp) && sp != null)
                         {
-                            if (searchParam.Type != sp.Type)
+                            if (canonicalParam.Type != sp.Type)
                             {
                                 logger.LogWarning("The types of the incoming and existing search parameter are different.");
                                 return existing;
                             }
 
                             isBaseTypeSearchParameter |= sp.IsBaseTypeSearchParameter();
-                            if (searchParameterComparer.CompareExpression(searchParam.Expression, sp.Expression, isBaseTypeSearchParameter) == int.MinValue)
+                            if (searchParameterComparer.CompareExpression(canonicalParam.Expression, sp.Expression, isBaseTypeSearchParameter) == int.MinValue)
                             {
                                 logger.LogWarning("The expressions of the incoming and existing search parameter are different.");
                                 return existing;
                             }
 
-                            if (searchParam.Type == SearchParamType.Composite)
+                            if (canonicalParam.Type == SearchParamType.Composite)
                             {
-                                var incomingComponent = searchParam.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
+                                var incomingComponent = canonicalParam.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
                                 var existingComponent = sp.Component?.Select<SearchParameterComponentInfo, (string, string)>(x => new(x.DefinitionUrl.OriginalString, x.Expression)).ToList() ?? new List<(string, string)>();
                                 if (searchParameterComparer.CompareComponent(incomingComponent, existingComponent) != 0)
                                 {
@@ -386,7 +394,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
 
                         var list = new List<SearchParameterInfo>(existing);
-                        list.Add(searchParam);
+                        list.Add(canonicalParam);
                         if (isBaseTypeSearchParameter)
                         {
                             list.Sort((x, y) => searchParameterComparer.CompareExpression(x.Expression, y.Expression, isBaseTypeSearchParameter));

@@ -331,52 +331,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        /// <summary>
-        /// Updates status-related properties on ALL matching SearchParameterInfo objects in both UrlLookup and TypeLookup.
-        /// This is necessary because TypeLookup may contain different object instances due to inheritance caching
-        /// in BuildSearchParameterDefinition, where cached objects from the existing TypeLookup are used as a starting point.
-        /// </summary>
-        public bool ApplyStatusToAllMatchingObjects(
-            string url,
-            bool isSearchable,
-            bool isSupported,
-            bool isPartiallySupported,
-            SortParameterStatus sortStatus,
-            SearchParameterStatus searchParameterStatus)
-        {
-            // Update the object in UrlLookup
-            if (!UrlLookup.TryGetValue(url, out var urlLookupParam))
-            {
-                return false;
-            }
-
-            urlLookupParam.IsSearchable = isSearchable;
-            urlLookupParam.IsSupported = isSupported;
-            urlLookupParam.IsPartiallySupported = isPartiallySupported;
-            urlLookupParam.SortStatus = sortStatus;
-            urlLookupParam.SearchParameterStatus = searchParameterStatus;
-
-            // Also update objects in TypeLookup (they may be different object instances due to inheritance caching)
-            var allResourceTypes = GetDerivedResourceTypes(urlLookupParam.BaseResourceTypes);
-            foreach (var resourceType in allResourceTypes)
-            {
-                if (TypeLookup.TryGetValue(resourceType, out var typeLookup) &&
-                    typeLookup.TryGetValue(urlLookupParam.Code, out var queue))
-                {
-                    foreach (var param in queue.Where(p => string.Equals(p.Url?.OriginalString, url, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        param.IsSearchable = isSearchable;
-                        param.IsSupported = isSupported;
-                        param.IsPartiallySupported = isPartiallySupported;
-                        param.SortStatus = sortStatus;
-                        param.SearchParameterStatus = searchParameterStatus;
-                    }
-                }
-            }
-
-            return true;
-        }
-
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
