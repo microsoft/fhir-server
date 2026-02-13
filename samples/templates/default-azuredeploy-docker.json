@@ -533,6 +533,11 @@
             "properties": {
                 "resource": {
                     "id": "health"
+                },
+                "options": {
+                    "autoscaleSettings": {
+                        "maxThroughput": 10000
+                    }
                 }
             }
         },
