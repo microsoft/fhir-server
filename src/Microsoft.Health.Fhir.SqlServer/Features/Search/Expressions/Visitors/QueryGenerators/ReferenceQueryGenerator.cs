@@ -33,7 +33,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitMissingField(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            return VisitMissingFieldImpl(expression, context, FieldName.ReferenceBaseUri, VLatest.ReferenceSearchParam.BaseUri);
+            switch (expression.FieldName)
+            {
+                case FieldName.ReferenceBaseUri:
+                    return VisitMissingFieldImpl(expression, context, FieldName.ReferenceBaseUri, VLatest.ReferenceSearchParam.BaseUri);
+                case FieldName.ReferenceResourceType:
+                    return VisitMissingFieldImpl(expression, context, FieldName.ReferenceResourceType, VLatest.ReferenceSearchParam.ReferenceResourceTypeId);
+                default:
+                    throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
+            }
         }
     }
 }

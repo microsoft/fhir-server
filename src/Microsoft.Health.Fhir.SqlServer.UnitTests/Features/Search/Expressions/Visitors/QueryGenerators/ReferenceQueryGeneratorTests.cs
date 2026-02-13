@@ -114,6 +114,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
+        public void GivenMissingReferenceResourceTypeExpression_WhenVisited_ThenChecksReferenceResourceTypeIdIsNull()
+        {
+            var expression = new MissingFieldExpression(FieldName.ReferenceResourceType, null);
+            var context = CreateContext();
+
+            ReferenceQueryGenerator.Instance.VisitMissingField(expression, context);
+
+            var sql = context.StringBuilder.ToString();
+
+            Assert.Contains($"{VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name} IS NULL", sql);
+        }
+
+        [Fact]
         public void GivenInvalidFieldName_WhenVisited_ThenThrowsArgumentOutOfRangeException()
         {
             var expression = new StringExpression(StringOperator.Equals, FieldName.TokenCode, null, "invalid", true);
