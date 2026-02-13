@@ -1021,6 +1021,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                     };
                 });
 
+            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>()).Returns("diagnosticHash");
+
             var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
             var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
 
