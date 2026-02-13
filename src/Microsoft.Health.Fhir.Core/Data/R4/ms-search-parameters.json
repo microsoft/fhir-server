@@ -1,0 +1,42 @@
+{
+    "resourceType": "Bundle",
+    "id": "msSearchParams",
+    "meta": {
+        "lastUpdated": "2026-02-12T23:00:00.000"
+    },
+    "type": "collection",
+    "entry": [
+        {
+            "fullUrl": "http://microsoft.org/fhir/SearchParameter/ms-Resource-TTL",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "ms-Resource-TTL",
+                "url": "http://microsoft.org/fhir/SearchParameter/ms-Resource-TTL",
+                "version": "4.0.1",
+                "name": "_ttl",
+                "status": "draft",
+                "experimental": false,
+                "date": "2026-02-12T23:00:00.000",
+                "publisher": "Microsoft",
+                "description": "Search on the Time To Live (TTL) of the resource",
+                "code": "_ttl",
+                "base": [ "Resource" ],
+                "type": "date",
+                "expression": "Resource.meta.extension.where(url='http://microsoft.org/fhir/resource/ttl').value",
+                "xpath": "f:Resource/f:meta/f:extension[@url='http://microsoft.org/fhir/resource/ttl']/f:value",
+                "xpathUsage": "normal",
+                "comparator": [
+                    "eq",
+                    "ne",
+                    "gt",
+                    "ge",
+                    "lt",
+                    "le",
+                    "sa",
+                    "eb",
+                    "ap"
+                ]
+            }
+        }
+    ]
+}
