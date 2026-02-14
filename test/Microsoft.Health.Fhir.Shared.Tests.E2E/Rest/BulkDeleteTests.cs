@@ -484,8 +484,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(locationResults.Resource.Entry);
         }
 
-        [SkippableTheory(Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.")]
-        [InlineData(true)]
+        [Theory]
+        ////[InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
         {
@@ -506,8 +506,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 resourcesToCreate.AddRange(bundle.Entry.Select(x => x.Resource));
                 await CleanupAsync(resourcesToCreate);
 
+                await Task.Delay(5000);
+
                 // Create search parameter resources.
                 await CreateAsync(resourcesToCreate);
+
+                await Task.Delay(5000);
 
                 // Invoke bulk-delete on the search parameters.
                 using HttpRequestMessage request = GenerateBulkDeleteRequest(
@@ -529,8 +533,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await CheckBulkDeleteStatusAsync(response.Content.Headers.ContentLocation, resourceTypes);
 
+                await Task.Delay(5000);
+
                 // Make sure the search parameters are deleted.
                 await EnsureBulkDeleteAsync(resourcesToCreate);
+
+                await Task.Delay(5000);
 
 #if false
                 // Ensure the search parameters were deleted by creating the same search parameters again.
