@@ -484,6 +484,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(locationResults.Resource.Entry);
         }
 
+        // Before SP cache update fixes: Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
@@ -506,9 +507,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 resourcesToCreate.AddRange(bundle.Entry.Select(x => x.Resource));
                 await CleanupAsync(resourcesToCreate);
 
-                // Wait for long enough for the search parameter cache to be updated.
-                await Task.Delay(TimeSpan.FromSeconds(3));
-
                 // Create search parameter resources.
                 await CreateAsync(resourcesToCreate);
 
@@ -520,9 +518,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     {
                         { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" },
                     });
-
-                // Wait for long enough for the search parameter cache to be updated.
-                await Task.Delay(TimeSpan.FromSeconds(3));
 
                 DebugOutput("Sending a bulk-delete request...");
                 using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -537,9 +532,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 // Make sure the search parameters are deleted.
                 await EnsureBulkDeleteAsync(resourcesToCreate);
-
-                // Wait for long enough for the search parameter cache to be updated.
-                await Task.Delay(TimeSpan.FromSeconds(3));
 
 #if false
                 // Ensure the search parameters were deleted by creating the same search parameters again.
@@ -556,6 +548,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task<List<Resource>> CreateAsync(List<Resource> resources)
             {
+                // Wait for long enough for the search parameter cache to be updated with a preceding delete or bulk-delete request result.
+                await Task.Delay(TimeSpan.FromSeconds(3)); // 1 second cache refresh interval * 3
+
                 return await retryPolicy.ExecuteAsync(
                      async () =>
                      {
