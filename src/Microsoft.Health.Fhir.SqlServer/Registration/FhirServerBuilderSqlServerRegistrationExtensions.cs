@@ -187,6 +187,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<TransactionWatchdog>().Scoped().AsSelf();
             services.AddFactory<IScoped<TransactionWatchdog>>();
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
+            services.Add<SqlQueryStoreWatchdog>().Singleton().AsSelf();
 
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
 
