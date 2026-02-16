@@ -301,3 +301,6 @@ __*
 
 # For our Mac friends
 .DS_Store
+
+# For ignroing .local files from MultiInstanceRunner
+.local/

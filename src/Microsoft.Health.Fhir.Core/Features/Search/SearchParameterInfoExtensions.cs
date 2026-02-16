@@ -41,11 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 sb.Append(searchParamInfo.Type);
                 sb.Append(searchParamInfo.Expression);
 
-                if (searchParamInfo.SortStatus != SortParameterStatus.Disabled)
-                {
-                    sb.Append("sortable");
-                }
-
                 if (searchParamInfo.TargetResourceTypes != null &&
                     searchParamInfo.TargetResourceTypes.Any())
                 {

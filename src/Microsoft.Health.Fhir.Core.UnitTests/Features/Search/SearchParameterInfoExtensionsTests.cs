@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string hash3 = new List<SearchParameterInfo> { paramDisabled }.CalculateSearchParameterHash();
 
             Assert.Equal(hash1, hash2);
-            Assert.NotEqual(hash1, hash3);
+            Assert.Equal(hash1, hash3);
         }
 
         [Fact]
