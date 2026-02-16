@@ -519,9 +519,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" },
                     });
 
-                // Wait for the search parameter cache to be updated. 3 sec = 1 sec cache refresh interval * 3
-                await Task.Delay(TimeSpan.FromSeconds(3));
-
                 DebugOutput("Sending a bulk-delete request...");
                 using HttpResponseMessage response = await _httpClient.SendAsync(request);
                 Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
