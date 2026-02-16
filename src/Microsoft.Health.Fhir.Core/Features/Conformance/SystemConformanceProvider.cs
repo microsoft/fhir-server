@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         private readonly TimeSpan _backgroundLoopLoggingInterval = TimeSpan.FromMinutes(10);
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private readonly int _rebuildDelay = 240; // 4 hours in minutes
+        private readonly int _rebuildDelay = 240 * 12; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IUrlResolver _urlResolver;
@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         break;
                     }
 
-                    await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
+                    await Task.Delay(TimeSpan.FromSeconds(5), _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {
