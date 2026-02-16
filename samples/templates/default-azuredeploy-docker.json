@@ -329,7 +329,7 @@
         "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
         "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "isSqlHyperscaleTier": "[equals(parameters('sqlDatabaseComputeTier'),'Hyperscale')]",
-        "sqlSkuCapacity": "[if(variables('isSqlHyperscaleTier'), 2, 200)]",
+        "sqlSkuCapacity": "[if(variables('isSqlHyperscaleTier'), 2, 400)]",
         "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
