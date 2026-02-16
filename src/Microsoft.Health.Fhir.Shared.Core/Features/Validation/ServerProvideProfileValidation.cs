@@ -83,8 +83,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 limitType: FhirCacheLimitType.Count);
 
             // Setting up background task to monitor profile changes.
-            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
-            _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
+            // The background task will only be created if the interval is higher or equal than five seconds (for security).
+            if (_validateOperationConfig.BackgroundProfileStatusCheckIntervalInSeconds >= 5)
+            {
+                _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
+                _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
+            }
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
