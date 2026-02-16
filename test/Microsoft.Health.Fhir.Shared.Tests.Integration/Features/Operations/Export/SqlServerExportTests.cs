@@ -88,8 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
             record.Status = OperationStatus.Canceled;
             var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
-            result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
-            Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None));
         }
 
         private async Task<string> RunExport(string resourceType, SqlExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)

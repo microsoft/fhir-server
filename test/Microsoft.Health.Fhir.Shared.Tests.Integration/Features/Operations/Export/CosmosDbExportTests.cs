@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnExportOfPatientResources_WhenQueuedAndCancelled_JobStatusAndCountIsCorrectDuringJob()
+        public async Task GivenAnExportOfPatientResources_WhenCancelled_GetJobStatusThrowsJobNotFoundException()
         {
             string resourceType = "Patient";
             int totalJobs = 2; // 2=coord+1 resource type
@@ -62,9 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
 
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
-
-            result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
-            Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None));
         }
 
         [Fact]
