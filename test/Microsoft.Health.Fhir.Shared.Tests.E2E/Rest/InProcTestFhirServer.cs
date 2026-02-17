@@ -68,7 +68,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
-            configuration["FhirServer:Operations:Import:PollingFrequencyInSeconds"] = "1";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
             // Enable rebuild indexes for testing
@@ -86,6 +85,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
             configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
+
+            configuration["FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds"] = "1";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
