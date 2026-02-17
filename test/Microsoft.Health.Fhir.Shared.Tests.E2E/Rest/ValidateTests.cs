@@ -222,9 +222,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             // Give the server time to refresh its profile cache
-            await Task.Delay(TimeSpan.FromSeconds(12));
+            await Task.Delay(TimeSpan.FromSeconds(15));
 
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
+
 #if !Stu3
             var supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
                 SelectMany(x => x.Resource.Where(x => x.SupportedProfile.Any()).Select(x => x.SupportedProfile)).
@@ -246,6 +247,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient|2.0.0",
             };
 #endif
+
+            if (supportedProfiles.Count < expectedProfiles.Length)
+            {
+                Assert.Fail($"This test failed because the number of supported profiles is less than expected. Expected: {expectedProfiles.Length}. Current: {supportedProfiles.Count}.");
+            }
 
             // Add this to see what profiles are actually returned
             var actualProfilesString = string.Join(", ", supportedProfiles);

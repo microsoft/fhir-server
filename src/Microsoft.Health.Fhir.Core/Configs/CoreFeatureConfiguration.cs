@@ -113,5 +113,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Default is 15 seconds. Set to 0 to disable the delay (useful for testing).
         /// </summary>
         public int SearchParameterCacheRefreshMaxInitialDelaySeconds { get; set; } = 15;
+
+        /// <summary>
+        /// Gets or sets the refresh interval in seconds for the SystemConformanceProvider cache background service.
+        /// </summary>
+        public int SystemConformanceProviderRefreshIntervalSeconds { get; set; } = 60;
+
+        /// <summary>
+        /// Gets or sets the rebuild interval in seconds for the SystemConformanceProvider background service.
+        /// </summary>
+        public int SystemConformanceProviderRebuildIntervalSeconds { get; set; } = 14400; // 4 hours.
     }
 }

@@ -37,9 +37,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
 #pragma warning restore CA2213 // Disposable fields should be disposed // SystemConformanceProvider is a Singleton class.
 
+        private readonly int _cacheRefreshIntervalSeconds;
+        private readonly int _cacheRebuildIntervalSeconds;
         private readonly TimeSpan _backgroundLoopLoggingInterval = TimeSpan.FromMinutes(10);
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IUrlResolver _urlResolver;
@@ -89,6 +90,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
+
+            _cacheRebuildIntervalSeconds = _configuration.Value.SystemConformanceProviderRebuildIntervalSeconds;
+            _cacheRefreshIntervalSeconds = _configuration.Value.SystemConformanceProviderRefreshIntervalSeconds;
 
             LogVersioningPolicyConfiguration();
         }
@@ -207,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
                 Stopwatch sw = Stopwatch.StartNew();
-                for (int i = 0; i < _rebuildDelay; i++)
+                while (sw.Elapsed.Seconds < _cacheRebuildIntervalSeconds)
                 {
                     if (_builder != null && _builder.IsSyncProfilesRequested())
                     {
@@ -215,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         break;
                     }
 
-                    await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
+                    await Task.Delay(TimeSpan.FromSeconds(_cacheRefreshIntervalSeconds), _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {

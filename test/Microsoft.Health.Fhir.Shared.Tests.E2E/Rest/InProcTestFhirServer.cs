@@ -56,18 +56,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string inProcEndpoint = "https://inprochost";
             configuration["FhirServer:Security:Authentication:Authority"] = inProcEndpoint;
 
+            // Core Features settings
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "10";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
+
             // For local development we will use the Azure Storage Emulator for export.
             configuration["FhirServer:Operations:Export:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // enable reindex for testing
+            // Enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
 
-            // enable import for testing
+            // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
             configuration["FhirServer:Operations:Import:PollingFrequencyInSeconds"] = "1";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // enable rebuild indexes for testing
+            // Enable rebuild indexes for testing
             configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
             configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";
 
@@ -145,8 +149,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UseStartup(startupType)
                 .ConfigureServices(serviceCollection =>
                 {
-                    // ensure that HttpClients
-                    // use a message handler for the test server
+                    // Ensure that HttpClients
+                    // Use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
                         .ConfigurePrimaryHttpMessageHandler(() => new DispatchingHandler(Server.CreateHandler(), inProcEndpoint))
