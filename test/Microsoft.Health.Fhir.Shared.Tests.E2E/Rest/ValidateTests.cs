@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [SkippableFact(Skip="Test is flaky in PRs")]
+        [SkippableFact(Skip="Test fails if profiles are not pre-loaded.")]
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             // Give the server time to refresh its profile cache
