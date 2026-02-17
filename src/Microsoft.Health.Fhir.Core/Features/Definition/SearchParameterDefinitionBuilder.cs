@@ -192,11 +192,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             EnsureNoIssues();
 
-            var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>
+            var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>();
+
+            if (modelInfoProvider.Version == FhirSpecification.R4)
             {
-                // _type is currently missing from the search params definition bundle, so we inject it in here.
-                (KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter),
-            };
+                // _type is missing from the R4 search parameter definition bundle, so we inject it here for R4 only.
+                validatedSearchParameters.Add((KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter));
+            }
 
             // Do the second pass to make sure the definition is valid.
             foreach (var searchParameter in searchParameters)
@@ -356,17 +358,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Look up the canonical instance from uriDictionary to ensure TypeLookup
                 // uses the same object instances as UrlLookup. This prevents the bug where
                 // status updates to UrlLookup objects wouldn't be reflected in TypeLookup.
-                // Only use the canonical instance when its type matches. In R5, _type has
-                // URL http://hl7.org/fhir/SearchParameter/Resource-type with type Special,
-                // while ResourceTypeSearchParameter uses the same URL with type Token.
-                // Choosing the wrong type causes parser failures for _type queries.
-                SearchParameterInfo canonicalParam = searchParam;
-                if (searchParam.Url != null &&
-                    uriDictionary.TryGetValue(searchParam.Url.OriginalString, out var found) &&
-                    found.Type == searchParam.Type)
-                {
-                    canonicalParam = found;
-                }
+                SearchParameterInfo canonicalParam = uriDictionary.TryGetValue(searchParam.Url.OriginalString, out var found)
+                    ? found
+                    : searchParam;
 
                 searchParameterDictionary.AddOrUpdate(
                     canonicalParam.Code,
