@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             public override int VisitMultiary(MultiaryExpression expression, object context)
             {
-                if (expression.MultiaryOperation != MultiaryOperator.And)
+                if (expression.MultiaryOperation != MultiaryOperator.And && expression.MultiaryOperation != MultiaryOperator.Or)
                 {
                     throw new InvalidOperationException($"Unexpected {nameof(MultiaryExpression)}.{expression.MultiaryOperation}");
                 }
@@ -182,6 +182,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             public override int VisitString(StringExpression expression, object context)
+            {
+                return expression.FieldName == FieldName.ReferenceResourceType
+                    ? 1 << (expression.ComponentIndex + 1 ?? 0)
+                    : 0;
+            }
+
+            public override int VisitMissingField(MissingFieldExpression expression, object context)
             {
                 return expression.FieldName == FieldName.ReferenceResourceType
                     ? 1 << (expression.ComponentIndex + 1 ?? 0)
