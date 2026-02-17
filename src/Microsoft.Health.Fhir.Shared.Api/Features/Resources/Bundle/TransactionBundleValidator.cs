@@ -45,10 +45,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// It also validates if the request operations within a entry is a valid operation.
         /// If a conditional create or update is executed and a resource exists, the value is populated in the idDictionary.
         /// </summary>
-        /// <param name="bundle"> The input bundle</param>
+        /// <param name="bundle">The input bundle</param>
+        /// <param name="processingLogic">Bundle processing logic</param>
         /// <param name="idDictionary">The id dictionary that stores fullUrl to actual ids.</param>
         /// <param name="cancellationToken"> The cancellation token</param>
-        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
+        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, BundleProcessingLogic processingLogic, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             foreach (var entry in bundle.Entry)
             {
-                if (ShouldValidateBundleEntry(entry))
+                if (ShouldValidateBundleEntry(entry, processingLogic))
                 {
                     string resourceId = await GetResourceId(entry, idDictionary, cancellationToken);
                     string conditionalCreateQuery = entry.Request.IfNoneExist;
@@ -138,7 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return string.Empty;
         }
 
-        private static bool ShouldValidateBundleEntry(EntryComponent entry)
+        private static bool ShouldValidateBundleEntry(EntryComponent entry, BundleProcessingLogic processingLogic)
         {
             string requestUrl = entry.Request?.Url;
             if (string.IsNullOrWhiteSpace(requestUrl))
@@ -160,8 +161,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
             }
 
-            // Conditional Delete operation is not currently supported.
-            // However, hard deletes (DELETE {type}/{id}?_hardDelete=true) are allowed.
+            // Conditional Delete operation is NOT supported.
+            // However, hard deletes (DELETE {type}/{id}?_hardDelete=true) are allowed in SEQUENTIAL BUNDLES, as they use C# Transactions.
+            // Hard deletes and historical purge in PARALLEL BUNDLES are not allowed, as they are not covered by a unique SQL Transaction (Work item #182638).
             // Conditional deletes have the pattern: DELETE {type}?{query} (no resource ID).
             if (requestMethod == HTTPVerb.DELETE && requestUrl.Contains('?', StringComparison.Ordinal))
             {
@@ -170,6 +172,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 // If there's no '/' in the path before '?', it's a conditional delete (not allowed)
                 if (!pathBeforeQuery.Contains('/', StringComparison.Ordinal))
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
+                }
+
+                // TODO: 182638 - Add support to hard deletes in parallel processing mode.
+                if (processingLogic == BundleProcessingLogic.Parallel &&
+                    (requestUrl.Contains("_hardDelete=true", StringComparison.OrdinalIgnoreCase) || requestUrl.Contains("_purge=true", StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
                 }

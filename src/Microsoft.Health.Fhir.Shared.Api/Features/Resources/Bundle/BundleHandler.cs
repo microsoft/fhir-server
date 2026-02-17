@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else if (_bundleType == BundleType.Transaction)
                 {
                     // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
-                    await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, cancellationToken);
+                    await _transactionBundleValidator.ValidateBundle(bundleResource, bundleProcessingLogic, _referenceIdDictionary, cancellationToken);
 
                     await FillRequestLists(bundleResource.Entry, cancellationToken);
 
