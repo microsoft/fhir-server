@@ -9,7 +9,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors
@@ -25,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
         public SearchParamTableExpressionQueryGeneratorFactoryTests()
         {
-            var searchParameterToSearchValueTypeMap = Substitute.For<SearchParameterToSearchValueTypeMap>();
+            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
             _factory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
         }
 
