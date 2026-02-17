@@ -36,3 +36,11 @@ steps:
     summaryFileLocation: |
       $(Pipeline.Workspace)/AllCoverage/**/*.coverage
     failIfCoverageEmpty: false
+
+# Upload coverage to Codecov for PR diff coverage checks and comments
+- script: |
+    curl -Os https://cli.codecov.io/latest/linux/codecov
+    chmod +x codecov
+    ./codecov --file $(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml --verbose
+  displayName: 'Upload coverage to Codecov'
+  condition: succeededOrFailed()
