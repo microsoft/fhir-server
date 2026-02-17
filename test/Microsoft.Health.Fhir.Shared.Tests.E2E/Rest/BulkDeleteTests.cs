@@ -484,7 +484,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(locationResults.Resource.Entry);
         }
 
-        [SkippableTheory]
+        // Before SP cache update fixes: Skip = "The test adds and deletes custom SPs causing the SP cache going out of sync with the store making the test flaky. Disable it for now until the issue of the SP cache out of sync is resolved.
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
@@ -547,8 +548,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task<List<Resource>> CreateAsync(List<Resource> resources)
             {
-                // Wait for long enough for the search parameter cache to be updated with a preceding delete or bulk-delete request result.
-                await Task.Delay(TimeSpan.FromSeconds(20));
+                // Wait for the search parameter cache to be updated. 3 sec = 1 sec cache refresh interval * 3
+                await Task.Delay(TimeSpan.FromSeconds(3));
 
                 return await retryPolicy.ExecuteAsync(
                      async () =>
