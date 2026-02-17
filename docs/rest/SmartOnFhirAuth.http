@@ -1,0 +1,99 @@
+### SMART on FHIR Authorization Code Flow
+#
+# This file demonstrates the OAuth 2.0 Authorization Code Grant flow.
+# This is an interactive process that requires you to use your web browser.
+
+### 1. Define variables
+#
+# Update these variables with your authorization server's details and client credentials.
+# You may need to register a client application to get a client_id.
+# The redirect_uri must be one of the registered redirect URIs for your client.
+#
+# IMPORTANT: For Azure AD/Entra ID, the client application must be registered as:
+#   - "Public client/native application" (recommended for REST Client and command-line tools)
+#   OR
+#   - "Web" platform (if you need to use this from a server)
+#
+# Do NOT use "Single-Page Application" client type, as Azure AD restricts SPA tokens
+# to cross-origin requests only and will reject token requests from REST Client.
+#
+# For public clients (like this one), a client secret is not used.
+# For confidential clients, you would also define and use a @clientSecret.
+
+@fhirServerBaseUrl = http://localhost:5000
+#@fhirServerBaseUrl = https://jaerwinext-fhir1.fhir.azurehealthcareapis.com
+@clientId = 7372f605-e862-46a1-b97f-43907fba4c9d
+@redirectUri = https://localhost:55928
+@scope = https://jaerwin.onmicrosoft.com/fhir/patient.all.rs
+@authority = https://jaerwin.ciamlogin.com/867bb981-3616-4854-b7a7-f3eb491fbdb7
+#@authority = https://login.microsoftonline.com/fba1dd41-daeb-4fcd-afd6-3eac909d47b8
+
+# OAuth endpoints - built from @authority
+# v1.0 endpoints
+@authorizeUrlV1 = {{authority}}/oauth2/authorize
+@tokenUrlV1 = {{authority}}/oauth2/token
+
+# v2.0 endpoints
+@authorizeUrlV2 = {{authority}}/oauth2/v2.0/authorize
+@tokenUrlV2 = {{authority}}/oauth2/v2.0/token
+
+# Active endpoints (change these to switch between v1.0 and v2.0)
+@authorizeUrl = {{authorizeUrlV1}}
+@tokenUrl = {{tokenUrlV2}}
+
+@audience = https://jaerwin.onmicrosoft.com/fhir
+
+# PKCE (Proof Key for Code Exchange) parameters
+# Static code_verifier (43-128 characters, must be URL-safe)
+@code_verifier = dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk
+# The code_challenge is the Base64URL-encoded SHA256 hash of the code_verifier
+@code_challenge = E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM
+
+### 2. Request Authorization Code
+#
+# The first step is to get an authorization code from the authorization server.
+# To do this, you must open the following URL in your web browser.
+# The server will authenticate you and ask for your consent to grant the requested scopes.
+# After you approve, the browser will be redirected to your @redirectUri with a 'code' in the query string.
+#
+# INSTRUCTIONS:
+# 1. Hover over {{codeRequest}} below, when the url appears, click on it to open in your browser.
+# 2. After you sign in and grant consent, copy the 'code' value from the URL in your browser's address bar.
+# 3. You will be prompted for this code in the next step.
+
+### 2. Request Authorization Code
+# v1.0 endpoint (SMART on FHIR / B2C)
+@codeRequest = {{authorizeUrl}}?response_type=code&client_id={{clientId}}&redirect_uri={{redirectUri}}&resource={{audience}}&code_challenge={{code_challenge}}&code_challenge_method=S256
+{{codeRequest}}
+
+### 2a. Request Authorization Code (v2.0 endpoint)
+# v2.0 endpoint (Azure AD / Entra ID)
+@codeRequestV2 = {{authorizeUrlV2}}?response_type=code&client_id={{clientId}}&redirect_uri={{redirectUri}}&scope={{scope}}%20openid&code_challenge={{code_challenge}}&code_challenge_method=S256
+{{codeRequestV2}}
+### 3. Exchange Authorization Code for an Access Token
+#
+# Now, paste the authorization code you received in the previous step when prompted.
+# This request will exchange the code for an access token.
+
+@code = 1.Ac8Agbl7hhY2VEi3p_PrSR-9twX2cnNi6KFGuX9DkH-6TJ0AAADPAA.BQABBAIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cwIAAAAAAOsEetwSjg-pQp59KaP9uJNSAlWu8TZiO1lqRX6kcz25EAF4roLYiAeYX1ikkikBBTL3oeK5KcJfaYgiOoyvX5VOWZwSkl1H_wOpIc5MLPCMnez68bynEnRAqbkpuWa9ROsveWy3lr-bqirbxusXN-9O7sgcdrLeGDFAd9OYKKj14lUdbTvkCrHA1nuddNeiQUqXyUmnhAG8VgtWotPl8Bl-WjttoA7HPv0navsMlnVtAPceBxQZrEr8E72GwEn7mfXCQm2RWxy6TdeDq5y9r0GuM619wS_bosT7WARzDeo6hCytf01Ai9fNi5Vu1RAyTi1LtGqZv1NRiuMUfei2I6oZD8rJdGW4HgB5hVZOwpt-naJVCg5bDSepQIiZAvFLYUdYiYzHJZN54a_GzPs41CUpwji5_r7gFsgCQ36WpXI5UUE0pIgwNbcGAprTitk1VvlmRQqzgfGJQIlUzI9l2NT4s749rMJBUOSzCxDfGH5oixND8aUb68V9yWJFFN-_fn_jsLqvJax9mIQ9dxQeJbbuEX8Ch1m8XkiNrkxIdksc1r60xpVV7WPXtMdVe7r1gpMcsvFBIoCrOZxvbl-vUJme_BQZe59HmFkL0q4wgzFA3RA7_cq9r9TenIBmSFyZhZzi3p7ghCba5_dgyheqap2KmSL4tjgBt2yKWJ31wQcFVVTqo_yvFyGwiUwMcATWWUylBevB3TtSUViz8u_ppnXeJ8zVTNPjOi5a03jfczHxWf-WYqKUOgPzFV0cDc0Ez5RTJJWD6q89UYZXPsYXJder9Zq7cuYCEME1ooKtzcpzr1ePJDJuA87uBHtJJi7Ua0drWJwZOaIWTXpCjZsD-ACYBbewbgJqU0-AbEE_W3OIQk2g5VxjB8mJO74OUqapirZ8lRmsImFZ2TxeuzchQKqY-qLRqa8YM5WvbOB1idqq2pndu2ChcOUoG_rnsJCQQlBC-2M6sNMhjmpLBe4wJ27WgD2RwVvQcw18ZoOCeCLnt3QFJodXcMtqYRIzLEPDMO7XIC8UTCsOrjlsvyZSf4Zn1_uu017UcrRoixbO92eNgxl5verIoUOJXqBwLmBSZ40jXJ8u36qplA5oeEWCvrTWybxZKToWdk1Ej3dCXNB3EyXhF44XHonnJx7bkoCDfvb-VpledvoyFoWHLZyrFxxaYHijrj7HBmebh4aLbDaIET1QEkC0YeD-TyIynJiuJh0ZXgY-aUfPQz7dOF850UIUsQ
+###
+# @name requestName
+POST {{tokenUrl}}
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&code={{code}}
+&redirect_uri={{redirectUri}}
+&client_id={{clientId}}
+&code_verifier={{code_verifier}}
+
+### 4. Use the Access Token
+#
+# The access token from the previous response can now be used to access protected resources.
+# The REST Client extension automatically captures the token if you name the request.
+
+@bearerToken = {{requestName.response.body.access_token}}
+
+# Example request using the token
+GET {{fhirServerBaseUrl}}/Observation
+Authorization: Bearer {{bearerToken}}
