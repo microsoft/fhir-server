@@ -10,6 +10,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -165,6 +166,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
             Assert.Contains(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
+        }
+
+        [Fact]
+        public void GivenACoreFeatureConfiguration_ThenEnsureThatIntervalsAreUsingSafeValues()
+        {
+            CoreFeatureConfiguration configuration = new CoreFeatureConfiguration();
+
+            Assert.Equal(14400, configuration.SystemConformanceProviderRebuildIntervalSeconds);
+            Assert.Equal(60, configuration.SystemConformanceProviderRefreshIntervalSeconds);
         }
 
         [Fact]
