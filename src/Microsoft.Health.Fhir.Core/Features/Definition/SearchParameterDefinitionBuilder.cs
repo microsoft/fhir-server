@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (modelInfoProvider.Version != FhirSpecification.R4B && modelInfoProvider.Version != FhirSpecification.R5)
             {
-                // _type is missing from the R4 search parameter definition bundle, so we inject it here for R4 only.
+                // _type is missing from the R4 search parameter definition bundle, so we inject it here if not R4B or R5
                 validatedSearchParameters.Add((KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter));
             }
 
