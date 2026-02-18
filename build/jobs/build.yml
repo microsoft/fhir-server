@@ -57,7 +57,7 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
-      failTaskOnFailedTests: true
+      failTaskOnFailedTests: false # tests will look failed when retried to success
       publishRunAttachments: true
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
