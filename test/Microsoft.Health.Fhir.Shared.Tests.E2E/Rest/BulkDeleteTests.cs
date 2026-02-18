@@ -495,9 +495,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkDeleteEnabled();
 
-            var retryPolicy = Policy.Handle<Exception>().WaitAndRetryAsync(retryCount: 12, sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(1));
             var tag = Guid.NewGuid().ToString();
-
             var bundle = (Bundle)TagResources((Bundle)Samples.GetJsonSample("SearchParameter-USCoreIG").ToPoco(), tag);
             var resources = bundle.Entry.Select(x => x.Resource).ToList();
 
@@ -507,9 +505,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await CreateAsync();
 
-                await EnsureCreated();
+                await EnsureCreatedAsync();
 
-                await WaitForCacheRefresh();
+                await WaitForCacheRefreshAsync();
 
                 await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported);
 
@@ -520,7 +518,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await CheckBulkDeleteStatusAsync(response.Content.Headers.ContentLocation, bundle.Entry.Count);
 
-                await WaitForCacheRefresh();
+                await WaitForCacheRefreshAsync();
 
                 await EnsureBulkDeleteAsync();
 
@@ -531,7 +529,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await CleanupAsync();
             }
 
-            async Task WaitForCacheRefresh()
+            async Task WaitForCacheRefreshAsync()
             {
                 // Wait for the search parameter cache to be updated
                 // 3 sec = 1 sec refresh interval * 3
@@ -540,110 +538,86 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task CleanupAsync()
             {
-                await retryPolicy.ExecuteAsync(
-                    async () =>
-                    {
-                        foreach (var resource in resources)
-                        {
-                            var status = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
-                            Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.OK, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.OK}) actual={status}");
-                        }
-                    });
+                foreach (var resource in resources)
+                {
+                    var status = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
+                    Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent || status == HttpStatusCode.OK, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent},{HttpStatusCode.OK}) actual={status}");
+                }
             }
 
             async Task CreateAsync()
             {
-                await retryPolicy.ExecuteAsync(
-                    async () =>
-                    {
-                        foreach (var resource in resources)
-                        {
-                            var status = (await _fhirClient.UpdateAsync(resource)).StatusCode;
-                            Assert.True(status == HttpStatusCode.Created || status == HttpStatusCode.OK, $"expected=({HttpStatusCode.Created},{HttpStatusCode.OK}) actual={status}");
-                        }
-                    });
+                foreach (var resource in resources)
+                {
+                    var status = (await _fhirClient.UpdateAsync(resource)).StatusCode;
+                    Assert.True(status == HttpStatusCode.Created || status == HttpStatusCode.OK, $"expected=({HttpStatusCode.Created},{HttpStatusCode.OK}) actual={status}");
+                }
             }
 
-            async Task EnsureCreated()
+            async Task EnsureCreatedAsync()
             {
-                await retryPolicy.ExecuteAsync(
-                    async () =>
-                    {
-                        foreach (var resource in resources)
-                        {
-                            var status = (await _fhirClient.ReadAsync<SearchParameter>($"{ResourceType.SearchParameter}/{resource.Id}")).StatusCode;
-                            Assert.True(status == HttpStatusCode.OK, $"expected={HttpStatusCode.OK} actual={status}");
-                        }
-                    });
+                foreach (var resource in resources)
+                {
+                    var status = (await _fhirClient.ReadAsync<SearchParameter>($"{ResourceType.SearchParameter}/{resource.Id}")).StatusCode;
+                    Assert.True(status == HttpStatusCode.OK, $"expected={HttpStatusCode.OK} actual={status}");
+                }
             }
 
-            Task CheckBulkDeleteStatusAsync(Uri location, long expectedCount)
+            async Task CheckBulkDeleteStatusAsync(Uri location, long expectedCount)
             {
-                return retryPolicy.ExecuteAsync(
-                    async () =>
+                var result = (await _fhirClient.WaitForBulkJobStatus("Bulk Delete", location)).Resource;
+                var actualCount = 0L;
+                var issuesChecked = 0;
+                foreach (var parameter in result.Parameter)
+                {
+                    if (parameter.Name == "Issues")
                     {
-                        var result = (await _fhirClient.WaitForBulkJobStatus("Bulk Delete", location)).Resource;
-                        var actualCount = 0L;
-                        var issuesChecked = 0;
-                        foreach (var parameter in result.Parameter)
+                        issuesChecked++;
+                    }
+                    else if (parameter.Name == "ResourceDeletedCount")
+                    {
+                        foreach (var part in parameter.Part)
                         {
-                            if (parameter.Name == "Issues")
-                            {
-                                issuesChecked++;
-                            }
-                            else if (parameter.Name == "ResourceDeletedCount")
-                            {
-                                foreach (var part in parameter.Part)
-                                {
-                                    Assert.True(part.Name == KnownResourceTypes.SearchParameter, $"Unexpected type={part.Name}");
-                                    actualCount = (long)((Integer64)part.Value).Value;
-                                }
-                            }
-                            else
-                            {
-                                throw new Exception($"Unexpected parameter {parameter.Name}");
-                            }
+                            Assert.True(part.Name == KnownResourceTypes.SearchParameter, $"Unexpected type={part.Name}");
+                            actualCount = (long)((Integer64)part.Value).Value;
                         }
+                    }
+                    else
+                    {
+                        throw new Exception($"Unexpected parameter {parameter.Name}");
+                    }
+                }
 
-                        Assert.True(issuesChecked == 0, $"issues={issuesChecked}");
-                        Assert.True(expectedCount == actualCount, $"expected={expectedCount} actual={actualCount}");
-                    });
+                Assert.True(issuesChecked == 0, $"issues={issuesChecked}");
+                Assert.True(expectedCount == actualCount, $"expected={expectedCount} actual={actualCount}");
             }
 
             async Task EnsureBulkDeleteAsync()
             {
-                await retryPolicy.ExecuteAsync(
-                    async () =>
-                    {
-                        var response = await _fhirClient.SearchAsync(ResourceType.SearchParameter, $"_tag={tag}");
-                        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-                        var count = response.Resource?.Entry.Count ?? 0;
-                        Assert.True(count == 0, $"{count} search parameters found in the store after bulk delete.");
-                    });
+                var response = await _fhirClient.SearchAsync(ResourceType.SearchParameter, $"_tag={tag}");
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                var count = response.Resource?.Entry.Count ?? 0;
+                Assert.True(count == 0, $"{count} search parameters found in the store after bulk delete.");
             }
 
             async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus)
             {
-                await retryPolicy.ExecuteAsync(
-                    async () =>
-                    {
-                        foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
-                        {
-                            var response = await _fhirClient.ReadAsync<Parameters>($"{ResourceType.SearchParameter}/$status?url={url}");
-                            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
+                {
+                    var response = await _fhirClient.ReadAsync<Parameters>($"{ResourceType.SearchParameter}/$status?url={url}");
+                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-                            var part = response.Resource.Parameter
-                                .Where(x => x.Part.Any(p => string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) && string.Equals(p.Value?.ToString(), url, StringComparison.OrdinalIgnoreCase)))
-                                .FirstOrDefault();
-                            Assert.NotNull(part);
+                    var part = response.Resource.Parameter
+                        .Where(x => x.Part.Any(p => string.Equals(p.Name, "url", StringComparison.OrdinalIgnoreCase) && string.Equals(p.Value?.ToString(), url, StringComparison.OrdinalIgnoreCase)))
+                        .FirstOrDefault();
+                    Assert.NotNull(part);
 
-                            var status = part.Part
-                                .Where(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
-                                .Select(x => x.Value?.ToString())
-                                .FirstOrDefault();
-                            Assert.True(status == expectedStatus.ToString(), $"url={url} expected={expectedStatus} actual={status}");
-                        }
-                    });
+                    var status = part.Part
+                        .Where(x => string.Equals(x.Name, "status", StringComparison.OrdinalIgnoreCase))
+                        .Select(x => x.Value?.ToString())
+                        .FirstOrDefault();
+                    Assert.True(status == expectedStatus.ToString(), $"url={url} expected={expectedStatus} actual={status}");
+                }
             }
         }
 
