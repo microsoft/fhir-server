@@ -27,12 +27,12 @@ steps:
     artifactName: 'Coverage_Aggregated'
     artifactType: 'container'
 
-# Publish to Azure DevOps for pipeline UI visualization and 1ES telemetry
-# Using native .coverage files so @2 can extract proper module/assembly names
-# (Cobertura XML via @2 loses module names and stores per-class instead)
+# Publish Cobertura to Azure DevOps pipeline Code Coverage tab
+# Cobertura XML preserves project & class-level detail for the UI
+# 1ES telemetry picks up module-level coverage from native .coverage files
+# attached to each test run via publishRunAttachments: true in upstream stages
 - task: PublishCodeCoverageResults@2
-  displayName: 'Publish aggregated code coverage to pipeline and 1ES telemetry'
+  displayName: 'Publish code coverage to pipeline tab'
   inputs:
-    summaryFileLocation: |
-      $(Pipeline.Workspace)/AllCoverage/**/*.coverage
+    summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
     failIfCoverageEmpty: false
