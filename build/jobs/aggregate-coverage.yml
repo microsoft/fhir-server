@@ -28,8 +28,11 @@ steps:
     artifactType: 'container'
 
 # Publish to Azure DevOps for pipeline UI visualization and 1ES telemetry
+# Using native .coverage files so @2 can extract proper module/assembly names
+# (Cobertura XML via @2 loses module names and stores per-class instead)
 - task: PublishCodeCoverageResults@2
   displayName: 'Publish aggregated code coverage to pipeline and 1ES telemetry'
   inputs:
-    summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
+    summaryFileLocation: |
+      $(Pipeline.Workspace)/AllCoverage/**/*.coverage
     failIfCoverageEmpty: false
