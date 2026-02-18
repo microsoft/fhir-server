@@ -40,7 +40,7 @@ variables:
   LinuxVmImage: 'ubuntu-latest'  
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
   # Enable MTP retry-aware test result publishing (https://devblogs.microsoft.com/dotnet/microsoft-testing-platform-azure-retry/)
-  AllowPtrToDetectTestRunRetryFiles: true
+  AllowPtrToDetectTestRunRetryFiles: 'true'
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'Azure Pipelines'
   # SharedLinuxPool: 'Azure Pipelines'
