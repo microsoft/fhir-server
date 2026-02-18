@@ -1,0 +1,40 @@
+# Codecov configuration for microsoft/fhir-server
+# Docs: https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  status:
+    # Overall project coverage check
+    project:
+      default:
+        target: auto    # Use the coverage of the base commit as the target
+        threshold: 1%   # Allow up to 1% drop before failing
+        if_ci_failed: error
+
+    # Coverage of changed lines in the PR
+    patch:
+      default:
+        target: 70%     # Require at least 70% coverage on new/changed lines
+        if_ci_failed: error
+
+  # Round coverage to 2 decimal places
+  precision: 2
+
+# Files/paths to ignore from coverage analysis
+ignore:
+  - "test/**"
+  - "tools/**"
+  - "samples/**"
+  - "docs/**"
+  - "**/obj/**"
+  - "**/*.g.cs"
+  - "**/*.Designer.cs"
+  - "**/Modules/*Module.cs"
+  - "**/RegistrationExtensions.cs"
+  - "**/Registration/*Extensions.cs"
+  - "**/Extensions/ServiceCollectionExtensions.cs"
+  - "**/Microsoft.Health.Fhir.SqlServer/Features/Schema/Model/**"
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default       # Post new comment on each push
+  require_changes: false   # Always post a comment
