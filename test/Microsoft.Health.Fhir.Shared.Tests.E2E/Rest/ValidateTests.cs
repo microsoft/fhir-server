@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string[] expectedProfiles = null;
 
             // Give the server time to refresh its profile cache.
-            await Task.Delay(TimeSpan.FromSeconds(10));
+            await Task.Delay(TimeSpan.FromSeconds(15));
 
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
 
