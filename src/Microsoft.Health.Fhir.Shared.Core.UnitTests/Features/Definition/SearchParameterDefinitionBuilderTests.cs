@@ -122,12 +122,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
             IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
 
-            ValidateSearchParameters(
-                searchParametersDictionary,
-                ("_type", SearchParamType.Token, "Resource.type().name"),
+            var expectedEntries = new List<(string, SearchParamType, string)>
+            {
                 ("_id", SearchParamType.Token, "Resource.id"),
                 ("balance", SearchParamType.Quantity, "Account.balance"),
-                ("identifier", SearchParamType.Token, "Account.identifier"));
+                ("identifier", SearchParamType.Token, "Account.identifier"),
+            };
+
+            if (ModelInfoProvider.Instance.Version == FhirSpecification.R4)
+            {
+                expectedEntries.Insert(0, ("_type", SearchParamType.Token, "Resource.type().name"));
+            }
+
+            ValidateSearchParameters(searchParametersDictionary, expectedEntries.ToArray());
         }
 
         [Theory]
@@ -147,11 +154,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
 
-            ValidateSearchParameters(
-                searchParametersDictionary,
-                ("_type", SearchParamType.Token, "Resource.type().name"),
+            var expectedEntries = new List<(string, SearchParamType, string)>
+            {
                 ("_id", SearchParamType.Token, "Resource.id"),
-                ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
+                ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"),
+            };
+
+            if (ModelInfoProvider.Instance.Version == FhirSpecification.R4)
+            {
+                expectedEntries.Insert(0, ("_type", SearchParamType.Token, "Resource.type().name"));
+            }
+
+            ValidateSearchParameters(searchParametersDictionary, expectedEntries.ToArray());
         }
 
         [Theory]

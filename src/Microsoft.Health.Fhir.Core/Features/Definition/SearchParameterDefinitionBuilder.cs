@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>();
 
-            if (modelInfoProvider.Version == FhirSpecification.R4)
+            if (modelInfoProvider.Version != FhirSpecification.R4B && modelInfoProvider.Version != FhirSpecification.R5)
             {
                 // _type is missing from the R4 search parameter definition bundle, so we inject it here for R4 only.
                 validatedSearchParameters.Add((KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter));
