@@ -29,17 +29,10 @@ steps:
 
 # Publish Cobertura to Azure DevOps pipeline Code Coverage tab
 # Cobertura XML preserves project & class-level detail for the UI
+# 1ES telemetry picks up module-level coverage from native .coverage files
+# attached to each test run via publishRunAttachments: true in upstream stages
 - task: PublishCodeCoverageResults@2
   displayName: 'Publish code coverage to pipeline tab (project & class level)'
   inputs:
     summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
-    failIfCoverageEmpty: false
-
-# Publish native .coverage files to 1ES telemetry for module-level tracking
-# Native .coverage format preserves assembly/module names that Cobertura loses
-- task: PublishCodeCoverageResults@2
-  displayName: 'Publish module-level coverage to 1ES telemetry'
-  inputs:
-    summaryFileLocation: |
-      $(Pipeline.Workspace)/AllCoverage/**/*.coverage
     failIfCoverageEmpty: false
