@@ -32,7 +32,7 @@ steps:
 # 1ES telemetry picks up module-level coverage from native .coverage files
 # attached to each test run via publishRunAttachments: true in upstream stages
 - task: PublishCodeCoverageResults@2
-  displayName: 'Publish code coverage to pipeline tab (project & class level)'
+  displayName: 'Publish code coverage to pipeline tab'
   inputs:
     summaryFileLocation: '$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml'
     failIfCoverageEmpty: false
