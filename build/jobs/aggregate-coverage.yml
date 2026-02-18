@@ -44,3 +44,5 @@ steps:
     ./codecov --verbose upload-process --disable-search -f $(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml
   displayName: 'Upload coverage to Codecov'
   condition: succeededOrFailed()
+  env:
+    CODECOV_TOKEN: $(CODECOV_TOKEN)
