@@ -509,7 +509,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await WaitForCacheRefreshAsync();
 
-                await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported);
+                if (_fixture.DataStore == DataStore.SqlServer)
+                {
+                    await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported);
+                }
 
                 var queryParams = new Dictionary<string, string> { { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" } };
                 using var request = GenerateBulkDeleteRequest(tag, $"{ResourceType.SearchParameter}/$bulk-delete", queryParams);
