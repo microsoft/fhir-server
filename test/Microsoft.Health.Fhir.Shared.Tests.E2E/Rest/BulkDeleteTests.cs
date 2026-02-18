@@ -509,10 +509,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await WaitForCacheRefreshAsync();
 
-                if (_fixture.DataStore == DataStore.SqlServer)
-                {
-                    await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported);
-                }
+                await CheckSearchParameterStatusAsync(SearchParameterStatus.Supported);
 
                 var queryParams = new Dictionary<string, string> { { KnownQueryParameterNames.BulkHardDelete, hardDelete ? "true" : "false" } };
                 using var request = GenerateBulkDeleteRequest(tag, $"{ResourceType.SearchParameter}/$bulk-delete", queryParams);
@@ -605,6 +602,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task CheckSearchParameterStatusAsync(SearchParameterStatus expectedStatus)
             {
+                if (_fixture.DataStore == DataStore.CosmosDb)
+                {
+                    return;
+                }
+
                 foreach (var url in resources.Select(resource => ((SearchParameter)resource).Url))
                 {
                     var response = await _fhirClient.ReadAsync<Parameters>($"{ResourceType.SearchParameter}/$status?url={url}");
