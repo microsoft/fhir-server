@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
             IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
-            
+
             ValidateSearchParameters(
                 searchParametersDictionary,
                 ("_type", SearchParamType.Token, "Resource.type().name"),
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
 
             IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
-            
+
             ValidateSearchParameters(
                 searchParametersDictionary,
                 ("_type", SearchParamType.Token, "Resource.type().name"),
