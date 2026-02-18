@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:Security:Authentication:Authority"] = inProcEndpoint;
 
             // Core Features settings
-            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "5";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "10";
             configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
 
             // For local development we will use the Azure Storage Emulator for export.
