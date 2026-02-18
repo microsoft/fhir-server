@@ -192,13 +192,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             EnsureNoIssues();
 
-            var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>();
-
-            if (modelInfoProvider.Version != FhirSpecification.R4B && modelInfoProvider.Version != FhirSpecification.R5)
+            var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>
             {
-                // _type is missing from the R4 search parameter definition bundle, so we inject it here if not R4B or R5
-                validatedSearchParameters.Add((KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter));
-            }
+                // _type is currently missing from the search params definition bundle, so we inject it in here.
+                (KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter),
+            };
 
             // Do the second pass to make sure the definition is valid.
             foreach (var searchParameter in searchParameters)
