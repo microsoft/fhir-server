@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly SemaphoreSlim _refreshSemaphore;
         private bool _isInitialized;
         private CancellationToken _stoppingToken;
-        private DateTime _lastForceRefreshTime;
 
         public SearchParameterCacheRefreshBackgroundService(
             ISearchParameterStatusManager searchParameterStatusManager,
@@ -46,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
-            // Get refresh interval from configuration (default 60 seconds, minimum 1 second)
+            // Get refresh interval from configuration (default 20 seconds, minimum 1 second)
             var refreshIntervalSeconds = Math.Max(1, _coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds);
             _refreshInterval = TimeSpan.FromSeconds(refreshIntervalSeconds);
 
@@ -57,12 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             // Create semaphore to prevent concurrent refresh operations (max 1 concurrent operation)
             _refreshSemaphore = new SemaphoreSlim(1, 1);
-
-            // Initialize last force refresh time to now with random offset (0-5 minutes) to stagger force refreshes across instances
-            // We use UtcNow instead of MinValue because SearchParameters are already loaded during initialization,
-            // so there's no need to do a full refresh on first timer execution
-            var randomOffsetMinutes = RandomNumberGenerator.GetInt32(0, 6); // 0-5 minutes
-            _lastForceRefreshTime = DateTime.UtcNow.AddMinutes(randomOffsetMinutes);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -124,68 +117,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             try
             {
-                var timeSinceLastForceRefresh = DateTime.UtcNow - _lastForceRefreshTime;
-                var shouldForceRefresh = timeSinceLastForceRefresh >= TimeSpan.FromHours(1);
-
-                if (shouldForceRefresh)
-                {
-                    _logger.LogInformation("Performing full SearchParameter database refresh (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
-
-                    // Get ALL search parameters from database to ensure complete synchronization
-                    var allSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(_stoppingToken);
-
-                    // Check if shutdown was requested after the async call
-                    if (_stoppingToken.IsCancellationRequested)
-                    {
-                        _logger.LogDebug("SearchParameter cache refresh was cancelled during database fetch.");
-                        return;
-                    }
-
-                    _logger.LogInformation("Retrieved {Count} search parameters from database for full refresh.", allSearchParameterStatus.Count);
-
-                    // Apply all search parameters (this will recalculate the hash)
-                    await _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, _stoppingToken);
-
-                    _lastForceRefreshTime = DateTime.UtcNow;
-
-                    // Check one more time if shutdown was requested after the async call
-                    if (!_stoppingToken.IsCancellationRequested)
-                    {
-                        _logger.LogInformation("SearchParameter full database refresh completed successfully.");
-                    }
-                }
-                else
-                {
-                    _logger.LogDebug("Starting SearchParameter cache freshness check (last force refresh: {TimeSinceLastRefresh} ago).", timeSinceLastForceRefresh);
-
-                    // Check if cache is stale using efficient database query
-                    bool cacheIsStale = await _searchParameterStatusManager.EnsureCacheFreshnessAsync(_stoppingToken);
-
-                    // Check again if shutdown was requested after the async call
-                    if (_stoppingToken.IsCancellationRequested)
-                    {
-                        _logger.LogDebug("SearchParameter cache refresh was cancelled during freshness check.");
-                        return;
-                    }
-
-                    if (cacheIsStale)
-                    {
-                        _logger.LogInformation("SearchParameter cache is stale. Performing incremental SearchParameter synchronization.");
-
-                        // Cache is stale - perform incremental SearchParameter lifecycle management
-                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken);
-
-                        // Check one more time if shutdown was requested after the async call
-                        if (!_stoppingToken.IsCancellationRequested)
-                        {
-                            _logger.LogInformation("SearchParameter incremental refresh completed successfully.");
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogDebug("SearchParameter cache is up to date. No refresh needed.");
-                    }
-                }
+                _logger.LogInformation("Performing incremental SearchParameter cache refresh...");
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
+                _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
             }
             catch (OperationCanceledException)
             {

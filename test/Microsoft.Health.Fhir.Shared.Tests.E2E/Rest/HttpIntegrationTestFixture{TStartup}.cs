@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
         }
 
+        public DataStore DataStore => _dataStore;
+
         public bool IsUsingInProcTestServer { get; private set; }
 
         /// <summary>
