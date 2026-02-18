@@ -73,7 +73,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             const string resourceType = "Patient";
             const short resourceTypeId = 1;
 
-            _model.GetResourceTypeId(resourceType).Returns(resourceTypeId);
+            _model.TryGetResourceTypeId(resourceType, out Arg.Any<short>())
+                .Returns(x =>
+                {
+                    x[1] = resourceTypeId;
+                    return true;
+                });
 
             var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceResourceType, null, resourceType, true);
             var context = CreateContext();
@@ -83,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains($"{VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name} = {resourceTypeId}", sql);
-            _model.Received(1).GetResourceTypeId(resourceType);
+            _model.Received(1).TryGetResourceTypeId(resourceType, out Arg.Any<short>());
         }
 
         [Fact]
@@ -156,14 +161,37 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         [InlineData("Encounter")]
         public void GivenVariousResourceTypes_WhenVisited_ThenCallsModelCorrectly(string resourceType)
         {
-            _model.GetResourceTypeId(resourceType).Returns((short)1);
+            _model.TryGetResourceTypeId(resourceType, out Arg.Any<short>())
+                .Returns(x =>
+                {
+                    x[1] = (short)1;
+                    return true;
+                });
 
             var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceResourceType, null, resourceType, true);
             var context = CreateContext();
 
             ReferenceQueryGenerator.Instance.VisitString(expression, context);
 
-            _model.Received(1).GetResourceTypeId(resourceType);
+            _model.Received(1).TryGetResourceTypeId(resourceType, out Arg.Any<short>());
+        }
+
+        [Fact]
+        public void GivenUnknownResourceType_WhenVisited_ThenGeneratesAlwaysFalsePredicate()
+        {
+            const string unknownType = "ActorDefinition";
+
+            _model.TryGetResourceTypeId(unknownType, out Arg.Any<short>())
+                .Returns(false);
+
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceResourceType, null, unknownType, true);
+            var context = CreateContext();
+
+            ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+            var sql = context.StringBuilder.ToString();
+
+            Assert.Contains("0 = 1", sql);
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

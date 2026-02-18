@@ -151,8 +151,18 @@ public class SqlQueryGeneratorTests
     public void GivenReferenceSearchParameterWithMultipleTargetTypes_WhenSqlGenerated_ThenSqlIncludesOrClauseForReferenceResourceTypeId()
     {
         // Setup mock to return resource type IDs
-        _fhirModel.GetResourceTypeId("Patient").Returns((short)1);
-        _fhirModel.GetResourceTypeId("Practitioner").Returns((short)2);
+        _fhirModel.TryGetResourceTypeId("Patient", out Arg.Any<short>())
+            .Returns(x =>
+            {
+                x[1] = (short)1;
+                return true;
+            });
+        _fhirModel.TryGetResourceTypeId("Practitioner", out Arg.Any<short>())
+            .Returns(x =>
+            {
+                x[1] = (short)2;
+                return true;
+            });
         _fhirModel.GetSearchParamId(Arg.Any<Uri>()).Returns((short)100);
 
         // Create a reference search parameter with multiple target types (like Observation.patient)
@@ -200,7 +210,7 @@ public class SqlQueryGeneratorTests
         Assert.True(typeIdOccurrences >= 3, $"Expected ReferenceResourceTypeId to appear at least 3 times (2 type equality checks + 1 IS NULL), but found {typeIdOccurrences} in: {generatedSql}");
 
         // Verify both type IDs were passed as parameters by checking the mock was called
-        _fhirModel.Received(1).GetResourceTypeId("Patient");
-        _fhirModel.Received(1).GetResourceTypeId("Practitioner");
+        _fhirModel.Received(1).TryGetResourceTypeId("Patient", out Arg.Any<short>());
+        _fhirModel.Received(1).TryGetResourceTypeId("Practitioner", out Arg.Any<short>());
     }
 }
