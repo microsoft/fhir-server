@@ -75,8 +75,7 @@ jobs:
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       publishRunAttachments: true
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
