@@ -82,8 +82,7 @@ jobs:
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       publishRunAttachments: true
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
+      failTaskOnFailedTests: false # tests will look failed when retried to success
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
