@@ -231,26 +231,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
-            // Give the server time to refresh its profile cache
-            await Task.Delay(TimeSpan.FromSeconds(15));
+            System.Collections.Generic.List<string> supportedProfiles = null;
+            string[] expectedProfiles = null;
+
+            // Give the server time to refresh its profile cache.
+            await Task.Delay(TimeSpan.FromSeconds(10));
+
+            using FhirResponse<CapabilityStatement> initialRequest = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
 
 #if !Stu3
-            var supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
+            supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
                 SelectMany(x => x.Resource.Where(x => x.SupportedProfile.Any()).Select(x => x.SupportedProfile)).
                 SelectMany(x => x).OrderBy(x => x).ToList();
 
-            var expectedProfiles = new[]
+            expectedProfiles = new[]
             {
                 "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan|3.0.0",
                 "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization|3.0.0",
                 "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient|3.0.0",
             };
 #else
-            var supportedProfiles = response.Resource.Profile.Select(x => x.Url.ToString()).OrderBy(x => x).ToList();
+            supportedProfiles = response.Resource.Profile.Select(x => x.Url.ToString()).OrderBy(x => x).ToList();
 
-            var expectedProfiles = new[]
+            expectedProfiles = new[]
             {
                 "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan|2.0.0",
                 "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization|2.0.0",

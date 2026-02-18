@@ -1,10 +1,14 @@
 {
     "FhirServer": {
-        "Cors": { 
-            "Origins": ["https://localhost:6001"],
-            "Methods": ["*"],
-            "Headers": ["*"],
-            "MaxAge": 1440 
+        "Cors": {
+            "Origins": [ "https://localhost:6001" ],
+            "Methods": [ "*" ],
+            "Headers": [ "*" ],
+            "MaxAge": 1440
+        },
+        "CoreFeatures": {
+            "SystemConformanceProviderRefreshIntervalSeconds": 5,
+            "SystemConformanceProviderRebuildIntervalSeconds": 120
         },
         "Operations": {
             "Validate": {
