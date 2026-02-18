@@ -360,6 +360,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     ? found
                     : searchParam;
 
+                // In R5 SearchParameter URL http://hl7.org/fhir/SearchParameter/Resource-type is of type "special", however, this was not defined pre R5
+                // therefore we added this manually in R4b and earlier versions, but with a type of "token" since it was not defined and this is what our system supports.
+                // We will need to migrate from token to special when we move support to R5 and beyond.
                 searchParameterDictionary.AddOrUpdate(
                     canonicalParam.Code,
                     _ => new ConcurrentQueue<SearchParameterInfo>(new[] { canonicalParam }),
