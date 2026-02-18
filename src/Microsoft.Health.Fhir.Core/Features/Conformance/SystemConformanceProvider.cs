@@ -344,8 +344,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         break;
                 }
             }
-
-            await SetMetadataAsync(null);
         }
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
