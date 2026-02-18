@@ -41,7 +41,7 @@ steps:
 - script: |
     curl -Os https://cli.codecov.io/latest/linux/codecov
     chmod +x codecov
-    ./codecov --verbose upload-process --disable-search -f $(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml
+    ./codecov --verbose upload-process --disable-search --git-service github -f $(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml
   displayName: 'Upload coverage to Codecov'
   condition: succeededOrFailed()
   env:
