@@ -10,7 +10,6 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using DotLiquid.Util;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Api.Features.Operations;
