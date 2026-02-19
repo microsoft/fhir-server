@@ -114,15 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, ConcurrentDictionary<string, SearchParameterInfo> uriDictionary)
         {
-            // Return SearchParameterInfo that has already been created for this Uri
-            if (uriDictionary.TryGetValue(searchParameter.Url, out var existing))
-            {
-                return existing;
-            }
-
-            var searchParameterInfo = new SearchParameterInfo(searchParameter);
-            uriDictionary[searchParameter.Url] = searchParameterInfo;
-            return searchParameterInfo;
+            return uriDictionary.GetOrAdd(searchParameter.Url, _ => new SearchParameterInfo(searchParameter));
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
@@ -166,13 +158,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     {
                         // _profile can't be handled as a reference since it points to an external permalink
                         searchParameterInfo.Type = SearchParamType.Uri;
-                    }
-
-                    // Ensure the search parameter is registered in the uri dictionary by URL.
-                    // GetOrCreateSearchParameterInfo already handles this, but re-confirm for safety.
-                    if (!uriDictionary.ContainsKey(searchParameter.Url))
-                    {
-                        uriDictionary[searchParameter.Url] = searchParameterInfo;
                     }
                 }
                 catch (FormatException)
