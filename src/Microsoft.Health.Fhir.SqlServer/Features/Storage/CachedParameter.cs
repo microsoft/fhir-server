@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// </summary>
         public bool IsEnabled(ISqlRetryService sqlRetryService)
         {
-            return GetValue(sqlRetryService) == 1;
+            return Convert.ToInt32(GetValue(sqlRetryService)) == 1;
         }
 
         private double ReadFromDatabase(ISqlRetryService sqlRetryService)
