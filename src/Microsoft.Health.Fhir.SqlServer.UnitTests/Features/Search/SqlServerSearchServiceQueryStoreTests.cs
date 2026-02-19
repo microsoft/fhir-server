@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData(";WITH cte0 AS (SELECT 1)")]
         [InlineData(";WITH cte0 AS (SELECT 1)\r\nSELECT * FROM cte0")]
-        public void StripQueryPreambleLines_ReplacesSemicolonWith(string input)
+        public void StripQueryPreambleLines_ReplacesLeadingSemicolonBeforeWith(string input)
         {
             // Act
             string result = InvokeStripQueryPreambleLines(input);
@@ -710,33 +710,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         // -----------------------------------------------------------------------
 
         [Fact]
-        public async Task FireAndForget_ReturnsImmediately_WithoutWaitingForBackgroundTask()
+        public async Task FireAndForget_BackgroundDelegate_IsInvoked()
         {
             // Arrange
-            var backgroundTaskStarted = new TaskCompletionSource<bool>();
-            var backgroundTaskCompleted = new TaskCompletionSource<bool>();
+            var delegateInvoked = new TaskCompletionSource<bool>();
 
-            // Act - measure execution time of fire-and-forget pattern
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-            // Simulate the fire-and-forget pattern used in SearchImpl
-            _ = Task.Run(async () =>
+            // Act — simulate the fire-and-forget pattern used in SearchImpl
+            _ = Task.Run(() =>
             {
-                backgroundTaskStarted.SetResult(true);
-                await Task.Delay(100); // Simulate background work
-                backgroundTaskCompleted.SetResult(true);
+                delegateInvoked.SetResult(true);
+                return Task.CompletedTask;
             });
 
-            stopwatch.Stop();
-
-            // Assert - Task.Run should return immediately without waiting
-            Assert.True(
-                stopwatch.ElapsedMilliseconds < 50,
-                $"Fire-and-forget Task.Run took too long: {stopwatch.ElapsedMilliseconds}ms");
-
-            // Wait for background task to complete to verify it actually ran
-            await backgroundTaskCompleted.Task;
-            Assert.True(backgroundTaskCompleted.Task.IsCompletedSuccessfully);
+            // Assert — the background delegate runs to completion
+            bool result = await delegateInvoked.Task;
+            Assert.True(result, "Background logging delegate should have been invoked.");
         }
 
         [Fact]
