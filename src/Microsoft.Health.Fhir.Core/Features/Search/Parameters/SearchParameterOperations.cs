@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public DateTimeOffset? SearchParamLastUpdated => _searchParamLastUpdated;
 
-        public string GetResourceTypeSearchParameterHashMap(string resourceType)
+        public string GetSearchParameterHash(string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 

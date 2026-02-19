@@ -18,8 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public uint MaximumNumberOfResourcesPerWrite { get; set; }
 
-        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; set; }
-
         public string Id { get; internal set; }
     }
 }
