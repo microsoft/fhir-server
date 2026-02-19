@@ -37,8 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
 #pragma warning restore CA2213 // Disposable fields should be disposed // SystemConformanceProvider is a Singleton class.
 
-        private readonly int _cacheRefreshIntervalSeconds;
-        private readonly int _cacheRebuildIntervalSeconds;
+        private readonly TimeSpan _cacheRefreshInterval;
+        private readonly TimeSpan _cacheRebuildInterval;
         private readonly TimeSpan _backgroundLoopLoggingInterval = TimeSpan.FromMinutes(10);
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -91,8 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
 
-            _cacheRebuildIntervalSeconds = _configuration.Value.SystemConformanceProviderRebuildIntervalSeconds;
-            _cacheRefreshIntervalSeconds = _configuration.Value.SystemConformanceProviderRefreshIntervalSeconds;
+            _cacheRebuildInterval = TimeSpan.FromSeconds(_configuration.Value.SystemConformanceProviderRebuildIntervalSeconds);
+            _cacheRefreshInterval = TimeSpan.FromSeconds(_configuration.Value.SystemConformanceProviderRefreshIntervalSeconds);
 
             LogVersioningPolicyConfiguration();
         }
@@ -208,10 +208,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public async Task BackgroudLoop()
         {
+            Stopwatch loggingTimer = Stopwatch.StartNew();
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
-                Stopwatch sw = Stopwatch.StartNew();
-                while (sw.Elapsed.Seconds < _cacheRebuildIntervalSeconds)
+                Stopwatch rebuildMetadataStopWatch = Stopwatch.StartNew();
+                while (rebuildMetadataStopWatch.Elapsed < _cacheRebuildInterval)
                 {
                     if (_builder != null && _builder.IsSyncProfilesRequested())
                     {
@@ -219,7 +220,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         break;
                     }
 
-                    await Task.Delay(TimeSpan.FromSeconds(_cacheRefreshIntervalSeconds), _cancellationTokenSource.Token);
+                    await Task.Delay(_cacheRefreshInterval, _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {
@@ -233,15 +234,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         return;
                     }
 
-                    if (sw.Elapsed >= _backgroundLoopLoggingInterval)
+                    if (loggingTimer.Elapsed >= _backgroundLoopLoggingInterval)
                     {
                         _logger.LogInformation("SystemConformanceProvider's BackgroudLoop is active and running.");
-                        sw.Restart();
+                        loggingTimer.Restart();
                     }
                 }
 
                 try
                 {
+                    // If the sync profile is requested or the rebuild interval has elapsed, then we will rebuild the capability statement and update in-memory metadata.
                     if (_builder != null)
                     {
                         var cancellationToken = _cancellationTokenSource.Token;
