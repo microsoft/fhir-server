@@ -67,33 +67,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 cancelResponse = await _retryPolicy.ExecuteAsync(async () =>
                 {
-                    ExportJobOutcome groupJobDetails;
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
-                    groupJobDetails = outcome;
 
-                    if (request.JobId != outcome.JobRecord.GroupId)
-                    {
-                        groupJobDetails = await _fhirOperationDataStore.GetExportJobByIdAsync(outcome.JobRecord.GroupId, cancellationToken);
-                    }
-
-                    // If the job is already canceled return 404 Job not found
-                    // If the job is completed or failed then check the flag CancelRequested for Orchestrator job
-                    // If CancelRequested is set to true then return 404 Job not found
-                    // Else set the CancelRequested = true for Orchestrator job -> this is handled in SP
+                    // If the job is already canceled return conflict
                     if (outcome.JobRecord.Status == OperationStatus.Canceled)
                     {
-                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+                        throw new OperationFailedException(Core.Resources.BulkUpdateOperationCompleted, HttpStatusCode.Conflict);
                     }
-                    else if (outcome.JobRecord.Status == OperationStatus.Completed || outcome.JobRecord.Status == OperationStatus.Failed)
+                    else if (outcome.JobRecord.Status != OperationStatus.Completed && outcome.JobRecord.Status != OperationStatus.Failed)
                     {
-                        if (groupJobDetails.JobRecord.CancelRequested)
-                        {
-                            throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
-                        }
-                    }
-                    else
-                    {
-                        // Try to cancel the job.
+                        // We do not want overwrite the status Completed and Failed
+                        // Try to cancel the job. (in case of Running)
                         outcome.JobRecord.Status = OperationStatus.Canceled;
                     }
 

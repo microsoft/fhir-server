@@ -500,6 +500,56 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        public async Task GivenCompletedParentJobWithUserCancelledFlag_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
+            long jobId = long.Parse(jobRecord.Id);
+
+            var queueClient = GetTestQueueClient();
+            var parentJob = queueClient.JobInfos.First(j => j.Id == jobId);
+            parentJob.Status = JobStatus.Completed;
+            parentJob.CancelRequested = true;
+
+            // No child job failures - this is user cancellation
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenCompletedParentJobWithCancelFlagButChildJobFailed_WhenGettingById_ThenStatusShouldBeFailed()
+        {
+            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
+            long jobId = long.Parse(jobRecord.Id);
+
+            var queueClient = GetTestQueueClient();
+            var parentJob = queueClient.JobInfos.First(j => j.Id == jobId);
+            parentJob.Status = JobStatus.Completed;
+            parentJob.CancelRequested = true;
+
+            // Add a failed child job - this is system cancellation due to failure
+            var failedChildRecord = new ExportJobRecord(
+                _exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "hash", rollingFileSizeInMB: 64)
+            {
+                FailureDetails = new JobFailureDetails("Child job failed", HttpStatusCode.InternalServerError),
+            };
+
+            queueClient.JobInfos.Add(new JobInfo
+            {
+                Id = jobId + 100,
+                GroupId = parentJob.GroupId,
+                Status = JobStatus.Failed,
+                QueueType = (byte)QueueType.Export,
+                Definition = parentJob.Definition,
+                Result = JsonConvert.SerializeObject(failedChildRecord),
+                CreateDate = DateTime.UtcNow,
+            });
+
+            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
+
+            Assert.Equal(OperationStatus.Failed, outcome.JobRecord.Status);
+            Assert.NotNull(outcome.JobRecord.FailureDetails);
+        }
+
+        [Fact]
         public async Task GivenNonExistentExportJob_WhenUpdating_ThenJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = new ExportJobRecord(

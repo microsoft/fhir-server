@@ -4659,7 +4659,7 @@ BEGIN TRY
             IF @QueueType = 1
                 BEGIN
                     UPDATE dbo.JobQueue
-                    SET    CancelRequested = 1
+                    SET    status = 6
                     WHERE  QueueType = @QueueType
                            AND GroupId = @GroupId
                            AND JobId = @GroupId

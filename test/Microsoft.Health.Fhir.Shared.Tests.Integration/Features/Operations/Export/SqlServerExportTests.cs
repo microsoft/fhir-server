@@ -88,6 +88,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
             record.Status = OperationStatus.Canceled;
             var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+
+            // User-cancelled job should throw JobNotFoundException
             await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None));
         }
 

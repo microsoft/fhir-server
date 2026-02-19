@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnExportOfPatientResources_WhenCancelled_GetJobStatusThrowsJobNotFoundException()
+        public async Task GivenAnExportOfPatientResources_WhenUserCancelled_ThrowsJobNotFoundException()
         {
             string resourceType = "Patient";
             int totalJobs = 2; // 2=coord+1 resource type
@@ -62,7 +63,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
 
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+
+            // User-cancelled job with no failures should throw JobNotFoundException
             await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenAnExportOfPatientResources_WhenSystemCancelledDueToFailure_ReturnsFailedStatus()
+        {
+            string resourceType = "Patient";
+            int totalJobs = 2; // 2=coord+1 resource type
+            var coorId = await RunExport(resourceType, _coordJob, totalJobs);
+            var record = (await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None)).JobRecord;
+
+            Assert.Equal(OperationStatus.Running, record.Status);
+
+            // Simulate system cancellation with failure
+            // This happens when child jobs fail and trigger cancellation on the parent
+            record.Status = OperationStatus.Failed;
+            record.FailureDetails = new JobFailureDetails("Processing job failed", HttpStatusCode.InternalServerError);
+
+            var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
+
+            Assert.Equal(OperationStatus.Failed, result.JobRecord.Status);
+
+            // System-cancelled job with failures should return Failed status, not throw
+            result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
+            Assert.Equal(OperationStatus.Failed, result.JobRecord.Status);
+            Assert.NotNull(result.JobRecord.FailureDetails);
+        }
+
+        [Fact]
+        public async Task GivenAnExportOfPatientResources_WhenQueuedAndCompleted_JobStatusIsCorrect()
+        {
+            string resourceType = "Patient";
+            int totalJobs = 2; // 2=coord+1 resource type
+            var coorId = await RunExport(resourceType, _coordJob, totalJobs);
+
+            var result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
+            Assert.Equal(OperationStatus.Completed, result.JobRecord.Status);
         }
 
         [Fact]
