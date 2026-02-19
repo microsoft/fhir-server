@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _modelInfoProvider = modelInfoProvider;
             _mediator = mediator;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
-            TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
             _searchServiceFactory = searchServiceFactory;
             _searchParameterComparer = searchParameterComparer;
@@ -91,8 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
 
-        // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter code.
-        internal ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> TypeLookup { get; set; }
+        // TypeLookup: Resource type -> code -> ordered queue of definition URLs.
+        internal ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> TypeLookup { get; set; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
@@ -131,9 +131,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             EnsureInitialized();
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> value))
+            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<string>> value))
             {
-                return value.Values.SelectMany(x => x).ToList();
+                return value.Values
+                    .SelectMany(x => x)
+                    .Where(uri => UrlLookup.TryGetValue(uri, out _))
+                    .Select(uri => UrlLookup[uri])
+                    .ToList();
             }
 
             throw new ResourceNotSupportedException(resourceType);
@@ -143,9 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             EnsureInitialized();
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> lookup) &&
-                lookup.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q) &&
-                q.TryPeek(out var searchParameter))
+            if (TryGetFromTypeLookup(resourceType, code, out SearchParameterInfo searchParameter))
             {
                 return searchParameter;
             }
@@ -156,26 +158,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter)
         {
             EnsureInitialized();
-            searchParameter = null;
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> lookup) &&
-                lookup.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q) &&
-                q.TryPeek(out searchParameter))
-            {
-                return true;
-            }
-
-            return false;
+            return TryGetFromTypeLookup(resourceType, code, out searchParameter);
         }
 
         public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
         {
             EnsureInitialized();
-            searchParameter = null;
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> lookup) &&
-                lookup.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q) &&
-                q.TryPeek(out searchParameter))
+            if (TryGetFromTypeLookup(resourceType, code, out searchParameter))
             {
                 if (excludePendingDelete && searchParameter.SearchParameterStatus == SearchParameterStatus.PendingDelete)
                 {
@@ -269,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             foreach (string resourceName in TypeLookup.Keys)
             {
-                var searchParameters = TypeLookup[resourceName].Values.SelectMany(x => x);
+                var searchParameters = GetSearchParameters(resourceName);
                 if (searchParameters.Any())
                 {
                     string searchParamHash = searchParameters.CalculateSearchParameterHash();
@@ -289,9 +280,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public void DeleteSearchParameter(string url, bool calculateHash = true)
         {
-            SearchParameterInfo searchParameterInfo = null;
-
-            if (!UrlLookup.TryRemove(url, out searchParameterInfo))
+            if (!UrlLookup.TryRemove(url, out SearchParameterInfo searchParameterInfo))
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.CustomSearchParameterNotfound, url));
             }
@@ -303,9 +292,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             {
                 if (TypeLookup.TryGetValue(resourceType, out var lookup) &&
                     lookup.TryGetValue(searchParameterInfo.Code, out var q) &&
-                    q.Any(x => string.Equals(x.Url.OriginalString, url, StringComparison.OrdinalIgnoreCase)))
+                    q.Any(x => string.Equals(x, url, StringComparison.Ordinal)))
                 {
-                    var newq = new ConcurrentQueue<SearchParameterInfo>(q.Where(x => !string.Equals(x.Url.OriginalString, url, StringComparison.OrdinalIgnoreCase)));
+                    var newq = new ConcurrentQueue<string>(q.Where(x => !string.Equals(x, url, StringComparison.Ordinal)));
                     if (lookup.TryUpdate(searchParameterInfo.Code, newq, q))
                     {
                         updated = true;
@@ -393,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 allStatuses
                     .Where(s => s.Status == SearchParameterStatus.PendingDelete)
                     .Select(s => s.Uri.OriginalString),
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.Ordinal);
 
             _logger.LogInformation(
                 "Found {PendingDeleteCount} search parameters with PendingDelete status in the status store",
@@ -558,6 +547,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 "Loaded {TotalLoaded} active and {TotalPendingDelete} PendingDelete search parameters from data store",
                 totalLoaded,
                 totalPendingDelete);
+        }
+
+        private bool TryGetFromTypeLookup(string resourceType, string code, out SearchParameterInfo searchParameter)
+        {
+            searchParameter = null;
+
+            if (!TypeLookup.TryGetValue(resourceType, out var lookup) ||
+                !lookup.TryGetValue(code, out var queue))
+            {
+                return false;
+            }
+
+            foreach (string uri in queue)
+            {
+                if (UrlLookup.TryGetValue(uri, out var resolved))
+                {
+                    searchParameter = resolved;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
