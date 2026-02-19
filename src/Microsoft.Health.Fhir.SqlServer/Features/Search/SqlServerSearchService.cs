@@ -76,9 +76,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly IFhirDataStore _fhirDataStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
-        private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
+        private static CachedParameter<SqlServerSearchService> _reuseQueryPlans;
         internal const string ReuseQueryPlansParameterId = "Search.ReuseQueryPlans.IsEnabled";
-        private static ProcessingFlag<SqlServerSearchService> _longRunningQueryDetails;
+        private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
         internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
         internal const int LongRunningThresholdMillisecondsDefault = 5000;
@@ -151,12 +151,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (_reuseQueryPlans == null)
                 {
-                    _reuseQueryPlans = new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, logger);
+                    _reuseQueryPlans = new CachedParameter<SqlServerSearchService>(ReuseQueryPlansParameterId, 0, logger);
                 }
 
                 if (_longRunningQueryDetails == null)
                 {
-                    _longRunningQueryDetails = new ProcessingFlag<SqlServerSearchService>(LongRunningQueryDetailsParameterId, true, logger);
+                    _longRunningQueryDetails = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsParameterId, 1, logger);
                 }
 
                 if (_longRunningThreshold == null)
@@ -824,42 +824,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             executionStopwatch.Stop();
 
-                            try
+                            if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                             {
-                                if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
-                                {
-                                    // Capture the query text BEFORE the connection closes
-                                    string queryTextSnapshot = sqlCommand.CommandText;
-                                    long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
-                                    int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                                // Capture the query text BEFORE the connection closes
+                                string queryTextSnapshot = sqlCommand.CommandText;
+                                long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
+                                int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
-                                    // Fire-and-forget: Log query details without blocking the response
-                                    _ = Task.Run(async () =>
+                                // Fire-and-forget: Log query details without blocking the response
+                                _ = Task.Run(async () =>
+                                {
+                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                                    try
                                     {
-                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                                        try
-                                        {
-                                            await LogQueryStoreByTextAsync(
-                                                queryTextSnapshot,
-                                                _logger,
-                                                timeoutSnapshot,
-                                                executionTimeSnapshot,
-                                                loggingCts.Token);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogWarning(
-                                                "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
-                                                executionTimeSnapshot,
-                                                queryTextSnapshot);
-                                            _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                        }
-                                    });
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogDebug(ex, "Failed to initiate long-running SQL query logging.");
+                                        await LogQueryStoreByTextAsync(
+                                            queryTextSnapshot,
+                                            _logger,
+                                            timeoutSnapshot,
+                                            executionTimeSnapshot,
+                                            loggingCts.Token);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                            executionTimeSnapshot,
+                                            queryTextSnapshot);
+                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    }
+                                });
                             }
                         }
                     }
@@ -1984,42 +1977,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             executionStopwatch.Stop();
 
-                            try
+                            if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                             {
-                                if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
-                                {
-                                    // Capture the query text BEFORE the connection closes
-                                    string queryTextSnapshot = sqlCommand.CommandText;
-                                    long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
-                                    int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                                // Capture the query text BEFORE the connection closes
+                                string queryTextSnapshot = sqlCommand.CommandText;
+                                long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
+                                int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
-                                    // Fire-and-forget: Log query details without blocking the response
-                                    _ = Task.Run(async () =>
+                                // Fire-and-forget: Log query details without blocking the response
+                                _ = Task.Run(async () =>
+                                {
+                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                                    try
                                     {
-                                        using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                                        try
-                                        {
-                                            await LogQueryStoreByTextAsync(
-                                                queryTextSnapshot,
-                                                _logger,
-                                                timeoutSnapshot,
-                                                executionTimeSnapshot,
-                                                loggingCts.Token);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogWarning(
-                                                "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
-                                                executionTimeSnapshot,
-                                                queryTextSnapshot);
-                                            _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
-                                        }
-                                    });
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogDebug(ex, "Failed to initiate long-running SQL query logging.");
+                                        await LogQueryStoreByTextAsync(
+                                            queryTextSnapshot,
+                                            _logger,
+                                            timeoutSnapshot,
+                                            executionTimeSnapshot,
+                                            loggingCts.Token);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                            executionTimeSnapshot,
+                                            queryTextSnapshot);
+                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    }
+                                });
                             }
                         }
                     }

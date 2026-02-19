@@ -66,9 +66,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
-        private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
-        private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
+        private static CachedParameter<SqlServerFhirDataStore> _ignoreInputLastUpdated;
+        private static CachedParameter<SqlServerFhirDataStore> _ignoreInputVersion;
+        private static CachedParameter<SqlServerFhirDataStore> _rawResourceDeduping;
         private static readonly object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputLastUpdated ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _logger);
+                    _ignoreInputLastUpdated ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.IgnoreInputLastUpdated.IsEnabled", 0, _logger);
                 }
             }
 
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputVersion ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.IgnoreInputVersion.IsEnabled", false, _logger);
+                    _ignoreInputVersion ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.IgnoreInputVersion.IsEnabled", 0, _logger);
                 }
             }
 
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _rawResourceDeduping ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
+                    _rawResourceDeduping ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", 1, _logger);
                 }
             }
         }

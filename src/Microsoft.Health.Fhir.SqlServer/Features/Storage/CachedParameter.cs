@@ -12,6 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
     /// Reads a numeric parameter from dbo.Parameters and caches it with a 10-minute TTL.
+    /// Can also be used as a boolean feature flag where 1 = enabled, 0 = disabled.
     /// </summary>
     /// <typeparam name="TLogger">The type used for logging category.</typeparam>
     public class CachedParameter<TLogger>
@@ -57,6 +58,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return _cachedValue;
+        }
+
+        /// <summary>
+        /// Convenience method for boolean feature flags.
+        /// Returns true when the cached value equals 1, false otherwise.
+        /// </summary>
+        public bool IsEnabled(ISqlRetryService sqlRetryService)
+        {
+            return GetValue(sqlRetryService) == 1;
         }
 
         private double ReadFromDatabase(ISqlRetryService sqlRetryService)

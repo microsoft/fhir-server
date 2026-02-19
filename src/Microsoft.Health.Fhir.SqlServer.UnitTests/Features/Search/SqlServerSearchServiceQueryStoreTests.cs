@@ -519,15 +519,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData("LongRunningQueryDetails", true)]
         [InlineData("ReuseQueryPlans", false)]
-        public void ProcessingFlag_ReturnsConfiguredDefault_WhenDatabaseIsUnavailable(string flagName, bool defaultValue)
+        public void CachedParameter_IsEnabled_ReturnsConfiguredDefault_WhenDatabaseIsUnavailable(string flagName, bool defaultValue)
         {
             // Arrange
             var logger = NullLogger<SqlServerSearchService>.Instance;
             var sqlRetryService = CreateThrowingSqlRetryService();
 
-            var flag = new ProcessingFlag<SqlServerSearchService>(
+            var flag = new CachedParameter<SqlServerSearchService>(
                 flagName,
-                defaultValue,
+                defaultValue ? 1 : 0,
                 logger);
 
             // Act
@@ -538,15 +538,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public void ProcessingFlag_CachesResult_AcrossMultipleCalls()
+        public void CachedParameter_IsEnabled_CachesResult_AcrossMultipleCalls()
         {
             // Arrange
             var logger = NullLogger<SqlServerSearchService>.Instance;
             var sqlRetryService = CreateThrowingSqlRetryService();
 
-            var flag = new ProcessingFlag<SqlServerSearchService>(
+            var flag = new CachedParameter<SqlServerSearchService>(
                 SqlServerSearchService.LongRunningQueryDetailsParameterId,
-                true,
+                1,
                 logger);
 
             // Act
@@ -558,15 +558,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public void ProcessingFlag_Reset_ClearsCache()
+        public void CachedParameter_IsEnabled_Reset_ClearsCache()
         {
             // Arrange
             var logger = NullLogger<SqlServerSearchService>.Instance;
             var sqlRetryService = CreateThrowingSqlRetryService();
 
-            var flag = new ProcessingFlag<SqlServerSearchService>(
+            var flag = new CachedParameter<SqlServerSearchService>(
                 "TestFlag",
-                true,
+                1,
                 logger);
 
             flag.IsEnabled(sqlRetryService);
