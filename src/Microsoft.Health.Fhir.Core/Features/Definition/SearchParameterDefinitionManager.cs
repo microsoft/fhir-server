@@ -559,16 +559,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return false;
             }
 
-            foreach (string uri in queue)
-            {
-                if (UrlLookup.TryGetValue(uri, out var resolved))
-                {
-                    searchParameter = resolved;
-                    return true;
-                }
-            }
+            searchParameter = queue
+                .Where(uri => UrlLookup.ContainsKey(uri))
+                .Select(uri => UrlLookup[uri])
+                .FirstOrDefault();
 
-            return false;
+            return searchParameter != null;
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
