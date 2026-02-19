@@ -8,6 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
@@ -69,14 +70,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
-                    // If the job is already canceled return conflict
-                    if (outcome.JobRecord.Status == OperationStatus.Canceled)
+                    if (outcome.JobRecord.GroupId != request.JobId)
                     {
-                        throw new OperationFailedException(Core.Resources.BulkUpdateOperationCompleted, HttpStatusCode.Conflict);
+                        throw new OperationFailedException(Core.Resources.CancellationOnlyOnMainJob, HttpStatusCode.BadRequest);
+                    }
+
+                    // If the orchestrator job is already canceled (cancelled by user when the job status was Created or Running), we will return 404
+                    if (outcome.JobRecord.Status == OperationStatus.Canceled || outcome.JobRecord.CancelRequested)
+                    {
+                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
                     }
                     else if (outcome.JobRecord.Status != OperationStatus.Completed && outcome.JobRecord.Status != OperationStatus.Failed)
                     {
-                        // We do not want overwrite the status Completed and Failed
+                        // We do not want to overwrite the status Completed and Failed status
                         // Try to cancel the job. (in case of Running)
                         outcome.JobRecord.Status = OperationStatus.Canceled;
                     }
