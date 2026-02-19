@@ -75,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         throw new OperationFailedException(Core.Resources.CancellationOnlyOnMainJob, HttpStatusCode.BadRequest);
                     }
 
+                    // May be not needed as already convered in GetExportJobByIdAsync.
                     // If the orchestrator job is already canceled (cancelled by user when the job status was Created or Running), we will return 404
                     if (outcome.JobRecord.Status == OperationStatus.Canceled || outcome.JobRecord.CancelRequested)
                     {

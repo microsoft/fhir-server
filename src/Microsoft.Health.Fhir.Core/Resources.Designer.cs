@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cancellation is only allowed on the main job..
+        /// </summary>
+        internal static string CancellationOnlyOnMainJob {
+            get {
+                return ResourceManager.GetString("CancellationOnlyOnMainJob", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to get an access token for &apos;{0}&apos;..
         /// </summary>
         internal static string CannotGetAccessToken {
@@ -1710,7 +1719,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The search parameter with Uri '{0}' is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL..
+        ///   Looks up a localized string similar to The search parameter with Uri &apos;{0}&apos; is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL..
         /// </summary>
         internal static string SearchParameterDefinitionSystemDefined {
             get {
