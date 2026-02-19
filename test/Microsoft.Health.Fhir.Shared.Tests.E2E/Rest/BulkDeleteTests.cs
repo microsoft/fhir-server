@@ -503,7 +503,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await CreateAsync();
 
-                await EnsureCreatedAsync();
+                await EnsureCreateAsync();
 
                 await WaitForCacheRefreshAsync();
 
@@ -539,7 +539,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 foreach (var resource in resources)
                 {
                     var status = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
-                    Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent || status == HttpStatusCode.OK, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent},{HttpStatusCode.OK}) actual={status}");
+                    Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={status}");
                 }
             }
 
@@ -552,7 +552,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
             }
 
-            async Task EnsureCreatedAsync()
+            async Task EnsureCreateAsync()
             {
                 foreach (var resource in resources)
                 {
