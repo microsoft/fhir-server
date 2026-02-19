@@ -32,10 +32,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [CollectionDefinition(Categories.IndexAndReindex, DisableParallelization = true)]
-    [Collection(Categories.IndexAndReindex)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.IndexAndReindex)] // this moves tests to reindex group to avoid racing failures
     [Trait(Traits.Category, Categories.BulkDelete)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class BulkDeleteTests : IClassFixture<HttpIntegrationTestFixture>
@@ -490,6 +487,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
+        [Trait(Traits.Category, Categories.IndexAndReindex)] // this moves tests to reindex group to avoid racing failures
         public async Task GivenBulkDeleteRequest_WhenSearchParametersDeleted_ThenSearchParameterStatusShouldBeUpdated(bool hardDelete)
         {
             CheckBulkDeleteEnabled();
