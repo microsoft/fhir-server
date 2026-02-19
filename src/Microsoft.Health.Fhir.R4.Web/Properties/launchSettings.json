@@ -3,8 +3,13 @@
     "Default": {
       "commandName": "Project",
       "environmentVariables": {
+        "SqlServer:Initialize": "true",
+        "SqlServer:AllowDatabaseCreation": "true",
+        "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
         "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-        "DataStore": "CosmosDb",
+        "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4_OG;Integrated Security=true;TrustServerCertificate=true",
+        "DataStore": "SqlServer",
+        "FhirServer:Security:Enabled": "false",
         "ASPNETCORE_ENVIRONMENT": "development",
         "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true"
       },
@@ -27,7 +32,7 @@
         "SqlServer:AllowDatabaseCreation": "true",
         "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
         "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-        "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true;TrustServerCertificate=true",
+        "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4_OG;Integrated Security=true;TrustServerCertificate=true",
         "DataStore": "SqlServer",
         "TaskHosting:Enabled": "true",
         "TaskHosting:MaxRunningTaskCount": "2",

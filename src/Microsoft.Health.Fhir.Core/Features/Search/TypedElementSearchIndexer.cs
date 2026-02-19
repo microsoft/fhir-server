@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
@@ -30,10 +31,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ITypedElementToSearchValueConverterManager _fhirElementTypeConverterManager;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly IFhirPathProvider _fhirPathProvider;
         private readonly ILogger<TypedElementSearchIndexer> _logger;
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new();
-        private static readonly FhirPathCompiler _compiler = new();
-        private readonly ConcurrentDictionary<string, CompiledExpression> _expressions = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TypedElementSearchIndexer"/> class.
@@ -42,24 +42,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="referenceToElementResolver">Used for parsing reference strings</param>
         /// <param name="modelInfoProvider">Model info provider</param>
+        /// <param name="fhirPathProvider">The FHIRPath provider for expression evaluation.</param>
         /// <param name="logger">The logger.</param>
         public TypedElementSearchIndexer(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
             ITypedElementToSearchValueConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,
+            IFhirPathProvider fhirPathProvider,
             ILogger<TypedElementSearchIndexer> logger)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
             EnsureArg.IsNotNull(referenceToElementResolver, nameof(referenceToElementResolver));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(fhirPathProvider, nameof(fhirPathProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _referenceToElementResolver = referenceToElementResolver;
             _modelInfoProvider = modelInfoProvider;
+            _fhirPathProvider = fhirPathProvider;
             _logger = logger;
         }
 
@@ -105,9 +109,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
-            CompiledExpression expression = _expressions.GetOrAdd(searchParameter.Expression, s => _compiler.Compile(s));
+            ICompiledFhirPath compiledExpression = _fhirPathProvider.Compile(searchParameter.Expression);
 
-            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
+            IEnumerable<ITypedElement> rootObjects = compiledExpression.Evaluate(resource, context);
 
             foreach (var rootObject in rootObjects)
             {
@@ -206,9 +210,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             try
             {
-                CompiledExpression expression = _expressions.GetOrAdd(fhirPathExpression, s => _compiler.Compile(s));
+                ICompiledFhirPath compiledExpression = _fhirPathProvider.Compile(fhirPathExpression);
 
-                extractedValues = expression.Invoke(element, context);
+                extractedValues = compiledExpression.Evaluate(element, context);
             }
             catch (Exception ex)
             {

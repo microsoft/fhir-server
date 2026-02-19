@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -200,7 +201,7 @@ public class ConditionalUpsertResourceHandlerTests
         resource.Id = "example";
         resource.VersionId = "version1";
         resource.Meta.Profile = new List<string> { "test" };
-        var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+        var rawResourceFactory = new RawResourceFactory(new IgnixaJsonSerializer(), new FhirJsonSerializer());
         ResourceElement typedElement = resource.ToResourceElement();
 
         var wrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);

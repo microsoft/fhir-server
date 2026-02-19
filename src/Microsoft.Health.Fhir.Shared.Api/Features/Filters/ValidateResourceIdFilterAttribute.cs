@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -38,8 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (actionId != null &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                var resource = ParseResource((Resource)parsedModel);
-                ValidateId(resource, (string)actionId);
+                var (typeName, resourceId) = GetResourceInfo(parsedModel);
+                ValidateId(typeName, resourceId, (string)actionId);
             }
             else
             {
@@ -50,10 +51,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
         }
 
-        private static void ValidateId(Resource resource, string expectedId)
+        private (string TypeName, string Id) GetResourceInfo(object parsedModel)
         {
-            var location = $"{resource.TypeName}.id";
-            if (string.IsNullOrWhiteSpace(resource.Id))
+            // Handle IResourceElement (Ignixa types like IgnixaResourceElement)
+            if (parsedModel is IResourceElement resourceElement)
+            {
+                return (resourceElement.InstanceType, resourceElement.Id);
+            }
+
+            // Handle Firely Resource types
+            if (parsedModel is Resource resource)
+            {
+                var resolved = ParseResource(resource);
+                return (resolved.TypeName, resolved.Id);
+            }
+
+            throw new InvalidOperationException($"Cannot extract resource info from {parsedModel?.GetType().Name ?? "null"}");
+        }
+
+        private static void ValidateId(string typeName, string resourceId, string expectedId)
+        {
+            var location = $"{typeName}.id";
+            if (string.IsNullOrWhiteSpace(resourceId))
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                     {
@@ -61,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     });
             }
 
-            if (!string.Equals(expectedId, resource.Id, StringComparison.Ordinal))
+            if (!string.Equals(expectedId, resourceId, StringComparison.Ordinal))
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                     {

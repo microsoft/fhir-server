@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Behavior;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 x =>
                 {
                     var longList = Samples.GetDefaultList();
-                    var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+                    var rawResourceFactory = new RawResourceFactory(new IgnixaJsonSerializer(), new FhirJsonSerializer());
                     return new ResourceWrapper(
                         longList,
                         rawResourceFactory.Create(longList, keepMeta: true),

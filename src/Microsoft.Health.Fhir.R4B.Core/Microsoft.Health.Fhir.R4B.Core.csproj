@@ -5,6 +5,10 @@
   <PropertyGroup>
     <DefineConstants>R4;R4B</DefineConstants>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- ASP.NET Core for formatters -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
