@@ -140,6 +140,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<CosmosDeletionServiceDataStoreFactory>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<CosmosTransactionHandler>()
                 .Scoped()
                 .AsSelf()

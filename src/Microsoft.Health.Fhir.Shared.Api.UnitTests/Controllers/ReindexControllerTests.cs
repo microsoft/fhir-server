@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -16,6 +18,7 @@ using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -24,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -40,7 +44,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private HttpContext _httpContext = new DefaultHttpContext();
         private static ReindexJobConfiguration _reindexJobConfig = new ReindexJobConfiguration() { Enabled = true };
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
-        private static IReadOnlyDictionary<string, string> _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
 
         public ReindexControllerTests()
         {
@@ -133,6 +136,141 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.DoesNotContain(parametersResource.Parameter, x => x.Name == JobRecordProperties.TargetSearchParameterTypes);
         }
 
+        [Fact]
+        public async Task GivenAReindexSingleResourceRequest_WhenProcessing_ThenReindexSingleResourceRequestShouldBeCreatedCorrectly()
+        {
+            var method = HttpMethods.Post;
+            _reindexEnabledController.ControllerContext.HttpContext.Request.Method = method;
+            _mediator
+                .Send(Arg.Any<ReindexSingleResourceRequest>())
+                .Returns(new ReindexSingleResourceResponse(new Parameters().ToResourceElement()));
+
+            var request = default(ReindexSingleResourceRequest);
+            _mediator.When(
+                x => x.Send(
+                    Arg.Any<ReindexSingleResourceRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.ArgAt<ReindexSingleResourceRequest>(0));
+
+            var typeParameter = KnownResourceTypes.Patient;
+            var idParameter = Guid.NewGuid().ToString();
+            var response = await _reindexEnabledController.ReindexSingleResource(
+                typeParameter,
+                idParameter);
+
+            var result = Assert.IsType<FhirResult>(response);
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotNull(result.Result);
+            Assert.Equal(KnownResourceTypes.Parameters, result.GetResultTypeName(), StringComparer.OrdinalIgnoreCase);
+
+            Assert.NotNull(request);
+            Assert.Equal(method, request.HttpMethod);
+            Assert.Equal(typeParameter, request.ResourceType);
+            Assert.Equal(idParameter, request.ResourceId);
+
+            await _mediator.Received(1).Send(
+                Arg.Any<ReindexSingleResourceRequest>(),
+                Arg.Any<CancellationToken>());
+            _mediator.ClearReceivedCalls();
+        }
+
+        [Fact]
+        public async Task GivenAListReindexJobsRequest_WhenProcessing_ThenGetReindexRequestShouldBeCreatedCorrectly()
+        {
+            var etag = WeakETag.FromVersionId("ver0");
+            _mediator
+                .Send(Arg.Any<GetReindexRequest>())
+                .Returns(
+                    x =>
+                    {
+                        var wrapper = new ReindexJobWrapper(
+                            new ReindexJobRecord(
+                                new List<string>(),
+                                new List<string>(),
+                                new List<string>(),
+                                5),
+                            etag);
+                        return new GetReindexResponse(HttpStatusCode.OK, wrapper);
+                    });
+
+            var request = default(GetReindexRequest);
+            _mediator.When(
+                x => x.Send(
+                    Arg.Any<GetReindexRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.ArgAt<GetReindexRequest>(0));
+
+            var response = await _reindexEnabledController.ListReindexJobs();
+            var result = Assert.IsType<FhirResult>(response);
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotNull(result.Result);
+            Assert.Equal(KnownResourceTypes.Parameters, result.GetResultTypeName(), StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(
+                result.Headers,
+                x =>
+                {
+                    return string.Equals(x.Key, HeaderNames.ETag, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.Value.ToString(), etag.ToString(), StringComparison.OrdinalIgnoreCase);
+                });
+
+            Assert.NotNull(request);
+            Assert.Null(request.JobId);
+
+            await _mediator.Received(1).Send(
+                Arg.Any<GetReindexRequest>(),
+                Arg.Any<CancellationToken>());
+            _mediator.ClearReceivedCalls();
+        }
+
+        [Fact]
+        public async Task GivenACancelReindexRequest_WhenProcessing_ThenCancelReindexRequestShouldBeCreatedCorrectly()
+        {
+            var etag = WeakETag.FromVersionId("ver0");
+            _mediator
+                .Send(Arg.Any<CancelReindexRequest>())
+                .Returns(
+                    x =>
+                    {
+                        var wrapper = new ReindexJobWrapper(
+                            new ReindexJobRecord(
+                                new List<string>(),
+                                new List<string>(),
+                                new List<string>(),
+                                5),
+                            etag);
+                        return new CancelReindexResponse(HttpStatusCode.OK, wrapper);
+                    });
+
+            var request = default(CancelReindexRequest);
+            _mediator.When(
+                x => x.Send(
+                    Arg.Any<CancelReindexRequest>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(x => request = x.ArgAt<CancelReindexRequest>(0));
+
+            var id = Guid.NewGuid().ToString();
+            var response = await _reindexEnabledController.CancelReindex(id);
+            var result = Assert.IsType<FhirResult>(response);
+            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
+            Assert.NotNull(result.Result);
+            Assert.Equal(KnownResourceTypes.Parameters, result.GetResultTypeName(), StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(
+                result.Headers,
+                x =>
+                {
+                    return string.Equals(x.Key, HeaderNames.ETag, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.Value.ToString(), etag.ToString(), StringComparison.OrdinalIgnoreCase);
+                });
+
+            Assert.NotNull(request);
+            Assert.Equal(id, request.JobId);
+
+            await _mediator.Received(1).Send(
+                Arg.Any<CancelReindexRequest>(),
+                Arg.Any<CancellationToken>());
+            _mediator.ClearReceivedCalls();
+        }
+
         private ReindexController GetController(ReindexJobConfiguration reindexConfig)
         {
             var operationConfig = new OperationsConfiguration()
@@ -152,7 +290,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), new List<string>(), new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -161,7 +299,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static GetReindexResponse GetReindexJobResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), new List<string>(), new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));

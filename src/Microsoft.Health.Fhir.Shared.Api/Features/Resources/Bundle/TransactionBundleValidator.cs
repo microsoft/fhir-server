@@ -12,6 +12,7 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -22,6 +23,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public class TransactionBundleValidator
     {
+        private static readonly string[] NonConditionalQueryParameters = new string[]
+        {
+            KnownQueryParameterNames.MetaHistory,
+        };
+
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly ILogger<TransactionBundleValidator> _logger;
 
@@ -78,16 +84,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task<string> GetResourceId(EntryComponent entry, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             // If there is no search or conditional operations, then use the FullUrl for posts and the request url otherwise
-            if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains('?', StringComparison.Ordinal))
+            if (!IsConditionalRequest(entry.Request))
             {
                 return entry.Request.Method == HTTPVerb.POST ? entry.FullUrl : entry.Request.Url;
-            }
-
-            // DELETE requests with query parameters (e.g., hard delete) are not conditional operations
-            // They should be treated as regular deletes with the full URL
-            if (entry.Request.Method == HTTPVerb.DELETE && entry.Request.Url.Contains('?', StringComparison.Ordinal))
-            {
-                return entry.Request.Url;
             }
 
             string resourceType = null;
@@ -149,27 +148,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             HTTPVerb? requestMethod = entry.Request?.Method;
 
             // Search operations using _search and POST endpoint is not supported for bundle.
-            if (requestMethod == HTTPVerb.POST && requestUrl.Contains(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
+            // Conditional Delete operation is also not currently not supported.
+            if ((requestMethod == HTTPVerb.POST && requestUrl.Contains(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
+                || (requestMethod == HTTPVerb.DELETE && requestUrl.Contains('?', StringComparison.Ordinal)))
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
             }
 
-            // Conditional Delete operation is not currently supported.
-            // However, hard deletes (DELETE {type}/{id}?_hardDelete=true) are allowed.
-            // Conditional deletes have the pattern: DELETE {type}?{query} (no resource ID).
-            if (requestMethod == HTTPVerb.DELETE && requestUrl.Contains('?', StringComparison.Ordinal))
-            {
-                int questionMarkIndex = requestUrl.IndexOf('?', StringComparison.Ordinal);
-                string pathBeforeQuery = requestUrl.Substring(0, questionMarkIndex);
-
-                // If there's no '/' in the path before '?', it's a conditional delete (not allowed)
-                if (!pathBeforeQuery.Contains('/', StringComparison.Ordinal))
-                {
-                    throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
-                }
-            }
-
-            // Resource type bundle is not supported.within a bundle.
+            // Resource type bundle is not supported within a bundle.
             if (entry.Resource?.TypeName == KnownResourceTypes.Bundle)
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedResourceType, KnownResourceTypes.Bundle));
@@ -178,6 +164,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Check for duplicate resources within a bundle entry is skipped if the request within a entry is not modifying the resource.
             return !(requestMethod == HTTPVerb.GET
                     || requestUrl.Contains('$', StringComparison.InvariantCulture));
+        }
+
+        private static bool IsConditionalRequest(RequestComponent request)
+        {
+            var conditionalRequest = !string.IsNullOrWhiteSpace(request.IfNoneExist);
+
+            if (request.Url.Contains('?', StringComparison.Ordinal))
+            {
+                var queryString = request.Url.Split('?').Last();
+                var queryParameters = queryString.Split('&', StringSplitOptions.RemoveEmptyEntries).Select((string parameter) => parameter.Split('=', 2)[0]);
+
+                if (queryParameters.Any(param => !NonConditionalQueryParameters.Contains(param)))
+                {
+                    conditionalRequest = true;
+                }
+            }
+
+            return conditionalRequest;
         }
     }
 }

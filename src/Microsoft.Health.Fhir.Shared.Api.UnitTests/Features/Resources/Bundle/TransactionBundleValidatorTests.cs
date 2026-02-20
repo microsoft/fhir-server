@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -93,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var expectedMessage = "Bundle contains multiple entries that refers to the same resource '" + requestedUrlInErrorMessage + "'.";
 
             var requestBundle = Samples.GetJsonSample(inputBundle);
-            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => ValidateIfBundleEntryIsUniqueAsync(requestBundle));
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(async () => await ValidateIfBundleEntryIsUniqueAsync(requestBundle));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
@@ -103,8 +105,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var expectedMessage = "Requested operation 'Patient?identifier=123456' is not supported using DELETE.";
 
             var requestBundle = Samples.GetDefaultTransaction();
-            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(async () => await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundle_WhenContainsMetaHistoryEntry_ThenNoExceptionShouldBeThrown()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithMetaHistory");
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
         }
 
         [Fact]
@@ -129,7 +138,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
 
             // Act & Assert - Should not throw
-            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
         }
 
         [Theory]
@@ -158,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(
-                () => _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
+                async () => await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
@@ -187,11 +196,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
 
             // Act & Assert - Should not throw
-            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
         }
 
         [Theory]
-        [InlineData("Patient?")]
         [InlineData("")]
         [InlineData("?test")]
         public async Task GivenATransactionBundle_WhenUrlIsNotWellFormed_ThenRequestNotValidExceptionShouldBeThrown(string invalidUrl)
@@ -204,7 +212,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 Url = invalidUrl,
             };
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None));
         }
 
         private static void ValidateIdDictionaryPopulatedCorrectly(Dictionary<string, (string resourceId, string resourceType)> idDictionary, Action<KeyValuePair<string, (string resourceId, string resourceType)>>[] actions)

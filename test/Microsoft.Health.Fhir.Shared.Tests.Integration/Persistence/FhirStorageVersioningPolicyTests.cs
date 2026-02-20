@@ -4,12 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Build.Utilities;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -135,6 +138,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Pass in an eTag to mock a request where an invalid if-match header is provided
             var exception = await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await Mediator.UpsertResourceAsync(Samples.GetDefaultMedication().UpdateId(randomId), WeakETag.FromVersionId(invalidVersionId)));
             Assert.Equal(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, KnownResourceTypes.Medication, randomId, invalidVersionId), exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenNoVersioningPolicy_WhenUpdatingAResourceWithMetaHistoryTrue_ThenNoHisoritcalVersionIsCreated()
+        {
+            // The FHIR storage fixture configures organization resources to have the "no-version" versioning policy
+            RawResourceElement organizationResource = await Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            Assert.Equal("1", organizationResource.VersionId);
+            ResourceElement newResourceValues = Samples.GetDefaultOrganization().UpdateId(organizationResource.Id);
+
+            //// next line is a must to make test valid, otherwise we do not attempt to save resource
+            var poco = newResourceValues.ToPoco<Organization>();
+            poco.Meta ??= new Meta();
+            poco.Meta.Security ??= new List<Coding>();
+            poco.Meta.Security.Add(new Coding("test", "test"));
+
+            SaveOutcome updateResult = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(newResourceValues, weakETag: WeakETag.FromVersionId(organizationResource.VersionId), metaHistory: true));
+            Assert.Equal("2", updateResult.RawResourceElement.VersionId);
+            ResourceElement historyResults = await Mediator.SearchResourceHistoryAsync(KnownResourceTypes.Organization, updateResult.RawResourceElement.Id);
+
+            // The history bundle only has one entry because resource history is not kept, even when metaHistory is set to true
+            Bundle bundle = historyResults.ToPoco<Bundle>();
+            Assert.Single(bundle.Entry);
+            Assert.Equal(WeakETag.FromVersionId(updateResult.RawResourceElement.VersionId).ToString(), bundle.Entry[0].Response.Etag);
         }
     }
 }

@@ -92,7 +92,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             var jobRecord = new ReindexJobRecord(
-            _searchParameterDefinitionManager.SearchParameterHashMap,
             request.TargetResourceTypes,
             request.TargetSearchParameterTypes,
             searchParameterResourceTypes,

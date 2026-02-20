@@ -9,9 +9,12 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat.Enforcers;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -73,27 +76,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationTokenSource?.Dispose();
         }
 
-        private ReindexOrchestratorJob CreateReindexOrchestratorJob(
-            IFhirRuntimeConfiguration runtimeConfig = null,
-            int searchParameterCacheRefreshIntervalSeconds = 1,
-            int reindexDelayMultiplier = 1)
+        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null, int waitMultiplier = 0)
         {
             runtimeConfig ??= new AzureHealthDataServicesRuntimeConfiguration();
 
             var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
-            {
-                SearchParameterCacheRefreshIntervalSeconds = searchParameterCacheRefreshIntervalSeconds,
-            });
+            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration());
 
             var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfig.Value.Returns(new OperationsConfiguration
-            {
-                Reindex = new ReindexJobConfiguration
-                {
-                    ReindexDelayMultiplier = reindexDelayMultiplier,
-                },
-            });
+            var conf = new OperationsConfiguration();
+            conf.Reindex.CacheRefreshWaitMultiplier = waitMultiplier;
+            operationsConfig.Value.Returns(conf);
 
             return new ReindexOrchestratorJob(
                 _queueClient,
@@ -110,14 +103,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private async Task<JobInfo> CreateReindexJobRecord(
             uint maxResourcePerQuery = 100,
-            IReadOnlyDictionary<string, string> paramHashMap = null,
             List<string> targetResourceTypes = null)
         {
-            paramHashMap ??= new Dictionary<string, string> { { "Patient", "patientHash" } };
             targetResourceTypes ??= new List<string>();
 
             var jobRecord = new ReindexJobRecord(
-                paramHashMap,
                 targetResourceTypes,
                 new List<string>(),
                 new List<string>(),
@@ -272,10 +262,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             // Arrange
             var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.CancelAfter(1); // Cancel after short delay
+            cancellationTokenSource.CancelAfter(10); // Cancel after short delay
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob();
+            var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: 1);
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, cancellationTokenSource.Token);
@@ -296,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     new InvalidOperationException("Database error")));
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -323,8 +313,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(emptyStatus);
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo>());
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>()).Returns(false);
 
             var jobInfo = await CreateReindexJobRecord();
 
@@ -333,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Error = new List<OperationOutcomeIssue> { initialError },
             });
 
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -363,10 +352,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Get all resource types from the model info provider
@@ -396,7 +389,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -460,15 +453,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
 
             // Mock SearchParameterHashMap for RefreshSearchParameterCache
             var paramHashMap = new Dictionary<string, string> { { "Patient", "patientHash" } };
             _searchDefinitionManager.SearchParameterHashMap
                 .Returns(paramHashMap);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Set up search results for various resource types
@@ -505,7 +502,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 rt != "Binary" && rt != "Bundle" && rt != "Parameters").ToList();
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -551,8 +548,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
 
             _searchDefinitionManager.GetSearchParameters("Patient")
                 .Returns(new List<SearchParameterInfo> { searchParam });
@@ -560,7 +561,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameter(searchParam.Url.OriginalString)
                 .Returns(searchParam);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Mock SearchParameterHashMap for RefreshSearchParameterCache
@@ -576,7 +577,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.SearchParameterHashMap
                 .Returns(paramHashMap);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
             .Returns("hash");
 
             // Create a search result with 100 resources
@@ -599,7 +600,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -633,8 +634,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(100, jobDef.ResourceCount.EndResourceSurrogateId);
 
             // Assert - Verify search parameter hash is set
-            Assert.NotNull(jobDef.ResourceTypeSearchParameterHashMap);
-            Assert.Equal("patientHash", jobDef.ResourceTypeSearchParameterHashMap);
+            Assert.NotNull(jobDef.SearchParameterHash);
+            Assert.Equal("patientHash", jobDef.SearchParameterHash);
 
             // Assert - Verify search parameter URLs are included
             Assert.NotNull(jobDef.SearchParameterUrls);
@@ -655,8 +656,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
 
             _searchDefinitionManager.GetSearchParameters("Patient")
                 .Returns(new List<SearchParameterInfo> { searchParam });
@@ -664,7 +669,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameter(searchParam.Url.OriginalString)
                 .Returns(searchParam);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResultWithData = CreateSearchResult(resourceCount: 250);
@@ -706,9 +711,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>(ModelInfoProvider.Instance.GetResourceTypeNames().ToList()));
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(
-                new AzureHealthDataServicesRuntimeConfiguration(),
-                searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
 
             // Act: Fire off execute asynchronously without awaiting
             var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -742,10 +745,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var emptySearchResult = new SearchResult(0, new List<Tuple<string, string>>());
@@ -758,7 +765,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(emptySearchResult);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -787,10 +794,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var emptySearchResult = new SearchResult(0, new List<Tuple<string, string>>());
@@ -803,7 +814,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(emptySearchResult);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -831,7 +842,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(new List<SearchParameterInfo>());
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -891,8 +902,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2, searchParamStatus3 });
 
             // ALL three parameters are in the reindex job
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { patientNameParam, patientBirthdateParam, observationCodeParam });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { patientNameParam, patientBirthdateParam, observationCodeParam }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
             // GetSearchParameters("Patient") returns ONLY the Patient parameters
             // This is the first level of filtering
@@ -908,7 +923,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 10);
@@ -925,7 +940,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -985,8 +1000,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam1, searchParam2 });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { searchParam1, searchParam2 }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
             // Simulate an exception when trying to get search parameters for Patient
             // This triggers the fallback behavior
@@ -1002,7 +1021,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 10);
@@ -1019,7 +1038,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1056,8 +1075,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(emptyStatus);
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo>());
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>()).Returns(false);
 
             var jobInfo = await CreateReindexJobRecord();
 
@@ -1067,22 +1085,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             jobRecord.ResourceCounts.Clear();
             jobInfo.Definition = JsonConvert.SerializeObject(jobRecord);
 
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
             var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
 
-            // Assert - Verify the observable behavior when CheckJobRecordForAnyWork returns false
             Assert.NotNull(jobResult);
+            Assert.Equal(0, jobResult.CreatedJobs);
+            Assert.Equal(0, jobResult.SucceededResources);
             Assert.NotNull(jobResult.Error);
             Assert.True(jobResult.Error.Count > 0, "Should have at least one error");
-
-            // Verify the error indicates no work to process - checking multiple possible error messages
-            var hasNoWorkError = jobResult.Error.Any(e =>
-                e.Diagnostics != null && e.Diagnostics.Contains("Nothing to process", StringComparison.OrdinalIgnoreCase));
-
-            Assert.True(hasNoWorkError, $"Expected error indicating no resources to reindex. Actual errors: {string.Join(", ", jobResult.Error.Select(e => e.Diagnostics))}");
+            var hasNoWorkError = jobResult.Error.Any(e => e.Diagnostics != null && e.Diagnostics.Contains("no search parameters to reindex", StringComparison.OrdinalIgnoreCase));
+            Assert.True(hasNoWorkError, $"Expected error indicating no search parameters to run reindex. Actual errors: {string.Join(", ", jobResult.Error.Select(e => e.Diagnostics))}");
         }
 
         [Fact]
@@ -1126,8 +1141,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2, searchParamStatus3 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { patientNameParam, patientBirthdateParam, observationCodeParam });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { patientNameParam, patientBirthdateParam, observationCodeParam }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
             _searchDefinitionManager.GetSearchParameters("Patient")
                 .Returns(new List<SearchParameterInfo> { patientNameParam, patientBirthdateParam });
@@ -1144,7 +1163,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Return different results for different resource types
@@ -1170,7 +1189,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 50, resourceType: "Observation");
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act - Start the orchestrator
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1319,10 +1338,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2, searchParamStatus3 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { patientParam, observationParam, conditionParam });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { patientParam, observationParam, conditionParam }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Return different counts for different resource types
@@ -1361,7 +1384,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // Arrange
             var jobRecord = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobRecord, _cancellationToken);
@@ -1422,8 +1445,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { patientNameParam, patientBirthdateParam });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { patientNameParam, patientBirthdateParam }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
             _searchDefinitionManager.GetSearchParameters("Patient")
                 .Returns(new List<SearchParameterInfo> { patientNameParam, patientBirthdateParam });
@@ -1436,7 +1463,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Track whether jobs have been marked complete to change mock behavior
@@ -1467,7 +1494,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 100, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act - Start the orchestrator
             var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1584,7 +1611,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     new SystemException("Critical error")));
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1625,8 +1652,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { patientParam, observationParam });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { patientParam, observationParam }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
             _searchDefinitionManager.GetSearchParameters("Patient")
                 .Returns(new List<SearchParameterInfo> { patientParam });
@@ -1634,7 +1665,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameter(patientParam.Url.OriginalString)
                 .Returns(patientParam);
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResultWithData = CreateSearchResult(resourceCount: 250);
@@ -1674,9 +1705,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 });
 
             var jobInfo = await CreateReindexJobRecord(targetResourceTypes: targetResourceTypes);
-            var orchestrator = CreateReindexOrchestratorJob(
-                new AzureHealthDataServicesRuntimeConfiguration(),
-                searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1704,10 +1733,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             // Return zero count for the search result
@@ -1721,7 +1754,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(emptySearchResult);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1766,8 +1799,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParamLowercase, searchParamMixedCase });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { searchParamLowercase, searchParamMixedCase }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
             _searchDefinitionManager.GetSearchParameters("Patient")
                 .Returns(new List<SearchParameterInfo> { searchParamLowercase, searchParamMixedCase });
@@ -1780,7 +1817,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 10);
@@ -1797,7 +1834,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             SetupGetSurrogateIdRangesMock(rangeStart: 1, rangeEnd: 10, resourceType: "Patient");
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1849,8 +1886,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParamLowercase, searchParamMixedCase });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { searchParamLowercase, searchParamMixedCase }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
             _searchDefinitionManager.GetSearchParameters("Patient")
                 .Returns(new List<SearchParameterInfo> { searchParamLowercase, searchParamMixedCase });
@@ -1863,7 +1904,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     _ => throw new SearchParameterNotSupportedException("Not found"),
                 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 0);
@@ -1876,7 +1917,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(searchResult);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1924,10 +1965,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusManager.GetAllSearchParameterStatus(_cancellationToken)
                 .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus1, searchParamStatus2 });
 
-            _searchDefinitionManager.AllSearchParameters
-                .Returns(new List<SearchParameterInfo> { searchParam1, searchParam2 });
+            _searchDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = new[] { searchParam1, searchParam2 }.First(_ => _.Url.OriginalString == (string)callInfo[0]);
+                    return true;
+                });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var emptySearchResult = new SearchResult(0, new List<Tuple<string, string>>());
@@ -1940,7 +1985,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(emptySearchResult);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1994,7 +2039,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchDefinitionManager.GetSearchParameters("Observation")
                 .Returns(new List<SearchParameterInfo> { searchParam1, searchParam2 });
 
-            _searchParameterOperations.GetResourceTypeSearchParameterHashMap(Arg.Any<string>())
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns("hash");
 
             var searchResult = CreateSearchResult(resourceCount: 100);
@@ -2007,7 +2052,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(searchResult);
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(searchParameterCacheRefreshIntervalSeconds: 0);
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);

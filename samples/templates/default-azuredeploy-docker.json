@@ -193,6 +193,20 @@
                 "description": "Tag of the docker image to deploy."
             }
         },
+        "acrPullUserAssignedManagedIdentityResourceId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Full resource ID of the user-assigned managed identity with ACR pull permissions. If empty, no additional ACR pull identity will be assigned."
+            }
+        },
+        "acrPullUserAssignedManagedIdentityClientId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Client ID (App ID) of the user-assigned managed identity with ACR pull permissions. Required when acrPullUserAssignedManagedIdentityResourceId is provided."
+            }
+        },
         "enableExport": {
             "type": "bool",
             "defaultValue": false,
@@ -308,13 +322,14 @@
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "sqlServerDerivedName": "[if(empty(parameters('sqlServerName')),variables('serviceName'),parameters('sqlServerName'))]",
         "managedIdentityName": "[concat(if(empty(parameters('sqlServerName')), variables('serviceName'), parameters('sqlServerName')), '-uami')]",
+        "hasAcrPullUami": "[not(empty(parameters('acrPullUserAssignedManagedIdentityResourceId')))]",
         "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
         "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "isSqlHyperscaleTier": "[equals(parameters('sqlDatabaseComputeTier'),'Hyperscale')]",
-        "sqlSkuCapacity": "[if(variables('isSqlHyperscaleTier'), 2, 200)]",
+        "sqlSkuCapacity": "[if(variables('isSqlHyperscaleTier'), 2, 800)]",
         "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
@@ -359,13 +374,13 @@
             "location": "[resourceGroup().location]",
             "identity": {
                 "type": "SystemAssigned, UserAssigned",
-                "userAssignedIdentities": {
-                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]": {}
-                }
+                "userAssignedIdentities": "[if(variables('hasAcrPullUami'), json(concat('{\"', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '\":{},\"', parameters('acrPullUserAssignedManagedIdentityResourceId'), '\":{}}')), json(concat('{\"', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '\":{}}')))]"
             },
             "properties": {
                 "name": "[parameters('serviceName')]",
                 "siteConfig": {
+                    "acrUseManagedIdentityCreds": "[variables('hasAcrPullUami')]",
+                    "acrUserManagedIdentityID": "[if(variables('hasAcrPullUami'), parameters('acrPullUserAssignedManagedIdentityClientId'), json('null'))]",
                     "appSettings": [
                         {
                             "name": "DOCKER_REGISTRY_SERVER_URL",
@@ -518,6 +533,11 @@
             "properties": {
                 "resource": {
                     "id": "health"
+                },
+                "options": {
+                    "autoscaleSettings": {
+                        "maxThroughput": 10000
+                    }
                 }
             }
         },

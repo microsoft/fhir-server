@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
+        private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
@@ -75,8 +76,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly IFhirDataStore _fhirDataStore;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
-        private static ProcessingFlag<SqlServerSearchService> _reuseQueryPlans;
+        private static CachedParameter<SqlServerSearchService> _reuseQueryPlans;
         internal const string ReuseQueryPlansParameterId = "Search.ReuseQueryPlans.IsEnabled";
+        private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
+        internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
+        internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
+        internal const int LongRunningThresholdMillisecondsDefault = 5000;
+        private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -127,13 +133,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
 
-            if (_reuseQueryPlans == null)
-            {
-                lock (_locker)
-                {
-                    _reuseQueryPlans ??= new ProcessingFlag<SqlServerSearchService>(ReuseQueryPlansParameterId, false, _logger);
-                }
-            }
+            InitializeProcessingFlags(logger);
         }
 
         internal bool StoredProcedureLayerIsEnabled { get; set; } = true;
@@ -143,6 +143,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal static void ResetReuseQueryPlans()
         {
             _reuseQueryPlans.Reset();
+        }
+
+        private static void InitializeProcessingFlags(ILogger<SqlServerSearchService> logger)
+        {
+            lock (_locker)
+            {
+                if (_reuseQueryPlans == null)
+                {
+                    _reuseQueryPlans = new CachedParameter<SqlServerSearchService>(ReuseQueryPlansParameterId, 0, logger);
+                }
+
+                if (_longRunningQueryDetails == null)
+                {
+                    _longRunningQueryDetails = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsParameterId, 1, logger);
+                }
+
+                if (_longRunningThreshold == null)
+                {
+                    _longRunningThreshold = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault, logger);
+                }
+            }
         }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -550,6 +571,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         LogSqlCommand(sqlCommand);
 
                         var st = DateTime.UtcNow;
+                        var executionStopwatch = Stopwatch.StartNew();
+
                         try
                         {
                             using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
@@ -797,6 +820,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             await _sqlRetryService.TryLogEvent($"Search-{id}", "Error", e.ToString(), st, cancellationToken);
                             throw;
                         }
+                        finally
+                        {
+                            executionStopwatch.Stop();
+
+                            if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
+                            {
+                                // Capture the query text BEFORE the connection closes
+                                string queryTextSnapshot = sqlCommand.CommandText;
+                                long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
+                                int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+
+                                // Fire-and-forget: Log query details without blocking the response
+                                _ = Task.Run(async () =>
+                                {
+                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                                    try
+                                    {
+                                        await LogQueryStoreByTextAsync(
+                                            queryTextSnapshot,
+                                            _logger,
+                                            timeoutSnapshot,
+                                            executionTimeSnapshot,
+                                            loggingCts.Token);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                            executionTimeSnapshot,
+                                            queryTextSnapshot);
+                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    }
+                                });
+                            }
+                        }
                     }
                 },
                 _logger,
@@ -929,6 +987,233 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 null,
                 cancellationToken);
             return new SearchResult(resources, null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
+        }
+
+        /// <summary>
+        /// Strips diagnostic preamble lines (SET STATISTICS, DECLARE, OPTION (RECOMPILE), timeout comments)
+        /// and normalizes leading ;WITH to WITH, producing a query body suitable for Query Store text matching.
+        /// </summary>
+        private static string StripQueryPreambleLines(string queryText)
+        {
+            if (string.IsNullOrWhiteSpace(queryText))
+            {
+                return string.Empty;
+            }
+
+            var lines = queryText.Split(NewLineSeparators, StringSplitOptions.None);
+            var sb = new StringBuilder(queryText.Length);
+            bool hasContent = false;
+            int pendingNewlines = 0;
+            foreach (var line in lines)
+            {
+                ReadOnlySpan<char> trimmed = line.AsSpan().Trim();
+
+                // Track blank lines but defer emitting them
+                if (trimmed.IsEmpty)
+                {
+                    if (hasContent)
+                    {
+                        pendingNewlines++;
+                    }
+
+                    continue;
+                }
+
+                // Skip SET STATISTICS lines
+                if (trimmed.StartsWith("SET STATISTICS IO", StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.StartsWith("SET STATISTICS TIME", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // Skip all DECLARE lines
+                if (trimmed.StartsWith("DECLARE ", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // Skip OPTION (RECOMPILE) and execution timeout comments
+                if (trimmed.StartsWith("OPTION (RECOMPILE)", StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.StartsWith("-- execution timeout", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // Emit deferred newlines only when another content line follows
+                if (hasContent)
+                {
+                    // Always emit one newline to separate from previous line,
+                    // plus at most one additional blank line if there were blank lines
+                    sb.Append("\r\n");
+                    if (pendingNewlines > 0)
+                    {
+                        sb.Append("\r\n");
+                    }
+                }
+
+                pendingNewlines = 0;
+
+                // Replace ;WITH with WITH using slicing instead of string.Replace
+                if (trimmed.StartsWith(";WITH", StringComparison.OrdinalIgnoreCase))
+                {
+                    int semiPos = line.IndexOf(';', StringComparison.Ordinal);
+                    sb.Append(line.AsSpan(0, semiPos));
+                    sb.Append(line.AsSpan(semiPos + 1));
+                }
+                else
+                {
+                    sb.Append(line);
+                }
+
+                hasContent = true;
+            }
+
+            return sb.ToString().Trim();
+        }
+
+        /// <summary>
+        /// Splits a normalized query text into search fragments for Query Store lookup.
+        /// Query Store splits multi-statement batches at INSERT INTO @FilteredData boundaries.
+        /// </summary>
+        internal static List<string> SplitIntoSearchFragments(string normalizedQueryText)
+        {
+            const string BatchSeparator = "INSERT INTO @FilteredData";
+            var searchFragments = new List<string>();
+
+            int separatorIndex = normalizedQueryText.IndexOf(BatchSeparator, StringComparison.OrdinalIgnoreCase);
+            if (separatorIndex < 0)
+            {
+                searchFragments.Add(normalizedQueryText);
+            }
+            else
+            {
+                int insertLineEnd = normalizedQueryText.IndexOfAny(['\r', '\n'], separatorIndex);
+                if (insertLineEnd < 0)
+                {
+                    insertLineEnd = normalizedQueryText.Length;
+                }
+
+                string firstSegment = normalizedQueryText[..insertLineEnd].Trim();
+                if (firstSegment.Length > 0)
+                {
+                    searchFragments.Add(firstSegment);
+                }
+
+                string remainingSegment = normalizedQueryText[insertLineEnd..].Trim();
+                if (remainingSegment.Length > 0)
+                {
+                    searchFragments.Add(remainingSegment);
+                }
+            }
+
+            return searchFragments;
+        }
+
+        private async Task LogQueryStoreByTextAsync(
+            string queryText,
+            ILogger logger,
+            int timeoutSeconds,
+            long executionTime,
+            CancellationToken ct)
+        {
+            var normalizedText = StripQueryPreambleLines(queryText);
+            var searchFragments = SplitIntoSearchFragments(normalizedText);
+
+            // Create a NEW connection for this diagnostic query
+            await _sqlRetryService.ExecuteSql(
+                async (connection, cancel, sqlException) =>
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandType = CommandType.Text;
+                    cmd.CommandTimeout = timeoutSeconds;
+
+                    cmd.CommandText = @"
+                DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
+
+                SELECT TOP (5)
+                    rs.count_executions,
+                    rs.avg_duration / 1000.0 AS avg_duration_ms,
+                    rs.avg_cpu_time / 1000.0 AS avg_cpu_ms,
+                    rs.avg_logical_io_reads,
+                    rs.avg_physical_io_reads,
+                    rs.avg_logical_io_writes,
+                    rs.avg_rowcount,
+                    rs.max_duration / 1000.0 AS max_duration_ms,
+                    rs.last_execution_time,
+                    p.plan_id,
+                    q.query_id
+                FROM sys.query_store_query_text qt
+                JOIN sys.query_store_query q ON q.query_text_id = qt.query_text_id
+                JOIN sys.query_store_plan p ON p.query_id = q.query_id
+                JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
+                WHERE @NormalizedText <> ''
+                    AND qt.query_sql_text LIKE '%' + @NormalizedText + '%'
+                    AND rs.last_execution_time >= @CutoffTime
+                ORDER BY rs.last_execution_time DESC;";
+
+                    var sb = new StringBuilder();
+
+                    for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
+                    {
+                        string searchFragment = searchFragments[segmentIndex];
+
+                        if (searchFragment.Length > 4000)
+                        {
+                            searchFragment = searchFragment[..4000];
+                        }
+
+                        cmd.Parameters.Clear();
+                        cmd.Parameters.AddWithValue("@NormalizedText", searchFragment);
+
+                        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+                        int matchIndex = 0;
+                        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                        {
+                            if (await reader.IsDBNullAsync(0, ct).ConfigureAwait(false))
+                            {
+                                continue;
+                            }
+
+                            matchIndex++;
+                            long planId = reader.GetInt64(9);
+                            long queryId = reader.GetInt64(10);
+
+                            sb.AppendLine()
+                              .Append($"  batch[{segmentIndex + 1}] match[{matchIndex}]")
+                              .Append($" execs={reader.GetInt64(0)}")
+                              .Append($" avgDurMs={Convert.ToDouble(reader.GetValue(1)):F1}")
+                              .Append($" avgCpuMs={Convert.ToDouble(reader.GetValue(2)):F1}")
+                              .Append($" avgLReads={Convert.ToDouble(reader.GetValue(3)):F0}")
+                              .Append($" avgPReads={Convert.ToDouble(reader.GetValue(4)):F0}")
+                              .Append($" avgLWrites={Convert.ToDouble(reader.GetValue(5)):F0}")
+                              .Append($" avgRows={Convert.ToDouble(reader.GetValue(6)):F0}")
+                              .Append($" maxDurMs={Convert.ToDouble(reader.GetValue(7)):F1}")
+                              .Append($" lastExec={reader.GetDateTimeOffset(8):o}")
+                              .Append($" queryId={queryId}")
+                              .Append($" planId={planId}");
+                        }
+                    }
+
+                    if (sb.Length > 0)
+                    {
+                        logger.LogWarning(
+                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                            executionTime,
+                            queryText,
+                            sb.ToString());
+                    }
+                    else
+                    {
+                        logger.LogWarning(
+                            "Long-running SQL ({ElapsedMilliseconds}ms). Query={Query} QueryStoreStats={QueryStoreStats}",
+                            executionTime,
+                            queryText,
+                            "No Query Store matches found.");
+                    }
+                },
+                logger,
+                ct,
+                isReadOnly: true);
         }
 
         private static (long StartId, long EndId, int Count) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
@@ -1337,132 +1622,172 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
-                        using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
-                        {
-                            if (clonedSearchOptions.CountOnly)
-                            {
-                                await reader.ReadAsync(cancellationToken);
-                                long count = reader.GetInt64(0);
-                                if (count > int.MaxValue)
-                                {
-                                    _requestContextAccessor.RequestContext.BundleIssues.Add(
-                                        new OperationOutcomeIssue(
-                                            OperationOutcomeConstants.IssueSeverity.Error,
-                                            OperationOutcomeConstants.IssueType.NotSupported,
-                                            string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+                        var executionStopwatch = Stopwatch.StartNew();
 
-                                    _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
-                                    throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                        try
+                        {
+                            using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                            {
+                                if (clonedSearchOptions.CountOnly)
+                                {
+                                    await reader.ReadAsync(cancellationToken);
+                                    long count = reader.GetInt64(0);
+                                    if (count > int.MaxValue)
+                                    {
+                                        _requestContextAccessor.RequestContext.BundleIssues.Add(
+                                            new OperationOutcomeIssue(
+                                                OperationOutcomeConstants.IssueSeverity.Error,
+                                                OperationOutcomeConstants.IssueType.NotSupported,
+                                                string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
+                                        _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
+                                        throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                                    }
+
+                                    searchResult = new SearchResult((int)count, clonedSearchOptions.UnsupportedSearchParams);
+
+                                    // call NextResultAsync to get the info messages
+                                    await reader.NextResultAsync(cancellationToken);
+
+                                    return;
                                 }
 
-                                searchResult = new SearchResult((int)count, clonedSearchOptions.UnsupportedSearchParams);
+                                var moreResults = false;
+                                var moreResultsSurrogateIdCutOff = 0L;
+                                var moreResultsResourceTypeId = 0;
+                                var resources = new List<SearchResultEntry>(sqlSearchOptions.IncludeCount);
+
+                                while (await reader.ReadAsync(cancellationToken))
+                                {
+                                    ReadWrapper(
+                                        reader,
+                                        exportTimeTravel,
+                                        out short resourceTypeId,
+                                        out string resourceId,
+                                        out int version,
+                                        out bool isDeleted,
+                                        out long resourceSurrogateId,
+                                        out string requestMethod,
+                                        out bool isMatch,
+                                        out bool isPartialEntry,
+                                        out bool isRawResourceMetaSet,
+                                        out string searchParameterHash,
+                                        out byte[] rawResourceBytes,
+                                        out bool isInvisible,
+                                        out bool isHistory);
+
+                                    if (isInvisible)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (resources.Count < clonedSearchOptions.IncludeCount)
+                                    {
+                                        var rawResource = new Lazy<string>(() =>
+                                        {
+                                            using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                            var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+
+                                            _logger.LogDebug("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
+
+                                            if (string.IsNullOrEmpty(decompressedResource))
+                                            {
+                                                decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                                _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                            }
+
+                                            return decompressedResource;
+                                        });
+
+                                        resources.Add(new SearchResultEntry(
+                                            new ResourceWrapper(
+                                                resourceId,
+                                                version.ToString(CultureInfo.InvariantCulture),
+                                                _model.GetResourceTypeName(resourceTypeId),
+                                                clonedSearchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                                new ResourceRequest(requestMethod),
+                                                resourceSurrogateId.ToLastUpdated(),
+                                                isDeleted,
+                                                null,
+                                                null,
+                                                null,
+                                                searchParameterHash,
+                                                resourceSurrogateId)
+                                            {
+                                                IsHistory = isHistory,
+                                            },
+                                            SearchEntryMode.Include));
+                                    }
+                                    else
+                                    {
+                                        moreResultsResourceTypeId = resourceTypeId;
+                                        moreResultsSurrogateIdCutOff = resourceSurrogateId - 1;
+                                        moreResults = true;
+                                    }
+                                }
 
                                 // call NextResultAsync to get the info messages
                                 await reader.NextResultAsync(cancellationToken);
 
-                                return;
-                            }
-
-                            var moreResults = false;
-                            var moreResultsSurrogateIdCutOff = 0L;
-                            var moreResultsResourceTypeId = 0;
-                            var resources = new List<SearchResultEntry>(sqlSearchOptions.IncludeCount);
-
-                            while (await reader.ReadAsync(cancellationToken))
-                            {
-                                ReadWrapper(
-                                    reader,
-                                    exportTimeTravel,
-                                    out short resourceTypeId,
-                                    out string resourceId,
-                                    out int version,
-                                    out bool isDeleted,
-                                    out long resourceSurrogateId,
-                                    out string requestMethod,
-                                    out bool isMatch,
-                                    out bool isPartialEntry,
-                                    out bool isRawResourceMetaSet,
-                                    out string searchParameterHash,
-                                    out byte[] rawResourceBytes,
-                                    out bool isInvisible,
-                                    out bool isHistory);
-
-                                if (isInvisible)
+                                IncludesContinuationToken nextIncludesContinuationToken = null;
+                                if (moreResults)
                                 {
-                                    continue;
-                                }
-
-                                if (resources.Count < clonedSearchOptions.IncludeCount)
-                                {
-                                    var rawResource = new Lazy<string>(() =>
-                                    {
-                                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                        var decompressedResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-                                        _logger.LogDebug("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, decompressedResource.Length);
-
-                                        if (string.IsNullOrEmpty(decompressedResource))
+                                    _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
+                                    nextIncludesContinuationToken = new IncludesContinuationToken(
+                                        new object[]
                                         {
-                                            decompressedResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                                        }
-
-                                        return decompressedResource;
-                                    });
-
-                                    resources.Add(new SearchResultEntry(
-                                        new ResourceWrapper(
-                                            resourceId,
-                                            version.ToString(CultureInfo.InvariantCulture),
-                                            _model.GetResourceTypeName(resourceTypeId),
-                                            clonedSearchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                            new ResourceRequest(requestMethod),
-                                            resourceSurrogateId.ToLastUpdated(),
-                                            isDeleted,
-                                            null,
-                                            null,
-                                            null,
-                                            searchParameterHash,
-                                            resourceSurrogateId)
-                                        {
-                                            IsHistory = isHistory,
-                                        },
-                                        SearchEntryMode.Include));
+                                    includesContinuationToken.MatchResourceTypeId,
+                                    includesContinuationToken.MatchResourceSurrogateIdMin,
+                                    includesContinuationToken.MatchResourceSurrogateIdMax,
+                                    moreResultsResourceTypeId,
+                                    moreResultsSurrogateIdCutOff,
+                                    includesContinuationToken.SortQuerySecondPhase,
+                                        });
                                 }
-                                else
-                                {
-                                    moreResultsResourceTypeId = resourceTypeId;
-                                    moreResultsSurrogateIdCutOff = resourceSurrogateId - 1;
-                                    moreResults = true;
-                                }
+
+                                searchResult = new SearchResult(
+                                    resources,
+                                    null,
+                                    originalSort,
+                                    clonedSearchOptions.UnsupportedSearchParams,
+                                    null,
+                                    nextIncludesContinuationToken?.ToJson());
                             }
+                        }
+                        finally
+                        {
+                            executionStopwatch.Stop();
 
-                            // call NextResultAsync to get the info messages
-                            await reader.NextResultAsync(cancellationToken);
-
-                            IncludesContinuationToken nextIncludesContinuationToken = null;
-                            if (moreResults)
+                            if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                             {
-                                _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
-                                nextIncludesContinuationToken = new IncludesContinuationToken(
-                                    new object[]
-                                    {
-                                        includesContinuationToken.MatchResourceTypeId,
-                                        includesContinuationToken.MatchResourceSurrogateIdMin,
-                                        includesContinuationToken.MatchResourceSurrogateIdMax,
-                                        moreResultsResourceTypeId,
-                                        moreResultsSurrogateIdCutOff,
-                                        includesContinuationToken.SortQuerySecondPhase,
-                                    });
-                            }
+                                // Capture the query text BEFORE the connection closes
+                                string queryTextSnapshot = sqlCommand.CommandText;
+                                long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
+                                int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
-                            searchResult = new SearchResult(
-                                resources,
-                                null,
-                                originalSort,
-                                clonedSearchOptions.UnsupportedSearchParams,
-                                null,
-                                nextIncludesContinuationToken?.ToJson());
+                                // Fire-and-forget: Log query details without blocking the response
+                                _ = Task.Run(async () =>
+                                {
+                                    using var loggingCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                                    try
+                                    {
+                                        await LogQueryStoreByTextAsync(
+                                            queryTextSnapshot,
+                                            _logger,
+                                            timeoutSnapshot,
+                                            executionTimeSnapshot,
+                                            loggingCts.Token);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(
+                                            "Long-running SQL ({ElapsedMilliseconds}ms). Query: {QueryText}. Query Store lookup failed for long-running query.",
+                                            executionTimeSnapshot,
+                                            queryTextSnapshot);
+                                        _logger.LogDebug(ex, "Query Store lookup failed for long-running query.");
+                                    }
+                                });
+                            }
                         }
                     }
                 },
@@ -1688,7 +2013,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 foreach (var exp in mult.Expressions.OfType<StringExpression>())
                 {
-                    resourceKeysList.Add(new ResourceKey(resourceType, exp.Value, null));
+                    var key = new ResourceKey(resourceType, exp.Value, null);
+                    if (!resourceKeysList.Contains(key))
+                    {
+                        resourceKeysList.Add(key);
+                    }
                 }
             }
 

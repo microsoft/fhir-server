@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using Polly;
@@ -60,12 +61,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ILogger<ReindexProcessingJob> _logger;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
+        private string _searchParameterHash;
         private const int MaxTimeoutRetries = 3;
 
         /// <summary>
@@ -85,17 +88,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
+            ISearchParameterStatusManager searchParameterStatusManager,
             ILogger<ReindexProcessingJob> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceWrapperFactory = resourceWrapperFactory;
+            _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
             _logger = logger;
         }
@@ -105,7 +111,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             _jobInfo = jobInfo;
-            _reindexProcessingJobDefinition = DeserializeJobDefinition(jobInfo);
+            _reindexProcessingJobDefinition = DeserializeJobDefinition(_jobInfo);
+
+            await CheckDiscrepancies(cancellationToken);
+
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
             // Initialize effective batch size to configured value - may be reduced on OOM
@@ -116,11 +125,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
 
+        private async Task CheckDiscrepancies(CancellationToken cancellationToken)
+        {
+            var resourceType = _reindexProcessingJobDefinition.ResourceType;
+            var searchParameterHash = _searchParameterOperations.GetSearchParameterHash(resourceType);
+            var requestedSearchParameterHash = _reindexProcessingJobDefinition.SearchParameterHash;
+            var isBad = requestedSearchParameterHash != searchParameterHash;
+            var msg = $"ResourceType={resourceType} SearchParameterHash: Requested={requestedSearchParameterHash} {(isBad ? "!=" : "=")} Current={searchParameterHash}";
+            if (isBad)
+            {
+                _logger.LogJobWarning(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+            else
+            {
+                _logger.LogJobInformation(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+
+            // use the same value as used in resource writes
+            _searchParameterHash = searchParameterHash;
+
+            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
+            msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
+            //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
+            //// Cannot just refresh here because we might be missing resources updated via API.
+            if (isBad)
+            {
+                _logger.LogJobWarning(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+            else // normal
+            {
+                _logger.LogJobInformation(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+            }
+        }
+
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken, int? maxBatchSize = null)
         {
-            string searchParameterHash = _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap;
-            searchParameterHash ??= string.Empty;
-
             var queryParametersList = new List<Tuple<string, string>>()
             {
                 Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
@@ -172,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, false, cancellationToken, true);
+                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHash, false, cancellationToken, true);
                 }
                 catch (OutOfMemoryException)
                 {
@@ -216,11 +262,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition.SearchParameterUrls;
 
-                var dictionary = new Dictionary<string, string>
-                {
-                    { _reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap },
-                };
-
                 // Determine if we're using SQL Server path (surrogate ID range) or Cosmos DB path (continuation tokens)
                 bool useSurrogateIdRange = _reindexProcessingJobDefinition.ResourceCount != null
                     && _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId > 0
@@ -230,12 +271,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // SQL Server path: Fetch resources in memory-safe batches using surrogate ID ranges
                     // to prevent OutOfMemoryException when processing large batches with large resources
-                    await ProcessWithSurrogateIdBatchingAsync(dictionary, cancellationToken);
+                    await ProcessWithSurrogateIdBatchingAsync(_searchParameterHash, cancellationToken);
                 }
                 else
                 {
                     // Cosmos DB path: Use continuation tokens for pagination
-                    await ProcessWithContinuationTokensAsync(dictionary, cancellationToken);
+                    await ProcessWithContinuationTokensAsync(_searchParameterHash, cancellationToken);
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
@@ -298,7 +339,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Processes resources using surrogate ID ranges for SQL Server.
         /// Uses the configured batch size by default, but switches to smaller batches if OutOfMemoryException occurs.
         /// </summary>
-        private async Task ProcessWithSurrogateIdBatchingAsync(Dictionary<string, string> dictionary, CancellationToken cancellationToken)
+        private async Task ProcessWithSurrogateIdBatchingAsync(string searchParameterHash, CancellationToken cancellationToken)
         {
             long currentStartId = _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId;
             long globalEndId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
@@ -361,7 +402,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // Process the current batch
                 await _timeoutRetries.ExecuteAsync(
-                    async () => await ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                    async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
 
                 _reindexProcessingJobResult.SucceededResourceCount += batchResourceCount;
                 _jobInfo.Data = _reindexProcessingJobResult.SucceededResourceCount;
@@ -391,7 +432,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Processes resources using continuation tokens for Cosmos DB.
         /// Uses the configured batch size by default, but switches to smaller batches if OutOfMemoryException occurs.
         /// </summary>
-        private async Task ProcessWithContinuationTokensAsync(Dictionary<string, string> dictionary, CancellationToken cancellationToken)
+        private async Task ProcessWithContinuationTokensAsync(string searchParameterHash, CancellationToken cancellationToken)
         {
             long totalResourceCount = 0;
 
@@ -437,7 +478,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 await _timeoutRetries.ExecuteAsync(
-                    async () => await ProcessSearchResultsAsync(result, dictionary, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                    async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
 
                 _reindexProcessingJobResult.SucceededResourceCount += batchResourceCount;
                 totalResourceCount += batchResourceCount;
@@ -514,12 +555,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Then compare those to the old values to determine if an update is needed
         /// Needed updates will be committed in a batch
         /// </summary>
-        /// <param name="results">The resource batch to process</param>
-        /// <param name="resourceTypeSearchParameterHashMap">Map of resource type to current hash value of the search parameters for that resource type</param>
-        /// <param name="batchSize">The number of resources to reindex at a time (e.g. 1000)</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>A Task</returns>
-        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, int batchSize, CancellationToken cancellationToken)
+        public async Task ProcessSearchResultsAsync(SearchResult results, string searchParameterHash, int batchSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(results, nameof(results));
 
@@ -533,12 +569,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             foreach (var entry in results.Results)
             {
-                if (!resourceTypeSearchParameterHashMap.TryGetValue(entry.Resource.ResourceTypeName, out string searchParamHash))
-                {
-                    searchParamHash = string.Empty;
-                }
-
-                entry.Resource.SearchParameterHash = searchParamHash;
+                entry.Resource.SearchParameterHash = searchParameterHash;
                 _resourceWrapperFactory.Update(entry.Resource);
                 updateSearchIndices.Add(entry.Resource);
 
@@ -571,6 +602,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            using IScoped<IFhirDataStore> store = _fhirDataStoreFactory();
+            await store.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
         private static ReindexProcessingJobDefinition DeserializeJobDefinition(JobInfo jobInfo)

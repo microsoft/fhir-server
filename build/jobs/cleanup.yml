@@ -10,6 +10,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: InlineScript
       Inline: |
         $deploymentEnvName = "$(DeploymentEnvironmentName)"

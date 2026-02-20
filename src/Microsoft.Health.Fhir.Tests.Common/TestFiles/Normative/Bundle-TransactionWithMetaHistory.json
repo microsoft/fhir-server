@@ -1,0 +1,36 @@
+﻿{
+    "resourceType": "Bundle",
+    "type": "transaction",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "MedicationRequest",
+                "id": "metaHistoryTest",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "http://example.org/fhir/tags",
+                            "code": "metaHistoryTestTag"
+                        }
+                    ]
+                },
+                "status": "active",
+                "intent": "plan",
+                "medicationCodeableConcept": {
+                    "coding": [
+                        {
+                            "code": "test"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient1"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationRequest/metaHistoryTest?_meta-history=false"
+            }
+        }
+    ]
+}
