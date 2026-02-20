@@ -62,6 +62,7 @@
         "http://hl7.org/fhir/SearchParameter/Patient-deceased",
         "http://hl7.org/fhir/SearchParameter/Person-deceased",
         "http://hl7.org/fhir/SearchParameter/Practitioner-deceased",
-        "http://hl7.org/fhir/SearchParameter/ServiceRequest-occurrence"
+        "http://hl7.org/fhir/SearchParameter/ServiceRequest-occurrence",
+        "https://azurehealthcareapis.com/data-extensions/expiry-date"
     ]
 }

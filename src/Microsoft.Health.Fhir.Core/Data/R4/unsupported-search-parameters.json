@@ -92,6 +92,7 @@
         "http://hl7.org/fhir/SearchParameter/Observation-value-quantity",
         "http://hl7.org/fhir/SearchParameter/Patient-deceased",
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-definition",
-        "http://hl7.org/fhir/SearchParameter/ServiceRequest-occurrence"
+        "http://hl7.org/fhir/SearchParameter/ServiceRequest-occurrence",
+        "https://azurehealthcareapis.com/data-extensions/expiry-date"
     ]
 }
