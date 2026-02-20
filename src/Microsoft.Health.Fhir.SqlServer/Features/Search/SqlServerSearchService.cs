@@ -1231,21 +1231,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
         }
 
-        private static string ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
-        {
-            return sqlDataReader.GetString(1);
-        }
-
-        private static (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) ReaderGetSurrogateIdsAndCountForResourceType(SqlDataReader sqlDataReader)
-        {
-            return (sqlDataReader.GetInt64(0), sqlDataReader.GetInt64(1), sqlDataReader.GetInt32(2));
-        }
-
         public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
             LogSqlCommand(sqlCommand);
-            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetUsedResourceTypes, _logger, cancellationToken);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, reader => { return reader.GetString(1); }, _logger, cancellationToken);
         }
 
         /// <summary>
