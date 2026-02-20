@@ -166,18 +166,5 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             Assert.Equal("(Param c (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId') (FieldEqual [2].Number 8) (Or (StringEquals [0].ReferenceResourceType 'Patient') (StringEquals [0].ReferenceResourceType 'Practitioner') (MissingField [0].ReferenceResourceType)) (StringEquals [1].ReferenceResourceType 'Organization')))", outputExpression.ToString());
         }
-
-        [Fact]
-        public void GivenAlreadyRewrittenMultiTargetExpression_WhenRewrittenAgain_DoesNotChangeOrThrow()
-        {
-            SearchParameterExpression inputExpression = Expression.SearchParameter(
-                ReferenceSearchParameterWithTwoTargetTypes,
-                Expression.StringEquals(FieldName.ReferenceResourceId, null, "patientId", false));
-
-            Expression firstRewrite = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
-            Expression secondRewrite = firstRewrite.AcceptVisitor(UntypedReferenceRewriter.Instance);
-
-            Assert.Same(firstRewrite, secondRewrite);
-        }
     }
 }

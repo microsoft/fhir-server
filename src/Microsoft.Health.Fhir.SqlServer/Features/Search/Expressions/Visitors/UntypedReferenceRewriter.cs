@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             public override int VisitMultiary(MultiaryExpression expression, object context)
             {
-                if (expression.MultiaryOperation != MultiaryOperator.And && expression.MultiaryOperation != MultiaryOperator.Or)
+                if (expression.MultiaryOperation != MultiaryOperator.And)
                 {
                     throw new InvalidOperationException($"Unexpected {nameof(MultiaryExpression)}.{expression.MultiaryOperation}");
                 }
