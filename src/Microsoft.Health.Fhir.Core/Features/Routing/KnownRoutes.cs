@@ -76,6 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         public const string Metadata = "metadata";
         public const string Versions = "$versions";
+        public const string Stats = "$stats";
 
         public const string HealthCheck = "/health/check";
         public const string CustomError = "/CustomError";

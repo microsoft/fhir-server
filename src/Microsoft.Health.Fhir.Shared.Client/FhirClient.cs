@@ -704,7 +704,7 @@ namespace Microsoft.Health.Fhir.Client
             }
         }
 
-        private async Task<FhirResponse<T>> CreateResponseAsync<T>(HttpResponseMessage response)
+        public async Task<FhirResponse<T>> CreateResponseAsync<T>(HttpResponseMessage response)
             where T : Resource
         {
             string content = await response.Content.ReadAsStringAsync();
