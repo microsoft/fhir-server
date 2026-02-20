@@ -156,9 +156,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Till)]
         public PartialDateTime Till { get; private set; }
 
-        [JsonProperty(JobRecordProperties.CancelRequested)]
-        public bool CancelRequested { get; private set; }
-
         [JsonProperty(JobRecordProperties.GroupId)]
         public string GroupId { get; internal set; }
 

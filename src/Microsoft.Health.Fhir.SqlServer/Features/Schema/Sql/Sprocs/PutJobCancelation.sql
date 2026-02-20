@@ -56,10 +56,10 @@ BEGIN TRY
         AND Status = 1
     SET @Rows += @@rowcount
 
-    IF @QueueType = 1 -- Only for export, we want to set the cancel requested as True for already completed or Failed Orchestrator job
+    IF @QueueType = 1 -- Only for export, we want to set the status as CancelledByUser on Failed or Completed Orchestrator job as per this IG - https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
     BEGIN
         UPDATE dbo.JobQueue
-          SET status = 6 -- CancelRequestedForCompletedOrFailed
+          SET status = 6 -- CancelledByUser
           WHERE QueueType = @QueueType
             AND GroupId = @GroupId
             AND JobId = @GroupId

@@ -70,24 +70,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
-                    if (outcome.JobRecord.GroupId != request.JobId)
-                    {
-                        throw new OperationFailedException(Core.Resources.CancellationOnlyOnMainJob, HttpStatusCode.BadRequest);
-                    }
+                    // By Orchestrator job Id-
+                    // If Orchestrator job is in Cancelled status or cancel is requested, we throw 404 in above GetExportJobByIdAsync method
+                    // If Orchestrator job is in CancelledByUser status, we throw 404 in above GetExportJobByIdAsync method
+                    // If Orchestrator job is in Completed status
+                    //      Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+                    //      Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+                    //      Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
 
-                    // May be not needed as already convered in GetExportJobByIdAsync.
-                    // If the orchestrator job is already canceled (cancelled by user when the job status was Created or Running), we will return 404
-                    if (outcome.JobRecord.Status == OperationStatus.Canceled || outcome.JobRecord.CancelRequested)
-                    {
-                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
-                    }
-                    else if (outcome.JobRecord.Status != OperationStatus.Completed && outcome.JobRecord.Status != OperationStatus.Failed)
-                    {
-                        // We do not want to overwrite the status Completed and Failed status
-                        // Try to cancel the job. (in case of Running)
-                        outcome.JobRecord.Status = OperationStatus.Canceled;
-                    }
+                    // By Processing job Id-
+                    // If Orchestrator job is in Cancelled status or cancel is requested, we throw 404 in above GetExportJobByIdAsync method
+                    // If Orchestrator job is in CancelledByUser status, we throw 404 in above GetExportJobByIdAsync method
+                    // If Processing job is in Completed status
+                    //      Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+                    //      Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+                    //      Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+                    // If Processing job is in Running status > return Running > Set to Cancel here (SP will set the actual status to Cancel and set the Orchestrator status to CancelByUser)
+                    // If Processing job is in Failed status > return Failed > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Failed)
+                    // If Processing job is in Cancelled status > return Cancelled > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Cancelled)
+                    // If Processing job is in Created status > return Created > Set to Cancel here (SP will set the actual status to Cancel and set the Orchestrator status to CancelByUser)
 
+                    // Try to cancel the job.
+                    outcome.JobRecord.Status = OperationStatus.Canceled;
                     outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
                     outcome.JobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UserRequestedCancellation, HttpStatusCode.NoContent);

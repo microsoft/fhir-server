@@ -622,9 +622,6 @@
   <data name="BulkUpdateOperationCompleted" xml:space="preserve">
     <value>Bulk update operation has already completed</value>
   </data>
-  <data name="CancellationOnlyOnMainJob" xml:space="preserve">
-    <value>Cancellation is only allowed on the main job.</value>
-  </data>
   <data name="ExportOperationCompleted" xml:space="preserve">
     <value>Export operation has already completed</value>
   </data>

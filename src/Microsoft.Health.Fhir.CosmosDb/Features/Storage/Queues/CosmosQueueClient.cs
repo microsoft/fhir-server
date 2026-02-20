@@ -427,7 +427,8 @@ public class CosmosQueueClient : IQueueClient
                          && item.JobId == groupId.ToString()
                          && (item.Status == (byte)JobStatus.Completed || item.Status == (byte)JobStatus.Failed))
                 {
-                    // Only for export, we want to set the cancel requested as True for already completed or Failed Orchestrator job
+                    // We are following this IG - https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+                    // Only for export, we want to set the status as CancelledByUser on Failed or Completed Orchestrator job
                     item.Status = (byte)JobStatus.CancelledByUser;
                     saveRequired = true;
                 }
