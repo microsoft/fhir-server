@@ -676,6 +676,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observationResult = (Observation)searchResults.Resource.Entry[0].Resource;
             Assert.Null(observationResult.Subject.Reference);
             Assert.Equal("Referenced resource deleted", observationResult.Subject.Display);
+            Assert.Equal("2", observationResult.Meta.VersionId);
 #endif
         }
 

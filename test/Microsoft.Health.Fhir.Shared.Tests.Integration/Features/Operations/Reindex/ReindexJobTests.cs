@@ -1117,6 +1117,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             patientResource.Name = new List<HumanName> { new() { Family = patientName } };
             patientResource.Id = patientId;
             patientResource.VersionId = "1";
+            patientResource.Meta ??= new Meta();
+            patientResource.Meta.LastUpdated = DateTimeOffset.UtcNow;
 
             var resourceElement = patientResource.ToResourceElement();
             var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
@@ -1135,6 +1137,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             observationResource.Id = observationId;
             observationResource.VersionId = "1";
+            observationResource.Meta ??= new Meta();
+            observationResource.Meta.LastUpdated = DateTimeOffset.UtcNow;
 
             var resourceElement = observationResource.ToResourceElement();
             var rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
@@ -1150,6 +1154,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ResourceWrapper CreateSearchParamResourceWrapper(SearchParameter searchParam, bool deleted = false)
         {
             searchParam.Id = "searchParam1";
+            searchParam.Meta ??= new Meta();
+            searchParam.Meta.LastUpdated = DateTimeOffset.UtcNow;
             var resourceElement = searchParam.ToResourceElement();
             var rawResource = new RawResource(searchParam.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Post);

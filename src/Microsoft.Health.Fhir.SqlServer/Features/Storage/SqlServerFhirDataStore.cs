@@ -39,6 +39,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
+using Microsoft.SqlServer.Management.XEvent;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -942,6 +943,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void SyncVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
         {
             var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
+
+            if (!resourceWrapper.RawResource.Data.Contains($"\"lastUpdated\":\"{date}\"", StringComparison.Ordinal))
+            {
+                _logger.LogWarning("Cannot parse lastUpdated value from input raw resource when trying to sync lastUpdated in meta.");
+                throw new ArgumentException("Cannot parse lastUpdated value from input raw resource when trying to sync lastUpdated in meta.");
+            }
+
             string rawResourceData;
             if (resourceWrapper.Version == InitialVersion) // version is already correct
             {
@@ -951,9 +959,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else
             {
                 var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
-                rawResourceData = resourceWrapper.RawResource.Data
-                                    .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
-                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+
+                if (!resourceWrapper.RawResource.Data.Contains($"\"versionId\":\"{version}\"", StringComparison.Ordinal))
+                {
+                    _logger.LogWarning("Cannot parse versionId value from input raw resource when trying to sync version in meta. Inserting version based on lastUpdated location.");
+                    rawResourceData = resourceWrapper.RawResource.Data
+                                        .Replace($"\"lastUpdated\":\"{date}\"", $"\"versionId\":\"{resourceWrapper.Version}\",\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+                }
+                else
+                {
+                    rawResourceData = resourceWrapper.RawResource.Data
+                                        .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
+                                        .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+                }
             }
 
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
