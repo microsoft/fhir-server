@@ -1121,6 +1121,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         private async Task<UpsertOutcome> UpsertResource(Resource resource, string httpMethod = "PUT")
         {
+            resource.Meta ??= new Meta();
+            resource.Meta.LastUpdated = DateTimeOffset.UtcNow;
+
             ResourceElement resourceElement = resource.ToResourceElement();
 
             var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);

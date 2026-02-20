@@ -59,14 +59,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // For local development we will use the Azure Storage Emulator for export.
             configuration["FhirServer:Operations:Export:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // enable reindex for testing
+            // Enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
 
-            // enable import for testing
+            // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // enable rebuild indexes for testing
+            // Enable rebuild indexes for testing
             configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
             configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";
 
@@ -74,15 +74,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var validateConfiguration = new ValidateOperationConfiguration();
             configuration["FhirServer:Operations:Validate:CacheDurationInSeconds"] = validateConfiguration.CacheDurationInSeconds.ToString();
             configuration["FhirServer:Operations:Validate:MaxExpansionSize"] = validateConfiguration.MaxExpansionSize.ToString();
-            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = validateConfiguration.BackgroundProfileStatusCheckIntervalInSeconds.ToString();
-            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = validateConfiguration.BackgroundProfileStatusDelayedStartInSeconds.ToString();
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = "5"; // Lower interval for testing purposes.
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = "5"; // Lower interval for testing purposes.
 
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
             configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
 
+            // Core Features settings
             configuration["FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds"] = "1";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "5";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
@@ -146,8 +149,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UseStartup(startupType)
                 .ConfigureServices(serviceCollection =>
                 {
-                    // ensure that HttpClients
-                    // use a message handler for the test server
+                    // Ensure that HttpClients
+                    // Use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
                         .ConfigurePrimaryHttpMessageHandler(() => new DispatchingHandler(Server.CreateHandler(), inProcEndpoint))
