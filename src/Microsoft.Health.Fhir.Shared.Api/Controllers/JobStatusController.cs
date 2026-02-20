@@ -8,6 +8,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             var response = await _mediator.Send(new GetAllJobStatusRequest(), HttpContext.RequestAborted);
 
-            return new JsonResult(response.Jobs.ToJobStatusResult());
+            return FhirResult.Create(response.Jobs.ToJobStatusResult());
         }
     }
 }

@@ -5,7 +5,10 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.GetJobStatus;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources
 {
@@ -15,27 +18,73 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
     public static class JobStatusResponseExtensions
     {
         /// <summary>
-        /// Converts a list of JobStatusInfo to a result object for JSON serialization.
+        /// Converts a list of JobStatusInfo to a FHIR Parameters resource.
         /// </summary>
         /// <param name="jobs">The list of job status information.</param>
-        /// <returns>An object suitable for JSON serialization.</returns>
-        public static object ToJobStatusResult(this IReadOnlyList<JobStatusInfo> jobs)
+        /// <returns>A FHIR Parameters resource as a ResourceElement</returns>
+        public static ResourceElement ToJobStatusResult(this IReadOnlyList<JobStatusInfo> jobs)
         {
-            return new
+            var parameters = new Parameters();
+
+            foreach (var job in jobs)
             {
-                jobs = jobs.Select(j => new
+                var part = new Parameters.ParameterComponent
                 {
-                    jobId = j.JobId,
-                    groupId = j.GroupId,
-                    jobType = j.JobType,
-                    queueType = j.QueueType.ToString(),
-                    status = j.Status.ToString(),
-                    contentLocation = j.ContentLocation?.ToString(),
-                    createDate = j.CreateDate,
-                    startDate = j.StartDate,
-                    endDate = j.EndDate,
-                }).ToList(),
-            };
+                    Name = job.JobType + " " + job.JobId,
+                };
+
+                part.Part.Add(new Parameters.ParameterComponent
+                {
+                    Name = "id",
+                    Value = new Integer64(job.GroupId),
+                });
+
+                part.Part.Add(new Parameters.ParameterComponent
+                {
+                    Name = "type",
+                    Value = new FhirString(job.JobType),
+                });
+
+                part.Part.Add(new Parameters.ParameterComponent
+                {
+                    Name = "uri",
+                    Value = new FhirUri(job.ContentLocation),
+                });
+
+                part.Part.Add(new Parameters.ParameterComponent
+                {
+                    Name = "status",
+                    Value = new FhirString(job.Status.ToString()),
+                });
+
+                part.Part.Add(new Parameters.ParameterComponent
+                {
+                    Name = "createTime",
+                    Value = new FhirDateTime(job.CreateDate),
+                });
+
+                if (job.StartDate != null)
+                {
+                    part.Part.Add(new Parameters.ParameterComponent
+                    {
+                        Name = "startTime",
+                        Value = new FhirDateTime((System.DateTimeOffset)job.StartDate),
+                    });
+                }
+
+                if (job.EndDate != null)
+                {
+                    part.Part.Add(new Parameters.ParameterComponent
+                    {
+                        Name = "endTime",
+                        Value = new FhirDateTime((System.DateTimeOffset)job.EndDate),
+                    });
+                }
+
+                parameters.Parameter.Add(part);
+            }
+
+            return parameters.ToResourceElement();
         }
     }
 }
