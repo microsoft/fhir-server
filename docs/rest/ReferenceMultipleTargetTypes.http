@@ -1,0 +1,143 @@
+# Tests for PR 5285: Handle multiple target types for ReferenceSearchParam
+#
+# The UntypedReferenceRewriter now handles reference search parameters with
+# multiple target types. Previously, only single-target-type references were
+# rewritten. Now, multi-target references get an OR expression over all
+# valid target types (plus IS NULL for untyped string references).
+#
+# Key search parameters exercised:
+#   - Encounter.subject targets: Patient, Group
+#   - Observation.subject targets: Patient, Group, Device, Location
+#   - Condition.asserter targets: Patient, Practitioner, PractitionerRole, RelatedPerson
+
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Setup test data (transaction bundle)
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/ReferenceMultipleTargetTypesBundle.json
+
+###############################################################################
+# TEST 1: Untyped reference search with multiple target types
+# Encounter.subject targets Patient and Group.
+# BEFORE this PR: type filter was NOT added for multi-target params.
+# AFTER this PR: an OR filter over (Patient, Group, NULL) is added.
+###############################################################################
+
+### 1a. Untyped - should find encounter with Patient subject
+GET {{hostname}}/Encounter?subject=ref-test-patient1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 1b. Untyped - should find encounter with Group subject
+GET {{hostname}}/Encounter?subject=ref-test-group1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###############################################################################
+# TEST 2: Typed reference search (regression - should work same as before)
+###############################################################################
+
+### 2a. Typed - Patient subject
+GET {{hostname}}/Encounter?subject=Patient/ref-test-patient1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 2b. Typed - Group subject
+GET {{hostname}}/Encounter?subject=Group/ref-test-group1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 2c. Typed - wrong type, should return empty
+GET {{hostname}}/Encounter?subject=Device/ref-test-device1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###############################################################################
+# TEST 3: Observation.subject (4 target types: Patient, Group, Device, Location)
+# Exercises wider OR expressions.
+###############################################################################
+
+### 3a. Untyped - Patient subject
+GET {{hostname}}/Observation?subject=ref-test-patient1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 3b. Untyped - Device subject
+GET {{hostname}}/Observation?subject=ref-test-device1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 3c. Untyped - Location subject
+GET {{hostname}}/Observation?subject=ref-test-location1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 3d. Typed - only Device observations
+GET {{hostname}}/Observation?subject=Device/ref-test-device1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###############################################################################
+# TEST 4: Comma-separated (OR) references mixing typed and untyped
+# Exercises top-level OR handling + per-operand rewriting.
+###############################################################################
+
+### 4a. Two untyped - should find both encounters
+GET {{hostname}}/Encounter?subject=ref-test-patient1,ref-test-group1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 4b. Mixed typed and untyped - should find both encounters
+GET {{hostname}}/Encounter?subject=Patient/ref-test-patient1,ref-test-group1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 4c. Multiple untyped across 4 target types
+GET {{hostname}}/Observation?subject=ref-test-patient1,ref-test-device1,ref-test-location1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###############################################################################
+# TEST 5: Chained search through multi-target reference
+###############################################################################
+
+### 5a. Encounter where subject is a Patient named "RefTestPatient"
+GET {{hostname}}/Encounter?subject:Patient.family=RefTestPatient
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 5b. Encounter where subject is a Group named "Test Group Alpha"
+GET {{hostname}}/Encounter?subject:Group.name=Test Group Alpha
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###############################################################################
+# TEST 6: _include on multi-target reference
+###############################################################################
+
+### 6a. Include subject on Encounter (should pull in Patient and Group)
+GET {{hostname}}/Encounter?_id=ref-test-encounter-patient,ref-test-encounter-group&_include=Encounter:subject
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 6b. Include subject on Observation (should pull in Patient, Device, Location)
+GET {{hostname}}/Observation?_id=ref-test-obs-patient,ref-test-obs-device,ref-test-obs-location&_include=Observation:subject
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###############################################################################
+# TEST 7: Condition.asserter (4 target types)
+###############################################################################
+
+### 7a. Untyped - matches Practitioner asserter
+GET {{hostname}}/Condition?asserter=ref-test-practitioner1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 7b. Untyped - matches Patient as asserter
+GET {{hostname}}/Condition?asserter=ref-test-patient1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 7c. Typed asserter
+GET {{hostname}}/Condition?asserter=Practitioner/ref-test-practitioner1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 7d. Comma-separated asserter
+GET {{hostname}}/Condition?asserter=ref-test-practitioner1,ref-test-patient1
+Authorization: Bearer {{bearer.response.body.access_token}}

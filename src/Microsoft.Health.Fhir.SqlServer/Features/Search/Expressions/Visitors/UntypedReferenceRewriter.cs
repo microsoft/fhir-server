@@ -187,13 +187,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     ? 1 << (expression.ComponentIndex + 1 ?? 0)
                     : 0;
             }
-
-            public override int VisitMissingField(MissingFieldExpression expression, object context)
-            {
-                return expression.FieldName == FieldName.ReferenceResourceType
-                    ? 1 << (expression.ComponentIndex + 1 ?? 0)
-                    : 0;
-            }
         }
     }
 }
