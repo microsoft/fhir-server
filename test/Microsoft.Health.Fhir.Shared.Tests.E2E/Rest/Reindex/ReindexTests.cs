@@ -110,15 +110,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 // This ensures Persons are fully created before SupplyDeliveries start
                 var personResources = await SetupTestDataAsync("Person", personCount, randomSuffix, CreatePersonResourceAsync);
                 testResources.AddRange(personResources);
-
-                // CRITICAL: Verify we got what we expected
-                Assert.True(personResources.Count == personCount, $"Failed to create sufficient Person resources. Expected: {personCount}, Got: {personResources.Count}");
+                Assert.True(personResources.Count == personCount, $"Failed to create sufficient Person resources. Expected={personCount} Actual={personResources.Count}");
 
                 var supplyDeliveryResources = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, randomSuffix, CreateSupplyDeliveryResourceAsync);
                 testResources.AddRange(supplyDeliveryResources);
-
-                // CRITICAL: Verify we got what we expected
-                Assert.True(supplyDeliveryResources.Count == supplyDeliveryCount, $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {supplyDeliveryResources.Count}");
+                Assert.True(supplyDeliveryResources.Count == supplyDeliveryCount, $"Failed to create sufficient SupplyDelivery resources. Expected={supplyDeliveryCount} Actual={supplyDeliveryResources.Count}");
 
                 Debug.WriteLine($"Test data setup complete - SupplyDelivery: {supplyDeliveryCount}, Person: {personCount}");
 
@@ -151,6 +147,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(10 * storageMultiplier) },
                     },
                 };
+
+                await SearchCreatedResources("Person", personCount);
+                await SearchCreatedResources("SupplyDelivery", supplyDeliveryCount);
 
                 value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
 
@@ -1192,6 +1191,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             // Return the ACTUAL count of resources we created and have IDs for
             return createdResources;
+        }
+
+        private async Task SearchCreatedResources(string resourceType, int expectedCount)
+        {
+            var response = await _fixture.TestFhirClient.SearchAsync($"{resourceType}?_summary=count");
+            Assert.True(response.Resource.Total >= expectedCount, $"Expected>={expectedCount} Actual={response.Resource.Total}");
         }
 
         private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources)
