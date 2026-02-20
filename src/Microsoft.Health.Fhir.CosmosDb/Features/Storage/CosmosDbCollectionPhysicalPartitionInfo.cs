@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return 0; // will not reach this
         }
 
-        private static bool IsResourceToken(string key) => key.StartsWith("type=resource&", StringComparison.InvariantCulture);
+        public static bool IsResourceToken(string key) => !string.IsNullOrEmpty(key) && key.StartsWith("type=resource&", StringComparison.InvariantCulture);
 
         public async ValueTask DisposeAsync()
         {
