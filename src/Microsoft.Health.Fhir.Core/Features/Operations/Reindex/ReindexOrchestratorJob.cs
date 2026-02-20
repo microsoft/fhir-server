@@ -51,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
-        private IReadOnlyCollection<ResourceSearchParameterStatus> _initialSearchParamStatusCollection;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
@@ -208,13 +207,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
-            List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
-            _initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            var reindexStatuses = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
+            var allSearchParameterStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
             // Get all URIs that have at least one entry with a valid status
             // This handles case-variant duplicates naturally
-            var validUris = _initialSearchParamStatusCollection
-                .Where(s => validStatus.Contains(s.Status))
+            var validUris = allSearchParameterStatuses
+                .Where(s => reindexStatuses.Contains(s.Status))
                 .Select(s => s.Uri.ToString())
                 .ToHashSet();
 
@@ -392,29 +391,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private void AddErrorResult(string severity, string issueType, string message)
         {
-            var errorList = new List<OperationOutcomeIssue>
-            {
-                new OperationOutcomeIssue(
-                    severity,
-                    issueType,
-                    message),
-            };
+            var errorList = new[] { new OperationOutcomeIssue(severity, issueType, message) }.ToList();
             errorList.AddRange(_currentResult.Error);
             _currentResult.Error = errorList;
         }
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(IList<string> usedResourceTypes, CancellationToken cancellationToken)
         {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                throw new OperationCanceledException("Reindex operation cancelled by customer.");
-            }
-
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
 
             foreach (var resourceType in usedResourceTypes)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException("Reindex operation cancelled by customer.");
+                }
+
                 // Get search parameters that are valid for this specific resource type
                 var validSearchParameterUrls = GetValidSearchParameterUrlsForResourceType(resourceType);
                 if (!validSearchParameterUrls.Any())
