@@ -1235,14 +1235,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             Assert.True(total == successes, $"total={total} == successes={successes}");
         }
 
-        private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources)
-        {
-            foreach (var resource in resources.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e6)))
-            {
-                await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString()));
-            }
-        }
-
         private async Task CheckCounts(Uri jobUri, long expected, bool lessThan)
         {
             var response = await _fixture.TestFhirClient.HttpClient.GetAsync(jobUri, CancellationToken.None);
