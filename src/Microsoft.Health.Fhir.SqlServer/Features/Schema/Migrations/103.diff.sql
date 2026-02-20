@@ -1,49 +1,118 @@
-CREATE OR ALTER PROCEDURE dbo.GetResourceStats
+ALTER PROCEDURE dbo.GetSearchParamStatuses @StartLastUpdated datetimeoffset(7) = NULL, @LastUpdated datetimeoffset(7) = NULL OUT
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'GetResourceStats'
+DECLARE @SP varchar(100) = 'GetSearchParamStatuses'
+       ,@Mode varchar(100) = 'S='+isnull(substring(convert(varchar,@StartLastUpdated),1,23),'NULL')
        ,@st datetime = getUTCdate()
+       ,@msg varchar(100)
+       ,@Rows int
 
 BEGIN TRY
-  SELECT ResourceType = (SELECT Name FROM ResourceType WHERE ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM Resource WHERE $PARTITION.PartitionFunction_ResourceTypeId(ResourceTypeId) = A.partition_number))
-      ,A.Rows as TotalRows
-	  ,B.Rows as ActiveRows
-  FROM (SELECT partition_number
-              ,Rows = sum(cast(row_count as bigint))
-			  ,S.index_id
-          FROM (SELECT object_name = object_name(object_id), * FROM sys.dm_db_partition_stats WHERE reserved_page_count > 0) S
-               JOIN sys.indexes I ON I.object_id = S.object_id AND I.index_id = S.index_id
-          WHERE EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND PS.name = 'PartitionScheme_ResourceTypeId')
-            AND object_name LIKE 'Resource'
-			AND I.index_id = 1
-          GROUP BY
-               partition_number
-              ,S.object_id
-              ,S.index_id
-              ,is_disabled
-       ) A
-  JOIN (SELECT partition_number
-              ,Rows = sum(cast(row_count as bigint))
-			  ,S.index_id
-          FROM (SELECT object_name = object_name(object_id), * FROM sys.dm_db_partition_stats WHERE reserved_page_count > 0) S
-               JOIN sys.indexes I ON I.object_id = S.object_id AND I.index_id = S.index_id
-          WHERE EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND PS.name = 'PartitionScheme_ResourceTypeId')
-            AND object_name LIKE 'Resource'
-			AND I.name = 'IX_Resource_ResourceTypeId_ResourceSurrgateId'
-          GROUP BY
-               partition_number
-              ,S.object_id
-              ,S.index_id
-              ,is_disabled
-       ) B ON A.partition_number = B.partition_number
-  WHERE A.Rows > 0
-  ORDER BY 
-       ResourceType
+  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
+  
+  BEGIN TRANSACTION
 
+  SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
+  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)
+
+  IF @StartLastUpdated IS NULL
+    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam
+  ELSE
+    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam WHERE LastUpdated > @StartLastUpdated
+  
+  SET @Rows = @@rowcount
+
+  COMMIT TRANSACTION
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Action='Select',@Target='SearchParam',@Text=@msg
 END TRY
 BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Status='Error',@Start=@st;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
   THROW
 END CATCH
 GO
+INSERT INTO dbo.Parameters (Id,Char) SELECT 'GetSearchParamStatuses', 'LogEvent'
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
+       ,@st datetime = getUTCdate()
+       ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
+       ,@msg varchar(4000)
+       ,@Rows int
+       ,@Uri varchar(4000)
+       ,@Status varchar(20)
+
+DECLARE @SearchParamsCopy dbo.SearchParamList
+INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
+WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
+BEGIN
+  SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
+  SET @msg = 'Uri='+@Uri+' Status='+@Status
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
+  DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
+END
+
+DECLARE @SummaryOfChanges TABLE (Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL, Operation varchar(20) NOT NULL)
+
+BEGIN TRY
+  SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+  BEGIN TRANSACTION
+  
+  -- Check for concurrency conflicts first using LastUpdated
+  SELECT @msg = string_agg(S.Uri, ', ') 
+    FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
+    WHERE I.LastUpdated != S.LastUpdated
+  IF @msg IS NOT NULL
+  BEGIN
+    SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
+    ROLLBACK TRANSACTION;
+    THROW 50001, @msg, 1
+  END
+
+  MERGE INTO dbo.SearchParam S
+    USING @SearchParams I ON I.Uri = S.Uri
+    WHEN MATCHED THEN 
+      UPDATE 
+        SET Status = I.Status
+           ,LastUpdated = @LastUpdated
+           ,IsPartiallySupported = I.IsPartiallySupported
+    WHEN NOT MATCHED BY TARGET THEN 
+      INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
+        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported)
+    OUTPUT I.Uri, $action INTO @SummaryOfChanges;
+  SET @Rows = @@rowcount
+
+  SELECT S.SearchParamId
+        ,S.Uri
+        ,S.LastUpdated
+    FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
+    WHERE C.Operation = 'INSERT'
+  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
+
+  COMMIT TRANSACTION
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows,@Text=@msg
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION;
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent'
+GO
+IF object_id('UpsertSearchParams') IS NOT NULL DROP PROCEDURE UpsertSearchParams
+GO
+IF EXISTS (SELECT * FROM systypes WHERE name = 'SearchParamTableType_2') DROP TYPE dbo.SearchParamTableType_2
+GO
+IF EXISTS (SELECT * FROM systypes WHERE name = 'BulkReindexResourceTableType_1') DROP TYPE dbo.BulkReindexResourceTableType_1
+GO
+INSERT INTO Parameters (Id,Char) SELECT 'EnqueueJobs','LogEvent'
+GO
+

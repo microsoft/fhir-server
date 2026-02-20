@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             practitionerToCreate.Identifier = new List<Identifier> { new Identifier(practitionerIdentifierSystem, practitionerIdentifierValue) };
 
             using FhirResponse<Practitioner> createdPractitionerResponse = await _client.UpdateAsync(practitionerToCreate);
-            ValidateUpdateResponse(practitionerToCreate, createdPractitionerResponse, false, HttpStatusCode.Created);
+            ValidateUpdateCreateResponse(practitionerToCreate, createdPractitionerResponse);
 
             // Step 2 - Create the Patient.
             var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.GeneralPractitioner = new List<ResourceReference> { new ResourceReference($"Practitioner?identifier={practitionerIdentifierSystem}|{practitionerIdentifierValue}") };
 
             using FhirResponse<Patient> createdPatientResponse = await _client.UpdateAsync(patient);
-            ValidateUpdateResponse(patient, createdPatientResponse, false, HttpStatusCode.Created);
+            ValidateUpdateCreateResponse(patient, createdPatientResponse);
 
             // Step 3 - Validate that the Patient's GeneralPractitioner reference is correctly resolved.
             string expectedPractitionerReference = $"Practitioner/{practitionerToCreate.Id}";
@@ -418,6 +418,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.NotEqual(oldResource.Meta?.VersionId, newResource.Meta.VersionId);
                 Assert.NotEqual(oldResource.Meta?.LastUpdated, newResource.Meta.LastUpdated);
             }
+        }
+
+        private static void ValidateUpdateCreateResponse<T>(T expectedResource, FhirResponse<T> actualResponse)
+            where T : DomainResource
+        {
+            Assert.Equal(HttpStatusCode.Created, actualResponse.StatusCode);
+
+            var newResource = actualResponse.Resource;
+            Assert.True(newResource != null, "New response's resource is never expected to be null.");
+            Assert.True(newResource.Meta != null, "New resource's meta is never expected to be null.");
+            Assert.True(expectedResource.Id == newResource.Id, "Old and new resource are expected to have the same id.");
+
+            Assert.Equal("1", newResource.Meta.VersionId);
         }
 
         private static void UpdateObservation(Observation observationResource)

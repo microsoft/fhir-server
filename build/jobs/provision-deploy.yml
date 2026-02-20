@@ -52,6 +52,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
@@ -68,8 +69,9 @@ jobs:
 
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
-        $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
-        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 2
+        # Cosmos DB autoscale is configured in the ARM template (10,000 RU max)
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
