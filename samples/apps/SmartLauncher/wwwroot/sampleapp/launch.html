@@ -1,20 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+    <meta charset="utf-8" />
+    <script src="https://cdn.jsdelivr.net/npm/fhirclient@2.5.3/build/fhir-client.js"></script>
     <script>
+      var launchUri = window.location.protocol + '//' + window.location.host + window.location.pathname;
+      var redirectUri = launchUri.replace('launch.html', 'index.html');
+      var params = new URLSearchParams(window.location.search);
 
-    var launchUri = window.location.protocol + "//" + window.location.host + window.location.pathname;
-    var redirectUri = launchUri.replace("launch.html","index.html");
-    $.getJSON( '/config', function (appConfig) {
-        FHIR.oauth2.authorize({
-            "client_id": appConfig.ClientId,
-            "scope"    : "openid profile",
-            "redirect_uri": redirectUri
+      function authorizeWith(cfg) {
+        var authMode = cfg.authMode || 'public';
+        var options = {
+          client_id: cfg.clientId,
+          scope: cfg.scope,
+          redirect_uri: redirectUri,
+          iss: cfg.iss
+        };
+
+        if (authMode === 'symmetric' && cfg.clientSecret) {
+          options.clientSecret = cfg.clientSecret;
+        }
+
+        if (authMode === 'asymmetric' && cfg.jwk) {
+          try {
+            options.clientPrivateJwk = JSON.parse(cfg.jwk);
+          } catch (e) {
+            document.body.textContent = 'Error: Invalid JWK JSON — ' + e.message;
+            return;
+          }
+        }
+
+        FHIR.oauth2.authorize(options);
+      }
+
+      // If URL params are present, use them; otherwise fall back to /config
+      if (params.has('clientId') && params.has('iss')) {
+        authorizeWith({
+          authMode: params.get('authMode') || 'public',
+          clientId: params.get('clientId'),
+          scope: params.get('scope') || 'openid fhirUser',
+          iss: params.get('iss'),
+          clientSecret: params.get('clientSecret') || '',
+          jwk: params.get('jwk') || ''
+        });
+      } else {
+        fetch('/config')
+          .then(function (r) { return r.json(); })
+          .then(function (appConfig) {
+            authorizeWith({
+              authMode: 'public',
+              clientId: appConfig.ClientId,
+              scope: 'openid fhirUser launch/patient patient/Patient.rs',
+              iss: appConfig.FhirServerUrl
             });
-    });
+          });
+      }
     </script>
   </head>
-  <body>Loading...</body>
+  <body>Loading&hellip;</body>
 </html>

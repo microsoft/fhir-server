@@ -1,99 +1,289 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-    <title>Microsoft FHIR Server SMART on FHIR App Launcher</title>
-    
- </head>
-<body>
-<div class="container">
-    <h1>Microsoft FHIR Server SMART on FHIR App Launcher</h1>
-    <div class="row">
-        <h2>Launch parameters</h2>
-        <div class="form-group col-xs-8">
-            <label for="patient">Patient:</label>
-            <input type="text" id="patient" class="form-control" />
-            <label for="encounter">Encounter:</label>
-            <input type="text" id="encounter" class="form-control" />
-            <label for="practitioner">Practitioner:</label>
-            <input type="text" id="practitioner" class="form-control" />
-            <label for="appurl">Appliction URL:</label>
-            <input type="text" id="appurl" class="form-control" />
-            <label for="fhirurl">FHIR Server URL:</label>
-            <input type="text" id="fhirurl" class="form-control" />
-        </div>
-    </div>
-    <div class="row">
-        <h2>Launch context</h2>
-        <div class="form-group col-xs-8">
-            <textarea class="form-control" rows="5" id="launchContext" readonly>
-                
-            </textarea>
-        </div>
-    </div>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <title>SMART on FHIR v2 Standalone Launcher</title>
+    <style>
+      .scope-item { margin-bottom: .25rem; }
+      .scope-item code { font-size: 0.85em; }
+      #jwkGroup, #secretGroup { display: none; }
+      .help-section { font-size: 0.9em; }
+      .help-section h6 { margin-top: 1rem; }
+      #publicJwksGroup { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="container py-4">
+      <h1 class="mb-4">SMART on FHIR v2 Standalone Launcher</h1>
 
-    <div class="row">
-            <h2>Launch URL</h2>
-            <div class="form-group col-xs-8">
-                <input type=text class="form-control disabled" id="launchUrl" readonly />
-                <button id="launchButton" style="margin-top: 5px;" class="btn btn-success" onclick="window.open($('#launchUrl').val(),'_blank')">Launch</button>
+      <!-- Auth Mode -->
+      <div class="card mb-3">
+        <div class="card-header">Authentication Mode</div>
+        <div class="card-body">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="authMode" id="authPublic" value="public" checked />
+            <label class="form-check-label" for="authPublic">Public Client</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="authMode" id="authSymmetric" value="symmetric" />
+            <label class="form-check-label" for="authSymmetric">Confidential &mdash; Symmetric (Client Secret)</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="authMode" id="authAsymmetric" value="asymmetric" />
+            <label class="form-check-label" for="authAsymmetric">Confidential &mdash; Asymmetric (Private JWK)</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connection -->
+      <div class="card mb-3">
+        <div class="card-header">Connection</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label for="fhirUrl" class="form-label">FHIR Server URL</label>
+            <input type="text" id="fhirUrl" class="form-control" />
+          </div>
+          <div class="mb-3">
+            <label for="clientId" class="form-label">Client ID</label>
+            <input type="text" id="clientId" class="form-control" />
+          </div>
+          <div class="mb-3" id="secretGroup">
+            <label for="clientSecret" class="form-label">Client Secret</label>
+            <input type="text" id="clientSecret" class="form-control" />
+          </div>
+          <div class="mb-3" id="jwkGroup">
+            <label for="privateJwk" class="form-label">Private JWK (paste JSON)</label>
+            <textarea id="privateJwk" class="form-control" rows="6" placeholder='{"kty":"RSA","kid":"...","alg":"RS384","n":"...","e":"...","d":"...",...}'></textarea>
+
+            <!-- Key Generation Tools -->
+            <div class="mt-3 p-3 border rounded bg-light">
+              <h6 class="mb-2">Key Generation Tools</h6>
+              <div class="mb-2">
+                <label class="form-label mb-1">Algorithm</label>
+                <div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="keyAlg" id="algES384" value="ES384" checked />
+                    <label class="form-check-label" for="algES384">ES384 (ECDSA P-384)</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="keyAlg" id="algRS384" value="RS384" />
+                    <label class="form-check-label" for="algRS384">RS384 (RSA 4096-bit)</label>
+                  </div>
+                </div>
+              </div>
+              <button id="generateKeyBtn" class="btn btn-outline-secondary btn-sm">Generate Key Pair</button>
+              <span id="keyGenStatus" class="ms-2 text-muted small"></span>
             </div>
+
+            <!-- Public JWKS Output -->
+            <div class="mt-3" id="publicJwksGroup">
+              <label class="form-label">Public JWKS <span class="text-muted">&mdash; register this with your authorization server</span></label>
+              <div class="input-group">
+                <textarea id="publicJwks" class="form-control font-monospace" rows="4" readonly></textarea>
+                <button class="btn btn-outline-secondary" type="button" id="copyJwksBtn" title="Copy to clipboard">Copy</button>
+              </div>
+            </div>
+
+            <!-- Asymmetric Help Text -->
+            <div class="mt-3">
+              <a class="text-decoration-none small" data-bs-toggle="collapse" href="#asymmetricHelp" role="button" aria-expanded="false">
+                How does asymmetric client authentication work? &#9662;
+              </a>
+              <div class="collapse mt-2 help-section" id="asymmetricHelp">
+                <div class="card card-body bg-light">
+                  <h6>SMART on FHIR v2 Asymmetric Auth</h6>
+                  <p>
+                    In asymmetric (private_key_jwt) authentication, the client proves its identity by signing a JWT
+                    assertion with its private key. The authorization server verifies the signature using the
+                    corresponding public key. The SMART on FHIR v2 spec requires <strong>RS384</strong> or <strong>ES384</strong> algorithms.
+                  </p>
+                  <p>The fhirclient JS library handles JWT assertion generation automatically when you provide a <code>clientPrivateJwk</code>.</p>
+
+                  <h6>Steps</h6>
+                  <ol>
+                    <li>Generate a key pair (use the button above, the PowerShell setup script, or your own tooling)</li>
+                    <li>Register the <strong>public key</strong> with your authorization server</li>
+                    <li>Paste the <strong>private JWK</strong> into the field above</li>
+                    <li>Launch the app &mdash; the fhirclient library will sign the client assertion automatically</li>
+                  </ol>
+
+                  <div class="alert alert-warning mb-2">
+                    <strong>Microsoft Entra ID Compatibility Note</strong><br />
+                    Entra ID documents support for <strong>RS256</strong> and <strong>PS256</strong> for client assertions, while the SMART v2 spec
+                    and the fhirclient library use <strong>RS384 / ES384</strong>. This means the fhirclient's built-in asymmetric auth
+                    may not work directly against Entra ID.<br /><br />
+                    <strong>For Entra ID, we recommend using Confidential Symmetric (client secret) mode</strong>, which is fully supported.
+                    If you need asymmetric auth with Entra ID, you may need a custom token acquisition flow that signs with RS256.
+                  </div>
+
+                  <h6>Entra ID: Registering a Certificate</h6>
+                  <p>If your authorization server is Microsoft Entra ID and you want to register a certificate for asymmetric auth:</p>
+                  <ol>
+                    <li>Sign in to the <a href="https://entra.microsoft.com" target="_blank" rel="noopener">Microsoft Entra admin center</a></li>
+                    <li>Navigate to <strong>Identity</strong> &gt; <strong>Applications</strong> &gt; <strong>App registrations</strong></li>
+                    <li>Select your application (Client ID must match the one above)</li>
+                    <li>Go to <strong>Certificates &amp; secrets</strong> &gt; <strong>Certificates</strong> tab</li>
+                    <li>Click <strong>Upload certificate</strong> and select a <code>.cer</code>, <code>.pem</code>, or <code>.crt</code> file</li>
+                    <li>Click <strong>Add</strong></li>
+                  </ol>
+                  <p class="mb-0">
+                    <strong>Note:</strong> Entra ID expects X.509 certificates, not raw JWK public keys. Use the included
+                    <code>Setup-SmartOnFhirEntraClient.ps1</code> PowerShell script to automate app registration,
+                    certificate generation, certificate upload, and JWK export in one step.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scopes -->
+      <div class="card mb-3">
+        <div class="card-header">Scopes (SMART v2)</div>
+        <div class="card-body" id="scopeList">
+          <!-- populated by JS -->
+        </div>
+        <div class="card-footer">
+          <label for="scopeText" class="form-label">Editable scope string</label>
+          <textarea id="scopeText" class="form-control" rows="3"></textarea>
+        </div>
+      </div>
+
+      <!-- Launch -->
+      <button id="launchBtn" class="btn btn-primary btn-lg">Launch App</button>
     </div>
-</div>
 
-<script>
-    function updateLaunchQuery()
-    {
-        var launchContext = {};
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // ── Scopes ──
+      var defaultScopes = [
+        { scope: 'openid fhirUser', desc: 'Identity - get logged-in user info', on: true },
+        { scope: 'launch/patient', desc: 'Standalone context - prompt for patient selection', on: true },
+        { scope: 'patient/Patient.rs', desc: 'Read + search Patient (v2)', on: true },
+        { scope: 'patient/Observation.rs?category=http://terminology.hl7.org/CodeSystem/observation-category|laboratory', desc: 'Fine-grained: lab observations only', on: true },
+        { scope: 'patient/Condition.rs', desc: 'Read + search Condition (v2)', on: true },
+        { scope: 'patient/MedicationRequest.rs', desc: 'Read + search MedicationRequest (v2)', on: false }
+      ];
 
-        if ($('#patient').val().length)
-        {
-            launchContext.patient = $('#patient').val();
+      var scopeListEl = document.getElementById('scopeList');
+      defaultScopes.forEach(function (s, i) {
+        var id = 'scope_' + i;
+        var div = document.createElement('div');
+        div.className = 'form-check scope-item';
+        div.innerHTML =
+          '<input class="form-check-input scope-cb" type="checkbox" id="' + id + '"' + (s.on ? ' checked' : '') + ' data-scope="' + s.scope.replace(/"/g, '&quot;') + '" />' +
+          '<label class="form-check-label" for="' + id + '"><code>' + s.scope.replace(/</g, '&lt;') + '</code> &mdash; ' + s.desc + '</label>';
+        scopeListEl.appendChild(div);
+      });
+
+      function syncScopeText() {
+        var parts = [];
+        document.querySelectorAll('.scope-cb').forEach(function (cb) {
+          if (cb.checked) parts.push(cb.dataset.scope);
+        });
+        document.getElementById('scopeText').value = parts.join(' ');
+      }
+      document.querySelectorAll('.scope-cb').forEach(function (cb) {
+        cb.addEventListener('change', syncScopeText);
+      });
+      syncScopeText();
+
+      // ── Auth mode toggle ──
+      document.querySelectorAll('input[name="authMode"]').forEach(function (r) {
+        r.addEventListener('change', function () {
+          var mode = document.querySelector('input[name="authMode"]:checked').value;
+          document.getElementById('secretGroup').style.display = mode === 'symmetric' ? '' : 'none';
+          document.getElementById('jwkGroup').style.display = mode === 'asymmetric' ? '' : 'none';
+        });
+      });
+
+      // ── Load config ──
+      fetch('/config').then(function (r) { return r.json(); }).then(function (cfg) {
+        document.getElementById('fhirUrl').value = cfg.FhirServerUrl || '';
+        document.getElementById('clientId').value = cfg.ClientId || '';
+        document.getElementById('clientSecret').value = cfg.ClientSecret || '';
+      });
+
+      // ── Key Generation ──
+      function arrayBufToBase64Url(buf) {
+        var bytes = new Uint8Array(buf);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+
+      document.getElementById('generateKeyBtn').addEventListener('click', function () {
+        var statusEl = document.getElementById('keyGenStatus');
+        var alg = document.querySelector('input[name="keyAlg"]:checked').value;
+        statusEl.textContent = 'Generating ' + alg + ' key pair...';
+
+        var algo, exportAlg;
+        if (alg === 'ES384') {
+          algo = { name: 'ECDSA', namedCurve: 'P-384' };
+          exportAlg = 'ES384';
+        } else {
+          algo = { name: 'RSASSA-PKCS1-v1_5', modulusLength: 4096, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-384' };
+          exportAlg = 'RS384';
         }
 
-        if ($('#encounter').val().length)
-        {
-            launchContext.encounter = $('#encounter').val();
+        crypto.subtle.generateKey(algo, true, ['sign', 'verify']).then(function (keyPair) {
+          return Promise.all([
+            crypto.subtle.exportKey('jwk', keyPair.privateKey),
+            crypto.subtle.exportKey('jwk', keyPair.publicKey)
+          ]);
+        }).then(function (keys) {
+          var privateJwk = keys[0];
+          var publicJwk = keys[1];
+
+          // Add kid and alg
+          var kid = 'smart-launcher-' + Date.now();
+          privateJwk.kid = kid;
+          privateJwk.alg = exportAlg;
+          publicJwk.kid = kid;
+          publicJwk.alg = exportAlg;
+
+          // Fill private JWK
+          document.getElementById('privateJwk').value = JSON.stringify(privateJwk, null, 2);
+
+          // Show public JWKS
+          var jwks = { keys: [publicJwk] };
+          document.getElementById('publicJwks').value = JSON.stringify(jwks, null, 2);
+          document.getElementById('publicJwksGroup').style.display = '';
+
+          statusEl.textContent = 'Key pair generated.';
+        }).catch(function (err) {
+          statusEl.textContent = 'Error: ' + err.message;
+        });
+      });
+
+      // ── Copy JWKS ──
+      document.getElementById('copyJwksBtn').addEventListener('click', function () {
+        var text = document.getElementById('publicJwks').value;
+        navigator.clipboard.writeText(text).then(function () {
+          document.getElementById('copyJwksBtn').textContent = 'Copied!';
+          setTimeout(function () { document.getElementById('copyJwksBtn').textContent = 'Copy'; }, 2000);
+        });
+      });
+
+      // ── Launch ──
+      document.getElementById('launchBtn').addEventListener('click', function () {
+        var mode = document.querySelector('input[name="authMode"]:checked').value;
+        var params = new URLSearchParams();
+        params.set('iss', document.getElementById('fhirUrl').value);
+        params.set('clientId', document.getElementById('clientId').value);
+        params.set('scope', document.getElementById('scopeText').value);
+        params.set('authMode', mode);
+        if (mode === 'symmetric') {
+          params.set('clientSecret', document.getElementById('clientSecret').value);
         }
-
-        if ($('#practitioner').val().length)
-        {
-            launchContext.practioner = $('#practitioner').val();
+        if (mode === 'asymmetric') {
+          params.set('jwk', document.getElementById('privateJwk').value);
         }
-
-        var queryString = 'launch=' + encodeURIComponent(btoa(JSON.stringify(launchContext)));
-
-        if ($('#fhirurl').val().length)
-        {
-            queryString += '&iss=' + encodeURIComponent($('#fhirurl').val());
-        }
-
-        $('#launchContext').val(JSON.stringify(launchContext, undefined, 2));
-        
-        $('#launchUrl').val($('#appurl').val() + '?' + queryString);
-
-    }
-
-
-    $('#patient').on('input', updateLaunchQuery);
-    $('#encounter').on('input', updateLaunchQuery);
-    $('#practitioner').on('input', updateLaunchQuery);
-    $('#appurl').on('input', updateLaunchQuery);
-    $('#fhirurl').on('input', updateLaunchQuery);
-
-
-    $.getJSON( '/config', function (appConfig) {
-        $('#appurl').val(appConfig.DefaultSmartAppUrl);
-        $('#fhirurl').val(appConfig.FhirServerUrl);
-        updateLaunchQuery();
-    });
-
-</script>
- 
-</body> 
+        window.open('sampleapp/launch.html?' + params.toString(), '_blank');
+      });
+    </script>
+  </body>
 </html>

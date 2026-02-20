@@ -14,5 +14,7 @@ namespace Microsoft.Health.Internal.SmartLauncher.Models
 
 #pragma warning restore CA1056 // URI-like properties should not be strings
         public string ClientId { get; set; }
+
+        public string ClientSecret { get; set; }
     }
 }
