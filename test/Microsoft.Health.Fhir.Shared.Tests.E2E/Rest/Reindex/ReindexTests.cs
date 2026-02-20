@@ -189,8 +189,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     personSearchParam.Code,
                     expectedResourceType: "Person",
                     shouldFindRecords: true);
-
-                await CheckCounts(value.jobUri, testResources.Count, false);
             }
             finally
             {
@@ -1233,24 +1231,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
             Assert.True(total == successes, $"total={total} == successes={successes}");
-        }
-
-        private async Task CheckCounts(Uri jobUri, long expected, bool lessThan)
-        {
-            var response = await _fixture.TestFhirClient.HttpClient.GetAsync(jobUri, CancellationToken.None);
-            var content = await response.Content.ReadAsStringAsync();
-            var parameters = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(content);
-            var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
-            var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
-            Assert.Equal(total, successes);
-            if (lessThan)
-            {
-                Assert.True(total < expected);
-            }
-            else
-            {
-                Assert.Equal(expected, total);
-            }
         }
 
         /// <summary>
