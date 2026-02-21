@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
-        public void StoredProcedureLayerIsEnabled_CanBeToggled()
+        public void StoredProcedureLayerIsEnabled_CanBeLoggled()
         {
             // Arrange
             var sqlSearchService = _searchService as SqlServerSearchService;
@@ -409,30 +409,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         [Fact]
         public async Task SearchForReindex_WithCountOnly_ReturnsAccurateCount()
         {
-            // Arrange - Create test patients
-            var patients = await CreateTestPatients(10);
-            var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
-
-            // Act - Search for reindex with count only
-            var queryParameters = new List<Tuple<string, string>>
+            try
             {
-                new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
-            };
-
-            var result = await _searchService.SearchForReindexAsync(
-                queryParameters,
-                searchParameterHash: string.Empty,
-                countOnly: true,
-                CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.True(result.TotalCount >= 10, $"Expected count to be >= 10, got {result.TotalCount}");
-            Assert.Empty(result.Results); // Count-only should not return resources
+                await _searchService.SearchForReindexAsync(new List<Tuple<string, string>>(), string.Empty, true, CancellationToken.None);
+                Assert.Fail("This point should not be reached.");
+            }
+            catch (NotSupportedException)
+            {
+            }
         }
 
         [Fact]

@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             try
             {
                 var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-                var resources = await SetupTestDataAsync("Person", 20, randomSuffix, CreatePersonResourceAsync);
+                var resources = await SetupTestDataAsync("Person", 200, randomSuffix, CreatePersonResourceAsync);
                 testResources.AddRange(resources);
                 searchParam = await CreateCustomSearchParameterAsync($"custom-person-name-{randomSuffix}", ["Person"], "Person.name.given", SearchParamType.String);
                 Assert.NotNull(searchParam);
@@ -1222,15 +1222,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
             if (lessThan)
             {
-                Assert.True(total < expected, $"total={total} < expected={expected}");
+                Assert.True(total < expected, $"expected<{expected} actual={total}");
             }
             else
             {
-                Assert.True(total >= expected, $"total={total} >= expected={expected}"); // some of resources might come for not completed retries
+                Assert.True(total >= expected, $"expected>={expected} actual={total}"); // some of resources might come for not completed retries
             }
 
             var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
-            Assert.True(total == successes, $"total={total} == successes={successes}");
+            Assert.True(total == successes, $"total={total} != successes={successes}");
         }
 
         /// <summary>
