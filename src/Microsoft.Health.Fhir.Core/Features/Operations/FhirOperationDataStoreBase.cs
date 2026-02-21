@@ -83,7 +83,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
         var orchestratorJobDetails = groupJobs.Where(x => x.Id == jobInfo.GroupId).FirstOrDefault();
 
-        // If the OrchestratorJ job is already canceled by user, return 404 Job not found
+        // If the Orchestrator job is already canceled by user, return 404 Job not found
         // If the Orchestrator job was cancelled while it was in Created/Running status then the status would be set to Canceled or CancelRequested would be set to true.
         if (orchestratorJobDetails.Status == JobStatus.CancelledByUser || orchestratorJobDetails.Status == JobStatus.Cancelled || orchestratorJobDetails.CancelRequested)
         {

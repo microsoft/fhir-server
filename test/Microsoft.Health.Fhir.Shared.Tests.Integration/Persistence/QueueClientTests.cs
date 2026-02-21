@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenCompletedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenCancelRequestedShouldBeSetOnOrchestratorJob()
+        public async Task GivenCompletedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenStatusShouldBeCancelledByUser()
         {
             byte queueType = (byte)QueueType.Export;
 
@@ -151,21 +151,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             orchestratorJob.Result = "Completed";
             await _queueClient.CompleteJobAsync(orchestratorJob, false, CancellationToken.None);
 
-            // Cancel the group - this sets status as CancelByUser on the orchestrator
+            // Cancel the group - for Export queue, Completed orchestrator job (Id == GroupId) transitions to CancelledByUser
             await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
 
-            // Verify the orchestrator job has status as CancelByUser
-            // The operation data store will interpret this as user cancellation
+            // Verify the orchestrator job has status CancelledByUser per the IG:
+            // https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
             JobInfo updatedOrchestratorJob = await _queueClient.GetJobByIdAsync(queueType, orchestratorJob.Id, false, CancellationToken.None);
             Assert.NotNull(updatedOrchestratorJob);
-            Assert.True(updatedOrchestratorJob.Status == JobStatus.CancelledByUser);
-
-            // Queue level status remains Completed; operation store applies business logic
-            Assert.Equal(JobStatus.Completed, updatedOrchestratorJob.Status);
+            Assert.Equal(JobStatus.CancelledByUser, updatedOrchestratorJob.Status);
         }
 
         [Fact]
-        public async Task GivenFailedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenCancelRequestedShouldBeSetOnOrchestratorJob()
+        public async Task GivenFailedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenStatusShouldBeCancelledByUser()
         {
             byte queueType = (byte)QueueType.Export;
 
@@ -178,21 +175,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             orchestratorJob.Result = "Failed";
             await _queueClient.CompleteJobAsync(orchestratorJob, false, CancellationToken.None);
 
-            // Cancel the group - this sets CancelRequested = true on the orchestrator
+            // Cancel the group - for Export queue, Failed orchestrator job (Id == GroupId) transitions to CancelledByUser
             await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
 
-            // Verify the orchestrator job has status as CancelByUser
-            // The operation data store will interpret this as user cancellation
+            // Verify the orchestrator job has status CancelledByUser per the IG:
+            // https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
             JobInfo updatedOrchestratorJob = await _queueClient.GetJobByIdAsync(queueType, orchestratorJob.Id, false, CancellationToken.None);
             Assert.NotNull(updatedOrchestratorJob);
-            Assert.True(updatedOrchestratorJob.Status == JobStatus.CancelledByUser);
-
-            // Queue level status remains Failed; operation store applies business logic
-            Assert.Equal(JobStatus.Failed, updatedOrchestratorJob.Status);
+            Assert.Equal(JobStatus.CancelledByUser, updatedOrchestratorJob.Status);
         }
 
         [Fact]
-        public async Task GivenCompletedNonExportOrchestratorJob_WhenCancelJobsByGroupId_ThenCancelRequestedShouldNotBeSet()
+        public async Task GivenCompletedNonExportOrchestratorJob_WhenCancelJobsByGroupId_ThenStatusShouldRemainCompleted()
         {
             byte queueType = (byte)QueueType.Reindex;
 
@@ -208,9 +202,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Cancel the group
             await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
 
-            // For non-export queue types, completed jobs should NOT have CancelRequested set
+            // For non-export queue types, completed jobs should NOT transition to CancelledByUser
             JobInfo updatedJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, false, CancellationToken.None);
+            Assert.NotNull(updatedJob);
             Assert.False(updatedJob.CancelRequested);
+            Assert.Equal(JobStatus.Completed, updatedJob.Status);
         }
 
         [Fact]
