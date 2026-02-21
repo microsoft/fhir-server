@@ -96,8 +96,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotNull(result.JobRecord.FailureDetails);
         }
 
-        [Fact]
-        public async Task GivenAnExportOfPatientResources_WhenQueuedAndCompleted_JobStatusIsCorrect()
+        [Theory]
+        [InlineData(JobStatus.Completed, OperationStatus.Completed)]
+        [InlineData(JobStatus.Cancelled, OperationStatus.Canceled)]
+        public async Task GivenAnExportOfPatientResources_WhenChildJobCompletes_JobStatusIsCorrect(JobStatus childStatus, OperationStatus expectedStatus)
         {
             string resourceType = "Patient";
             int totalJobs = 2; // 2=coord+1 resource type
@@ -105,23 +107,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             var coordId = long.Parse(coorId);
             var groupId = (await _queueClient.GetJobByIdAsync(_queueType, coordId, false, CancellationToken.None)).GroupId;
 
-            // Complete all child jobs so the overall status becomes Completed
+            // Dequeue and complete all child jobs with the given status
             var groupJobs = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, CancellationToken.None)).ToList();
             foreach (var childJob in groupJobs.Where(j => j.Id != coordId))
             {
                 var dequeuedChild = await _queueClient.DequeueAsync(_queueType, "Worker", 60, CancellationToken.None, childJob.Id);
+                dequeuedChild.Status = childStatus;
                 dequeuedChild.Result = Newtonsoft.Json.JsonConvert.SerializeObject(new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1));
-                await _queueClient.CompleteJobAsync(dequeuedChild, true, CancellationToken.None);
+                await _queueClient.CompleteJobAsync(dequeuedChild, false, CancellationToken.None);
             }
 
             // GetExportJobByIdAsync treats recently completed jobs (EndDate within 15s) as in-flight,
-            // so poll until the window passes and the status settles to Completed.
+            // so poll until the window passes and the status settles to the expected value.
             ExportJobOutcome result = null;
             var deadline = DateTime.UtcNow.AddSeconds(20);
             while (DateTime.UtcNow < deadline)
             {
                 result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
-                if (result.JobRecord.Status == OperationStatus.Completed)
+                if (result.JobRecord.Status == expectedStatus)
                 {
                     break;
                 }
@@ -129,28 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }
 
-            Assert.Equal(OperationStatus.Completed, result.JobRecord.Status);
-        }
-
-        [Fact]
-        public async Task GivenAnExportOfPatientResources_WhenChildJobCancelledWithoutFailure_ReturnsCancelledStatus()
-        {
-            string resourceType = "Patient";
-            int totalJobs = 2; // 2=coord+1 resource type
-            var coorId = await RunExport(resourceType, _coordJob, totalJobs);
-            var coordId = long.Parse(coorId);
-            var groupId = (await _queueClient.GetJobByIdAsync(_queueType, coordId, false, CancellationToken.None)).GroupId;
-
-            // Dequeue the child job, then cancel it (no failure)
-            var groupJobs = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, CancellationToken.None)).ToList();
-            var childJob = groupJobs.First(j => j.Id != coordId);
-            var dequeuedChild = await _queueClient.DequeueAsync(_queueType, "Worker", 60, CancellationToken.None, childJob.Id);
-            dequeuedChild.Status = JobStatus.Cancelled;
-            await _queueClient.CompleteJobAsync(dequeuedChild, false, CancellationToken.None);
-
-            // Orchestrator completed + child cancelled + no failures → Cancelled
-            var result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
-            Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+            Assert.Equal(expectedStatus, result.JobRecord.Status);
         }
 
         [Fact]
