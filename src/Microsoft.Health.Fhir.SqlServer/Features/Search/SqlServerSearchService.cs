@@ -1425,7 +1425,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Searches for resources by their type and surrogate id and optionally a searchParamHash. This can also just return a count of resources.
+        /// Searches for resources by their type and surrogate id and optionally a searchParamHash.
         /// </summary>
         /// <param name="searchOptions">The searchOptions</param>
         /// <param name="searchParameterHash">A searchParamHash to filter results</param>
@@ -1433,6 +1433,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>SearchResult</returns>
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
+            if (searchOptions.CountOnly)
+            {
+                throw new NotSupportedException("Counts only are not supported here.");
+            }
+
             var resourceType = GetForceReindexResourceType(searchOptions);
             var startId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             var endId = long.Parse(searchOptions.QueryHints.First(h => h.Param == KnownQueryParameterNames.EndSurrogateId).Value);
