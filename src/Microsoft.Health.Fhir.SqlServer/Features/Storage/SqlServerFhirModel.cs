@@ -387,13 +387,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 _logger.LogInformation("Initializing search parameters statuses.");
-                sqlCommandWrapper.CommandText = @"
+                sqlCommandWrapper.CommandText = $@"
                         SET XACT_ABORT ON;
                         BEGIN TRANSACTION;
                         DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET();
+                        DECLARE @resourcesPresent bit = CASE WHEN EXISTS (SELECT TOP 1 * FROM Resource) THEN 1 ELSE 0 END
 
                         UPDATE dbo.SearchParam
-                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        SET Status = CASE WHEN sps.Status = '{SearchParameterStatus.Enabled.ToString()}' THEN (CASE WHEN @resourcesPresent = 1 THEN '{SearchParameterStatus.Supported.ToString()}' ELSE sps.Status END) ELSE sps.Status END
+                            , LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
                         FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
                         ON dbo.SearchParam.Uri = sps.Uri
                         WHERE dbo.SearchParam.Status = 'Initialized' OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
@@ -403,6 +405,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
+
+                _logger.LogInformation(sqlCommandWrapper.CommandText);
 
                 // Use the appropriate collection based on schema version
                 bool includeLastUpdated = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency;
