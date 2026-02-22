@@ -1,42 +1,47 @@
 <#
 .SYNOPSIS
-    Sets up a Microsoft Entra ID app registration for use with the SMART on FHIR v2 sample launcher.
+    Sets up Microsoft Entra ID app registrations for use with the SMART on FHIR v2 sample launcher.
 
 .DESCRIPTION
     This script automates the Entra ID configuration needed for the SmartLauncher sample app.
-    It can create a new app registration or update an existing one, and supports both
-    symmetric (client secret) and asymmetric (certificate) confidential client authentication.
+    It creates/updates TWO app registrations:
+
+      1. Resource App — represents the FHIR server. Exposes SMART v2 scopes as
+         oauth2PermissionScopes (delegated permissions) so that client apps can request them.
+      2. Client App — represents the SmartLauncher. Configured with redirect URI,
+         credentials, and API permissions referencing the resource app's scopes.
 
     Supports both standard Entra ID (workforce) and Entra External ID (CIAM) tenants.
 
-    What this script does:
-      1. Creates a new Entra ID app registration (or uses an existing one)
-      2. Configures a redirect URI for the sample app
-      3. Optionally creates a client secret (for symmetric auth)
-      4. Optionally generates a self-signed certificate, uploads it to the app registration,
-         and exports the private key as a JWK for use with the fhirclient library (for asymmetric auth)
-      5. For External ID tenants: grants admin consent for configured API permissions
-      6. Outputs the configuration values needed by the SmartLauncher, including
-         the correct authority/OIDC discovery URLs for your tenant type
+    SMART v2 scopes use slash notation (patient/Patient.rs) but Entra ID scope values
+    only allow alphanumeric, dots, underscores, and hyphens. This script registers scopes
+    using dot notation (patient.Patient.rs) and the FHIR server maps between the two formats.
+
+.PARAMETER ResourceAppName
+    Display name for the FHIR server resource app registration.
+    Default: "FHIR Server SMART Scopes"
+
+.PARAMETER ExistingResourceAppId
+    If specified, updates an existing resource app registration instead of creating a new one.
 
 .PARAMETER AppName
-    Display name for the app registration. Default: "SMART on FHIR Sample App"
+    Display name for the client app registration. Default: "SMART on FHIR Sample App"
 
 .PARAMETER ExistingClientId
-    If specified, updates an existing app registration instead of creating a new one.
+    If specified, updates an existing client app registration instead of creating a new one.
 
 .PARAMETER RedirectUri
     The redirect URI for the sample app. Default: "https://localhost:5001/sampleapp/index.html"
 
 .PARAMETER FhirServerUrl
-    The FHIR server URL. Used only for display in the output configuration.
+    The FHIR server URL. Used for display in the output configuration.
     Default: "https://localhost:44348"
 
 .PARAMETER CreateSecret
-    If specified, creates a client secret for symmetric auth.
+    If specified, creates a client secret for symmetric auth on the client app.
 
 .PARAMETER CreateCertificate
-    If specified, generates a self-signed certificate, uploads it to the app registration,
+    If specified, generates a self-signed certificate, uploads it to the client app registration,
     and exports the private key as a JWK.
 
 .PARAMETER CertificateSubject
@@ -46,59 +51,42 @@
     Number of days the generated certificate is valid. Default: 365
 
 .PARAMETER ExternalId
-    If specified, configures the app for a Microsoft Entra External ID (CIAM) tenant.
-    This changes the authority URLs to use the ciamlogin.com domain and grants admin
-    consent for API permissions (required because External ID does not support user consent).
+    If specified, configures the apps for a Microsoft Entra External ID (CIAM) tenant.
 
 .PARAMETER TenantId
     If specified, targets a specific Entra ID tenant by its tenant (directory) ID.
-    Useful when your account has access to multiple tenants. If omitted, Connect-MgGraph
-    uses your home tenant by default.
 
 .PARAMETER TenantName
     The tenant name (e.g. "contoso" from contoso.ciamlogin.com). Required when -ExternalId
-    is specified. Used to construct the correct authority and OIDC discovery URLs.
+    is specified.
 
 .EXAMPLE
-    # Create a new app with a client secret (standard Entra ID)
+    # Create both resource and client apps with a client secret
     .\Setup-SmartOnFhirEntraClient.ps1 -CreateSecret
 
 .EXAMPLE
-    # Create a new app with a certificate (standard Entra ID)
-    .\Setup-SmartOnFhirEntraClient.ps1 -CreateCertificate
+    # Update existing apps (provide both app IDs)
+    .\Setup-SmartOnFhirEntraClient.ps1 -ExistingResourceAppId "11111111-..." -ExistingClientId "22222222-..." -CreateSecret
 
 .EXAMPLE
-    # Create a new app with both secret and certificate
-    .\Setup-SmartOnFhirEntraClient.ps1 -CreateSecret -CreateCertificate
+    # Create new resource app, update existing client app
+    .\Setup-SmartOnFhirEntraClient.ps1 -ExistingClientId "22222222-..." -CreateCertificate
 
 .EXAMPLE
-    # Update an existing app registration
-    .\Setup-SmartOnFhirEntraClient.ps1 -ExistingClientId "00000000-0000-0000-0000-000000000000" -CreateSecret
-
-.EXAMPLE
-    # Create a new app for an Entra External ID tenant
+    # Entra External ID tenant
     .\Setup-SmartOnFhirEntraClient.ps1 -ExternalId -TenantName "contoso" -CreateSecret
-
-.EXAMPLE
-    # Target a specific tenant by ID
-    .\Setup-SmartOnFhirEntraClient.ps1 -TenantId "00000000-0000-0000-0000-000000000000" -CreateSecret
 
 .NOTES
     Prerequisites:
       - PowerShell 7+ recommended
       - Microsoft Graph PowerShell SDK: Install-Module Microsoft.Graph -Scope CurrentUser
       - Sufficient Entra ID permissions (Application Developer role or Application.ReadWrite.All)
-
-    Entra External ID notes:
-      - External ID tenants use ciamlogin.com endpoints instead of login.microsoftonline.com
-      - Only admin consent is supported (no user consent) — this script grants consent automatically
-      - The fhirUser claim requires additional manual setup: create a custom user attribute,
-        configure a user flow, and link users via Microsoft Graph
-      - See: https://learn.microsoft.com/en-us/azure/healthcare-apis/fhir/azure-entra-external-id-setup
 #>
 
 [CmdletBinding()]
 param(
+    [string]$ResourceAppName = "FHIR Server SMART Scopes",
+    [string]$ExistingResourceAppId,
     [string]$AppName = "SMART on FHIR Sample App",
     [string]$ExistingClientId,
     [string]$RedirectUri = "https://localhost:5001/sampleapp/index.html",
@@ -165,6 +153,54 @@ function Export-RsaPublicKeyAsJwk {
     }
 }
 
+# ── Define SMART v2 scopes ──
+# Entra ID scope values support ? = | characters, but NOT / in scope values.
+# Encoding scheme:
+#   - Resource-level / becomes .  (patient/Patient.rs -> patient.Patient.rs)
+#   - ? = | in fine-grained query params are kept as-is
+#   - / within URLs in query params (e.g. http://...) becomes %2f
+#
+# The FHIR server decodes scope strings using standard query string decoding,
+# so %2f is decoded back to / when processing claims from the access token.
+$smartScopes = @(
+    # ── Identity & context ──
+    @{ Value = "fhirUser";                       Desc = "Access the logged-in user's FHIR identity (fhirUser claim)" }
+    @{ Value = "launch.patient";                 Desc = "Standalone launch context - prompt for patient selection" }
+
+    # ── Patient-level base scopes ──
+    @{ Value = "patient.Patient.rs";             Desc = "Read and search Patient resources" }
+    @{ Value = "patient.Patient.r";              Desc = "Read Patient resources" }
+    @{ Value = "patient.Observation.rs";         Desc = "Read and search all Observation resources" }
+    @{ Value = "patient.Observation.r";          Desc = "Read Observation resources" }
+    @{ Value = "patient.Condition.rs";           Desc = "Read and search all Condition resources" }
+    @{ Value = "patient.Condition.r";            Desc = "Read Condition resources" }
+    @{ Value = "patient.MedicationRequest.rs";   Desc = "Read and search MedicationRequest resources" }
+    @{ Value = "patient.MedicationRequest.r";    Desc = "Read MedicationRequest resources" }
+    @{ Value = "patient.AllergyIntolerance.rs";  Desc = "Read and search AllergyIntolerance resources" }
+    @{ Value = "patient.AllergyIntolerance.r";   Desc = "Read AllergyIntolerance resources" }
+    @{ Value = "patient.Procedure.rs";           Desc = "Read and search Procedure resources" }
+    @{ Value = "patient.Immunization.rs";        Desc = "Read and search Immunization resources" }
+    @{ Value = "patient.DiagnosticReport.rs";    Desc = "Read and search DiagnosticReport resources" }
+    @{ Value = "patient.Encounter.rs";           Desc = "Read and search Encounter resources" }
+    @{ Value = "patient.CarePlan.rs";            Desc = "Read and search CarePlan resources" }
+    @{ Value = "patient.CareTeam.rs";            Desc = "Read and search CareTeam resources" }
+    @{ Value = "patient.DocumentReference.rs";   Desc = "Read and search DocumentReference resources" }
+
+    # ── Patient-level fine-grained query scopes (SMART v2) ──
+    # These narrow access beyond the base scope. Each must be registered individually
+    # so it appears in the token's scp claim for the FHIR server to enforce.
+    # The / in URLs is encoded as %2f; the FHIR server decodes via query string decoding.
+    @{ Value = "patient.Observation.rs?code=loinc.org|85354-9";  Desc = "Observations: Blood pressure (LOINC 85354-9)" }
+    @{ Value = "patient.Observation.rs?code=loinc.org|8867-4";   Desc = "Observations: Heart rate (LOINC 8867-4)" }
+    @{ Value = "patient.Observation.rs?code=loinc.org|8310-5";   Desc = "Observations: Body temperature (LOINC 8310-5)" }
+    @{ Value = "patient.Observation.rs?code=loinc.org|29463-7";  Desc = "Observations: Body weight (LOINC 29463-7)" }
+    @{ Value = "patient.Observation.rs?code=loinc.org|2708-6";   Desc = "Observations: SpO2 (LOINC 2708-6)" }
+    # ── User-level scopes ──
+    @{ Value = "user.Patient.rs";                Desc = "User-level read and search Patient resources" }
+    @{ Value = "user.Observation.rs";            Desc = "User-level read and search Observation resources" }
+    @{ Value = "user.Condition.rs";              Desc = "User-level read and search Condition resources" }
+)
+
 # ── Ensure Microsoft.Graph module is available ──
 $tenantType = if ($ExternalId) { "Entra External ID" } else { "Entra ID" }
 Write-Host "`n=== SMART on FHIR $tenantType Setup ===" -ForegroundColor Cyan
@@ -213,27 +249,146 @@ Write-Host "Connected as: $($context.Account)" -ForegroundColor Green
 
 $tenantId = $context.TenantId
 
-# ── Create or get app registration ──
+# ══════════════════════════════════════════════════════════════════════
+# STEP 1: Resource App Registration (FHIR Server)
+# ══════════════════════════════════════════════════════════════════════
+Write-Host "`n--- Step 1: Resource App (FHIR Server) ---" -ForegroundColor Cyan
+
+$resourceApp = $null
+if ($ExistingResourceAppId) {
+    Write-Host "Looking up existing resource app: $ExistingResourceAppId" -ForegroundColor Yellow
+    $resourceApp = Get-MgApplication -Filter "appId eq '$ExistingResourceAppId'"
+    if (-not $resourceApp) {
+        Write-Error "Resource app with Client ID '$ExistingResourceAppId' not found."
+        return
+    }
+    Write-Host "Found: $($resourceApp.DisplayName) ($($resourceApp.AppId))" -ForegroundColor Green
+}
+else {
+    Write-Host "Creating resource app registration: $ResourceAppName" -ForegroundColor Yellow
+    $resourceApp = New-MgApplication -DisplayName $ResourceAppName -SignInAudience "AzureADMyOrg"
+    Write-Host "Created: $($resourceApp.DisplayName)" -ForegroundColor Green
+    Write-Host "  App (client) ID: $($resourceApp.AppId)" -ForegroundColor Green
+    Write-Host "  Object ID:       $($resourceApp.Id)" -ForegroundColor Green
+}
+
+$resourceAppId = $resourceApp.AppId
+
+# ── Set Application ID URI if not already set ──
+$appIdUri = "api://$resourceAppId"
+$existingUris = $resourceApp.IdentifierUris
+if ($existingUris -notcontains $appIdUri) {
+    Write-Host "Setting Application ID URI: $appIdUri" -ForegroundColor Yellow
+    Update-MgApplication -ApplicationId $resourceApp.Id -IdentifierUris @($appIdUri)
+    Write-Host "  Application ID URI set." -ForegroundColor Green
+}
+
+# ── Build oauth2PermissionScopes ──
+# Preserve any existing scopes not in our list, and merge ours in
+$existingScopes = @()
+$resourceAppFull = Get-MgApplication -ApplicationId $resourceApp.Id
+if ($resourceAppFull.Api.Oauth2PermissionScopes) {
+    $existingScopes = @($resourceAppFull.Api.Oauth2PermissionScopes)
+}
+
+# Build a lookup of existing scopes by value
+$existingScopeMap = @{}
+foreach ($s in $existingScopes) {
+    $existingScopeMap[$s.Value] = $s
+}
+
+$allScopes = [System.Collections.ArrayList]::new()
+
+# Add/update our SMART scopes
+foreach ($scope in $smartScopes) {
+    if ($existingScopeMap.ContainsKey($scope.Value)) {
+        # Keep existing scope (preserve its ID)
+        $existing = $existingScopeMap[$scope.Value]
+        [void]$allScopes.Add(@{
+            Id                    = $existing.Id
+            Value                 = $scope.Value
+            Type                  = "User"
+            AdminConsentDisplayName = "SMART: $($scope.Desc)"
+            AdminConsentDescription = "SMART v2 scope: $($scope.Value)"
+            UserConsentDisplayName  = "SMART: $($scope.Desc)"
+            UserConsentDescription  = "SMART v2 scope: $($scope.Value)"
+            IsEnabled             = $true
+        })
+        $existingScopeMap.Remove($scope.Value)
+    }
+    else {
+        # Create new scope with a new GUID
+        [void]$allScopes.Add(@{
+            Id                    = [Guid]::NewGuid().ToString()
+            Value                 = $scope.Value
+            Type                  = "User"
+            AdminConsentDisplayName = "SMART: $($scope.Desc)"
+            AdminConsentDescription = "SMART v2 scope: $($scope.Value)"
+            UserConsentDisplayName  = "SMART: $($scope.Desc)"
+            UserConsentDescription  = "SMART v2 scope: $($scope.Value)"
+            IsEnabled             = $true
+        })
+    }
+}
+
+# Keep any other existing scopes that aren't in our SMART list
+foreach ($remaining in $existingScopeMap.Values) {
+    [void]$allScopes.Add(@{
+        Id                    = $remaining.Id
+        Value                 = $remaining.Value
+        Type                  = $remaining.Type
+        AdminConsentDisplayName = $remaining.AdminConsentDisplayName
+        AdminConsentDescription = $remaining.AdminConsentDescription
+        UserConsentDisplayName  = $remaining.UserConsentDisplayName
+        UserConsentDescription  = $remaining.UserConsentDescription
+        IsEnabled             = $remaining.IsEnabled
+    })
+}
+
+Write-Host "Configuring $($smartScopes.Count) SMART v2 scopes on resource app..." -ForegroundColor Yellow
+Update-MgApplication -ApplicationId $resourceApp.Id -Api @{ Oauth2PermissionScopes = $allScopes }
+Write-Host "  Scopes configured." -ForegroundColor Green
+
+# ── Ensure resource app has a service principal ──
+$resourceSp = Get-MgServicePrincipal -Filter "appId eq '$resourceAppId'" -ErrorAction SilentlyContinue
+if (-not $resourceSp) {
+    $resourceSp = New-MgServicePrincipal -AppId $resourceAppId
+    Write-Host "  Service principal created for resource app." -ForegroundColor Green
+}
+
+# Use the scope data we already built (avoids Graph API propagation delays on re-read)
+$finalScopes = $allScopes
+
+Write-Host "  Registered scopes:" -ForegroundColor Gray
+foreach ($s in $finalScopes | Sort-Object { $_.Value }) {
+    Write-Host "    $($s.Value)" -ForegroundColor Gray
+}
+
+# ══════════════════════════════════════════════════════════════════════
+# STEP 2: Client App Registration (SmartLauncher)
+# ══════════════════════════════════════════════════════════════════════
+Write-Host "`n--- Step 2: Client App (SmartLauncher) ---" -ForegroundColor Cyan
+
 $app = $null
 if ($ExistingClientId) {
-    Write-Host "`nLooking up existing app registration: $ExistingClientId" -ForegroundColor Yellow
+    Write-Host "Looking up existing client app: $ExistingClientId" -ForegroundColor Yellow
     $app = Get-MgApplication -Filter "appId eq '$ExistingClientId'"
     if (-not $app) {
-        Write-Error "App registration with Client ID '$ExistingClientId' not found."
+        Write-Error "Client app with Client ID '$ExistingClientId' not found."
         return
     }
     Write-Host "Found: $($app.DisplayName) ($($app.AppId))" -ForegroundColor Green
 }
 else {
-    Write-Host "`nCreating app registration: $AppName" -ForegroundColor Yellow
+    Write-Host "Creating client app registration: $AppName" -ForegroundColor Yellow
     $webApp = @{
         RedirectUris = @($RedirectUri)
     }
     # External ID tenants only support single-tenant (AzureADMyOrg)
     $app = New-MgApplication -DisplayName $AppName -Web $webApp -SignInAudience "AzureADMyOrg"
     Write-Host "Created: $($app.DisplayName)" -ForegroundColor Green
-    Write-Host "  Client ID: $($app.AppId)" -ForegroundColor Green
-    Write-Host "  Object ID: $($app.Id)" -ForegroundColor Green
+    Write-Host "  App (client) ID: $($app.AppId)" -ForegroundColor Green
+    Write-Host "  Object ID:       $($app.Id)" -ForegroundColor Green
 }
 
 $clientId = $app.AppId
@@ -241,11 +396,54 @@ $clientId = $app.AppId
 # ── Ensure redirect URI is configured ──
 $existingUris = $app.Web.RedirectUris
 if ($existingUris -notcontains $RedirectUri) {
-    Write-Host "`nAdding redirect URI: $RedirectUri" -ForegroundColor Yellow
+    Write-Host "Adding redirect URI: $RedirectUri" -ForegroundColor Yellow
     $updatedUris = @($existingUris) + @($RedirectUri)
     Update-MgApplication -ApplicationId $app.Id -Web @{ RedirectUris = $updatedUris }
-    Write-Host "Redirect URI added." -ForegroundColor Green
+    Write-Host "  Redirect URI added." -ForegroundColor Green
 }
+
+# ── Add API permissions (requiredResourceAccess) for the FHIR resource app ──
+Write-Host "Configuring API permissions on client app..." -ForegroundColor Yellow
+
+# Build resource access entries for all SMART scopes
+$resourceAccessList = @()
+foreach ($s in $finalScopes) {
+    $scopeId = if ($s -is [hashtable]) { $s.Id } else { $s.Id }
+    $resourceAccessList += @{
+        Id   = $scopeId
+        Type = "Scope"
+    }
+}
+
+if ($resourceAccessList.Count -eq 0) {
+    Write-Error "No SMART scopes were registered on the resource app. Cannot configure API permissions."
+    return
+}
+
+Write-Host "  Adding $($resourceAccessList.Count) FHIR scope permissions..." -ForegroundColor Gray
+
+# Also request openid and profile from Microsoft Graph (built-in)
+$msgraphAppId = "00000003-0000-0000-c000-000000000000"
+$msgraphSp = Get-MgServicePrincipal -Filter "appId eq '$msgraphAppId'"
+$openidScope = $msgraphSp.Oauth2PermissionScopes | Where-Object { $_.Value -eq "openid" }
+$profileScope = $msgraphSp.Oauth2PermissionScopes | Where-Object { $_.Value -eq "profile" }
+
+$requiredResourceAccess = @(
+    @{
+        ResourceAppId  = $resourceAppId
+        ResourceAccess = $resourceAccessList
+    }
+    @{
+        ResourceAppId  = $msgraphAppId
+        ResourceAccess = @(
+            @{ Id = $openidScope.Id; Type = "Scope" }
+            @{ Id = $profileScope.Id; Type = "Scope" }
+        )
+    }
+)
+
+Update-MgApplication -ApplicationId $app.Id -RequiredResourceAccess $requiredResourceAccess
+Write-Host "  API permissions configured ($($resourceAccessList.Count) FHIR scopes + openid + profile)." -ForegroundColor Green
 
 # ── Create client secret (symmetric auth) ──
 $clientSecret = ""
@@ -284,7 +482,7 @@ if ($CreateCertificate) {
     Write-Host "  Thumbprint: $($cert.Thumbprint)" -ForegroundColor Green
 
     # Upload certificate to app registration
-    Write-Host "Uploading certificate to app registration..." -ForegroundColor Yellow
+    Write-Host "Uploading certificate to client app registration..." -ForegroundColor Yellow
     $certBytes = $cert.GetRawCertData()
 
     $keyCredential = @{
@@ -294,7 +492,7 @@ if ($CreateCertificate) {
         DisplayName = "SmartOnFhir-$($cert.Thumbprint.Substring(0,8))"
     }
     Update-MgApplication -ApplicationId $app.Id -KeyCredentials @($keyCredential)
-    Write-Host "Certificate uploaded to app registration." -ForegroundColor Green
+    Write-Host "Certificate uploaded to client app registration." -ForegroundColor Green
 
     # Export private key as JWK
     Write-Host "Exporting private key as JWK..." -ForegroundColor Yellow
@@ -320,42 +518,47 @@ if ($CreateCertificate) {
     Write-Host "  Certificate remains in Cert:\CurrentUser\My\$($cert.Thumbprint)" -ForegroundColor Gray
 }
 
-# ── External ID: Grant admin consent ──
+# ══════════════════════════════════════════════════════════════════════
+# STEP 3: Grant Admin Consent (External ID or optionally for all)
+# ══════════════════════════════════════════════════════════════════════
 if ($ExternalId) {
-    Write-Host "`n--- Entra External ID: Admin Consent ---" -ForegroundColor Magenta
+    Write-Host "`n--- Step 3: Admin Consent (External ID) ---" -ForegroundColor Magenta
     Write-Host "External ID tenants require admin consent for all API permissions." -ForegroundColor Yellow
-    Write-Host "Granting admin consent for configured permissions..." -ForegroundColor Yellow
+    Write-Host "Granting admin consent..." -ForegroundColor Yellow
 
-    # Ensure a service principal exists for the app
-    $sp = Get-MgServicePrincipal -Filter "appId eq '$clientId'" -ErrorAction SilentlyContinue
-    if (-not $sp) {
-        $sp = New-MgServicePrincipal -AppId $clientId
-        Write-Host "  Service principal created." -ForegroundColor Green
+    # Ensure a service principal exists for the client app
+    $clientSp = Get-MgServicePrincipal -Filter "appId eq '$clientId'" -ErrorAction SilentlyContinue
+    if (-not $clientSp) {
+        $clientSp = New-MgServicePrincipal -AppId $clientId
+        Write-Host "  Client service principal created." -ForegroundColor Green
     }
 
-    # Grant admin consent for any configured delegated permissions
-    # For each requiredResourceAccess entry, find the resource SP and grant consent
-    $appFull = Get-MgApplication -ApplicationId $app.Id
-    foreach ($resourceAccess in $appFull.RequiredResourceAccess) {
-        $resourceSpId = $resourceAccess.ResourceAppId
-        $resourceSp = Get-MgServicePrincipal -Filter "appId eq '$resourceSpId'" -ErrorAction SilentlyContinue
-        if (-not $resourceSp) { continue }
+    # Grant consent for FHIR resource scopes
+    $fhirScopeValues = ($finalScopes | ForEach-Object { $_.Value }) -join " "
+    try {
+        New-MgOauth2PermissionGrant -ClientId $clientSp.Id -ConsentType "AllPrincipals" `
+            -ResourceId $resourceSp.Id -Scope $fhirScopeValues | Out-Null
+        Write-Host "  Admin consent granted for FHIR scopes." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  Note: Could not auto-grant consent for FHIR scopes: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  You may need to grant admin consent manually in the Entra admin center." -ForegroundColor Yellow
+    }
 
-        $delegatedScopes = $resourceAccess.ResourceAccess | Where-Object { $_.Type -eq "Scope" }
-        if ($delegatedScopes) {
-            $scopeIds = ($delegatedScopes | ForEach-Object { $_.Id }) -join " "
-            try {
-                New-MgOauth2PermissionGrant -ClientId $sp.Id -ConsentType "AllPrincipals" `
-                    -ResourceId $resourceSp.Id -Scope $scopeIds | Out-Null
-                Write-Host "  Admin consent granted for resource: $($resourceSp.DisplayName)" -ForegroundColor Green
-            }
-            catch {
-                Write-Host "  Note: Could not auto-grant consent for $($resourceSp.DisplayName): $($_.Exception.Message)" -ForegroundColor Yellow
-                Write-Host "  You may need to grant admin consent manually in the Entra admin center." -ForegroundColor Yellow
-            }
-        }
+    # Grant consent for Microsoft Graph (openid, profile)
+    try {
+        New-MgOauth2PermissionGrant -ClientId $clientSp.Id -ConsentType "AllPrincipals" `
+            -ResourceId $msgraphSp.Id -Scope "openid profile" | Out-Null
+        Write-Host "  Admin consent granted for Microsoft Graph (openid, profile)." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  Note: Could not auto-grant consent for MS Graph: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 }
+
+# ══════════════════════════════════════════════════════════════════════
+# Output
+# ══════════════════════════════════════════════════════════════════════
 
 # ── Compute authority URLs ──
 if ($ExternalId) {
@@ -375,8 +578,10 @@ else {
 Write-Host "`n=== Configuration ===" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "Tenant ID:  $tenantId" -ForegroundColor White
-Write-Host "Client ID:  $clientId" -ForegroundColor White
+Write-Host "Tenant ID:           $tenantId" -ForegroundColor White
+Write-Host "Resource App ID:     $resourceAppId" -ForegroundColor White
+Write-Host "Resource App ID URI: $appIdUri" -ForegroundColor White
+Write-Host "Client App ID:       $clientId" -ForegroundColor White
 Write-Host ""
 
 Write-Host "Authority URLs ($tenantType):" -ForegroundColor Yellow
@@ -386,14 +591,48 @@ Write-Host "  Authorize Endpoint: $authorizeEndpoint" -ForegroundColor White
 Write-Host "  Token Endpoint:     $tokenEndpoint" -ForegroundColor White
 Write-Host ""
 
+Write-Host "Scope format mapping (SMART v2 -> Entra):" -ForegroundColor Yellow
+Write-Host "  Encoding: resource-level / -> .  |  ? = | kept as-is  |  full CodeSystem URL shortened to code system name" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  openid                         -> openid (Microsoft Graph built-in)" -ForegroundColor Gray
+Write-Host "  fhirUser                       -> $appIdUri/fhirUser" -ForegroundColor Gray
+Write-Host "  launch/patient                 -> $appIdUri/launch.patient" -ForegroundColor Gray
+Write-Host "  patient/Patient.rs             -> $appIdUri/patient.Patient.rs" -ForegroundColor Gray
+Write-Host "  patient/Observation.rs         -> $appIdUri/patient.Observation.rs" -ForegroundColor Gray
+Write-Host "  patient/Observation.rs?code... -> $appIdUri/patient.Observation.rs?code=loinc.org|85354-9" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  The FHIR server expands the shortened system name back to the full URL" -ForegroundColor Gray
+Write-Host "  (e.g. loinc.org -> http://loinc.org)" -ForegroundColor Gray
+Write-Host ""
+
+$certPath = ""
+$certThumbprintValue = ""
+$clientTypeValue = "public"
+if ($CreateCertificate -and $cert) {
+    $certPath = (Join-Path $PSScriptRoot "smart-private-key.pfx")
+    $certThumbprintValue = $cert.Thumbprint
+    $clientTypeValue = "confidential-asymmetric"
+    # Export PFX for the token proxy to load
+    $pfxBytes = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, "")
+    [System.IO.File]::WriteAllBytes($certPath, $pfxBytes)
+    Write-Host "  PFX exported to: $certPath" -ForegroundColor Green
+} elseif ($CreateSecret) {
+    $clientTypeValue = "confidential-symmetric"
+}
+
 Write-Host "Update your appsettings.json with these values:" -ForegroundColor Yellow
 Write-Host ""
 
 $config = [ordered]@{
-    FhirServerUrl      = $FhirServerUrl
-    ClientId           = $clientId
-    ClientSecret       = $clientSecret
-    DefaultSmartAppUrl = "/sampleapp/launch.html"
+    FhirServerUrl         = $FhirServerUrl
+    ClientId              = $clientId
+    DefaultSmartAppUrl    = "/sampleapp/launch.html"
+    ClientType            = $clientTypeValue
+    Scopes                = ""
+    ClientSecret          = $clientSecret
+    CertificatePath       = $certPath
+    CertificatePassword   = ""
+    CertificateThumbprint = $certThumbprintValue
 }
 
 $configJson = $config | ConvertTo-Json
@@ -408,14 +647,16 @@ if ($saveSettings -eq 'y') {
 }
 
 if ($privateJwkJson) {
-    Write-Host "`nFor asymmetric auth, paste this private JWK into the launcher:" -ForegroundColor Yellow
+    Write-Host "`nCertificate uploaded to the Entra ID client app registration." -ForegroundColor Green
+    Write-Host ""
+    Write-Host "For asymmetric auth with Entra ID, use the 'Token Proxy' OAuth flow in the launcher." -ForegroundColor Yellow
+    Write-Host "The token proxy signs with RS256 server-side using the certificate configured above." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "The private JWK (for use with fhirclient's Standard flow against non-Entra servers):" -ForegroundColor Gray
     Write-Host $privateJwkJson -ForegroundColor White
     Write-Host ""
-    Write-Host "The certificate has been uploaded to the Entra ID app registration." -ForegroundColor Green
-    Write-Host ""
-    Write-Host "IMPORTANT: The SMART on FHIR v2 fhirclient library uses RS384/ES384," -ForegroundColor Yellow
-    Write-Host "while Entra ID documents RS256/PS256 for client assertions." -ForegroundColor Yellow
-    Write-Host "If asymmetric auth fails, use the client secret (symmetric) mode instead." -ForegroundColor Yellow
+    Write-Host "NOTE: fhirclient uses RS384/ES384 which Entra ID does not support." -ForegroundColor Yellow
+    Write-Host "For Entra ID, always use the Token Proxy flow or client secret (symmetric) mode." -ForegroundColor Yellow
 }
 
 # ── External ID post-setup guidance ──
@@ -439,12 +680,15 @@ if ($ExternalId) {
     Write-Host "   Set the SMART authority URL to:" -ForegroundColor Gray
     Write-Host "   $authority" -ForegroundColor White
     Write-Host ""
-    Write-Host "4. Register FHIR scopes (use dot notation instead of slash):" -ForegroundColor White
-    Write-Host "   SMART scope 'patient/Patient.rs' -> register as 'patient.Patient.rs'" -ForegroundColor Gray
-    Write-Host "   All scopes must have admin consent granted (no user consent in External ID)" -ForegroundColor Gray
+    Write-Host "4. The FHIR scopes are already registered on the resource app above." -ForegroundColor White
+    Write-Host "   The FHIR server must map SMART slash notation to Entra dot notation." -ForegroundColor Gray
     Write-Host ""
     Write-Host "See: https://learn.microsoft.com/en-us/azure/healthcare-apis/fhir/azure-entra-external-id-setup" -ForegroundColor Cyan
 }
 
 Write-Host "`n=== Setup Complete ===" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "App Registrations:" -ForegroundColor White
+Write-Host "  Resource (FHIR Server): $resourceAppId  ($ResourceAppName)" -ForegroundColor Gray
+Write-Host "  Client (SmartLauncher): $clientId  ($AppName)" -ForegroundColor Gray
 Write-Host ""

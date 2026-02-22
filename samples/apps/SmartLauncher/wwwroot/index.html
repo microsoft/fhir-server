@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js"></script>
     <title>SMART on FHIR v2 Standalone Launcher</title>
     <style>
       .scope-item { margin-bottom: .25rem; }
@@ -12,6 +13,7 @@
       .help-section { font-size: 0.9em; }
       .help-section h6 { margin-top: 1rem; }
       #publicJwksGroup { display: none; }
+      .proxy-note { display: none; }
     </style>
   </head>
   <body>
@@ -37,6 +39,25 @@
         </div>
       </div>
 
+      <!-- OAuth Flow -->
+      <div class="card mb-3">
+        <div class="card-header">OAuth Flow</div>
+        <div class="card-body">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="oauthFlow" id="flowFhirclient" value="fhirclient" checked />
+            <label class="form-check-label" for="flowFhirclient">
+              <strong>Standard (fhirclient library)</strong> &mdash; uses the fhirclient JS library for the full OAuth2 flow. Best for SMART v2-compliant servers.
+            </label>
+          </div>
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="radio" name="oauthFlow" id="flowProxy" value="proxy" />
+            <label class="form-check-label" for="flowProxy">
+              <strong>Token Proxy (Entra ID compatible)</strong> &mdash; uses manual PKCE + server-side token exchange. Works with Entra ID's RS256 requirement.
+            </label>
+          </div>
+        </div>
+      </div>
+
       <!-- Connection -->
       <div class="card mb-3">
         <div class="card-header">Connection</div>
@@ -52,13 +73,22 @@
           <div class="mb-3" id="secretGroup">
             <label for="clientSecret" class="form-label">Client Secret</label>
             <input type="text" id="clientSecret" class="form-control" />
+            <div class="proxy-note alert alert-info mt-2" id="secretProxyNote">
+              <strong>Token Proxy mode:</strong> The client secret is configured server-side in <code>appsettings.json</code>.
+              You do not need to enter it here.
+            </div>
           </div>
           <div class="mb-3" id="jwkGroup">
             <label for="privateJwk" class="form-label">Private JWK (paste JSON)</label>
             <textarea id="privateJwk" class="form-control" rows="6" placeholder='{"kty":"RSA","kid":"...","alg":"RS384","n":"...","e":"...","d":"...",...}'></textarea>
 
+            <div class="proxy-note alert alert-info mt-2" id="jwkProxyNote">
+              <strong>Token Proxy mode:</strong> The certificate is configured server-side in <code>appsettings.json</code>
+              (via <code>CertificatePath</code> or <code>CertificateThumbprint</code>). You do not need to provide a JWK here.
+            </div>
+
             <!-- Key Generation Tools -->
-            <div class="mt-3 p-3 border rounded bg-light">
+            <div class="mt-3 p-3 border rounded bg-light" id="keyGenTools">
               <h6 class="mb-2">Key Generation Tools</h6>
               <div class="mb-2">
                 <label class="form-label mb-1">Algorithm</label>
@@ -83,6 +113,11 @@
               <div class="input-group">
                 <textarea id="publicJwks" class="form-control font-monospace" rows="4" readonly></textarea>
                 <button class="btn btn-outline-secondary" type="button" id="copyJwksBtn" title="Copy to clipboard">Copy</button>
+              </div>
+              <div class="mt-2" id="downloadCertGroup" style="display:none">
+                <button class="btn btn-outline-primary btn-sm" type="button" id="downloadCertBtn">Download as X.509 Certificate (.pem)</button>
+                <span class="ms-2 text-muted small">For Entra ID: upload this .pem under App registrations &gt; Certificates &amp; secrets</span>
+                <span id="certGenStatus" class="ms-2 text-muted small"></span>
               </div>
             </div>
 
@@ -114,8 +149,8 @@
                     Entra ID documents support for <strong>RS256</strong> and <strong>PS256</strong> for client assertions, while the SMART v2 spec
                     and the fhirclient library use <strong>RS384 / ES384</strong>. This means the fhirclient's built-in asymmetric auth
                     may not work directly against Entra ID.<br /><br />
-                    <strong>For Entra ID, we recommend using Confidential Symmetric (client secret) mode</strong>, which is fully supported.
-                    If you need asymmetric auth with Entra ID, you may need a custom token acquisition flow that signs with RS256.
+                    <strong>For Entra ID, use the "Token Proxy" OAuth flow</strong>, which signs with RS256 server-side using a certificate
+                    configured in <code>appsettings.json</code>. Alternatively, use Confidential Symmetric (client secret) mode.
                   </div>
 
                   <h6>Entra ID: Registering a Certificate</h6>
@@ -159,13 +194,23 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       // ── Scopes ──
+      // SMART v2 scopes use slash notation (patient/Patient.rs).
+      // When using Token Proxy with Entra ID, scopes are encoded to dot notation
+      // (patient.Patient.rs) with the resource app's API URI prefix.
+      // The entraScope field provides the Entra-encoded value for each scope.
       var defaultScopes = [
-        { scope: 'openid fhirUser', desc: 'Identity - get logged-in user info', on: true },
-        { scope: 'launch/patient', desc: 'Standalone context - prompt for patient selection', on: true },
-        { scope: 'patient/Patient.rs', desc: 'Read + search Patient (v2)', on: true },
-        { scope: 'patient/Observation.rs?category=http://terminology.hl7.org/CodeSystem/observation-category|laboratory', desc: 'Fine-grained: lab observations only', on: true },
-        { scope: 'patient/Condition.rs', desc: 'Read + search Condition (v2)', on: true },
-        { scope: 'patient/MedicationRequest.rs', desc: 'Read + search MedicationRequest (v2)', on: false }
+        { scope: 'openid fhirUser', entraScope: 'openid', desc: 'Identity - get logged-in user info', on: true },
+        { scope: 'launch/patient', entraScope: 'launch.patient', desc: 'Standalone context - prompt for patient selection', on: true },
+        { scope: 'patient/Patient.rs', entraScope: 'patient.Patient.rs', desc: 'Read + search Patient (v2)', on: true },
+        { scope: 'patient/Observation.rs', entraScope: 'patient.Observation.rs', desc: 'Read + search all Observations (v2)', on: false },
+        { scope: 'patient/Observation.rs?code=http://loinc.org|85354-9', entraScope: 'patient.Observation.rs?code=loinc.org|85354-9', desc: 'Fine-grained: Blood pressure (LOINC 85354-9)', on: true },
+        { scope: 'patient/Observation.rs?code=http://loinc.org|8867-4', entraScope: 'patient.Observation.rs?code=loinc.org|8867-4', desc: 'Fine-grained: Heart rate (LOINC 8867-4)', on: false },
+        { scope: 'patient/Observation.rs?code=http://loinc.org|8310-5', entraScope: 'patient.Observation.rs?code=loinc.org|8310-5', desc: 'Fine-grained: Body temperature (LOINC 8310-5)', on: false },
+        { scope: 'patient/Observation.rs?code=http://loinc.org|29463-7', entraScope: 'patient.Observation.rs?code=loinc.org|29463-7', desc: 'Fine-grained: Body weight (LOINC 29463-7)', on: false },
+        { scope: 'patient/Observation.rs?code=http://loinc.org|2708-6', entraScope: 'patient.Observation.rs?code=loinc.org|2708-6', desc: 'Fine-grained: SpO2 (LOINC 2708-6)', on: false },
+        { scope: 'patient/Condition.rs', entraScope: 'patient.Condition.rs', desc: 'Read + search all Conditions (v2)', on: true },
+        { scope: 'patient/MedicationRequest.rs', entraScope: 'patient.MedicationRequest.rs', desc: 'Read + search MedicationRequest (v2)', on: false },
+        { scope: 'patient/AllergyIntolerance.rs', entraScope: 'patient.AllergyIntolerance.rs', desc: 'Read + search AllergyIntolerance (v2)', on: false }
       ];
 
       var scopeListEl = document.getElementById('scopeList');
@@ -174,7 +219,7 @@
         var div = document.createElement('div');
         div.className = 'form-check scope-item';
         div.innerHTML =
-          '<input class="form-check-input scope-cb" type="checkbox" id="' + id + '"' + (s.on ? ' checked' : '') + ' data-scope="' + s.scope.replace(/"/g, '&quot;') + '" />' +
+          '<input class="form-check-input scope-cb" type="checkbox" id="' + id + '"' + (s.on ? ' checked' : '') + ' data-scope="' + s.scope.replace(/"/g, '&quot;') + '" data-entra-scope="' + (s.entraScope || '').replace(/"/g, '&quot;') + '" />' +
           '<label class="form-check-label" for="' + id + '"><code>' + s.scope.replace(/</g, '&lt;') + '</code> &mdash; ' + s.desc + '</label>';
         scopeListEl.appendChild(div);
       });
@@ -186,25 +231,76 @@
         });
         document.getElementById('scopeText').value = parts.join(' ');
       }
+
+      // Build Entra-encoded scope string from checked checkboxes
+      function getEntraScopeText() {
+        var parts = [];
+        document.querySelectorAll('.scope-cb').forEach(function (cb) {
+          if (cb.checked && cb.dataset.entraScope) parts.push(cb.dataset.entraScope);
+        });
+        return parts.join(' ');
+      }
       document.querySelectorAll('.scope-cb').forEach(function (cb) {
         cb.addEventListener('change', syncScopeText);
       });
       syncScopeText();
 
+      // ── UI visibility helpers ──
+      function updateVisibility() {
+        var authMode = document.querySelector('input[name="authMode"]:checked').value;
+        var oauthFlow = document.querySelector('input[name="oauthFlow"]:checked').value;
+        var isProxy = oauthFlow === 'proxy';
+
+        // Show/hide secret and JWK groups based on auth mode
+        document.getElementById('secretGroup').style.display = authMode === 'symmetric' ? '' : 'none';
+        document.getElementById('jwkGroup').style.display = authMode === 'asymmetric' ? '' : 'none';
+
+        // Show/hide proxy notes and hide interactive fields when proxy mode + confidential
+        document.getElementById('secretProxyNote').style.display = (isProxy && authMode === 'symmetric') ? '' : 'none';
+        document.getElementById('clientSecret').style.display = (isProxy && authMode === 'symmetric') ? 'none' : '';
+
+        document.getElementById('jwkProxyNote').style.display = (isProxy && authMode === 'asymmetric') ? '' : 'none';
+        document.getElementById('privateJwk').style.display = (isProxy && authMode === 'asymmetric') ? 'none' : '';
+        document.getElementById('keyGenTools').style.display = (isProxy && authMode === 'asymmetric') ? 'none' : '';
+        document.getElementById('publicJwksGroup').style.display =
+          (isProxy && authMode === 'asymmetric') ? 'none' : document.getElementById('publicJwks').value ? '' : 'none';
+      }
+
       // ── Auth mode toggle ──
       document.querySelectorAll('input[name="authMode"]').forEach(function (r) {
-        r.addEventListener('change', function () {
-          var mode = document.querySelector('input[name="authMode"]:checked').value;
-          document.getElementById('secretGroup').style.display = mode === 'symmetric' ? '' : 'none';
-          document.getElementById('jwkGroup').style.display = mode === 'asymmetric' ? '' : 'none';
-        });
+        r.addEventListener('change', updateVisibility);
+      });
+
+      // ── OAuth flow toggle ──
+      document.querySelectorAll('input[name="oauthFlow"]').forEach(function (r) {
+        r.addEventListener('change', updateVisibility);
       });
 
       // ── Load config ──
       fetch('/config').then(function (r) { return r.json(); }).then(function (cfg) {
-        document.getElementById('fhirUrl').value = cfg.FhirServerUrl || '';
-        document.getElementById('clientId').value = cfg.ClientId || '';
-        document.getElementById('clientSecret').value = cfg.ClientSecret || '';
+        document.getElementById('fhirUrl').value = cfg.fhirServerUrl || '';
+        document.getElementById('clientId').value = cfg.clientId || '';
+
+        // Set auth mode based on ClientType from config
+        if (cfg.clientType === 'confidential-symmetric') {
+          document.getElementById('authSymmetric').checked = true;
+        } else if (cfg.clientType === 'confidential-asymmetric') {
+          document.getElementById('authAsymmetric').checked = true;
+        } else {
+          document.getElementById('authPublic').checked = true;
+        }
+
+        // Set scopes from config if provided
+        if (cfg.scopes) {
+          document.getElementById('scopeText').value = cfg.scopes;
+          // Update checkboxes to match
+          var configScopes = cfg.scopes;
+          document.querySelectorAll('.scope-cb').forEach(function (cb) {
+            cb.checked = configScopes.indexOf(cb.dataset.scope) !== -1;
+          });
+        }
+
+        updateVisibility();
       });
 
       // ── Key Generation ──
@@ -253,6 +349,10 @@
           document.getElementById('publicJwks').value = JSON.stringify(jwks, null, 2);
           document.getElementById('publicJwksGroup').style.display = '';
 
+          // Show X.509 download button for RSA keys only
+          document.getElementById('downloadCertGroup').style.display = (exportAlg === 'RS384') ? '' : 'none';
+          document.getElementById('certGenStatus').textContent = '';
+
           statusEl.textContent = 'Key pair generated.';
         }).catch(function (err) {
           statusEl.textContent = 'Error: ' + err.message;
@@ -268,19 +368,104 @@
         });
       });
 
+      // ── Download X.509 Certificate ──
+      document.getElementById('downloadCertBtn').addEventListener('click', function () {
+        var statusEl = document.getElementById('certGenStatus');
+        statusEl.textContent = 'Generating certificate...';
+
+        try {
+          var privateJwkText = document.getElementById('privateJwk').value;
+          if (!privateJwkText) {
+            statusEl.textContent = 'Error: Generate a key pair first.';
+            return;
+          }
+          var jwk = JSON.parse(privateJwkText);
+          if (jwk.kty !== 'RSA') {
+            statusEl.textContent = 'Error: X.509 certificate export is only supported for RSA keys.';
+            return;
+          }
+
+          // Convert JWK to forge private key
+          function b64urlToBytes(s) {
+            s = s.replace(/-/g, '+').replace(/_/g, '/');
+            while (s.length % 4) s += '=';
+            return forge.util.decode64(s);
+          }
+          function b64urlToBigInt(s) {
+            return new forge.jsbn.BigInteger(forge.util.bytesToHex(b64urlToBytes(s)), 16);
+          }
+
+          var rsaPrivate = forge.pki.setRsaPrivateKey(
+            b64urlToBigInt(jwk.n),   // n
+            b64urlToBigInt(jwk.e),   // e
+            b64urlToBigInt(jwk.d),   // d
+            b64urlToBigInt(jwk.p),   // p
+            b64urlToBigInt(jwk.q),   // q
+            b64urlToBigInt(jwk.dp),  // dP
+            b64urlToBigInt(jwk.dq),  // dQ
+            b64urlToBigInt(jwk.qi)   // qInv
+          );
+          var rsaPublic = forge.pki.setRsaPublicKey(
+            b64urlToBigInt(jwk.n),
+            b64urlToBigInt(jwk.e)
+          );
+
+          // Create self-signed certificate
+          var cert = forge.pki.createCertificate();
+          cert.publicKey = rsaPublic;
+          cert.serialNumber = '01' + forge.util.bytesToHex(forge.random.getBytesSync(8));
+          cert.validity.notBefore = new Date();
+          cert.validity.notAfter = new Date();
+          cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1);
+
+          var attrs = [{ name: 'commonName', value: 'SmartOnFhirSampleApp' }];
+          cert.setSubject(attrs);
+          cert.setIssuer(attrs);
+
+          // Sign with SHA-384 to match the JWK's intended algorithm
+          cert.sign(rsaPrivate, forge.md.sha384.create());
+
+          // Export as PEM
+          var pem = forge.pki.certificateToPem(cert);
+
+          // Download
+          var blob = new Blob([pem], { type: 'application/x-pem-file' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'smart-app-certificate.pem';
+          a.click();
+          URL.revokeObjectURL(url);
+
+          statusEl.textContent = 'Certificate downloaded. Upload it to Entra ID under Certificates & secrets.';
+        } catch (err) {
+          statusEl.textContent = 'Error: ' + err.message;
+        }
+      });
+
       // ── Launch ──
       document.getElementById('launchBtn').addEventListener('click', function () {
-        var mode = document.querySelector('input[name="authMode"]:checked').value;
+        var authMode = document.querySelector('input[name="authMode"]:checked').value;
+        var oauthFlow = document.querySelector('input[name="oauthFlow"]:checked').value;
         var params = new URLSearchParams();
         params.set('iss', document.getElementById('fhirUrl').value);
         params.set('clientId', document.getElementById('clientId').value);
-        params.set('scope', document.getElementById('scopeText').value);
-        params.set('authMode', mode);
-        if (mode === 'symmetric') {
-          params.set('clientSecret', document.getElementById('clientSecret').value);
-        }
-        if (mode === 'asymmetric') {
-          params.set('jwk', document.getElementById('privateJwk').value);
+        params.set('authMode', authMode);
+        params.set('oauthFlow', oauthFlow);
+
+        if (oauthFlow === 'proxy') {
+          // Token Proxy mode: send Entra-encoded scopes (dot notation)
+          // The scopes will be prefixed with the resource app's API URI by the launch page
+          params.set('scope', getEntraScopeText());
+        } else {
+          // fhirclient mode: send standard SMART v2 scopes (slash notation)
+          params.set('scope', document.getElementById('scopeText').value);
+          if (authMode === 'symmetric') {
+            params.set('clientSecret', document.getElementById('clientSecret').value);
+          }
+          if (authMode === 'asymmetric') {
+            params.set('jwk', document.getElementById('privateJwk').value);
+          }
         }
         window.open('sampleapp/launch.html?' + params.toString(), '_blank');
       });

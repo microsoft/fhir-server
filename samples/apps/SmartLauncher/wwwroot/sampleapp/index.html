@@ -5,14 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SMART on FHIR v2 Sample App</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/fhirclient@2.5.3/build/fhir-client.js"></script>
     <style>
       pre { background: #f8f9fa; padding: 1rem; border-radius: .375rem; max-height: 400px; overflow: auto; }
     </style>
   </head>
   <body>
     <div class="container py-4">
-      <h1 class="mb-4">SMART on FHIR v2 Sample App</h1>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">SMART on FHIR v2 Sample App</h1>
+        <a href="/" class="btn btn-outline-secondary">Back to Launcher</a>
+      </div>
 
       <!-- Access Token Info -->
       <div class="card mb-3">
@@ -20,11 +22,11 @@
         <div class="card-body">
           <dl class="row mb-0">
             <dt class="col-sm-3">Token Type</dt>
-            <dd class="col-sm-9" id="tokenType">—</dd>
+            <dd class="col-sm-9" id="tokenType">&mdash;</dd>
             <dt class="col-sm-3">Expires In</dt>
-            <dd class="col-sm-9" id="expiresIn">—</dd>
+            <dd class="col-sm-9" id="expiresIn">&mdash;</dd>
             <dt class="col-sm-3">Granted Scopes</dt>
-            <dd class="col-sm-9" id="grantedScopes">—</dd>
+            <dd class="col-sm-9" id="grantedScopes">&mdash;</dd>
           </dl>
         </div>
       </div>
@@ -66,9 +68,7 @@
         }
       }
 
-      FHIR.oauth2.ready().then(function (client) {
-        var tokenResponse = client.state.tokenResponse || {};
-
+      function displayResults(tokenResponse, fhirUrl, accessToken) {
         // Access token info
         document.getElementById('tokenType').textContent = tokenResponse.token_type || 'N/A';
         document.getElementById('expiresIn').textContent = tokenResponse.expires_in ? tokenResponse.expires_in + ' seconds' : 'N/A';
@@ -87,22 +87,160 @@
         }
 
         // Patient resource
-        if (client.patient && client.patient.id) {
-          client.patient.read().then(
-            function (patient) {
+        var patientId = tokenResponse.patient;
+        if (patientId && fhirUrl && accessToken) {
+          fetch(fhirUrl + '/Patient/' + patientId, {
+            headers: { 'Authorization': 'Bearer ' + accessToken, 'Accept': 'application/fhir+json' }
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (patient) {
               document.getElementById('patientField').textContent = JSON.stringify(patient, null, 2);
-            },
-            function (err) {
+            })
+            .catch(function (err) {
               document.getElementById('patientField').textContent = 'Error reading patient: ' + err.message;
-            }
-          );
+            });
         } else {
           document.getElementById('patientField').textContent = 'No patient context available (launch/patient scope may not have been granted).';
         }
-      }).catch(function (err) {
-        document.getElementById('patientField').textContent = 'Authorization error: ' + err.message;
-        document.getElementById('tokenResponseField').textContent = err.message;
-      });
+      }
+
+      // ── Detect which flow was used ──
+      var smartStateJson = sessionStorage.getItem('smart_state');
+
+      if (smartStateJson) {
+        // ── Token Proxy path ──
+        proxyCallback();
+      } else {
+        // ── fhirclient path ──
+        fhirclientCallback();
+      }
+
+      function fhirclientCallback() {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/fhirclient@2.5.3/build/fhir-client.js';
+        script.onload = function () {
+          FHIR.oauth2.ready().then(function (client) {
+            var tokenResponse = client.state.tokenResponse || {};
+            var fhirUrl = client.state.serverUrl;
+            var accessToken = tokenResponse.access_token;
+
+            // Access token info
+            document.getElementById('tokenType').textContent = tokenResponse.token_type || 'N/A';
+            document.getElementById('expiresIn').textContent = tokenResponse.expires_in ? tokenResponse.expires_in + ' seconds' : 'N/A';
+            document.getElementById('grantedScopes').textContent = tokenResponse.scope || 'N/A';
+
+            // Token response raw
+            document.getElementById('tokenResponseField').textContent = JSON.stringify(tokenResponse, null, 2);
+
+            // ID token
+            if (tokenResponse.id_token) {
+              var claims = decodeJwtPayload(tokenResponse.id_token);
+              if (claims) {
+                document.getElementById('idTokenCard').style.display = '';
+                document.getElementById('idTokenField').textContent = JSON.stringify(claims, null, 2);
+              }
+            }
+
+            // Patient resource
+            if (client.patient && client.patient.id) {
+              client.patient.read().then(
+                function (patient) {
+                  document.getElementById('patientField').textContent = JSON.stringify(patient, null, 2);
+                },
+                function (err) {
+                  document.getElementById('patientField').textContent = 'Error reading patient: ' + err.message;
+                }
+              );
+            } else {
+              document.getElementById('patientField').textContent = 'No patient context available (launch/patient scope may not have been granted).';
+            }
+          }).catch(function (err) {
+            document.getElementById('patientField').textContent = 'Authorization error: ' + err.message;
+            document.getElementById('tokenResponseField').textContent = err.message;
+          });
+        };
+        document.head.appendChild(script);
+      }
+
+      function proxyCallback() {
+        var smartState = JSON.parse(smartStateJson);
+        sessionStorage.removeItem('smart_state');
+
+        // Parse code and state from URL
+        var urlParams = new URLSearchParams(window.location.search);
+        var code = urlParams.get('code');
+        var returnedState = urlParams.get('state');
+
+        if (!code) {
+          document.getElementById('patientField').textContent = 'Error: No authorization code in callback URL.';
+          document.getElementById('tokenResponseField').textContent = 'No code parameter found.';
+          return;
+        }
+
+        // Validate state
+        if (returnedState !== smartState.state) {
+          document.getElementById('patientField').textContent = 'Error: State mismatch. Possible CSRF attack.';
+          document.getElementById('tokenResponseField').textContent = 'Expected state: ' + smartState.state + '\nReceived state: ' + returnedState;
+          return;
+        }
+
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Exchange code for token
+        exchangeCode(smartState, code);
+      }
+
+      function exchangeCode(smartState, code) {
+        // Fetch config to determine client type
+        fetch('/config')
+          .then(function (r) { return r.json(); })
+          .then(function (cfg) {
+            var clientType = cfg.clientType || 'public';
+
+            if (clientType === 'public') {
+              // Public client: exchange directly with the token endpoint
+              var body = new URLSearchParams();
+              body.set('grant_type', 'authorization_code');
+              body.set('code', code);
+              body.set('redirect_uri', smartState.redirectUri);
+              body.set('client_id', smartState.clientId);
+              if (smartState.codeVerifier) {
+                body.set('code_verifier', smartState.codeVerifier);
+              }
+
+              return fetch(smartState.tokenEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+              });
+            } else {
+              // Confidential client: exchange via token proxy
+              var proxyBody = new URLSearchParams();
+              proxyBody.set('token_endpoint', smartState.tokenEndpoint);
+              proxyBody.set('grant_type', 'authorization_code');
+              proxyBody.set('code', code);
+              proxyBody.set('redirect_uri', smartState.redirectUri);
+              if (smartState.codeVerifier) {
+                proxyBody.set('code_verifier', smartState.codeVerifier);
+              }
+
+              return fetch('/token-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: proxyBody.toString()
+              });
+            }
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (tokenResponse) {
+            displayResults(tokenResponse, smartState.fhirUrl, tokenResponse.access_token);
+          })
+          .catch(function (err) {
+            document.getElementById('patientField').textContent = 'Token exchange error: ' + err.message;
+            document.getElementById('tokenResponseField').textContent = err.message;
+          });
+      }
     </script>
   </body>
 </html>
