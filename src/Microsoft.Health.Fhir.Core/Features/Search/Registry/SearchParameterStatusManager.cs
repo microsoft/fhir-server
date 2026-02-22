@@ -53,7 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             var updated = new List<SearchParameterInfo>();
             var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
+            var parameters = searchParamResourceStatus
+                .ToDictionary(x => x.Uri?.OriginalString, StringComparer.Ordinal);
 
             EnsureArg.IsNotNull(_searchParameterDefinitionManager.AllSearchParameters);
             EnsureArg.IsTrue(_searchParameterDefinitionManager.AllSearchParameters.Any());
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Set states of known parameters
             foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
             {
-                if (parameters.TryGetValue(p.Url, out ResourceSearchParameterStatus result))
+                if (parameters.TryGetValue(p.Url?.OriginalString, out ResourceSearchParameterStatus result))
                 {
                     var tempStatus = EvaluateSearchParamStatus(result);
 
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
-                .ToDictionary(x => x.Uri.OriginalString);
+                .ToDictionary(x => x.Uri.OriginalString, StringComparer.Ordinal);
 
             foreach (string uri in searchParameterUris)
             {

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -19,7 +19,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <returns>An <see cref="IEnumerable{T}"/> that contains the search parameters.</returns>
         public static IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(this SearchParameterDefinitionManager manager, ICollection<string> resourceTypes)
         {
-            return manager.TypeLookup.Where(t => resourceTypes.Contains(t.Key)).SelectMany(t => t.Value.Values.SelectMany(x => x));
+            return manager.TypeLookup
+                .Where(t => resourceTypes.Contains(t.Key))
+                .SelectMany(t => t.Value.Values.SelectMany(x => x))
+                .Where(uri => manager.UrlLookup.TryGetValue(uri, out _))
+                .Select(uri => manager.UrlLookup[uri]);
         }
 
         /// <summary>
@@ -30,7 +34,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <returns>An <see cref="IEnumerable{T}"/> that contains the search parameters.</returns>
         public static IEnumerable<SearchParameterInfo> GetSearchParametersByUrls(this SearchParameterDefinitionManager manager, ICollection<string> definitionUrls)
         {
-            return manager.UrlLookup.Where(t => definitionUrls.Contains(t.Key)).Select(t => t.Value);
+            return definitionUrls
+                .Where(url => manager.UrlLookup.TryGetValue(url, out _))
+                .Select(url => manager.UrlLookup[url]);
         }
 
         /// <summary>

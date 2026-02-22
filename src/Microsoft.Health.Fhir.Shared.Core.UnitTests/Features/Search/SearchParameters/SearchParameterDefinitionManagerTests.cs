@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -319,6 +319,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenCaseVariantDefinitionUris_WhenGettingByUrl_ThenExactCaseUriResolvesToMatchingDefinition()
+        {
+            var lowerUri = "http://test.org/SearchParameter/foo-bar";
+            var upperUri = "http://test.org/SearchParameter/Foo-Bar";
+
+            var lowerDefinition = new SearchParameterInfo(
+                name: "foo-bar-lower",
+                code: "foo-bar",
+                searchParamType: SearchParamType.Token,
+                url: new Uri(lowerUri),
+                expression: "Patient.identifier",
+                baseResourceTypes: new List<string> { "Patient" });
+
+            var upperDefinition = new SearchParameterInfo(
+                name: "foo-bar-upper",
+                code: "foo-bar",
+                searchParamType: SearchParamType.Token,
+                url: new Uri(upperUri),
+                expression: "Patient.active",
+                baseResourceTypes: new List<string> { "Patient" });
+
+            _searchParameterDefinitionManager.UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(
+                new Dictionary<string, SearchParameterInfo>
+                {
+                    [lowerUri] = lowerDefinition,
+                    [upperUri] = upperDefinition,
+                });
+
+            SearchParameterInfo resolvedLower = _searchParameterDefinitionManager.GetSearchParameter(lowerUri);
+            SearchParameterInfo resolvedUpper = _searchParameterDefinitionManager.GetSearchParameter(upperUri);
+
+            Assert.Same(lowerDefinition, resolvedLower);
+            Assert.Same(upperDefinition, resolvedUpper);
+
+            Assert.False(_searchParameterDefinitionManager.TryGetSearchParameter("http://test.org/SearchParameter/FOO-BAR", out _));
+        }
+
+        [Fact]
         public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByUrl_ExceptionIsThrown()
         {
             Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(_testSearchParamInfo.Url.OriginalString));
@@ -623,21 +661,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterDefinitionManager.UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(
                 searchParameters.ToDictionary(x => x.Url.OriginalString));
-            _searchParameterDefinitionManager.TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            _searchParameterDefinitionManager.TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             _searchParameterDefinitionManager.TypeLookup.TryAdd(
                 "Patient",
-                new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParameters.GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
+                new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParameters.GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
+
             for (int i = searchParameters.Length - 1; i >= 0; i--)
             {
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParameters[i].Url.OriginalString);
                 Assert.DoesNotContain(
                     _searchParameterDefinitionManager.UrlLookup,
                     _ => _searchParameterDefinitionManager.UrlLookup.TryGetValue(searchParameters[i].Url.OriginalString, out var _));
-                Assert.DoesNotContain(
-                    _searchParameterDefinitionManager.TypeLookup["Patient"],
-                    _ => _searchParameterDefinitionManager.TypeLookup["Patient"].TryGetValue(searchParameters[i].Url.OriginalString, out var q)
-                        && !q.Any(x => string.Equals(x.Url.OriginalString, searchParameters[i].Url.OriginalString)));
+
+                if (_searchParameterDefinitionManager.TypeLookup.TryGetValue("Patient", out var patientLookup) &&
+                    patientLookup.TryGetValue(searchParameters[i].Code, out var queue))
+                {
+                    Assert.DoesNotContain(queue, uri => string.Equals(uri, searchParameters[i].Url.OriginalString, StringComparison.OrdinalIgnoreCase));
+                }
             }
+        }
+
+        [Fact]
+        public void GivenTypeLookup_WhenGettingByResourceAndCode_ThenSearchParameterResolvesFromUrlLookup()
+        {
+            var searchParam = new SearchParameterInfo(
+                name: "binding-test",
+                code: "binding-test",
+                searchParamType: SearchParamType.Token,
+                url: new Uri("http://example.org/fhir/SearchParameter/binding-test"),
+                expression: "Patient.identifier",
+                baseResourceTypes: new List<string> { "Patient" });
+
+            _searchParameterDefinitionManager.UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(
+                new Dictionary<string, SearchParameterInfo>
+                {
+                    [searchParam.Url.OriginalString] = searchParam,
+                });
+
+            _searchParameterDefinitionManager.TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>(
+                new Dictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>
+                {
+                    ["Patient"] = new ConcurrentDictionary<string, ConcurrentQueue<string>>(
+                        new Dictionary<string, ConcurrentQueue<string>>
+                        {
+                            ["binding-test"] = new ConcurrentQueue<string>(new[] { searchParam.Url.OriginalString }),
+                        }),
+                });
+
+            SearchParameterInfo resolved = _searchParameterDefinitionManager.GetSearchParameter("Patient", "binding-test");
+            Assert.Same(searchParam, resolved);
         }
 
         private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)
