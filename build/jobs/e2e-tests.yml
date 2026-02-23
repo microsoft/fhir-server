@@ -91,5 +91,5 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
-      failTaskOnFailedTests: false # tests will look failed when retried to success
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()

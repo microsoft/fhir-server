@@ -75,7 +75,7 @@ jobs:
       mergeTestResults: true
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
       publishRunAttachments: true
-      failTaskOnFailedTests: false # tests will look failed when retried to success
+      failTaskOnFailedTests: true
     condition: succeededOrFailed()
 
   - task: reportgenerator@5

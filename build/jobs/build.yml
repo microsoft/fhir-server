@@ -35,8 +35,22 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --report-trx'
       testRunTitle: 'Unit Tests'
+      publishTestResults: false
+    env:
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
+
+  - task: PublishTestResults@2
+    displayName: 'Publish unit test results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
+      mergeTestResults: true
+      testRunTitle: 'Unit Tests'
+      failTaskOnFailedTests: true
+      publishRunAttachments: true
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
   - task: DotNetCoreCLI@2
@@ -57,7 +71,7 @@ steps:
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
       testRunTitle: 'Unit Tests'
-      failTaskOnFailedTests: false # tests will look failed when retried to success
+      failTaskOnFailedTests: true
       publishRunAttachments: true
   - task: reportgenerator@5
     displayName: 'aggregate unit test coverage'
