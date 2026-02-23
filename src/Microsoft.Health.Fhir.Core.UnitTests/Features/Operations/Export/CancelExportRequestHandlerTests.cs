@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAFhirMediator_WhenUpdateExportJobThrowsUnexpectedException_ThenExceptionShouldBeThrown()
         {
-            var outcome = SetupExportJob(OperationStatus.Queued);
+            SetupExportJob(OperationStatus.Queued);
 
             _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>())
                 .Returns<ExportJobOutcome>(_ => throw new InvalidOperationException("Unexpected error"));

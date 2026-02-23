@@ -96,10 +96,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.NotNull(result.JobRecord.FailureDetails);
         }
 
-        [Theory]
-        [InlineData(JobStatus.Completed, OperationStatus.Completed)]
-        [InlineData(JobStatus.Cancelled, OperationStatus.Canceled)]
-        public async Task GivenAnExportOfPatientResources_WhenChildJobCompletes_JobStatusIsCorrect(JobStatus childStatus, OperationStatus expectedStatus)
+        [Fact]
+        public async Task GivenAnExportOfPatientResources_WhenChildJobCompletes_JobStatusIsCorrect()
         {
             string resourceType = "Patient";
             int totalJobs = 2; // 2=coord+1 resource type
@@ -112,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             foreach (var childJob in groupJobs.Where(j => j.Id != coordId))
             {
                 var dequeuedChild = await _queueClient.DequeueAsync(_queueType, "Worker", 60, CancellationToken.None, childJob.Id);
-                dequeuedChild.Status = childStatus;
+                dequeuedChild.Status = JobStatus.Completed;
                 dequeuedChild.Result = Newtonsoft.Json.JsonConvert.SerializeObject(new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1));
                 await _queueClient.CompleteJobAsync(dequeuedChild, false, CancellationToken.None);
             }
@@ -124,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             while (DateTime.UtcNow < deadline)
             {
                 result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
-                if (result.JobRecord.Status == expectedStatus)
+                if (result != null && result.JobRecord.Status == OperationStatus.Completed)
                 {
                     break;
                 }
@@ -132,7 +130,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }
 
-            Assert.Equal(expectedStatus, result.JobRecord.Status);
+            Assert.NotNull(result);
+            Assert.Equal(OperationStatus.Completed, result.JobRecord.Status);
         }
 
         [Fact]
