@@ -21,6 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
+string cachedTokenEndpoint = null;
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -37,7 +38,6 @@ app.MapGet("/config", (IConfiguration configuration) =>
 app.MapPost("/token-proxy", async (HttpRequest request, IConfiguration configuration, IHttpClientFactory httpClientFactory) =>
 {
     var form = await request.ReadFormAsync();
-    var tokenEndpoint = form["token_endpoint"].ToString();
     var grantType = form["grant_type"].ToString();
     var code = form["code"].ToString();
     var redirectUri = form["redirect_uri"].ToString();
@@ -45,9 +45,34 @@ app.MapPost("/token-proxy", async (HttpRequest request, IConfiguration configura
     var clientId = configuration["ClientId"] ?? string.Empty;
     var clientType = configuration["ClientType"] ?? "public";
 
-    if (string.IsNullOrEmpty(tokenEndpoint))
+    // Derive the token endpoint server-side from the configured FHIR server's
+    // SMART configuration to prevent SSRF via a client-supplied URL.
+    var fhirServerUrl = configuration["FhirServerUrl"];
+    if (string.IsNullOrEmpty(fhirServerUrl))
     {
-        return Results.BadRequest(new { error = "token_endpoint is required" });
+        return Results.BadRequest(new { error = "FhirServerUrl is not configured on the server." });
+    }
+
+    string tokenEndpoint;
+    try
+    {
+        if (string.IsNullOrEmpty(cachedTokenEndpoint))
+        {
+            using var discoveryClient = httpClientFactory.CreateClient();
+            var smartConfigUrl = fhirServerUrl.TrimEnd('/') + "/.well-known/smart-configuration";
+            var smartResponse = await discoveryClient.GetAsync(new Uri(smartConfigUrl));
+            smartResponse.EnsureSuccessStatusCode();
+            var smartJson = await smartResponse.Content.ReadAsStringAsync();
+            var smartConfig = System.Text.Json.JsonDocument.Parse(smartJson);
+            cachedTokenEndpoint = smartConfig.RootElement.GetProperty("token_endpoint").GetString()
+                ?? throw new InvalidOperationException("token_endpoint not found in SMART configuration.");
+        }
+
+        tokenEndpoint = cachedTokenEndpoint;
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Failed to discover token endpoint from {fhirServerUrl}: {ex.Message}", statusCode: 502);
     }
 
     var tokenRequestParams = new Dictionary<string, string>

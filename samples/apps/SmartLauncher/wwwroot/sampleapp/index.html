@@ -121,8 +121,6 @@
         script.onload = function () {
           FHIR.oauth2.ready().then(function (client) {
             var tokenResponse = client.state.tokenResponse || {};
-            var fhirUrl = client.state.serverUrl;
-            var accessToken = tokenResponse.access_token;
 
             // Access token info
             document.getElementById('tokenType').textContent = tokenResponse.token_type || 'N/A';
@@ -216,8 +214,8 @@
               });
             } else {
               // Confidential client: exchange via token proxy
+              // Note: token_endpoint is resolved server-side from the configured FHIR server
               var proxyBody = new URLSearchParams();
-              proxyBody.set('token_endpoint', smartState.tokenEndpoint);
               proxyBody.set('grant_type', 'authorization_code');
               proxyBody.set('code', code);
               proxyBody.set('redirect_uri', smartState.redirectUri);

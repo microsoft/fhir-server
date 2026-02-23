@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                 string openIdConfigUrl = authority + "/.well-known/openid-configuration";
 
                 using HttpClient httpClient = _httpClientFactory.CreateClient();
-                HttpResponseMessage response = await httpClient.GetAsync(new Uri(openIdConfigUrl), cancellationToken);
+                using HttpResponseMessage response = await httpClient.GetAsync(new Uri(openIdConfigUrl), cancellationToken);
                 response.EnsureSuccessStatusCode();
 
                 string json = await response.Content.ReadAsStringAsync(cancellationToken);
