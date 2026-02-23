@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     await CreateReindexProcessingJobsAsync(cancellationToken);
                     jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
-                    queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                    queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList(); // TODO: Move this logic inside create
                 }
 
                 _currentResult.CreatedJobs = queryReindexProcessingJobs.Count;
@@ -392,10 +392,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobInformation(_jobInfo, "All resource types have records to process. No zero-count resource types identified.");
             }
 
-            if (!CheckJobRecordForAnyWork())
-            {
-                return new List<long>();
-            }
+            ////if (!CheckJobRecordForAnyWork())
+            ////{
+            ////    return new List<long>();
+            ////}
 
             // Generate separate queries for each resource type and add them to query list.
             // This is the starting point for what essentially kicks off the reindexing job
@@ -841,10 +841,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return hash;
         }
 
-        private bool CheckJobRecordForAnyWork()
-        {
-            return _reindexJobRecord.Count > 0 || _reindexJobRecord.ResourceCounts.Any(e => e.Value.Count > 0 && e.Value.StartResourceSurrogateId > 0);
-        }
+        ////private bool CheckJobRecordForAnyWork()
+        ////{
+        ////    return _reindexJobRecord.Count > 0 || _reindexJobRecord.ResourceCounts.Any(e => e.Value.Count > 0 && e.Value.StartResourceSurrogateId > 0);
+        ////}
 
         private void LogReindexJobRecordErrorMessage()
         {
