@@ -140,7 +140,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)
         {
-            return TokenQueryGenerator.Instance;
+            return expression.FieldName switch
+            {
+                FieldName.ReferenceResourceType or FieldName.ReferenceBaseUri => ReferenceQueryGenerator.Instance,
+                _ => TokenQueryGenerator.Instance,
+            };
         }
 
         public SearchParamTableExpressionQueryGenerator VisitNotExpression(NotExpression expression, object context)

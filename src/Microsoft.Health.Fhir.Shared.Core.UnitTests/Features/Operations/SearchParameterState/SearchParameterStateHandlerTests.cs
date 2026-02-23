@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -177,9 +177,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 });
             ConcurrentDictionary<string, SearchParameterInfo> urlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.ToDictionary(x => x.Url.ToString()));
             _searchParameterDefinitionManager.UrlLookup = urlLookup;
-            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
-            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
-            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
+            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
+            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
             _searchParameterDefinitionManager.TypeLookup = typeLookup;
         }
 

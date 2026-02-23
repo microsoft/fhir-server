@@ -1,0 +1,142 @@
+{
+    "resourceType": "Bundle",
+    "type": "transaction",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "ref-test-patient1",
+                "name": [{ "family": "RefTestPatient", "given": ["Alice"] }],
+                "gender": "female",
+                "birthDate": "1990-01-15"
+            },
+            "request": { "method": "PUT", "url": "Patient/ref-test-patient1" }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "ref-test-patient2",
+                "name": [{ "family": "RefTestPatient", "given": ["Bob"] }],
+                "gender": "male",
+                "birthDate": "1985-06-20"
+            },
+            "request": { "method": "PUT", "url": "Patient/ref-test-patient2" }
+        },
+        {
+            "resource": {
+                "resourceType": "Group",
+                "id": "ref-test-group1",
+                "type": "person",
+                "actual": true,
+                "name": "Test Group Alpha",
+                "member": [
+                    { "entity": { "reference": "Patient/ref-test-patient1" } }
+                ]
+            },
+            "request": { "method": "PUT", "url": "Group/ref-test-group1" }
+        },
+        {
+            "resource": {
+                "resourceType": "Practitioner",
+                "id": "ref-test-practitioner1",
+                "name": [{ "family": "RefTestDoc", "given": ["Carol"] }]
+            },
+            "request": { "method": "PUT", "url": "Practitioner/ref-test-practitioner1" }
+        },
+        {
+            "resource": {
+                "resourceType": "Device",
+                "id": "ref-test-device1",
+                "status": "active",
+                "deviceName": [{ "name": "Test Thermometer", "type": "user-friendly-name" }]
+            },
+            "request": { "method": "PUT", "url": "Device/ref-test-device1" }
+        },
+        {
+            "resource": {
+                "resourceType": "Location",
+                "id": "ref-test-location1",
+                "name": "Test Clinic Room 1",
+                "status": "active"
+            },
+            "request": { "method": "PUT", "url": "Location/ref-test-location1" }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "id": "ref-test-encounter-patient",
+                "status": "finished",
+                "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB" },
+                "subject": { "reference": "Patient/ref-test-patient1" }
+            },
+            "request": { "method": "PUT", "url": "Encounter/ref-test-encounter-patient" }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "id": "ref-test-encounter-group",
+                "status": "finished",
+                "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB" },
+                "subject": { "reference": "Group/ref-test-group1" }
+            },
+            "request": { "method": "PUT", "url": "Encounter/ref-test-encounter-group" }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "ref-test-obs-patient",
+                "status": "final",
+                "code": { "coding": [{ "system": "http://loinc.org", "code": "8867-4", "display": "Heart rate" }] },
+                "subject": { "reference": "Patient/ref-test-patient1" },
+                "valueQuantity": { "value": 72, "unit": "beats/minute" }
+            },
+            "request": { "method": "PUT", "url": "Observation/ref-test-obs-patient" }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "ref-test-obs-device",
+                "status": "final",
+                "code": { "coding": [{ "system": "http://loinc.org", "code": "8310-5", "display": "Body temperature" }] },
+                "subject": { "reference": "Device/ref-test-device1" },
+                "valueQuantity": { "value": 36.6, "unit": "C" }
+            },
+            "request": { "method": "PUT", "url": "Observation/ref-test-obs-device" }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "ref-test-obs-location",
+                "status": "final",
+                "code": { "coding": [{ "system": "http://loinc.org", "code": "8867-4", "display": "Heart rate" }] },
+                "subject": { "reference": "Location/ref-test-location1" },
+                "valueQuantity": { "value": 0, "unit": "beats/minute" }
+            },
+            "request": { "method": "PUT", "url": "Observation/ref-test-obs-location" }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "ref-test-condition1",
+                "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active" }] },
+                "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed" }] },
+                "code": { "coding": [{ "system": "http://snomed.info/sct", "code": "386661006", "display": "Fever" }] },
+                "subject": { "reference": "Patient/ref-test-patient1" },
+                "asserter": { "reference": "Practitioner/ref-test-practitioner1" }
+            },
+            "request": { "method": "PUT", "url": "Condition/ref-test-condition1" }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "ref-test-condition2",
+                "clinicalStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active" }] },
+                "verificationStatus": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed" }] },
+                "code": { "coding": [{ "system": "http://snomed.info/sct", "code": "25064002", "display": "Headache" }] },
+                "subject": { "reference": "Patient/ref-test-patient2" },
+                "asserter": { "reference": "Patient/ref-test-patient1" }
+            },
+            "request": { "method": "PUT", "url": "Condition/ref-test-condition2" }
+        }
+    ]
+}

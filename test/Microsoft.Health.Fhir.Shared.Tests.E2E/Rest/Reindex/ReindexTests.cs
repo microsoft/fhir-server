@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await Task.WhenAll(tasks);
 
                 // reported in reindex counts should be less than total resources created
-                await CheckCounts(value.jobUri, testResources.Count, true);
+                await CheckReportedCounts(value.jobUri, testResources.Count, true);
             }
             finally
             {
@@ -110,15 +110,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 // This ensures Persons are fully created before SupplyDeliveries start
                 var personResources = await SetupTestDataAsync("Person", personCount, randomSuffix, CreatePersonResourceAsync);
                 testResources.AddRange(personResources);
-
-                // CRITICAL: Verify we got what we expected
-                Assert.True(personResources.Count == personCount, $"Failed to create sufficient Person resources. Expected: {personCount}, Got: {personResources.Count}");
+                Assert.True(personResources.Count == personCount, $"Failed to create sufficient Person resources. Expected={personCount} Actual={personResources.Count}");
 
                 var supplyDeliveryResources = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, randomSuffix, CreateSupplyDeliveryResourceAsync);
                 testResources.AddRange(supplyDeliveryResources);
-
-                // CRITICAL: Verify we got what we expected
-                Assert.True(supplyDeliveryResources.Count == supplyDeliveryCount, $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {supplyDeliveryResources.Count}");
+                Assert.True(supplyDeliveryResources.Count == supplyDeliveryCount, $"Failed to create sufficient SupplyDelivery resources. Expected={supplyDeliveryCount} Actual={supplyDeliveryResources.Count}");
 
                 Debug.WriteLine($"Test data setup complete - SupplyDelivery: {supplyDeliveryCount}, Person: {personCount}");
 
@@ -163,7 +159,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await CheckCounts(value.jobUri, testResources.Count, false);
+                // check that data did not change
+                await SearchCreatedResources("Person", personCount);
+                await SearchCreatedResources("SupplyDelivery", supplyDeliveryCount);
+
+                // check what reindex job reported
+                await CheckReportedCounts(value.jobUri, testResources.Count, false);
 
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
@@ -253,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await CheckCounts(value.jobUri, 0, false); // reindex should skip this resource
+                await CheckReportedCounts(value.jobUri, 0, false); // reindex should skip this resource
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
@@ -325,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await CheckCounts(value.jobUri, 0, false); // nothing to reindex
+                await CheckReportedCounts(value.jobUri, 0, false); // nothing to reindex
 
                 // The valid search parameter should still be usable
                 await VerifySearchParameterIsWorkingAsync(
@@ -396,7 +397,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await CheckCounts(value.jobUri, testResources.Count, false);
+                await CheckReportedCounts(value.jobUri, testResources.Count, false);
 
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
@@ -468,7 +469,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
 
-                await CheckCounts(value.jobUri, testResources.Count, false);
+                await CheckReportedCounts(value.jobUri, testResources.Count, false);
 
                 // Verify both search parameters are working after reindex
                 await VerifySearchParameterIsWorkingAsync(
@@ -557,7 +558,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     $"First reindex job should complete successfully, but got {jobStatus1}");
                 System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
 
-                await CheckCounts(reindexRequest1.jobUri, testResources.Count, false);
+                await CheckReportedCounts(reindexRequest1.jobUri, testResources.Count, false);
 
                 // Step 4: Verify the search parameter works by searching for the specimen
                 var searchQuery = $"Specimen?{searchParam.Code}=119295008";
@@ -1194,6 +1195,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return createdResources;
         }
 
+        private async Task SearchCreatedResources(string resourceType, int expectedCount)
+        {
+            var response = await _fixture.TestFhirClient.SearchAsync($"{resourceType}?_summary=count");
+            Assert.True(response.Resource.Total >= expectedCount, $"Expected>={expectedCount} Actual={response.Resource.Total}");
+        }
+
         private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources)
         {
             foreach (var resource in resources.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e6)))
@@ -1202,7 +1209,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        private async Task CheckCounts(Uri jobUri, long expected, bool lessThan)
+        private async Task CheckReportedCounts(Uri jobUri, long expected, bool lessThan)
         {
             if (!_isSql)
             {

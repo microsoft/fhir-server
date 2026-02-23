@@ -56,9 +56,8 @@ jobs:
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
       testRunTitle: '${{ parameters.version }} SQL Integration Tests'
-      publishTestResults: false
     env:
       'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
@@ -85,14 +84,6 @@ jobs:
       reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
-
-  - task: CopyFiles@2
-    displayName: 'Include native coverage files in artifact'
-    condition: succeededOrFailed()
-    inputs:
-      sourceFolder: '$(Agent.TempDirectory)/coverage'
-      contents: '**/*.coverage'
-      targetFolder: '$(Agent.TempDirectory)/coverage-aggregated'
 
   - task: PublishBuildArtifacts@1
     displayName: 'Publish SQL integration test coverage'

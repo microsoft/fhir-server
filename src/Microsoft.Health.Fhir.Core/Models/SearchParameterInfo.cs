@@ -167,12 +167,17 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public override int GetHashCode()
         {
+            // When Url is non-null, Equals compares only by Url.
+            // GetHashCode must be consistent: include only fields used by Equals.
+            if (Url != null)
+            {
+                return Url.GetHashCode();
+            }
+
             return HashCode.Combine(
-                Url?.GetHashCode(),
                 Code?.GetHashCode(StringComparison.OrdinalIgnoreCase),
                 Type.GetHashCode(),
-                Expression?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-                SearchParameterStatus.GetHashCode());
+                Expression?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         }
     }
 }

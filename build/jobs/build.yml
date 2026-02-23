@@ -58,9 +58,8 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} -- --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml"'
       testRunTitle: 'Unit Tests'
-      publishTestResults: false
     env:
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
   - task: PublishTestResults@2
@@ -80,13 +79,6 @@ steps:
       reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
       reporttypes: 'Cobertura'
       targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
-  - task: CopyFiles@2
-    displayName: 'Include native coverage files in artifact'
-    condition: succeededOrFailed()
-    inputs:
-      sourceFolder: '$(Agent.TempDirectory)/coverage'
-      contents: '**/*.coverage'
-      targetFolder: '$(Agent.TempDirectory)/coverage-aggregated'
   
   - task: PublishBuildArtifacts@1
     displayName: 'Publish unit test coverage artifact'

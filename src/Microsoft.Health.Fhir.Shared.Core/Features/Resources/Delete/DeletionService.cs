@@ -558,7 +558,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     foreach (var reference in resourcesWithReferences)
                     {
                         ReferenceRemover.RemoveReference(reference.ToPoco(), resource.Resource.ResourceTypeName + "/" + resource.Resource.ResourceId);
-                        var wrapper = _resourceWrapperFactory.Create(reference, deleted: false, keepMeta: false);
+                        var wrapper = _resourceWrapperFactory.Create(reference, deleted: false, keepMeta: true);
                         modifiedResources.Add(new ResourceWrapperOperation(
                             wrapper,
                             allowCreate: false,
