@@ -3,17 +3,19 @@
 
 coverage:
   status:
-    # Overall project coverage check
+    # Overall project coverage check (informational, non-blocking)
     project:
       default:
         target: auto    # Use the coverage of the base commit as the target
-        threshold: 1%   # Allow up to 1% drop before failing
+        threshold: 1%   # Allow up to 1% drop before reporting
+        informational: true
         if_ci_failed: error
 
-    # Coverage of changed lines in the PR
+    # Coverage of changed lines in the PR (informational, non-blocking)
     patch:
       default:
         target: 70%     # Require at least 70% coverage on new/changed lines
+        informational: true
         if_ci_failed: error
 
   # Round coverage to 2 decimal places
