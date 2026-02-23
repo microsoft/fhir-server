@@ -924,18 +924,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Get completed and failed jobs
             var failedJobInfos = allJobs.Where(j => j.Status == JobStatus.Failed).ToList();
-            var succeededJobInfos = allJobs.Where(j => j.Status == JobStatus.Completed).ToList();
 
             // Remove search parameters associated with failed jobs from readySearchParameters
             if (failedJobInfos.Any())
             {
                 var failedJobSearchParams = new HashSet<string>();
-                var failedJobCount = 0;
 
                 foreach (var failedJobInfo in failedJobInfos)
                 {
                     var definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(failedJobInfo.Definition);
-                    failedJobCount++;
 
                     // Collect search parameters from failed jobs
                     if (definition?.SearchParameterUrls != null)
@@ -956,7 +953,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             _jobInfo,
                             "Removed {RemovedCount} search parameter(s) from ready list due to {FailedJobCount} failed job(s). Removed parameters: {RemovedParams}",
                             removedParams.Count,
-                            failedJobCount,
+                            failedJobInfos.Count,
                             string.Join(", ", removedParams));
                     }
                 }
