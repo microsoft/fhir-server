@@ -98,14 +98,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// By Orchestrator job Id or Processing job Id:
-        ///   If the job is in Queued or Running status, the handler sets it to Canceled and returns Accepted.
-        ///   The SP will set the actual status to Cancel and set the Orchestrator status to CancelByUser.
+        /// By Orchestrator job Id:
+        ///   If Orchestrator job is in Completed status:
+        ///     Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+        ///     Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+        ///     Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+        /// By Processing job Id:
+        ///   If Processing job is in Completed status:
+        ///     Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+        ///     Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+        ///     Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
+        ///   If Processing job is in Failed status > return Failed > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Failed)
+        ///   If Processing job is in Cancelled status > return Cancelled > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Cancelled)
+        ///
+        /// GetExportJobByIdAsync returns Running/Cancelled/Failed based on group job analysis.
+        /// It return 404 if job's status is cancelled or cancelledByUser or CancelRequested = 1
+        /// The handler always sets status to Canceled, CanceledTime, and FailureDetails, then calls UpdateExportJobAsync.
         /// </summary>
         [Theory]
         [InlineData(OperationStatus.Queued)]
         [InlineData(OperationStatus.Running)]
-        public async Task GivenAFhirMediator_WhenCancelingExistingExportJobThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(OperationStatus operationStatus)
+        [InlineData(OperationStatus.Completed)]
+        [InlineData(OperationStatus.Failed)]
+        [InlineData(OperationStatus.Canceled)]
+        public async Task GivenAFhirMediator_WhenCancelingJobInAnyNon404Status_ThenRecordIsSetToCanceledWithFailureDetailsAndAcceptedReturned(OperationStatus operationStatus)
         {
             ExportJobOutcome outcome = null;
 
@@ -121,133 +137,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Assert.NotNull(response);
                 Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
             }
-
-            Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
-            Assert.Equal(instant, outcome.JobRecord.CanceledTime);
-            Assert.NotNull(outcome.JobRecord.FailureDetails);
-            Assert.Equal(HttpStatusCode.NoContent, outcome.JobRecord.FailureDetails.FailureStatusCode);
-
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
-        }
-
-        /// <summary>
-        /// By Orchestrator job Id:
-        ///   If Orchestrator job is in Completed status:
-        ///     Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        /// By Processing job Id:
-        ///   If Processing job is in Completed status:
-        ///     Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///
-        /// GetExportJobByIdAsync returns Running/Cancelled/Failed based on group job analysis.
-        /// The handler always sets status to Canceled, CanceledTime, and FailureDetails, then calls UpdateExportJobAsync.
-        /// </summary>
-        [Theory]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Running)]
-        [InlineData(OperationStatus.Failed)]
-        public async Task GivenAFhirMediator_WhenCancelingJobWithCompletedOrDerivedStatus_ThenStatusIsSetToCanceledAndAcceptedReturned(OperationStatus operationStatus)
-        {
-            var outcome = SetupExportJob(operationStatus);
-
-            CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-
-            Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
-            Assert.NotNull(outcome.JobRecord.CanceledTime);
-            Assert.NotNull(outcome.JobRecord.FailureDetails);
-            Assert.Equal(HttpStatusCode.NoContent, outcome.JobRecord.FailureDetails.FailureStatusCode);
-
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
-        }
-
-        /// <summary>
-        /// By Processing job Id:
-        ///   If Processing job is in Failed status > return Failed > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Failed)
-        /// </summary>
-        [Fact]
-        public async Task GivenAFhirMediator_WhenCancelingFailedProcessingJob_ThenStatusIsSetToCanceledAndAcceptedReturned()
-        {
-            var outcome = SetupExportJob(OperationStatus.Failed);
-
-            CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-
-            Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
-            Assert.NotNull(outcome.JobRecord.CanceledTime);
-            Assert.NotNull(outcome.JobRecord.FailureDetails);
-
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
-        }
-
-        /// <summary>
-        /// By Processing job Id:
-        ///   If Processing job is in Cancelled status > return Cancelled > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Cancelled)
-        /// </summary>
-        [Fact]
-        public async Task GivenAFhirMediator_WhenCancelingAlreadyCanceledProcessingJob_ThenStatusIsSetToCanceledAndAcceptedReturned()
-        {
-            var outcome = SetupExportJob(OperationStatus.Canceled);
-
-            CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-
-            Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
-            Assert.NotNull(outcome.JobRecord.CanceledTime);
-            Assert.NotNull(outcome.JobRecord.FailureDetails);
-
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
-        }
-
-        /// <summary>
-        /// By Processing job Id:
-        ///   If Processing job is in Created status > return Created > Set to Cancel here (SP will set the actual status to Cancel and set the Orchestrator status to CancelByUser)
-        /// Note: OperationStatus.Queued maps to Created status at the queue level.
-        /// </summary>
-        [Fact]
-        public async Task GivenAFhirMediator_WhenCancelingCreatedProcessingJob_ThenStatusIsSetToCanceledAndAcceptedReturned()
-        {
-            var outcome = SetupExportJob(OperationStatus.Queued);
-
-            CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-
-            Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
-            Assert.NotNull(outcome.JobRecord.CanceledTime);
-            Assert.NotNull(outcome.JobRecord.FailureDetails);
-            Assert.Equal(HttpStatusCode.NoContent, outcome.JobRecord.FailureDetails.FailureStatusCode);
-
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
-        }
-
-        /// <summary>
-        /// Validates that all non-404 statuses result in an Accepted response with Canceled status set on the record.
-        /// </summary>
-        [Theory]
-        [InlineData(OperationStatus.Queued)]
-        [InlineData(OperationStatus.Running)]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Failed)]
-        [InlineData(OperationStatus.Canceled)]
-        public async Task GivenAFhirMediator_WhenCancelingJobInAnyNon404Status_ThenRecordIsSetToCanceledWithFailureDetailsAndAcceptedReturned(OperationStatus operationStatus)
-        {
-            var outcome = SetupExportJob(operationStatus);
-
-            CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
-
-            Assert.NotNull(response);
-            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
             Assert.NotNull(outcome.JobRecord.CanceledTime);

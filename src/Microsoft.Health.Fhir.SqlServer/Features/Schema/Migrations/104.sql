@@ -4610,7 +4610,7 @@ SELECT 'MergeSearchParams',
 
 GO
 CREATE PROCEDURE dbo.PutJobCancelation
-@QueueType TINYINT, @GroupId BIGINT=NULL, @JobId BIGINT=NULL
+@QueueType TINYINT, @GroupId BIGINT=NULL, @JobId BIGINT=NULL, @RequestCancellationOnFailure BIT=0
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'PutJobCancelation', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' J=' + isnull(CONVERT (VARCHAR, @JobId), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT, @PartitionId AS TINYINT = @JobId % 16;
@@ -4657,6 +4657,7 @@ BEGIN TRY
                    AND Status = 1;
             SET @Rows += @@rowcount;
             IF @QueueType = 1
+               AND @RequestCancellationOnFailure = 0
                 BEGIN
                     UPDATE dbo.JobQueue
                     SET    status = 6
@@ -4761,7 +4762,7 @@ BEGIN TRY
         END
     IF @Failed = 1
        AND @RequestCancellationOnFailure = 1
-        EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId;
+        EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId, @RequestCancellationOnFailure = @RequestCancellationOnFailure;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH

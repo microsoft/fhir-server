@@ -38,7 +38,7 @@ BEGIN TRY
   END
 
   IF @Failed = 1 AND @RequestCancellationOnFailure = 1
-    EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId
+    EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId, @RequestCancellationOnFailure = @RequestCancellationOnFailure
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY

@@ -1710,7 +1710,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The search parameter with Uri &apos;{0}&apos; is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL..
+        ///   Looks up a localized string similar to The search parameter with Uri '{0}' is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL..
         /// </summary>
         internal static string SearchParameterDefinitionSystemDefined {
             get {
