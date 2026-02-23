@@ -1211,11 +1211,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
         private async Task CheckReportedCounts(Uri jobUri, long expected, bool lessThan)
         {
-            if (!_isSql)
-            {
-                return;
-            }
-
             var response = await _fixture.TestFhirClient.HttpClient.GetAsync(jobUri, CancellationToken.None);
             var content = await response.Content.ReadAsStringAsync();
             var parameters = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(content);
