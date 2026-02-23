@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             {
                 var part = new Parameters.ParameterComponent
                 {
-                    Name = job.JobType + " " + job.JobId,
+                    Name = job.JobType + " " + job.GroupId,
                 };
 
                 part.Part.Add(new Parameters.ParameterComponent
@@ -62,15 +62,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                     Name = "createTime",
                     Value = new FhirDateTime(job.CreateDate),
                 });
-
-                if (job.StartDate != null)
-                {
-                    part.Part.Add(new Parameters.ParameterComponent
-                    {
-                        Name = "startTime",
-                        Value = new FhirDateTime((System.DateTimeOffset)job.StartDate),
-                    });
-                }
 
                 if (job.EndDate != null)
                 {

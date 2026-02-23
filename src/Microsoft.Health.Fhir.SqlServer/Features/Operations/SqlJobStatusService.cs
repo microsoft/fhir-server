@@ -76,11 +76,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             var operationName = GetOperationNameForQueueType(queueType);
 
             sqlCommandWrapper.CommandText = @"
-                SELECT JobId, GroupId, Status, CreateDate, StartDate, EndDate
+                SELECT GroupId, min(Status) AS Status, min(CreateDate) AS CreateDate, max(EndDate) AS EndDate
                 FROM dbo.JobQueue
                 WHERE QueueType = @QueueType
-                  AND JobId = GroupId
                   AND Status <> 5
+                GROUP BY GroupId
                 ORDER BY CreateDate DESC";
 
             sqlCommandWrapper.Parameters.Clear();
@@ -91,23 +91,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
                 using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    var jobId = reader.GetInt64(0);
-                    var groupId = reader.GetInt64(1);
-                    var status = (JobStatus)reader.GetByte(2);
-                    var createDate = reader.GetDateTime(3);
-                    DateTime? startDate = await reader.IsDBNullAsync(4, cancellationToken) ? null : reader.GetDateTime(4);
-                    DateTime? endDate = await reader.IsDBNullAsync(5, cancellationToken) ? null : reader.GetDateTime(5);
+                    var groupId = reader.GetInt64(0);
+                    var status = (JobStatus)reader.GetByte(1);
+                    var createDate = reader.GetDateTime(2);
+                    DateTime? endDate = await reader.IsDBNullAsync(5, cancellationToken) ? null : reader.GetDateTime(3);
 
                     var jobStatusInfo = new JobStatusInfo
                     {
-                        JobId = jobId,
                         GroupId = groupId,
                         QueueType = queueType,
                         JobType = operationName,
                         Status = status,
                         ContentLocation = _urlResolver.ResolveOperationResultUrl(operationName, groupId.ToString()),
                         CreateDate = createDate,
-                        StartDate = startDate,
                         EndDate = endDate,
                     };
 

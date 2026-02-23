@@ -14,11 +14,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.GetJobStatus
     public class JobStatusInfo
     {
         /// <summary>
-        /// Gets or sets the job identifier.
-        /// </summary>
-        public long JobId { get; set; }
-
-        /// <summary>
         /// Gets or sets the group identifier for the job.
         /// </summary>
         public long GroupId { get; set; }
@@ -47,11 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.GetJobStatus
         /// Gets or sets the date and time when the job was created.
         /// </summary>
         public DateTime CreateDate { get; set; }
-
-        /// <summary>
-        /// Gets or sets the date and time when the job started.
-        /// </summary>
-        public DateTime? StartDate { get; set; }
 
         /// <summary>
         /// Gets or sets the date and time when the job ended.
