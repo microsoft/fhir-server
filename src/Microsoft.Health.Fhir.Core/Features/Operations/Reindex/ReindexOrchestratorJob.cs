@@ -392,11 +392,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogJobInformation(_jobInfo, "All resource types have records to process. No zero-count resource types identified.");
             }
 
-            ////if (!CheckJobRecordForAnyWork())
-            ////{
-            ////    return new List<long>();
-            ////}
-
             // Generate separate queries for each resource type and add them to query list.
             // This is the starting point for what essentially kicks off the reindexing job
             foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
@@ -841,11 +836,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return hash;
         }
 
-        ////private bool CheckJobRecordForAnyWork()
-        ////{
-        ////    return _reindexJobRecord.Count > 0 || _reindexJobRecord.ResourceCounts.Any(e => e.Value.Count > 0 && e.Value.StartResourceSurrogateId > 0);
-        ////}
-
         private void LogReindexJobRecordErrorMessage()
         {
             _reindexJobRecord.Status = OperationStatus.Failed;
@@ -862,14 +852,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var completedJobsByResourceType = new Dictionary<string, List<JobInfo>>();
             var activeJobs = jobInfos.Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created).ToList();
 
-            // If we have no active jobs, yet we got here, this means the orchestrator
-            // crashed before completing its work and all processing jobs have since completed.
-            if (!activeJobs.Any())
-            {
-                var readySearchParameters = ProcessCompletedJobsAndDetermineReadiness(jobInfos);
-                await ProcessCompletedJobs(true, jobInfos, readySearchParameters, cancellationToken);
-            }
-
             // Track job counts and timing
             int lastActiveJobCount = activeJobs.Count;
             int unchangedCount = 0;
@@ -882,7 +864,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
 
-            while (activeJobs.Any())
+            do
             {
                 try
                 {
@@ -920,35 +902,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     try
                     {
                         // Batch fetch jobs status
-                        var updatedJobs = await _queueClient.GetJobByGroupIdAsync(
-                            (byte)QueueType.Reindex,
-                            _jobInfo.GroupId,
-                            true,
-                            linkedCts.Token);
+                        var jobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, linkedCts.Token)).Where(j => j.Id != _jobInfo.GroupId).ToList();
 
                         // Update active jobs
-                        activeJobs = updatedJobs.Where(j => j.Id != _jobInfo.GroupId && (j.Status == JobStatus.Running || j.Status == JobStatus.Created)).ToList();
+                        activeJobs = jobs.Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created).ToList();
 
                         // Process newly completed jobs by resource type
-                        var newlyCompletedJobs = updatedJobs
+                        var newlyCompletedJobs = jobs
                             .Where(j => j.Status != JobStatus.Created && j.Status != JobStatus.Running && !handledJobIds.Contains(j.Id))
                             .ToList();
 
-                        if (newlyCompletedJobs.Any())
+                        if (newlyCompletedJobs.Any() || !jobs.Any())
                         {
                             // Process newly completed jobs and determine ready search parameters in one pass
-                            var readySearchParameters = ProcessCompletedJobsAndDetermineReadiness(
-                                updatedJobs.Where(j => j.Id != j.GroupId).ToList());
+                            var readySearchParameters = ProcessCompletedJobsAndDetermineReadiness(jobs);
 
                             // Check if all jobs are complete (either Completed or Failed)
-                            var allJobsComplete = !updatedJobs
-                                .Any(j => j.Id != _jobInfo.GroupId && (j.Status == JobStatus.Running || j.Status == JobStatus.Created));
+                            var allJobsComplete = !jobs.Any(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created);
 
                             // Update search parameter status for ready parameters
                             if (readySearchParameters.Any() || allJobsComplete)
                             {
-                                var allJobs = updatedJobs.Where(j => j.Id != j.GroupId).ToList();
-                                await ProcessCompletedJobs(allJobsComplete, allJobs, readySearchParameters, cancellationToken);
+                                await ProcessCompletedJobs(allJobsComplete, jobs, readySearchParameters, cancellationToken);
                             }
 
                             // Add newly completed job IDs to the processed set
@@ -964,9 +939,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _logger.LogDebug("Poll interval timeout occurred for job {JobId}. Continuing with next iteration.", _jobInfo.Id);
                     }
 
-                    await Task.Delay(
-                            Math.Min(MIN_POLL_INTERVAL_MS, currentPollInterval / 10),
-                            cancellationToken);
+                    await Task.Delay(Math.Min(MIN_POLL_INTERVAL_MS, currentPollInterval / 10), cancellationToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -975,6 +948,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await Task.Delay(currentPollInterval, cancellationToken);
                 }
             }
+            while (activeJobs.Any());
         }
 
         private async Task ProcessCompletedJobs(
