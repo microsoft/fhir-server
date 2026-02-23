@@ -339,8 +339,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             // Generate separate queries for each resource type and add them to query list.
             // This is the starting point for what essentially kicks off the reindexing job
-            ////foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
-            foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts)
+            foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
             {
                 var query = new ReindexJobQueryStatus(resourceType.Key, continuationToken: null)
                 {
@@ -378,15 +377,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
 
-            foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts)
+            foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
             {
                 var resourceType = resourceTypeEntry.Key;
                 var resourceCount = resourceTypeEntry.Value;
-
-                if (resourceCount.Count <= 0)
-                {
-                    continue; // Skip if there are no resources to process
-                }
 
                 // Get search parameters that are valid for this specific resource type
                 var validSearchParameterUrls = GetValidSearchParameterUrlsForResourceType(resourceType);
