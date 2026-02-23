@@ -78,7 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
-        private List<JobInfo> _jobsToProcess;
         private DateTimeOffset _searchParamLastUpdated;
 
         public ReindexOrchestratorJob(
@@ -119,8 +118,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
             _isSurrogateIdRangingSupported = fhirRuntimeConfiguration.IsSurrogateIdRangingSupported;
             _logger.LogInformation(_isSurrogateIdRangingSupported ? "Using SQL Server search service with surrogate ID ranging support" : "Using search service without surrogate ID ranging support (likely Cosmos DB)");
-
-            _jobsToProcess = new List<JobInfo>();
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -912,9 +909,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (allJobsComplete)
             {
                 // Exclude jobs already processed, about to be processed and include only those in completed and Failed
-                var processingJobs = allJobs
-                    .Where(j => (j.Status == JobStatus.Completed || j.Status == JobStatus.Failed) &&
-                    !_jobsToProcess.Any(jp => jp.Id == j.Id)).ToList();
+                var processingJobs = allJobs.Where(j => (j.Status == JobStatus.Completed || j.Status == JobStatus.Failed)).ToList();
 
                 if (processingJobs.Any())
                 {
@@ -924,14 +919,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         processingJobs.Count,
                         processingJobs.Count(j => j.Status == JobStatus.Completed),
                         processingJobs.Count(j => j.Status == JobStatus.Failed));
-
-                    _jobsToProcess.AddRange(processingJobs);
                 }
             }
 
             // Get completed and failed jobs
-            var failedJobInfos = _jobsToProcess.Where(j => j.Status == JobStatus.Failed).ToList();
-            var succeededJobInfos = _jobsToProcess.Where(j => j.Status == JobStatus.Completed).ToList();
+            var failedJobInfos = allJobs.Where(j => j.Status == JobStatus.Failed).ToList();
+            var succeededJobInfos = allJobs.Where(j => j.Status == JobStatus.Completed).ToList();
 
             // Remove search parameters associated with failed jobs from readySearchParameters
             if (failedJobInfos.Any())
@@ -971,7 +964,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 LogReindexJobRecordErrorMessage();
             }
 
-            readySearchParameters = await VerifyCountsAndUpdateReadySearchParameters(_jobsToProcess, readySearchParameters);
+            readySearchParameters = await VerifyCountsAndUpdateReadySearchParameters(allJobs, readySearchParameters);
 
             await UpdateSearchParameterStatus(readySearchParameters, cancellationToken);
 
@@ -998,7 +991,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs, _currentResult.CreatedJobs);
             }
 
-            _jobsToProcess.Clear();
             return;
         }
 
