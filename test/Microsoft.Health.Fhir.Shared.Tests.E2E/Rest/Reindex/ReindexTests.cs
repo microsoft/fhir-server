@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.SqlServer.Management.Smo.Agent;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -154,10 +155,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job to complete (this will wait for all sub-jobs to complete)
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+                var job = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                Assert.True(job.Status == OperationStatus.Completed, $"expected={OperationStatus.Completed} actual={job.Status} details={job.Details}");
 
                 // check that data did not change
                 await SearchCreatedResources("Person", personCount);
@@ -249,10 +248,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job to complete
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+                var job = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                Assert.True(job.Status == OperationStatus.Completed, $"expected={OperationStatus.Completed} actual={job.Status} details={job.Details}");
 
                 await CheckReportedCounts(value.jobUri, 0, false); // reindex should skip this resource
 
@@ -321,10 +318,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job to complete
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+                var job = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                Assert.True(job.Status == OperationStatus.Completed, $"expected={OperationStatus.Completed} actual={job.Status} details={job.Details}");
 
                 await CheckReportedCounts(value.jobUri, 0, false); // nothing to reindex
 
@@ -392,10 +387,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job completion
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+                var job = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                Assert.True(job.Status == OperationStatus.Completed, $"expected={OperationStatus.Completed} actual={job.Status} details={job.Details}");
 
                 await CheckReportedCounts(value.jobUri, testResources.Count, false);
 
@@ -464,10 +457,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(value.jobUri);
 
                 // Wait for job completion
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+                var job = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                Assert.True(job.Status == OperationStatus.Completed, $"expected={OperationStatus.Completed} actual={job.Status} details={job.Details}");
 
                 await CheckReportedCounts(value.jobUri, testResources.Count, false);
 
@@ -552,10 +543,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(reindexRequest1.jobUri);
                 System.Diagnostics.Debug.WriteLine("Started first reindex job to index the new search parameter");
 
-                var jobStatus1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, TimeSpan.FromSeconds(240));
-                Assert.True(
-                    jobStatus1 == OperationStatus.Completed,
-                    $"First reindex job should complete successfully, but got {jobStatus1}");
+                var job1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, TimeSpan.FromSeconds(240));
+                Assert.True(job1.Status == OperationStatus.Completed, $"1st reindex: expected={OperationStatus.Completed} actual={job1.Status} details={job1.Details}");
                 System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
 
                 await CheckReportedCounts(reindexRequest1.jobUri, testResources.Count, false);
@@ -578,10 +567,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(reindexRequest2.jobUri);
                 System.Diagnostics.Debug.WriteLine("Started second reindex job to remove the deleted search parameter");
 
-                var jobStatus2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, TimeSpan.FromSeconds(240));
-                Assert.True(
-                    jobStatus2 == OperationStatus.Completed,
-                    $"Second reindex job should complete successfully, but got {jobStatus2}");
+                var job2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, TimeSpan.FromSeconds(240));
+                Assert.True(job2.Status == OperationStatus.Completed, $"2nd reindex: expected={OperationStatus.Completed} actual={job2.Status} details={job2.Details}");
                 System.Diagnostics.Debug.WriteLine("Second reindex job completed successfully");
 
                 // Step 7: Verify the search parameter is no longer supported
@@ -852,10 +839,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // after each individual test cleanup.
         }
 
-        private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
+        private async Task<(OperationStatus Status, string Details)> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
         {
             var stopwatch = Stopwatch.StartNew();
             OperationStatus lastStatus = OperationStatus.Queued;
+            var details = string.Empty;
 
             while (stopwatch.Elapsed < timeout)
             {
@@ -865,8 +853,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                     if (jobResponse.Resource?.Parameter != null)
                     {
-                        var statusParam = jobResponse.Resource.Parameter
-                            .FirstOrDefault(p => p.Name == "status");
+                        var statusParam = jobResponse.Resource.Parameter.FirstOrDefault(p => p.Name == "status");
 
                         if (statusParam?.Value != null)
                         {
@@ -887,11 +874,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                             {
                                 lastStatus = status;
 
-                                if (status == OperationStatus.Completed ||
-                                    status == OperationStatus.Failed ||
-                                    status == OperationStatus.Canceled)
+                                if (status == OperationStatus.Completed || status == OperationStatus.Failed || status == OperationStatus.Canceled)
                                 {
-                                    return status;
+                                    var detailsParam = jobResponse.Resource.Parameter.FirstOrDefault(p => p.Name == "failureDetails");
+                                    if (detailsParam?.Value != null && detailsParam.Value is FhirString str)
+                                    {
+                                        details = str.Value;
+                                    }
+
+                                    return (status, details);
                                 }
                             }
                         }
@@ -905,7 +896,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await Task.Delay(1000);
             }
 
-            return lastStatus;
+            return (lastStatus, details);
         }
 
         /// <summary>
