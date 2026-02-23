@@ -957,20 +957,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                 handledJobIds.Add(job.Id);
                             }
                         }
-
-                        // Send heartbeat less frequently when stable
-                        if (unchangedCount <= MAX_UNCHANGED_CYCLES)
-                        {
-                            try
-                            {
-                                await _queueClient.PutJobHeartbeatAsync(_jobInfo, cancellationToken);
-                            }
-                            catch (JobConflictException ex)
-                            {
-                                // Log but don't fail - heartbeat conflicts are acceptable
-                                _logger.LogJobWarning(ex, _jobInfo, "Heartbeat conflict - another worker updated the job");
-                            }
-                        }
                     }
                     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                     {
