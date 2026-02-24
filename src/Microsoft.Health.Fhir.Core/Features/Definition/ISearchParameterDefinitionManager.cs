@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -15,10 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// </summary>
     public interface ISearchParameterDefinitionManager
     {
-        public delegate ISearchParameterDefinitionManager SearchableSearchParameterDefinitionManagerResolver();
-
-        public delegate ISearchParameterDefinitionManager SupportedSearchParameterDefinitionManagerResolver();
-
         /// <summary>
         /// Gets the list of all search parameters.
         /// </summary>
@@ -89,43 +87,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         SearchParameterInfo GetSearchParameter(string definitionUri);
 
         /// <summary>
-        /// Updates the existing resource type - search parameter hash mapping with the given new values.
-        /// </summary>
-        /// <param name="updatedSearchParamHashMap">Dictionary containing resource type to search parameter hash values</param>
-        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap);
-
-        /// <summary>
         /// Gets the hash of the current search parameters that are supported for the given resource type.
         /// </summary>
         /// <param name="resourceType">Resource type for which we need the hash of search parameters.</param>
         /// <returns>A string representing a hash of the search parameters.</returns>
         public string GetSearchParameterHashForResourceType(string resourceType);
 
-        /// <summary>
-        /// Allows addition of a new search parameters at runtime.
-        /// </summary>
-        /// <param name="searchParameters">An collection containing SearchParameter resources.</param>
-        /// <param name="calculateHash">Indicates whether the search parameter hash should be recalculated</param>
-        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true);
-
-        /// <summary>
-        /// Allows removal of a custom search parameter.
-        /// </summary>
-        /// <param name="searchParam">The custom search parameter to remove.</param>
-        void DeleteSearchParameter(ITypedElement searchParam);
-
-        /// <summary>
-        /// Allows removal of a custom search parameter.
-        /// </summary>
-        /// <param name="url">The url identifying the custom search parameter to remove.</param>
-        /// <param name="calculateHash">Indicated whether the search parameter hash values should be recalulated after this delete.</param>
-        void DeleteSearchParameter(string url, bool calculateHash = true);
-
-        /// <summary>
-        /// Allows update of a custom search parameter status.
-        /// </summary>
-        /// <param name="url">The url identifying the custom search parameter to update.</param>
-        /// <param name="desiredStatus">The desired status for the custom search parameter to update.</param>
-        void UpdateSearchParameterStatus(string url, SearchParameterStatus desiredStatus);
+        public Task ForceRefresh(CancellationToken cancellationToken);
     }
 }
