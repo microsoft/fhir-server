@@ -19,17 +19,36 @@
         document.head.appendChild(script);
       }
 
+      function getOrigin(url) {
+        try {
+          var parsed = new URL(url);
+          return parsed.origin;
+        } catch (e) {
+          return null;
+        }
+      }
+
       // ── fhirclient flow ──
       function fhirclientLaunch() {
         if (params.has('clientId') && params.has('iss')) {
-          authorizeWith({
-            authMode: params.get('authMode') || 'public',
-            clientId: params.get('clientId'),
-            scope: params.get('scope') || 'openid fhirUser',
-            iss: params.get('iss'),
-            clientSecret: params.get('clientSecret') || '',
-            jwk: params.get('jwk') || ''
-          });
+          // Validate iss against configured FHIR server
+          fetch('/config')
+            .then(function (r) { return r.json(); })
+            .then(function (cfg) {
+              var iss = params.get('iss');
+              if (getOrigin(iss) !== getOrigin(cfg.fhirServerUrl)) {
+                document.body.textContent = 'Error: iss parameter does not match the configured FHIR server.';
+                return;
+              }
+              authorizeWith({
+                authMode: params.get('authMode') || 'public',
+                clientId: params.get('clientId'),
+                scope: params.get('scope') || 'openid fhirUser',
+                iss: iss,
+                clientSecret: params.get('clientSecret') || '',
+                jwk: params.get('jwk') || ''
+              });
+            });
         } else {
           fetch('/config')
             .then(function (r) { return r.json(); })
@@ -83,7 +102,16 @@
               startProxyFlow(cfg.fhirServerUrl, cfg.clientId, cfg.scopes || scope);
             });
         } else {
-          startProxyFlow(iss, clientId, scope);
+          // Validate iss against configured FHIR server
+          fetch('/config')
+            .then(function (r) { return r.json(); })
+            .then(function (cfg) {
+              if (getOrigin(iss) !== getOrigin(cfg.fhirServerUrl)) {
+                document.body.textContent = 'Error: iss parameter does not match the configured FHIR server.';
+                return;
+              }
+              startProxyFlow(iss, clientId, scope);
+            });
         }
       }
 

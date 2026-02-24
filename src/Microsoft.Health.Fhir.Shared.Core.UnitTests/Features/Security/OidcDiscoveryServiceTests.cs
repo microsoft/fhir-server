@@ -110,12 +110,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
             Assert.Equal(expectedToken, tokenEndpoint.ToString());
         }
 
+        [Fact]
+        public async Task GivenCachedEntry_WhenCacheExpires_ThenDiscoveryCalledAgain()
+        {
+            string authority = "https://login.microsoftonline.com/tenant-id";
+            var messageHandler = new OidcDiscoveryMessageHandler(
+                authority + "/oauth2/v2.0/authorize",
+                authority + "/oauth2/v2.0/token");
+
+            // Use a very short cache duration so it expires immediately
+            var service = CreateServiceWithCacheDuration(messageHandler, TimeSpan.Zero);
+
+            await service.ResolveEndpointsAsync(authority);
+            await service.ResolveEndpointsAsync(authority);
+
+            Assert.Equal(2, messageHandler.CallCount);
+        }
+
+        [Fact]
+        public async Task GivenCachedEntry_WhenCacheNotExpired_ThenDiscoveryNotCalledAgain()
+        {
+            string authority = "https://login.microsoftonline.com/tenant-id";
+            var messageHandler = new OidcDiscoveryMessageHandler(
+                authority + "/oauth2/v2.0/authorize",
+                authority + "/oauth2/v2.0/token");
+
+            // Use a long cache duration so it doesn't expire
+            var service = CreateServiceWithCacheDuration(messageHandler, TimeSpan.FromHours(48));
+
+            await service.ResolveEndpointsAsync(authority);
+            await service.ResolveEndpointsAsync(authority);
+
+            Assert.Equal(1, messageHandler.CallCount);
+        }
+
         private static OidcDiscoveryService CreateService(HttpMessageHandler messageHandler)
+        {
+            return CreateServiceWithCacheDuration(messageHandler, TimeSpan.FromHours(24));
+        }
+
+        private static OidcDiscoveryService CreateServiceWithCacheDuration(HttpMessageHandler messageHandler, TimeSpan cacheDuration)
         {
             var httpClient = new HttpClient(messageHandler);
             var httpClientFactory = Substitute.For<IHttpClientFactory>();
             httpClientFactory.CreateClient(Arg.Any<string>()).Returns(httpClient);
-            return new OidcDiscoveryService(httpClientFactory, NullLogger<OidcDiscoveryService>.Instance);
+            return new OidcDiscoveryService(httpClientFactory, NullLogger<OidcDiscoveryService>.Instance, cacheDuration);
         }
 
         private class OidcDiscoveryMessageHandler : HttpMessageHandler

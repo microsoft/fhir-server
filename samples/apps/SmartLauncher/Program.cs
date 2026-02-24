@@ -70,9 +70,17 @@ app.MapPost("/token-proxy", async (HttpRequest request, IConfiguration configura
 
         tokenEndpoint = cachedTokenEndpoint;
     }
-    catch (Exception ex)
+    catch (HttpRequestException ex)
     {
         return Results.Problem($"Failed to discover token endpoint from {fhirServerUrl}: {ex.Message}", statusCode: 502);
+    }
+    catch (System.Text.Json.JsonException ex)
+    {
+        return Results.Problem($"Failed to parse SMART configuration from {fhirServerUrl}: {ex.Message}", statusCode: 502);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem($"Invalid SMART configuration from {fhirServerUrl}: {ex.Message}", statusCode: 502);
     }
 
     var tokenRequestParams = new Dictionary<string, string>
@@ -89,7 +97,7 @@ app.MapPost("/token-proxy", async (HttpRequest request, IConfiguration configura
     }
 
     using var httpClient = httpClientFactory.CreateClient();
-    var tokenRequest = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint)
+    using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint)
     {
         Content = new FormUrlEncodedContent(tokenRequestParams),
     };
