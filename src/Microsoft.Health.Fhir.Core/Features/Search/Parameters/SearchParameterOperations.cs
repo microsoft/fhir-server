@@ -339,9 +339,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 paramsToAdd.Add(searchParamResource);
+
+                // Add parameters incrementally per chunk to reduce peak memory footprint
+                if (paramsToAdd.Count >= 100)
+                {
+                    _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                    paramsToAdd.Clear();
+                }
             }
 
-            // Now add the new or updated parameters to the SearchParameterDefinitionManager
+            // Add any remaining parameters
             if (paramsToAdd.Any())
             {
                 _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
@@ -367,13 +374,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             foreach (var status in statuses)
             {
                 _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
-                using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
                 if (existingSearchParam == null)
                 {
                     inCache = false;
                     var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
                     _logger.LogInformation(msg);
-                    await search.Value.TryLogEvent("SearchParameterOperations.GetAndApplySearchParameterUpdates", "Error", msg, null, cancellationToken);
                 }
             }
 
