@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-            var inCache = ParametersAreInCache(statusesToProcess, cancellationToken);
+            var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
 
             if (results.LastUpdated.HasValue && inCache) // this should be the ony place in the code to assign last updated
             {
