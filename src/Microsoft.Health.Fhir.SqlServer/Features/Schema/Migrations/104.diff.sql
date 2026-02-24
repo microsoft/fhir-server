@@ -1,4 +1,4 @@
-ALTER PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint = NULL, @JobId bigint = NULL
+ALTER PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint = NULL, @JobId bigint = NULL, @RequestCancellationOnFailure bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobCancelation'
