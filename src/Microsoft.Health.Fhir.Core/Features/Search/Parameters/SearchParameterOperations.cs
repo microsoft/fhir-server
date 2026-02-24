@@ -309,12 +309,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             var statusesToProcess = statuses.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList();
+            var statusesToFetch = statusesToProcess
+                .Where(p => !_searchParameterDefinitionManager.TryGetSearchParameter(p.Uri.OriginalString, out var existingSearchParam) || !existingSearchParam.IsSystemDefined)
+                .ToList();
 
             // Batch fetch all SearchParameter resources in one call
-            var searchParamResources = await GetSearchParametersByUrls(statusesToProcess.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
+            var searchParamResources = await GetSearchParametersByUrls(
+                statusesToFetch
+                    .Select(p => p.Uri.OriginalString)
+                    .ToList(),
+                cancellationToken);
 
             var paramsToAdd = new List<ITypedElement>();
-            foreach (var searchParam in statusesToProcess)
+            foreach (var searchParam in statusesToFetch)
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
@@ -392,7 +399,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return new Dictionary<string, ITypedElement>();
             }
 
-            const int chunkSize = 1500;
+            const int chunkSize = 100;
             var searchParametersByUrl = new Dictionary<string, ITypedElement>();
 
             // Process URLs in chunks to avoid SQL query limitations
