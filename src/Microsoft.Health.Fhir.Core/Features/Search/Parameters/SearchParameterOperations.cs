@@ -308,10 +308,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
             }
 
-            var statusesToProcess = statuses.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList();
-            var statusesToFetch = statusesToProcess
-                .Where(p => !_searchParameterDefinitionManager.TryGetSearchParameter(p.Uri.OriginalString, out var existingSearchParam) || !existingSearchParam.IsSystemDefined)
-                .ToList();
+            var systemDefinedSearchParameterUris = new HashSet<string>(
+                _searchParameterDefinitionManager.AllSearchParameters
+                    .Where(p => p.IsSystemDefined)
+                    .Select(p => p.Url.OriginalString),
+                StringComparer.Ordinal);
+
+            var statusesToFetch = statuses
+                .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
+                .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
 
             // Batch fetch all SearchParameter resources in one call
             var searchParamResources = await GetSearchParametersByUrls(
