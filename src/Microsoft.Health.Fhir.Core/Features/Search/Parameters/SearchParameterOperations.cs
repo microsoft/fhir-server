@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-            var inCache = await ParametersAreInCache(statusesToProcess, cancellationToken);
+            var inCache = ParametersAreInCache(statusesToProcess, cancellationToken);
 
             if (results.LastUpdated.HasValue && inCache) // this should be the ony place in the code to assign last updated
             {
@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
         // when refresh is invoked between saving status and saving resource.
         // This will not be needed when order of saves is reversed (resource first, then status)
-        private async Task<bool> ParametersAreInCache(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        private bool ParametersAreInCache(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             var inCache = true;
             foreach (var status in statuses)
