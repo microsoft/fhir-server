@@ -385,7 +385,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
                     _logger.LogInformation(msg);
 
-                    // if the parameter was updated in the last 10 minutes it's possible we hit
+                    // if the parameter was updated in the last 10 minutes it's possible we hit race condition
+                    // where status was updated but resource is not yet saved, so we should not consider this as cache miss
                     if (status.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10))
                     {
                         inCache = false;
