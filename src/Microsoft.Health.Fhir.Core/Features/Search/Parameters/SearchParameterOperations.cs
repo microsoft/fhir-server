@@ -308,6 +308,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParam.Uri.OriginalString, SearchParameterStatus.PendingDelete);
             }
 
+            // Identify all System Defined Search Parameters and filter them from statuses
             var systemDefinedSearchParameterUris = new HashSet<string>(
                 _searchParameterDefinitionManager.AllSearchParameters
                     .Where(p => p.IsSystemDefined)
