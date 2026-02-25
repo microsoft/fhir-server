@@ -331,10 +331,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
-                    _logger.LogInformation(
-                        "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
-                        searchParam.Uri);
-                    continue;
+                        _logger.LogInformation(
+                            "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
+                            searchParam.Uri);
+                        continue;
                 }
 
                 // check if search param is in cache and add if does not exist
@@ -382,9 +382,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
                 if (existingSearchParam == null)
                 {
-                    inCache = false;
                     var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
                     _logger.LogInformation(msg);
+
+                    // if the parameter was updated in the last 10 minutes it's possible we hit
+                    if (status.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10))
+                    {
+                        inCache = false;
+                    }
                 }
             }
 
