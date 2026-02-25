@@ -1,6 +1,6 @@
 # Bulk Export
 
-This feature allows data from the FHIR server to be exported. More details can be found in the [spec](https://hl7.org/fhir/uv/bulkdata/export/index.html). The feature is currently turned on by default. To disable the feature, update the `FhirServer:Operations:Export:Enabled` setting to be false.
+This feature allows data from the FHIR server to be exported. More details can be found in the [spec](https://hl7.org/fhir/uv/bulkdata/export.html). The feature is currently turned on by default. To disable the feature, update the `FhirServer:Operations:Export:Enabled` setting to be false.
 
 ## Specifying destination
 
