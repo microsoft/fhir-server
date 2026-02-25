@@ -331,10 +331,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
-                        _logger.LogInformation(
-                            "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
-                            searchParam.Uri);
-                        continue;
+                    _logger.LogInformation(
+                        "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
+                        searchParam.Uri);
+                    continue;
                 }
 
                 // check if search param is in cache and add if does not exist
