@@ -424,6 +424,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var queryParams = new List<Tuple<string, string>>
                 {
                     new Tuple<string, string>("url", urlQueryValue),
+                    new Tuple<string, string>("_count", chunkSize.ToString()), // we only need a maximum of chunkSize results back
                 };
 
                 var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
