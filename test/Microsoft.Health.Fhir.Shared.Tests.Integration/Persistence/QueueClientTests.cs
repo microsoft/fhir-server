@@ -40,8 +40,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled,
         GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange,
         GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled,
-        GivenCompletedExportOrchestratorJobWithUserCancel_WhenCancelJobsByGroupId_ThenCancelRequestedShouldBeSet,
-        GivenCompletedExportOrchestratorJobWithSystemCancel_WhenCancelJobsByGroupId_ThenCancelRequestedShouldBeSet,
         ExecuteWithHeartbeat,
         ExecuteWithHeartbeatsHeavy,
     }

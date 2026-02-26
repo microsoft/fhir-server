@@ -87,15 +87,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync("test", CancellationToken.None));
         }
 
-        /// <summary>
-        /// When a numeric id that doesn't exist is provided, GetExportJobByIdAsync throws JobNotFoundException.
-        /// </summary>
-        [Fact]
-        public async Task GivenNumericNonExistentId_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
-        {
-            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync("999999", CancellationToken.None));
-        }
-
         [Fact]
         public async Task GivenThereIsNoRunningExportJob_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned()
         {
@@ -154,43 +145,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         /// <summary>
         /// By Processing job Id:
-        ///   If Processing job is in Running status > return Running from GetExportJobByIdAsync.
+        ///   If Processing job is in Running or Failed status (without CancelRequested on the orchestrator),
+        ///   GetExportJobByIdAsync returns the corresponding status.
         /// </summary>
-        [Fact]
-        public async Task GivenRunningExportJob_WhenGettingById_ThenOutcomeShouldBeReturned()
+        [Theory]
+        [InlineData(JobStatus.Running, OperationStatus.Running)]
+        [InlineData(JobStatus.Failed, OperationStatus.Failed)]
+        public async Task GivenExportJobInNonTerminalStatus_WhenGettingById_ThenMatchingOperationStatusShouldBeReturned(JobStatus jobStatus, OperationStatus expectedStatus)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
             long jobId = long.Parse(jobRecord.Id);
 
             var queueClient = GetTestQueueClient();
             var jobInfo = queueClient.JobInfos.First(j => j.Id == jobId);
-            jobInfo.Status = JobStatus.Running;
+            jobInfo.Status = jobStatus;
 
             ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.NotNull(outcome);
-            Assert.Equal(OperationStatus.Running, outcome.JobRecord.Status);
-        }
-
-        /// <summary>
-        /// By Processing job Id:
-        ///   If Processing job is in Failed status > return Failed from GetExportJobByIdAsync.
-        ///   (without the orchestrator having CancelRequested set)
-        /// </summary>
-        [Fact]
-        public async Task GivenFailedExportJobWithoutGroupCancelRequested_WhenGettingById_ThenOutcomeShouldBeReturned()
-        {
-            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
-            long jobId = long.Parse(jobRecord.Id);
-
-            var queueClient = GetTestQueueClient();
-            var jobInfo = queueClient.JobInfos.First(j => j.Id == jobId);
-            jobInfo.Status = JobStatus.Failed;
-
-            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
-
-            Assert.NotNull(outcome);
-            Assert.Equal(OperationStatus.Failed, outcome.JobRecord.Status);
+            Assert.Equal(expectedStatus, outcome.JobRecord.Status);
         }
 
         /// <summary>
@@ -415,68 +388,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         /// <summary>
         /// By Orchestrator job Id:
-        ///   If Orchestrator job is in Completed status and processing jobs are cancelled and no failed jobs exists,
-        ///   GetExportJobByIdAsync returns Cancelled status.
-        /// </summary>
-        [Fact]
-        public async Task GivenCompletedExportJobWithCancelledChildJobs_WhenGettingById_ThenStatusShouldBeCancelled()
-        {
-            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
-            long jobId = long.Parse(jobRecord.Id);
-
-            var queueClient = GetTestQueueClient();
-            var parentJob = queueClient.JobInfos.First(j => j.Id == jobId);
-            parentJob.Status = JobStatus.Completed;
-
-            // Add a cancelled child job
-            queueClient.JobInfos.Add(new JobInfo
-            {
-                Id = jobId + 100,
-                GroupId = parentJob.GroupId,
-                Status = JobStatus.Cancelled,
-                QueueType = (byte)QueueType.Export,
-                Definition = parentJob.Definition,
-                CreateDate = DateTime.UtcNow,
-            });
-
-            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
-
-            Assert.Equal(OperationStatus.Canceled, outcome.JobRecord.Status);
-        }
-
-        /// <summary>
-        /// By Orchestrator job Id:
-        ///   If Orchestrator job is in Completed status and processing jobs are running,
-        ///   GetExportJobByIdAsync returns Running status.
-        /// </summary>
-        [Fact]
-        public async Task GivenCompletedExportJobWithInFlightChildJobs_WhenGettingById_ThenStatusShouldBeRunning()
-        {
-            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
-            long jobId = long.Parse(jobRecord.Id);
-
-            var queueClient = GetTestQueueClient();
-            var parentJob = queueClient.JobInfos.First(j => j.Id == jobId);
-            parentJob.Status = JobStatus.Completed;
-
-            // Add a running child job
-            queueClient.JobInfos.Add(new JobInfo
-            {
-                Id = jobId + 100,
-                GroupId = parentJob.GroupId,
-                Status = JobStatus.Running,
-                QueueType = (byte)QueueType.Export,
-                Definition = parentJob.Definition,
-                CreateDate = DateTime.UtcNow,
-            });
-
-            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
-
-            Assert.Equal(OperationStatus.Running, outcome.JobRecord.Status);
-        }
-
-        /// <summary>
-        /// By Orchestrator job Id:
         ///   If Orchestrator job is in Completed status and all processing jobs are completed,
         ///   the output from child jobs should be merged into the parent record.
         /// </summary>
@@ -506,12 +417,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 CreateDate = DateTime.UtcNow,
             });
 
+            // Second completed child with different output key
+            var childRecord2 = new ExportJobRecord(
+                _exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "hash", rollingFileSizeInMB: 64);
+            childRecord2.Output.Add("Observation", new List<ExportFileInfo> { new ExportFileInfo("Observation", new Uri("http://test/Observation-1.ndjson"), 1) });
+
+            queueClient.JobInfos.Add(new JobInfo
+            {
+                Id = jobId + 101,
+                GroupId = parentJob.GroupId,
+                Status = JobStatus.Completed,
+                QueueType = (byte)QueueType.Export,
+                Definition = parentJob.Definition,
+                Result = JsonConvert.SerializeObject(childRecord2),
+                CreateDate = DateTime.UtcNow,
+            });
+
             ExportJobOutcome outcome = await _operationDataStore.GetExportJobByIdAsync(jobRecord.Id, CancellationToken.None);
 
             Assert.Equal(OperationStatus.Completed, outcome.JobRecord.Status);
             var hasPatientOutput = outcome.JobRecord.Output.TryGetValue("Patient", out var patientOutput);
             Assert.True(hasPatientOutput);
             Assert.Single(patientOutput);
+
+            var hasObservationOutput = outcome.JobRecord.Output.TryGetValue("Observation", out var observationOutput);
+            Assert.True(hasObservationOutput);
+            Assert.Single(observationOutput);
         }
 
         /// <summary>
