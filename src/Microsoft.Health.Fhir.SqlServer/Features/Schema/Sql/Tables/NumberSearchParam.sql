@@ -17,6 +17,7 @@ ON dbo.NumberSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_SingleValue_WHERE_SingleValue_NOT_NULL
@@ -26,6 +27,7 @@ ON dbo.NumberSearchParam
     SingleValue
 )
 WHERE SingleValue IS NOT NULL
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_LowValue_HighValue
@@ -35,6 +37,7 @@ ON dbo.NumberSearchParam
     LowValue,
     HighValue
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_HighValue_LowValue
@@ -44,5 +47,6 @@ ON dbo.NumberSearchParam
     HighValue,
     LowValue
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
