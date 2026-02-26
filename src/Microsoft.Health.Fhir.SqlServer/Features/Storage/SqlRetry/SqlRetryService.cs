@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -410,7 +412,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             private readonly object _databaseAccessLocker = new object();
             private double _replicaTrafficRatio = 0;
 
-            private long _usageCounter = 0;
+            ////private long _usageCounter = 0;
             private CoreFeatureConfiguration _coreFeatureConfiguration;
 
             public ReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)
@@ -425,35 +427,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var logSB = new StringBuilder("Long running retrieve SQL connection. ");
                 string isReadOnlyConnection;
 
-                if (!isReadOnly || !_coreFeatureConfiguration.SupportsSqlReplicas)
-                {
-                    logSB.AppendLine("Not read only. ");
-                    isReadOnlyConnection = string.Empty;
-                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(false, applicationName);
-                }
-                else
-                {
-                    logSB.AppendLine("Checking read only. ");
-                    var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder, logger);
-                    logSB.AppendLine($"Got replica traffic ratio in {sw.Elapsed.TotalSeconds} seconds. Ratio is {replicaTrafficRatio}. ");
-
-                    if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
-                    {
-                        isReadOnlyConnection = string.Empty;
-                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(false, applicationName);
-                    }
-                    else if (replicaTrafficRatio > 0.99)
-                    {
-                        isReadOnlyConnection = "read-only ";
-                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(true, applicationName);
-                    }
-                    else
-                    {
-                        var useWriteConnection = unchecked(Interlocked.Increment(ref _usageCounter)) % (int)(1 / (1 - _replicaTrafficRatio)) == 1; // examples for ratio -> % divider = { 0.9 -> 10, 0.8 -> 5, 0.75 - 4, 0.67 - 3, 0.5 -> 2, <0.5 -> 1}
-                        isReadOnlyConnection = useWriteConnection ? string.Empty : "read-only ";
-                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(!useWriteConnection, applicationName);
-                    }
-                }
+                var numberOfpools = (int)GetReplicaTrafficRatio(sqlConnectionBuilder, logger);
+                applicationName = RandomNumberGenerator.GetInt32(numberOfpools).ToString();
+                logSB.AppendLine("Not read only. ");
+                isReadOnlyConnection = string.Empty;
+                conn = await sqlConnectionBuilder.GetSqlConnectionAsync(false, applicationName);
 
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
@@ -479,7 +457,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder, ILogger logger)
             {
-                const int trafficRatioCacheDurationSec = 600;
+                const int trafficRatioCacheDurationSec = 60;
                 if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
                 {
                     return _replicaTrafficRatio;
@@ -521,7 +499,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     conn.Open();
                     using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'ReplicaTrafficRatio'", conn);
                     var value = cmd.ExecuteScalar();
-                    return value == null ? 0 : (double)value;
+                    return value == null ? 1 : (double)value;
                 }
                 catch (SqlException ex)
                 {

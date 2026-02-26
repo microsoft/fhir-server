@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 JobHosting jobHostingValue = jobHosting.Value;
                 if (_hostingConfiguration != null)
                 {
-                    jobHostingValue.PollingFrequencyInSeconds = _hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
+                    jobHostingValue.PollingFrequencyInSeconds = 1; ////_hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
                     jobHostingValue.JobHeartbeatIntervalInSeconds = _hostingConfiguration.TaskHeartbeatIntervalInSeconds ?? jobHostingValue.JobHeartbeatIntervalInSeconds;
                     jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds = _hostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds;
                 }

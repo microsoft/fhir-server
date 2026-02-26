@@ -12,6 +12,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
@@ -48,6 +49,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
+            if (RetentionPeriodDays > 0)
+            {
+                return;
+            }
+
             _logger.LogInformation($"{Name}: starting...");
             var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(cancellationToken);
             _logger.LogInformation($"{Name}: visibility={visibility}.");
