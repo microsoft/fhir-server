@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -63,7 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchParameters,
                 uriDictionary,
                 modelInfoProvider,
-                isSystemDefined).ToLookup(
+                isSystemDefined,
+                logger).ToLookup(
                     entry => entry.ResourceType,
                     entry => entry.SearchParameter);
 
@@ -121,7 +122,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IReadOnlyCollection<ITypedElement> searchParamCollection,
             ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider,
-            bool isSystemDefined = false)
+            bool isSystemDefined,
+            ILogger logger)
         {
             var issues = new List<OperationOutcomeIssue>();
             var searchParameters = searchParamCollection.Select((x, entryIndex) =>
@@ -151,8 +153,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
 
-                    // Mark spec-defined search parameters as system-defined
-                    searchParameterInfo.IsSystemDefined = isSystemDefined;
+                    // Mark spec-defined search parameters as system-defined.
+                    // Once marked, this should remain true across subsequent Build calls.
+                    bool wasSystemDefined = searchParameterInfo.IsSystemDefined;
+                    searchParameterInfo.IsSystemDefined |= isSystemDefined;
+
+                    if (!wasSystemDefined && searchParameterInfo.IsSystemDefined)
+                    {
+                        logger.LogDebug(
+                            "SearchParameter IsSystemDefined enabled: Url={Url}, Code={Code}, BuildIsSystemDefined={BuildIsSystemDefined}",
+                            searchParameterInfo.Url?.OriginalString,
+                            searchParameterInfo.Code,
+                            isSystemDefined);
+                    }
+                    else if (wasSystemDefined && !isSystemDefined)
+                    {
+                        logger.LogWarning(
+                            "SearchParameter IsSystemDefined downgrade ignored: Url={Url}, Code={Code}, BuildIsSystemDefined={BuildIsSystemDefined}",
+                            searchParameterInfo.Url?.OriginalString,
+                            searchParameterInfo.Code,
+                            isSystemDefined);
+                    }
 
                     if (searchParameterInfo.Code == "_profile" && searchParameterInfo.Type == SearchParamType.Reference)
                     {
@@ -173,6 +194,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             EnsureNoIssues();
+
+            SearchParameterInfo.ResourceTypeSearchParameter.IsSystemDefined = true;
 
             var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>
             {

@@ -219,6 +219,66 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Same(SearchParameterInfo.ResourceTypeSearchParameter, resolved);
         }
 
+        [Fact]
+        public void GivenValidSearchParameterDefinitionFile_WhenBuilt_ThenInjectedResourceTypeParameterIsSystemDefined()
+        {
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                _validEntriesFile,
+                ModelInfoProvider.Instance,
+                $"{typeof(Definitions).Namespace}.DefinitionFiles",
+                typeof(EmbeddedResourceManager).Assembly);
+
+            SearchParameterDefinitionBuilder.Build(
+                bundle.Entries.Select(e => e.Resource).ToList(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance);
+
+            Assert.True(_uriDictionary.TryGetValue(SearchParameterNames.ResourceTypeUri.OriginalString, out var resolved));
+            Assert.True(resolved.IsSystemDefined);
+        }
+
+        [Fact]
+        public void GivenSystemDefinedResourceTypeParameter_WhenBuiltAgainAsNonSystem_ThenSystemDefinedRemainsTrue()
+        {
+            SearchParameterDefinitionBuilder.Build(
+                new List<ITypedElement>(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: true);
+
+            var resourceTypeSearchParameter = new SearchParameter
+            {
+                Url = SearchParameterNames.ResourceTypeUri.OriginalString,
+                Code = SearchParameterNames.ResourceType,
+                Name = SearchParameterNames.ResourceType,
+                Type = SearchParamType.Token,
+                Expression = "Resource.type().name",
+#if R4 || R4B || Stu3
+                Base = new List<ResourceType?> { ResourceType.Resource },
+#else
+                Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Resource },
+#endif
+            };
+
+            SearchParameterDefinitionBuilder.Build(
+                new List<ITypedElement> { resourceTypeSearchParameter.ToTypedElement() },
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: false);
+
+            Assert.True(_uriDictionary.TryGetValue(SearchParameterNames.ResourceTypeUri.OriginalString, out var resolved));
+            Assert.True(resolved.IsSystemDefined);
+        }
+
         [Theory]
         [MemberData(nameof(GetSearchParameterConflictsData))]
         public void GivenSearchParametersWithConflicts_WhenBuilt_ThenResourceTypeDictionaryShouldContainSuperSetSearchParameters(

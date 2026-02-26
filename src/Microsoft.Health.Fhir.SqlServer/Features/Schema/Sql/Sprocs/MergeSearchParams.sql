@@ -1,4 +1,23 @@
 ﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
+           ,@IsResourceChangeCaptureEnabled bit = 0
+           ,@TransactionId bigint = NULL
+           ,@SingleTransaction bit = 1
+           ,@Resources dbo.ResourceList READONLY
+           ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
+           ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
+           ,@TokenSearchParams dbo.TokenSearchParamList READONLY
+           ,@TokenTexts dbo.TokenTextList READONLY
+           ,@StringSearchParams dbo.StringSearchParamList READONLY
+           ,@UriSearchParams dbo.UriSearchParamList READONLY
+           ,@NumberSearchParams dbo.NumberSearchParamList READONLY
+           ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
+           ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
+           ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
+           ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
+           ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
+           ,@TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY
+           ,@TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY
+           ,@TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
@@ -7,6 +26,7 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
        ,@msg varchar(4000)
        ,@Rows int
+       ,@AffectedRows int = 0
        ,@Uri varchar(4000)
        ,@Status varchar(20)
 
@@ -57,6 +77,34 @@ BEGIN TRY
     FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
     WHERE C.Operation = 'INSERT'
   SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
+
+  IF EXISTS (SELECT * FROM @Resources)
+  BEGIN
+    EXECUTE dbo.MergeResources
+     @AffectedRows = @AffectedRows OUTPUT
+    ,@RaiseExceptionOnConflict = 1
+    ,@IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled
+    ,@TransactionId = @TransactionId
+    ,@SingleTransaction = @SingleTransaction
+    ,@Resources = @Resources
+    ,@ResourceWriteClaims = @ResourceWriteClaims
+    ,@ReferenceSearchParams = @ReferenceSearchParams
+    ,@TokenSearchParams = @TokenSearchParams
+    ,@TokenTexts = @TokenTexts
+    ,@StringSearchParams = @StringSearchParams
+    ,@UriSearchParams = @UriSearchParams
+    ,@NumberSearchParams = @NumberSearchParams
+    ,@QuantitySearchParams = @QuantitySearchParams
+    ,@DateTimeSearchParms = @DateTimeSearchParms
+    ,@ReferenceTokenCompositeSearchParams = @ReferenceTokenCompositeSearchParams
+    ,@TokenTokenCompositeSearchParams = @TokenTokenCompositeSearchParams
+    ,@TokenDateTimeCompositeSearchParams = @TokenDateTimeCompositeSearchParams
+    ,@TokenQuantityCompositeSearchParams = @TokenQuantityCompositeSearchParams
+    ,@TokenStringCompositeSearchParams = @TokenStringCompositeSearchParams
+    ,@TokenNumberNumberCompositeSearchParams = @TokenNumberNumberCompositeSearchParams;
+
+    SET @Rows = @Rows + @AffectedRows;
+  END
 
   COMMIT TRANSACTION
 

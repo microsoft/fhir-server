@@ -22,15 +22,19 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -69,6 +73,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
@@ -86,6 +92,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="bundleOrchestrator">Bundle orchestrator</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
         /// <param name="modelInfoProvider">The model info provider to determine the FHIR version when handling resource conflicts.</param>
+        /// <param name="searchParameterStatusDataStore">The search parameter status data store used to persist queued search parameter status updates.</param>
+        /// <param name="requestContextAccessor">Accessor for request-scoped context properties, including pending search parameter status updates.</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -96,7 +104,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IOptions<CoreFeatureConfiguration> coreFeatures,
             IBundleOrchestrator bundleOrchestrator,
             Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterStatusDataStore searchParameterStatusDataStore,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -107,6 +117,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
+            EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
+            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
@@ -117,6 +129,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _coreFeatures = coreFeatures.Value;
             _bundleOrchestrator = bundleOrchestrator;
             _modelInfoProvider = modelInfoProvider;
+            _searchParameterStatusDataStore = searchParameterStatusDataStore;
+            _requestContextAccessor = requestContextAccessor;
         }
 
         public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
@@ -251,13 +265,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
-                    return await InternalUpsertAsync(
+                    var upsertOutcome = await InternalUpsertAsync(
                         resource.Wrapper,
                         resource.WeakETag,
                         resource.AllowCreate,
                         resource.KeepHistory,
                         cancellationToken,
                         resource.RequireETagOnUpdate);
+
+                    if (string.Equals(resource.Wrapper.ResourceTypeName, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+                    {
+                        await PersistPendingSearchParameterStatusUpdatesAsync(cancellationToken);
+                    }
+
+                    return upsertOutcome;
                 }
                 catch (FhirException fhirException)
                 {
@@ -472,6 +493,57 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
 
                 return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Updated);
+            }
+        }
+
+        private async Task PersistPendingSearchParameterStatusUpdatesAsync(CancellationToken cancellationToken)
+        {
+            var context = _requestContextAccessor.RequestContext;
+            if (context?.Properties == null)
+            {
+                return;
+            }
+
+            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out var value) ||
+                value is not List<ResourceSearchParameterStatus> pendingStatuses ||
+                pendingStatuses.Count == 0)
+            {
+                return;
+            }
+
+            List<ResourceSearchParameterStatus> snapshot;
+            lock (pendingStatuses)
+            {
+                if (pendingStatuses.Count == 0)
+                {
+                    return;
+                }
+
+                snapshot = pendingStatuses
+                    .Where(status => status?.Uri != null)
+                    .GroupBy(status => status.Uri.OriginalString, StringComparer.Ordinal)
+                    .Select(group => group.Last())
+                    .ToList();
+            }
+
+            if (snapshot.Count == 0)
+            {
+                return;
+            }
+
+            await _searchParameterStatusDataStore.UpsertStatuses(snapshot, cancellationToken);
+
+            lock (pendingStatuses)
+            {
+                foreach (var item in snapshot)
+                {
+                    pendingStatuses.Remove(item);
+                }
+
+                if (pendingStatuses.Count == 0)
+                {
+                    context.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
+                }
             }
         }
 

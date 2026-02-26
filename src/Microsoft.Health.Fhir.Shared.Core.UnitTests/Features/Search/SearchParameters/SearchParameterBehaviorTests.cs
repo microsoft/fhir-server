@@ -8,11 +8,14 @@ using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -35,6 +38,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly IModelInfoProvider _modelInfoProvider = ModelInfoProvider.Instance;
 
         public SearchParameterBehaviorTests()
         {
@@ -75,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
@@ -93,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
@@ -112,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
@@ -133,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.Received().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
@@ -153,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request,  async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>());
@@ -178,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterDefinitionManager, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
 
             // Should throw MethodNotAllowedException for system-defined parameter
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () =>
@@ -203,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             // Should call AddSearchParameterAsync since the resource doesn't exist
@@ -230,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(newWrapper), SaveOutcomeType.Updated));
 
-            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore, _searchParameterStatusManager, _requestContextAccessor, _modelInfoProvider);
             await behavior.Handle(request, async (ct) => await Task.Run(() => response), CancellationToken.None);
 
             // Should call UpdateSearchParameterAsync since the resource exists

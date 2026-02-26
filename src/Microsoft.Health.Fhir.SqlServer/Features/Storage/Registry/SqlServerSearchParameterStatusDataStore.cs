@@ -216,6 +216,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
 
+                if (_schemaInformation.Current >= 104)
+                {
+                    cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", false);
+                    cmd.Parameters.Add(new SqlParameter("@TransactionId", SqlDbType.BigInt) { Value = DBNull.Value });
+                    cmd.Parameters.AddWithValue("@SingleTransaction", true);
+
+                    new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, Array.Empty<ResourceListRow>());
+                    new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, Array.Empty<ResourceWriteClaimListRow>());
+                    new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, Array.Empty<ReferenceSearchParamListRow>());
+                    new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenSearchParamListRow>());
+                    new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, Array.Empty<TokenTextListRow>());
+                    new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, Array.Empty<StringSearchParamListRow>());
+                    new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, Array.Empty<UriSearchParamListRow>());
+                    new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, Array.Empty<NumberSearchParamListRow>());
+                    new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, Array.Empty<QuantitySearchParamListRow>());
+                    new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, Array.Empty<DateTimeSearchParamListRow>());
+                    new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<ReferenceTokenCompositeSearchParamListRow>());
+                    new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenTokenCompositeSearchParamListRow>());
+                    new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenDateTimeCompositeSearchParamListRow>());
+                    new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenQuantityCompositeSearchParamListRow>());
+                    new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenStringCompositeSearchParamListRow>());
+                    new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenNumberNumberCompositeSearchParamListRow>());
+                }
+
                 // TODO: Reader is not propagating all failures to the code
                 using (SqlDataReader sqlDataReader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {

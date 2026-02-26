@@ -30,6 +30,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -767,7 +769,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand();
             //// Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.MergeResources";
+
+            bool useComposedSearchParamWrite = TryGetPendingSearchParameterStatusUpdates(out List<ResourceSearchParameterStatus> pendingStatuses) && pendingStatuses.Any();
+            if (useComposedSearchParamWrite)
+            {
+                cmd.CommandText = "dbo.MergeSearchParams";
+                new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses));
+            }
+            else
+            {
+                cmd.CommandText = "dbo.MergeResources";
+            }
+
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
@@ -802,7 +815,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true, applicationName: MergeApplicationName);
             }
 
+            if (useComposedSearchParamWrite)
+            {
+                ClearPendingSearchParameterStatusUpdates();
+            }
+
             _logger.LogInformation($"MergeResourcesWrapperAsync: transactionId={transactionId}, singleTransaction={singleTransaction}, resources={mergeWrappers.Count}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
+        }
+
+        private bool TryGetPendingSearchParameterStatusUpdates(out List<ResourceSearchParameterStatus> pendingStatuses)
+        {
+            pendingStatuses = null;
+
+            var context = _requestContextAccessor?.RequestContext;
+            if (context?.Properties == null)
+            {
+                return false;
+            }
+
+            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out object value) ||
+                value is not List<ResourceSearchParameterStatus> statuses ||
+                statuses.Count == 0)
+            {
+                return false;
+            }
+
+            lock (statuses)
+            {
+                if (statuses.Count == 0)
+                {
+                    return false;
+                }
+
+                pendingStatuses = statuses.ToList();
+            }
+
+            return true;
+        }
+
+        private void ClearPendingSearchParameterStatusUpdates()
+        {
+            var context = _requestContextAccessor?.RequestContext;
+            context?.Properties?.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)

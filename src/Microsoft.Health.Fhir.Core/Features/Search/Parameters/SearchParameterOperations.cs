@@ -114,11 +114,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         {
                             throw new SearchParameterNotSupportedException(errorMessage);
                         }
-
-                        _logger.LogInformation("Adding the search parameter '{Url}'", searchParameterWrapper.Url);
-                        _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
-
-                        await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url }, cancellationToken);
                     }
                     catch (FhirException fex)
                     {
@@ -168,13 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // was recently added and that hasn't propogated to all fhir-server instances.
                         await GetAndApplySearchParameterUpdates(cancellationToken);
 
-                        // First we delete the status metadata from the data store as this function depends on
-                        // the in memory definition manager.  Once complete we remove the SearchParameter from
-                        // the definition manager.
                         _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
-                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken, ignoreSearchParameterNotSupportedException);
-
-                        // Update the status of the search parameter in the definition manager once the status is updated in the store.
                         _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
                     }
                     catch (FhirException fex)
@@ -241,7 +230,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         if (!searchParameterWrapper.Url.Equals(prevSearchParamUrl, StringComparison.Ordinal))
                         {
                             _logger.LogInformation("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
-                            await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
                             try
                             {
                                 _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
@@ -251,10 +239,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                                 // do nothing, there may not be a search parameter to remove
                             }
                         }
-
-                        _logger.LogInformation("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
-                        _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
-                        await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url }, cancellationToken);
                     }
                     catch (FhirException fex)
                     {
@@ -309,12 +293,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             var statusesToProcess = statuses.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList();
+            var statusesToFetch = statusesToProcess
+                .Where(p => !_searchParameterDefinitionManager.TryGetSearchParameter(p.Uri.OriginalString, out var existingSearchParam) || !existingSearchParam.IsSystemDefined)
+                .ToList();
 
             // Batch fetch all SearchParameter resources in one call
-            var searchParamResources = await GetSearchParametersByUrls(statusesToProcess.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
+            var searchParamResources = await GetSearchParametersByUrls(
+                statusesToFetch
+                    .Select(p => p.Uri.OriginalString)
+                    .ToList(),
+                cancellationToken);
 
             var paramsToAdd = new List<ITypedElement>();
-            foreach (var searchParam in statusesToProcess)
+            foreach (var searchParam in statusesToFetch)
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
@@ -343,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(statuses, cancellationToken);
 
-            var inCache = await ParametersAreInCache(statusesToProcess, cancellationToken);
+            var inCache = await ParametersAreInCache(statusesToFetch, cancellationToken);
 
             if (results.LastUpdated.HasValue && inCache) // this should be the ony place in the code to assign last updated
             {

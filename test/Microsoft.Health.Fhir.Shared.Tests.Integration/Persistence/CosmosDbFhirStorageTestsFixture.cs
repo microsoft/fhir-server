@@ -228,6 +228,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
+            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                _searchParameterStatusDataStore,
+                _searchParameterDefinitionManager,
+                searchParameterSupportResolver,
+                mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
             _fhirDataStore = new CosmosFhirDataStore(
                 documentClient,
                 _cosmosDataStoreConfiguration,
@@ -238,7 +248,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 options,
                 bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(_supportedSearchParameterDefinitionManager),
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                _searchParameterStatusDataStore,
+                _fhirRequestContextAccessor);
 
             _queueClient = new CosmosQueueClient(
                 () => _container.CreateMockScope(),
@@ -283,16 +295,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<FhirCosmosSearchService>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
-
-            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
-
-            _searchParameterStatusManager = new SearchParameterStatusManager(
-                _searchParameterStatusDataStore,
-                _searchParameterDefinitionManager,
-                searchParameterSupportResolver,
-                mediator,
-                NullLogger<SearchParameterStatusManager>.Instance);
 
             var queueClient = new TestQueueClient();
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(

@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -81,7 +82,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 Options.Create(new CoreFeatureConfiguration()),
                 _bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()),
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                Substitute.For<ISearchParameterStatusDataStore>(),
+                requestContextAccessor);
         }
 
         [Fact]
