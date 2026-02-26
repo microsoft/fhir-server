@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
         private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
+        private readonly SqlQueryStoreWatchdog _sqlQueryStoreWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
 
         public WatchdogsBackgroundService(
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             GeoReplicationLagWatchdog geoReplicationLagWatchdog,
+            SqlQueryStoreWatchdog sqlQueryStoreWatchdog,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
@@ -43,6 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke();
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
             _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
+            _sqlQueryStoreWatchdog = EnsureArg.IsNotNull(sqlQueryStoreWatchdog, nameof(sqlQueryStoreWatchdog));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
         }
 
@@ -62,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _sqlQueryStoreWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
             // Only add GeoReplicationLagWatchdog if the feature is enabled
