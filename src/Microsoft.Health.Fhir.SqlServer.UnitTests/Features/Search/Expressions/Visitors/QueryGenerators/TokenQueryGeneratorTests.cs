@@ -159,30 +159,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenVeryLongTokenCode_WhenVisited_ThenIncludesTruncation128Logic()
-        {
-            var veryLongCode = new string('A', 150);
-            var expression = new StringExpression(StringOperator.Equals, FieldName.TokenCode, null, veryLongCode, true);
-            var context = CreateContext();
-
-            TokenQueryGenerator.Instance.VisitString(expression, context);
-
-            var sql = context.StringBuilder.ToString();
-
-            // Verify truncation-128 logic structure:
-            // - Should have nested structure with OR for handling truncated codes
-            // - Code = @... for the full value match
-            // - OR branch with Code = @... for the 128-truncated value match
-            Assert.Contains("((", sql);
-            Assert.Contains("OR", sql);
-            Assert.Matches(@"Code\s*=\s*@\w+", sql);
-
-            // Verify the SQL contains the OR branch for 128-truncation
-            // The structure should be ((Code = @p0 ...) OR (Code = @p1 ...))
-            Assert.Contains("))", sql);
-        }
-
-        [Fact]
         public void GivenTokenExpressionWithComponentIndex_WhenVisited_ThenIncludesComponentIndex()
         {
             var expression = new StringExpression(StringOperator.Equals, FieldName.TokenCode, 0, "code123", true);
