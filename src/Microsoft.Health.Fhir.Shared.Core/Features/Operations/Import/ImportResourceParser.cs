@@ -4,17 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using EnsureThat;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
+using Ignixa.Serialization.SourceNodes;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -24,74 +22,118 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             "^[A-Za-z0-9\\-\\.]{1,64}$",
             RegexOptions.Compiled);
 
-        private FhirJsonParser _parser;
-        private IResourceWrapperFactory _resourceFactory;
+        private readonly IIgnixaJsonSerializer _serializer;
+        private readonly IResourceWrapperFactory _resourceFactory;
+        private readonly IIgnixaSchemaContext _schemaContext;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        public ImportResourceParser(
+            IIgnixaJsonSerializer serializer,
+            IResourceWrapperFactory resourceFactory,
+            IIgnixaSchemaContext schemaContext)
         {
-            _parser = EnsureArg.IsNotNull(parser, nameof(parser));
+            _serializer = EnsureArg.IsNotNull(serializer, nameof(serializer));
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
+            _schemaContext = EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
         }
 
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            var resource = _parser.Parse<Resource>(rawResource);
-            ValidateResourceId(resource?.Id);
-            CheckConditionalReferenceInResource(resource, importMode);
+            var resourceNode = _serializer.Parse(rawResource)
+                ?? throw new InvalidOperationException("Failed to parse resource from raw JSON.");
+            ValidateResourceId(resourceNode.Id);
+            CheckConditionalReferenceInResource(resourceNode, importMode);
 
-            if (resource.Meta == null)
-            {
-                resource.Meta = new Meta();
-            }
-
-            var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
-            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated.Value;
-            resource.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
-            if (!lastUpdatedIsNull && resource.Meta.LastUpdated.Value > Clock.UtcNow.AddSeconds(10)) // 5 sec is the max for the computers in the domain
+            var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resourceNode.Meta.LastUpdated == null;
+            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resourceNode.Meta.LastUpdated.Value;
+            resourceNode.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
+            if (!lastUpdatedIsNull && resourceNode.Meta.LastUpdated.Value > Clock.UtcNow.AddSeconds(10)) // 5 sec is the max for the computers in the domain
             {
                 throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");
             }
 
             var keepVersion = true;
-            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var _))
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resourceNode.Meta.VersionId) || !int.TryParse(resourceNode.Meta.VersionId, out var _))
             {
-                resource.Meta.VersionId = "1";
+                resourceNode.Meta.VersionId = "1";
                 keepVersion = false;
             }
 
-            var resourceElement = resource.ToResourceElement();
+            var ignixaElement = new IgnixaResourceElement(resourceNode, _schemaContext.Schema);
 
-            var isDeleted = resourceElement.IsSoftDeleted();
+            var isDeleted = ignixaElement.IsSoftDeleted();
 
             if (isDeleted)
             {
-                resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
+                RemoveSoftDeletedExtension(resourceNode);
             }
 
-            var resourceWapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
+            // Use the extension method to create the wrapper directly from IgnixaResourceElement
+            var resourceWrapper = _resourceFactory.Create(ignixaElement, isDeleted, true, keepVersion);
 
-            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWapper);
+            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
         }
 
-        private static void CheckConditionalReferenceInResource(Resource resource, ImportMode importMode)
+        private void CheckConditionalReferenceInResource(ResourceJsonNode resource, ImportMode importMode)
         {
             if (importMode == ImportMode.IncrementalLoad)
             {
                 return;
             }
 
-            IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
-            foreach (ResourceReference reference in references)
-            {
-                if (string.IsNullOrWhiteSpace(reference.Reference))
-                {
-                    continue;
-                }
+            // Create IgnixaResourceElement for FhirPath evaluation
+            var ignixaElement = new IgnixaResourceElement(resource, _schemaContext.Schema);
 
-                if (reference.Reference.Contains('?', StringComparison.Ordinal))
+            // Use IReferenceMetadataProvider to identify reference fields for this resource type
+            var referenceMetadata = _schemaContext.ReferenceMetadataProvider.GetMetadata(resource.ResourceType);
+            foreach (var field in referenceMetadata)
+            {
+                // Strip [x] suffix for choice types - FhirPath handles polymorphic fields
+                var elementPath = field.ElementPath.EndsWith("[x]", StringComparison.Ordinal)
+                    ? field.ElementPath.Substring(0, field.ElementPath.Length - 3)
+                    : field.ElementPath;
+
+                // Use FhirPath to check if any reference contains '?' (conditional reference)
+                // FhirPath naturally handles collections and nested paths
+                var fhirPath = $"{elementPath}.reference.contains('?')";
+                if (ignixaElement.Predicate(fhirPath))
                 {
                     throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
+            }
+        }
+
+        private static void RemoveSoftDeletedExtension(ResourceJsonNode resource)
+        {
+            var metaNode = resource.MutableNode["meta"];
+            if (metaNode is not JsonObject metaObject)
+            {
+                return;
+            }
+
+            if (!metaObject.TryGetPropertyValue("extension", out var extensionNode) || extensionNode is not JsonArray extensionArray)
+            {
+                return;
+            }
+
+            // Remove the soft-deleted extension
+            for (int i = extensionArray.Count - 1; i >= 0; i--)
+            {
+                if (extensionArray[i] is JsonObject extensionObj &&
+                    extensionObj.TryGetPropertyValue("url", out var urlNode) &&
+                    urlNode is JsonValue urlValue)
+                {
+                    var url = urlValue.GetValue<string>();
+                    if (string.Equals(url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        extensionArray.RemoveAt(i);
+                    }
+                }
+            }
+
+            // Clean up empty extension array
+            if (extensionArray.Count == 0)
+            {
+                metaObject.Remove("extension");
             }
         }
 

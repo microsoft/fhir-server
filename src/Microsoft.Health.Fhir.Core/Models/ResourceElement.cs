@@ -48,16 +48,35 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public ITypedElement Instance { get; }
 
-        public string Id => Scalar<string>("Resource.id");
+        /// <summary>
+        /// Gets the resource ID. Uses direct property access for IResourceElement instances,
+        /// falling back to FhirPath evaluation for POCO-based resources.
+        /// </summary>
+        public string Id => ResourceInstance is IResourceElement ire ? ire.Id : Scalar<string>("Resource.id");
 
-        public string VersionId => Scalar<string>("Resource.meta.versionId");
+        /// <summary>
+        /// Gets the version ID. Uses direct property access for IResourceElement instances,
+        /// falling back to FhirPath evaluation for POCO-based resources.
+        /// </summary>
+        public string VersionId => ResourceInstance is IResourceElement ire ? ire.VersionId : Scalar<string>("Resource.meta.versionId");
 
         public bool IsDomainResource => !_nonDomainTypes.Contains(InstanceType, StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Gets the last updated timestamp. Uses direct property access for IResourceElement instances,
+        /// falling back to FhirPath evaluation for POCO-based resources.
+        /// </summary>
         public DateTimeOffset? LastUpdated
         {
             get
             {
+                // Use direct property access for IResourceElement instances
+                if (ResourceInstance is IResourceElement ire)
+                {
+                    return ire.LastUpdated;
+                }
+
+                // Fallback to FhirPath for POCO-based resources
                 var obj = Instance.Scalar("Resource.meta.lastUpdated", _context.Value);
                 if (obj != null)
                 {

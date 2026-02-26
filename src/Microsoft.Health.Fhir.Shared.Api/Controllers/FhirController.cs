@@ -160,10 +160,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Create)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Create([FromBody] Resource resource)
+        public async Task<IActionResult> Create([FromBody] ResourceElement resource)
         {
             RawResourceElement response = await _mediator.CreateResourceAsync(
-                new CreateResourceRequest(resource.ToResourceElement(), GetBundleResourceContext()),
+                new CreateResourceRequest(resource, GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalCreate)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
-        public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
+        public async Task<IActionResult> ConditionalCreate([FromBody] ResourceElement resource)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
             var preferHeader = _fhirRequestContextAccessor.GetReturnPreferenceValue();
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
             UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
+                new ConditionalCreateResourceRequest(resource, conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
             if (createResponse?.Outcome == null)
@@ -231,10 +231,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Update)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
+        public async Task<IActionResult> Update([FromBody] ResourceElement resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromQuery(Name = KnownQueryParameterNames.MetaHistory)] bool metaHistory = true)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(
-                new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader, metaHistory),
+                new UpsertResourceRequest(resource, GetBundleResourceContext(), ifMatchHeader, metaHistory),
                 HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response);
@@ -248,14 +248,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalUpdate)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
-        public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
+        public async Task<IActionResult> ConditionalUpdate([FromBody] ResourceElement resource)
         {
             SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
             UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
+                new ConditionalUpsertResourceRequest(resource, conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
             SaveOutcome saveOutcome = response.Outcome;
@@ -698,9 +698,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route("", Name = RouteNames.PostBundle)]
         [AuditEventType(AuditEventSubType.BundlePost)]
         [TypeFilter(typeof(BundleEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
+        public async Task<IActionResult> BatchAndTransactions([FromBody] ResourceElement bundle)
         {
-            ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement(), HttpContext.RequestAborted);
+            ResourceElement bundleResponse = await _mediator.PostBundle(bundle, HttpContext.RequestAborted);
 
             return FhirResult.Create(bundleResponse);
         }

@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly FhirXmlParser _xmlParser = new FhirXmlParser();
 
         private readonly ResourceToNdjsonBytesSerializer _serializer;
+        private readonly IIgnixaJsonSerializer _ignixaSerializer;
 
         private readonly Observation _resource;
         private readonly byte[] _expectedBytes;
@@ -39,12 +41,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _jsonParser.Parse<Resource>(str).ToResourceElement())),
                 (FhirResourceFormat.Xml, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _xmlParser.Parse<Resource>(str).ToResourceElement())));
 
-            _serializer = new ResourceToNdjsonBytesSerializer();
+            _ignixaSerializer = new IgnixaJsonSerializer();
+
+            _serializer = new ResourceToNdjsonBytesSerializer(_ignixaSerializer);
 
             _resource = Samples.GetDefaultObservation().ToPoco<Observation>();
             _resource.Id = "test";
 
-            string expectedString = $"{new FhirJsonSerializer().SerializeToString(_resource)}\n";
+            // Expected bytes use Firely serialization format since the test deserializer
+            // creates Firely-based ResourceElements without Ignixa nodes (legacy fallback path)
+            string firelyJson = new FhirJsonSerializer().SerializeToString(_resource);
+            string expectedString = $"{firelyJson}\n";
 
             _expectedBytes = Encoding.UTF8.GetBytes(expectedString);
         }

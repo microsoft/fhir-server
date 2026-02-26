@@ -31,6 +31,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 {

@@ -6,6 +6,10 @@
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <!-- ASP.NET Core for formatters -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Operations\Export\ExportAnonymizer.cs" Link="Features\Operations\Export\ExportAnonymizer.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Operations\Export\ExportAnonymizerFactory.cs" Link="Features\Operations\Export\ExportAnonymizerFactory.cs" />
   </ItemGroup>

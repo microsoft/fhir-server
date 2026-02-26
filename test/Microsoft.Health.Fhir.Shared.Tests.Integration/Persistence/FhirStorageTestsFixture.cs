@@ -51,6 +51,7 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -186,7 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
-            var rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
+            var rawResourceFactory = Substitute.For<RawResourceFactory>(new IgnixaJsonSerializer(), new FhirJsonSerializer());
 
             var resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             resourceWrapperFactory
@@ -233,8 +234,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var collection = new ServiceCollection();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), FhirRequestContextAccessor, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance, Substitute.For<IIgnixaSchemaContext>()));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), FhirRequestContextAccessor, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>()));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), GetResourceHandler);
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, deleter));
             collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));

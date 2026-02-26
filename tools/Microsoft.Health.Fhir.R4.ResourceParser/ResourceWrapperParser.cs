@@ -16,9 +16,12 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.R4.ResourceParser.Code;
+using NSubstitute;
 
 namespace Microsoft.Health.Fhir.R4.ResourceParser
 {
@@ -48,7 +51,8 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             var referenceToElementResolver = new LightweightReferenceToElementResolver(referenceSearchValueParser, modelInfoProvider);
 
             var logger = new NullLogger<TypedElementSearchIndexer>();
-            var searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, fhirTypedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, logger);
+            var fhirPathProvider = Substitute.For<IFhirPathProvider>();
+            var searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, fhirTypedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, fhirPathProvider, logger);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(modelInfoProvider);
 
@@ -56,7 +60,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
 
             var fhirJsonSerializer = new FhirJsonSerializer();
             var fhirJsonParser = new FhirJsonParser();
-            var rawResourceFactory = new RawResourceFactory(fhirJsonSerializer);
+            var rawResourceFactory = new RawResourceFactory(new IgnixaJsonSerializer(), fhirJsonSerializer);
             var claimsExtractor = new MockClaimsExtractor();
             var resourceDeserializer = new ResourceDeserializer((FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => fhirJsonParser.Parse(str).ToResourceElement())));
             var resourceWrapperFactory = new ResourceWrapperFactory(rawResourceFactory, fhirRequestContextAccessor, searchIndexer, claimsExtractor, compartmentIndexer, searchParameterDefinitionManager, resourceDeserializer);

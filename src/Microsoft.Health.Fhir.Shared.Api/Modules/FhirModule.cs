@@ -36,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Shared.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -96,15 +97,34 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     .AsSelf()
                     .AsService<IResourceSerializer>();
 
-            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(_ =>
+            // Register Ignixa schema context (singleton - schema is immutable per FHIR version)
+            // This requires IModelInfoProvider which is registered below
+            services.AddSingleton<IIgnixaSchemaContext, IgnixaSchemaContext>();
+
+            // Register Ignixa FHIRPath provider for high-performance search indexing
+            // Uses delegate compilation for ~80% of common patterns, ~10x faster than Firely
+            services.AddIgnixaFhirPath(provider => provider.GetRequiredService<IIgnixaSchemaContext>().Schema);
+
+            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(provider =>
             {
+                var ignixaSerializer = provider.GetRequiredService<IIgnixaJsonSerializer>();
+                var schemaContext = provider.GetRequiredService<IIgnixaSchemaContext>();
+
                 return new Dictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>
                 {
                     {
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
-                            var resource = jsonParser.Parse<Resource>(str);
-                            return SetMetadata(resource, version, lastModified);
+                            // Use Ignixa for JSON deserialization
+                            var resourceNode = ignixaSerializer.Parse(str);
+                            var ignixaElement = new IgnixaResourceElement(resourceNode, schemaContext.Schema);
+
+                            // Set metadata
+                            ignixaElement.SetVersionId(version);
+                            ignixaElement.SetLastUpdated(lastModified);
+
+                            // Convert to ResourceElement for backward compatibility
+                            return new ResourceElement(ignixaElement.ToTypedElement());
                         }
                     },
                     {
@@ -152,6 +172,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<TextOutputFormatter>();
+
+            // Register Ignixa serialization services and configure as primary JSON formatters
+            // This registers IIgnixaJsonSerializer and inserts Ignixa formatters at the front
+            // of the MVC formatter lists to take precedence over Firely formatters.
+            // The Ignixa formatters support both Ignixa and Firely types for gradual migration.
+            services.AddIgnixaSerializationWithFormatters();
+
+            services.Add<FhirRequestContextAccessor>()
+                .Singleton()
+                .AsSelf()
+                .AsService<RequestContextAccessor<IFhirRequestContext>>();
 
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 

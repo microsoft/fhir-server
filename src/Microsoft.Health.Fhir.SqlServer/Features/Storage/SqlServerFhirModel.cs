@@ -347,6 +347,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
 
+                        // Skip empty/whitespace values that may have been inserted due to legacy bugs
+                        if (string.IsNullOrWhiteSpace(value))
+                        {
+                            continue;
+                        }
+
                         if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
                         {
                             _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
@@ -362,6 +368,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+
+                        // Skip empty/whitespace values that may have been inserted due to legacy bugs
+                        if (string.IsNullOrWhiteSpace(value))
+                        {
+                            continue;
+                        }
 
                         if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
                         {
