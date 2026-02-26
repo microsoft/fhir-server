@@ -78,6 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
+        private HashSet<long> _processedJobIds = new HashSet<long>();
+        private Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = new Dictionary<string, HashSet<string>>();
+        private Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = new Dictionary<string, (HashSet<long> JobIds, Counts Counts)>();
         private DateTimeOffset _searchParamLastUpdated;
 
         public ReindexOrchestratorJob(
@@ -138,26 +141,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
 
                 var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
-                var queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                var processingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
 
                 // For SQL Server, always attempt job creation - we use Export-style resume logic
                 // to calculate remaining work from existing jobs, preventing duplicates.
                 // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
-                if (_isSurrogateIdRangingSupported || !queryReindexProcessingJobs.Any())
+                if (_isSurrogateIdRangingSupported || !processingJobs.Any())
                 {
-                    if (queryReindexProcessingJobs.Any())
+                    if (processingJobs.Any())
                     {
-                        _logger.LogJobInformation(_jobInfo, "Found {Count} existing processing jobs. Re-submitting jobs (database handles deduplication).", queryReindexProcessingJobs.Count);
+                        _logger.LogJobInformation(_jobInfo, "Found {Count} existing processing jobs. Re-submitting jobs (database handles deduplication).", processingJobs.Count);
                     }
 
                     await CreateReindexProcessingJobsAsync(cancellationToken);
                     jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
-                    queryReindexProcessingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList(); // TODO: Move this logic inside create
+                    processingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList(); // TODO: Move this logic inside create
+                }
+                else // cosmos job restart
+                {
+                    foreach (var job in processingJobs.Select(_ => new { _.Id, Def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(_.Definition) }))
+                    {
+                        PopulateProcessingLookups(job.Def.ResourceType, job.Def.SearchParameterUrls, [job.Id]);
+                    }
                 }
 
-                _currentResult.CreatedJobs = queryReindexProcessingJobs.Count;
+                _currentResult.CreatedJobs = processingJobs.Count; // TODO: Move this logic inside create
 
-                await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
+                await CheckForCompletionAsync(processingJobs, cancellationToken);
 
                 await RefreshSearchParameterCache(false);
             }
@@ -440,6 +450,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                     validSearchParameterUrls,
                                     cancellationToken);
 
+                                PopulateProcessingLookups(resourceType, validSearchParameterUrls, batchJobIds);
+
                                 allEnqueuedJobIds.AddRange(batchJobIds);
                                 totalRangesEnqueued += ranges.Count;
 
@@ -477,6 +489,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         validSearchParameterUrls,
                         cancellationToken);
 
+                    PopulateProcessingLookups(resourceType, validSearchParameterUrls, batchJobIds);
+
                     allEnqueuedJobIds.AddRange(batchJobIds);
                 }
 
@@ -490,6 +504,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _logger.LogJobInformation(_jobInfo, "Enqueued {Count} total query processing jobs.", allEnqueuedJobIds.Count);
             return allEnqueuedJobIds;
+        }
+
+        private void PopulateProcessingLookups(string resourceType, IReadOnlyCollection<string> urls, IReadOnlyList<long> jobIds)
+        {
+            if (!_transientResourceTypeJobs.TryGetValue(resourceType, out var jobs))
+            {
+                _transientResourceTypeJobs.Add(resourceType, (new HashSet<long>(jobIds), new Counts()));
+            }
+            else
+            {
+                foreach (var jobId in jobIds)
+                {
+                    jobs.JobIds.Add(jobId);
+                }
+            }
+
+            foreach (var url in urls)
+            {
+                if (!_transientSearchParamResouceTypes.TryGetValue(url, out var resourceTypes))
+                {
+                    _transientSearchParamResouceTypes.Add(url, new HashSet<string>([resourceType]));
+                }
+                else
+                {
+                    resourceTypes.Add(resourceType);
+                }
+            }
         }
 
         /// <summary>
@@ -787,6 +828,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task CheckForCompletionAsync(List<JobInfo> jobInfos, CancellationToken cancellationToken)
         {
+            if (jobInfos.Count == 0)
+            {
+                await ProcessCompletedJobs(jobInfos, cancellationToken);
+                return;
+            }
+
             // Track completed jobs by their IDs and by resource type
             var handledJobIds = new HashSet<long>();
             var completedJobsByResourceType = new Dictionary<string, List<JobInfo>>();
@@ -841,30 +888,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     try
                     {
-                        // Batch fetch jobs status
                         var jobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, linkedCts.Token)).Where(j => j.Id != _jobInfo.GroupId).ToList();
 
                         // Update active jobs
-                        activeJobs = jobs.Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created).ToList();
+                        activeJobs = jobs.Where(j => j.Id != _jobInfo.GroupId)
+                                         .Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created)
+                                         .ToList();
 
                         // Process newly completed jobs by resource type
                         var newlyCompletedJobs = jobs
                             .Where(j => j.Status != JobStatus.Created && j.Status != JobStatus.Running && !handledJobIds.Contains(j.Id))
                             .ToList();
 
-                        if (newlyCompletedJobs.Any() || !jobs.Any())
+                        if (newlyCompletedJobs.Any())
                         {
-                            // Process newly completed jobs and determine ready search parameters in one pass
-                            var readySearchParameters = ProcessCompletedJobsAndDetermineReadiness(jobs);
+                            await ProcessCompletedJobs(newlyCompletedJobs, cancellationToken);
 
-                            // Check if all jobs are complete (either Completed or Failed)
-                            var allJobsComplete = !jobs.Any(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created);
+                            ////// Process newly completed jobs and determine ready search parameters in one pass
+                            ////var readySearchParameters = ProcessCompletedJobsAndDetermineReadiness(jobs);
 
-                            // Update search parameter status for ready parameters
-                            if (readySearchParameters.Any() || allJobsComplete)
-                            {
-                                await ProcessCompletedJobs(allJobsComplete, jobs, readySearchParameters, cancellationToken);
-                            }
+                            ////// Check if all jobs are complete (either Completed or Failed)
+                            ////var allJobsComplete = !jobs.Any(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created);
+
+                            ////// Update search parameter status for ready parameters
+                            ////if (readySearchParameters.Any() || allJobsComplete)
+                            ////{
+                            ////    await ProcessCompletedJobs(allJobsComplete, jobs, readySearchParameters, cancellationToken);
+                            ////}
 
                             // Add newly completed job IDs to the processed set
                             foreach (var job in newlyCompletedJobs)
@@ -891,6 +941,62 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             while (activeJobs.Any());
         }
 
+        private async Task ProcessCompletedJobs(IReadOnlyList<JobInfo> jobs, CancellationToken cancellationToken)
+        {
+            var processingJobs = jobs.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).Where(_ => !_processedJobIds.Contains(_.Id)).ToList();
+            foreach (var job in processingJobs)
+            {
+                var record = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                foreach (var resourceTypeJobs in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count > 0))
+                {
+                    resourceTypeJobs.Value.JobIds.Remove(job.Id);
+                    //// if job failed it might not be able to set counts correctly
+                    //// ignore data in result and set failed to all input and succeeded to 0
+                    if (job.Status == JobStatus.Failed)
+                    {
+                        var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+                        _currentResult.FailedResources += def.ResourceCount.Count;
+                        resourceTypeJobs.Value.Counts.Failed += def.ResourceCount.Count; // TODO: Do we need this?
+                    }
+                    else
+                    {
+                        _currentResult.SucceededResources += record.SucceededResourceCount;
+                        _currentResult.FailedResources += record.FailedResourceCount;
+                        resourceTypeJobs.Value.Counts.Succeeded += record.SucceededResourceCount; // TODO: Do we need this?
+                        resourceTypeJobs.Value.Counts.Failed += record.FailedResourceCount; // TODO: Do we need this?
+                    }
+                }
+
+                _processedJobIds.Add(job.Id);
+            }
+
+            _currentResult.CompletedJobs += processingJobs.Count(j => j.Status == JobStatus.Completed);
+
+            // get completed resource types
+            foreach (var completedResourceType in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count == 0 && _.Value.Counts.Failed == 0).Select(_ => _.Key))
+            {
+                foreach (var searchParamResourceType in _transientSearchParamResouceTypes)
+                {
+                    searchParamResourceType.Value.Remove(completedResourceType);
+                }
+            }
+
+            // get completed search params
+            var completedSearchParams = _transientSearchParamResouceTypes.Where(_ => _.Value.Count == 0).Select(_ => _.Key).ToList();
+            if (completedSearchParams.Any())
+            {
+                await UpdateSearchParameterStatus(completedSearchParams, cancellationToken);
+            }
+
+            var allJobsComplete = _transientResourceTypeJobs.Values.Any(_ => _.JobIds.Count > 0);
+            if (allJobsComplete)
+            {
+                _jobInfo.Data = _currentResult.SucceededResources + _currentResult.FailedResources;
+                _reindexJobRecord.Count = _jobInfo.Data.Value;
+                _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs, _currentResult.CreatedJobs);
+            }
+        }
+
         private async Task ProcessCompletedJobs(bool allJobsComplete, List<JobInfo> allJobs, List<string> readySearchParameters, CancellationToken cancellationToken)
         {
             if (_jobInfo.CancelRequested)
@@ -909,7 +1015,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     _logger.LogJobInformation(
                         _jobInfo,
-                        "Retrieved {TotalJobs} processing job(s) for final completion processing. {CompletedCount} completed, {FailedCount} failed.",
+                        "Retrieved {TotalJobs} processing job(s) for final completion processing. {CompletedCount} completed, {Failed} failed.",
                         processingJobs.Count,
                         processingJobs.Count(j => j.Status == JobStatus.Completed),
                         processingJobs.Count(j => j.Status == JobStatus.Failed));
@@ -1091,8 +1197,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private bool AreAllJobsSearchParameterCompleted(string searchParamUrl, IReadOnlyList<JobInfo> allJobs)
         {
+            if (allJobs.Count == 0)
+            {
+                return true;
+            }
+
             var jobsForSearchParam = GetJobsForSearchParameter(allJobs, searchParamUrl);
-            var ready = !jobsForSearchParam.Any(j => j.Status == JobStatus.Created || j.Status == JobStatus.Running);
+            var ready = jobsForSearchParam.Any() && !jobsForSearchParam.Any(j => j.Status == JobStatus.Created || j.Status == JobStatus.Running);
             return ready;
         }
 
@@ -1103,9 +1214,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private List<JobInfo> GetJobsForSearchParameter(
             IReadOnlyList<JobInfo> allJobs,
             string searchParamUrl)
-                {
-            return allJobs
-                .Where(j =>
+        {
+            return allJobs.Where(j =>
                 {
                     var jobDefinition = ParseJobDefinition(j);
                     return jobDefinition != null &&
@@ -1231,6 +1341,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             using IScoped<ISearchService> search = _searchServiceFactory();
             await search.Value.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
+        private class Counts
+        {
+            public long Succeeded { get; set; }
+
+            public long Failed { get; set; }
         }
     }
 }
