@@ -46,6 +46,7 @@ using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
+using Microsoft.Health.Fhir.Core.Messages.Stats;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -662,6 +663,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement response = await _mediator.GetCapabilitiesAsync(HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
+        }
+
+        /// <summary>
+        /// Returns statistics about resources in the database.
+        /// </summary>
+        [HttpGet]
+        [AuditEventType(AuditEventSubType.Stats)]
+        [Route(KnownRoutes.Stats, Name = RouteNames.Stats)]
+        public async Task<IActionResult> Stats()
+        {
+            var response = await _mediator.Send(
+                new StatsRequest(),
+                HttpContext.RequestAborted);
+
+            return FhirResult.Create(response.ToParameters());
         }
 
         /// <summary>

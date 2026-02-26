@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Stats;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -34,6 +35,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
+using Microsoft.Health.Fhir.CosmosDb.Features.Stats;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
@@ -271,6 +273,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces()
                 .AsFactory<IScoped<IQueueClient>>();
+
+            // Register StatsProvider for $stats endpoint
+            services.Add<CosmosStatsProvider>()
+                .Scoped()
+                .AsSelf()
+                .AsService<IStatsProvider>();
 
             services.Add<CosmosAccessTokenProviderFactory>(c => c.GetRequiredService<IAccessTokenProvider>)
                .Transient()
