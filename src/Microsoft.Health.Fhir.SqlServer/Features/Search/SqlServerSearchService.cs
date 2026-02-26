@@ -2620,12 +2620,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
 
                     yield return new TokenListRow(code, codeOverflow, token.SystemId, token.SystemValue);
-
-                    // truncation128 logic: see TokenQueryGenerator or ask RB
-                    if (token.Code.Length > 128)
-                    {
-                        yield return new TokenListRow(code[..128], null, token.SystemId, token.SystemValue);
-                    }
                 }
             }
         }
