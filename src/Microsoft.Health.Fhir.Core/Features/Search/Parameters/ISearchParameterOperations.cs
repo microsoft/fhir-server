@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
@@ -12,6 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public interface ISearchParameterOperations
     {
+        DateTimeOffset? SearchParamLastUpdated { get; }
+
         Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
 
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
@@ -28,6 +31,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <returns>A task.</returns>
         Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
 
-        string GetResourceTypeSearchParameterHashMap(string resourceType);
+        string GetSearchParameterHash(string resourceType);
     }
 }

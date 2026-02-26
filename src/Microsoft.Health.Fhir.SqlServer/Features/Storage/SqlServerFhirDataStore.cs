@@ -39,6 +39,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
+using Microsoft.SqlServer.Management.XEvent;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -66,9 +67,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputLastUpdated;
-        private static ProcessingFlag<SqlServerFhirDataStore> _ignoreInputVersion;
-        private static ProcessingFlag<SqlServerFhirDataStore> _rawResourceDeduping;
+        private static CachedParameter<SqlServerFhirDataStore> _ignoreInputLastUpdated;
+        private static CachedParameter<SqlServerFhirDataStore> _ignoreInputVersion;
+        private static CachedParameter<SqlServerFhirDataStore> _rawResourceDeduping;
         private static readonly object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -108,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputLastUpdated ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _logger);
+                    _ignoreInputLastUpdated ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.IgnoreInputLastUpdated.IsEnabled", 0, _logger);
                 }
             }
 
@@ -116,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputVersion ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.IgnoreInputVersion.IsEnabled", false, _logger);
+                    _ignoreInputVersion ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.IgnoreInputVersion.IsEnabled", 0, _logger);
                 }
             }
 
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _rawResourceDeduping ??= new ProcessingFlag<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", true, _logger);
+                    _rawResourceDeduping ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", 1, _logger);
                 }
             }
         }
@@ -132,6 +133,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal SqlStoreClient StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
+
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
 
         public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
@@ -937,6 +943,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void SyncVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
         {
             var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
+
+            if (!resourceWrapper.RawResource.Data.Contains($"\"lastUpdated\":\"{date}\"", StringComparison.Ordinal))
+            {
+                _logger.LogWarning("Cannot parse lastUpdated value from input raw resource when trying to sync lastUpdated in meta.");
+                throw new ArgumentException("Cannot parse lastUpdated value from input raw resource when trying to sync lastUpdated in meta.");
+            }
+
             string rawResourceData;
             if (resourceWrapper.Version == InitialVersion) // version is already correct
             {
@@ -946,9 +959,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else
             {
                 var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
-                rawResourceData = resourceWrapper.RawResource.Data
-                                    .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
-                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+
+                if (!resourceWrapper.RawResource.Data.Contains($"\"versionId\":\"{version}\"", StringComparison.Ordinal))
+                {
+                    _logger.LogWarning("Cannot parse versionId value from input raw resource when trying to sync version in meta. Inserting version based on lastUpdated location.");
+                    rawResourceData = resourceWrapper.RawResource.Data
+                                        .Replace($"\"lastUpdated\":\"{date}\"", $"\"versionId\":\"{resourceWrapper.Version}\",\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+                }
+                else
+                {
+                    rawResourceData = resourceWrapper.RawResource.Data
+                                        .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
+                                        .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+                }
             }
 
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);

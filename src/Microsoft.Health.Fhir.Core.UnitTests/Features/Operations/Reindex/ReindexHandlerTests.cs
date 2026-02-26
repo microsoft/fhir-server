@@ -31,12 +31,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     public class ReindexHandlerTests
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-        private IReadOnlyDictionary<string, string> _resourceTypeSearchParameterHashMap;
-
-        public ReindexHandlerTests()
-        {
-            _resourceTypeSearchParameterHashMap = new Dictionary<string, string>() { { "resourceType", "paramHash" } };
-        }
 
         [Fact]
         public async Task GivenAGetRequest_WhenGettingAnExistingJob_ThenHttpResponseCodeShouldBeOk()
@@ -152,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private ReindexJobRecord CreateJobRecord(OperationStatus status = OperationStatus.Queued)
         {
-            return new ReindexJobRecord(_resourceTypeSearchParameterHashMap, new List<string>(), new List<string>(), new List<string>(), 1)
+            return new ReindexJobRecord(new List<string>(), new List<string>(), new List<string>(), 1)
             {
                 Status = status,
             };
