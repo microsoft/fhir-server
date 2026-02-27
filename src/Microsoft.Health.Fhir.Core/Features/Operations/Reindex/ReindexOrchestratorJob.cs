@@ -260,13 +260,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 foreach (var searchParam in possibleNotYetIndexedParams)
                 {
                     var searchParamResourceTypes = GetDerivedResourceTypes(searchParam.BaseResourceTypes);
-                    var matchingResourceTypes = searchParamResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes);
+                    var matchingResourceTypes = searchParamResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes).ToList();
                     if (matchingResourceTypes.Any())
                     {
                         notYetIndexedParams.Add(searchParam);
 
                         // add matching resource types to the set of resource types which we will reindex
                         resourceTypeList.UnionWith(matchingResourceTypes);
+
+                        foreach (var resourceType in matchingResourceTypes) // TODO: Find better place
+                        {
+                            PopulateProcessingLookups(resourceType, [searchParam.Url.OriginalString], new List<long>());
+                        }
                     }
                     else
                     {
@@ -284,6 +289,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
                     resourceTypeList.UnionWith(searchParamResourceTypes);
+                    foreach (var resourceType in resourceTypeList) // TODO: Find better place
+                    {
+                        PopulateProcessingLookups(resourceType, [param.Url.OriginalString], new List<long>());
+                    }
                 }
             }
 
@@ -307,13 +316,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             foreach (var url in notYetIndexedParams.Select(p => p.Url.OriginalString))
             {
                 _reindexJobRecord.SearchParams.Add(url);
-            }
-
-            // populate processing lookups. this should be done prior to enqueue
-            foreach (var resourceType in resourceTypeList)
-            {
-                var urls = GetValidSearchParameterUrlsForResourceType(resourceType);
-                PopulateProcessingLookups(resourceType, urls, new List<long>());
             }
 
             await CalculateAndSetTotalAndResourceCounts();
