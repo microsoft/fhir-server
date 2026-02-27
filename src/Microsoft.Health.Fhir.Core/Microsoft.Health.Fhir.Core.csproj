@@ -7,13 +7,16 @@
     <EmbeddedResource Include="Data\OperationDefinition\member-match.json" />
     <EmbeddedResource Include="Data\OperationDefinition\purge-history.json" />
     <EmbeddedResource Include="Data\OperationDefinition\search-parameter-status.json" />
+    <EmbeddedResource Include="Data\R4B\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R4\compartment.json" />
     <EmbeddedResource Include="Data\R4\search-parameters.json" />
     <EmbeddedResource Include="Data\R4\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\R4\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\R4\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\R5\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R5\compartment.json" />
+    <EmbeddedResource Include="Data\R5\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\R5\search-parameters.json" />
     <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings.json" />
@@ -31,6 +34,7 @@
     <EmbeddedResource Include="Data\OperationDefinition\includes.json" />
     <EmbeddedResource Include="Data\OperationDefinition\docref.json" />
     <EmbeddedResource Include="Data\OperationDefinition\valueset-expand.json" />
+    <EmbeddedResource Include="Data\Stu3\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />

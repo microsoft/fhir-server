@@ -78,9 +78,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _logger = logger;
 
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
+            var msBundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("ms-search-parameters.json", _modelInfoProvider);
+
+            var searchParamResources = bundle.Entries.Select(e => e.Resource).ToList();
+            searchParamResources.AddRange(msBundle.Entries.Select(e => e.Resource));
 
             SearchParameterDefinitionBuilder.Build(
-                bundle.Entries.Select(e => e.Resource).ToList(),
+                searchParamResources,
                 UrlLookup,
                 TypeLookup,
                 _modelInfoProvider,

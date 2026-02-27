@@ -1,0 +1,41 @@
+{
+    "resourceType": "Bundle",
+    "id": "msSearchParams",
+    "meta": {
+        "lastUpdated": "2026-02-12T23:00:00.000"
+    },
+    "type": "collection",
+    "entry": [
+        {
+            "fullUrl": "https://azurehealthcareapis.com/data-extensions/expiry-date",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "ahcapis-expiry-date",
+                "url": "https://azurehealthcareapis.com/data-extensions/expiry-date",
+                "version": "1.0.0",
+                "name": "_expiryDate",
+                "experimental": false,
+                "date": "2026-02-12T23:00:00.000",
+                "publisher": "Microsoft",
+                "description": "Search on the expiry date of the resource",
+                "code": "_expiryDate",
+                "base": [ "Resource" ],
+                "type": "date",
+                "expression": "Resource.meta.extension.where(url='https://azurehealthcareapis.com/data-extensions/expiry-date').value",
+                "xpath": "f:Resource/f:meta/f:extension[@url='https://azurehealthcareapis.com/data-extensions/expiry-date']/f:value",
+                "xpathUsage": "normal",
+                "comparator": [
+                    "eq",
+                    "ne",
+                    "gt",
+                    "ge",
+                    "lt",
+                    "le",
+                    "sa",
+                    "eb",
+                    "ap"
+                ]
+            }
+        }
+    ]
+}

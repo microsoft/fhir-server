@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -52,6 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly IMediator _mediator;
+        private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
@@ -71,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IOptions<SecurityConfiguration> securityConfiguration,
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
+            ISqlRetryService sqlRetryService,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -78,6 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
@@ -86,6 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _securityConfiguration = securityConfiguration.Value;
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _mediator = mediator;
+            _sqlRetryService = sqlRetryService;
             _logger = logger;
         }
 
@@ -164,16 +169,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfNotInitialized();
 
-            VLatest.SystemTable systemTable = VLatest.System;
-            return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
+            var systemSproc = VLatest.GetSystemId;
+            return GetStringId(_systemToId, system, systemSproc);
         }
 
         public int GetQuantityCodeId(string code)
         {
             ThrowIfNotInitialized();
 
-            VLatest.QuantityCodeTable quantityCodeTable = VLatest.QuantityCode;
-            return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
+            var quantityCodeSproc = VLatest.GetQuantityCodeId;
+            return GetStringId(_quantityCodeToId, code, quantityCodeSproc);
         }
 
         public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
@@ -202,7 +207,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                 _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
+                _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
             }
 
             // Run the schema initialization required for all schema versions, from the minimum version to the current version.
@@ -218,72 +223,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeBase(CancellationToken cancellationToken)
         {
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                // Synchronous calls are used because this code is executed on startup and doesn't need to be async.
-                // Additionally, XUnit task scheduler constraints prevent async calls from being easily tested.
-                sqlCommandWrapper.CommandText = @"
-                        SET XACT_ABORT ON
-                        BEGIN TRANSACTION
+            string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
+            string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
+            string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
+            string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
 
-                        INSERT INTO dbo.ResourceType (Name)
-                        SELECT value FROM string_split(@resourceTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX);
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.InitializeBase";
+            cmd.Parameters.AddWithValue("@searchParams", searchParametersJson);
+            cmd.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
+            cmd.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
+            cmd.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
-                        -- result set 1
-                        SELECT ResourceTypeId, Name FROM dbo.ResourceType;
-
-                        ;WITH Input AS (
-                          SELECT DISTINCT
-                                 j.Uri,
-                                 CAST(j.IsPartiallySupported AS bit) AS IsPartiallySupported
-                          FROM OPENJSON(@searchParams)
-                          WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported') AS j
-                        )
-                        INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
-                        SELECT i.Uri, 'Initialized', SYSDATETIMEOFFSET(), i.IsPartiallySupported
-                        FROM Input AS i
-                        WHERE NOT EXISTS (SELECT 1 FROM dbo.SearchParam AS sp WHERE sp.Uri = i.Uri);
-
-                        -- result set 2
-                        SELECT Uri, SearchParamId FROM dbo.SearchParam;
-
-                        INSERT INTO dbo.ClaimType (Name)
-                        SELECT value FROM string_split(@claimTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ClaimType;
-
-                        -- result set 3
-                        SELECT ClaimTypeId, Name FROM dbo.ClaimType;
-
-                        INSERT INTO dbo.CompartmentType (Name)
-                        SELECT value FROM string_split(@compartmentTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.CompartmentType;
-
-                        -- result set 4
-                        SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
-                        
-                        COMMIT TRANSACTION
-    
-                        -- result set 5
-                        SELECT Value, SystemId from dbo.System;
-
-                        -- result set 6
-                        SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
-
-                string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
-                string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
-                string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
-                string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
-
-                sqlCommandWrapper.Parameters.AddWithValue("@searchParams", searchParametersJson);
-                sqlCommandWrapper.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
-                sqlCommandWrapper.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
-                sqlCommandWrapper.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
-
-                using (SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+            await _sqlRetryService.ExecuteSql(
+                cmd,
+                async (sqlCommand, cancellationToken) =>
                 {
+                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
                     var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
                     var resourceTypeIdToTypeName = new Dictionary<short, string>();
                     var searchParamUriToId = new Dictionary<Uri, short>();
@@ -376,108 +333,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _claimNameToId = claimNameToId;
                     _compartmentTypeToId = compartmentTypeToId;
                     _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
-                }
-            }
+                },
+                _logger,
+                null,
+                cancellationToken);
         }
 
         private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                _logger.LogInformation("Initializing search parameters statuses.");
-                sqlCommandWrapper.CommandText = @"
-                        SET XACT_ABORT ON;
-                        BEGIN TRANSACTION;
-                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET();
+            _logger.LogInformation("Initializing search parameters statuses.");
 
-                        UPDATE dbo.SearchParam
-                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
-                        FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
-                        ON dbo.SearchParam.Uri = sps.Uri
-                        WHERE dbo.SearchParam.Status = 'Initialized' OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.MergeSearchParams";
 
-                        SELECT @RowsAffected = @@ROWCOUNT;
-                        COMMIT TRANSACTION;";
-
-                IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
+            IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
-                // Use the appropriate collection based on schema version
-                bool includeLastUpdated = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency;
-                var collection = new SearchParameterStatusCollection(includeLastUpdated);
-                collection.AddRange(statuses);
+            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
 
-                // Use the appropriate table type based on schema version
-                string tableTypeName = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency
-                    ? "dbo.SearchParamList"
-                    : "dbo.SearchParamTableType_2";
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
-                var tableValuedParameter = new SqlParameter
-                    {
-                        ParameterName = "searchParamStatuses",
-                        SqlDbType = SqlDbType.Structured,
-                        Value = collection,
-                        Direction = ParameterDirection.Input,
-                        TypeName = tableTypeName,
-                    };
-
-                sqlCommandWrapper.Parameters.Add(tableValuedParameter);
-                sqlCommandWrapper.Parameters.Add(new SqlParameter("@RowsAffected", SqlDbType.Int) { Direction = ParameterDirection.Output });
-
-                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                int rowsAffected = (int)sqlCommandWrapper.Parameters["@RowsAffected"].Value;
-                _logger.LogInformation("Number of Search Parameters initialized: {RowsAffected}.", rowsAffected);
-            }
+            _logger.LogInformation("Number of Search Parameters initialized");
         }
 
-        private int GetStringId(FhirMemoryCache<int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
+        private int GetStringId(FhirMemoryCache<int> cache, string stringValue, StoredProcedure sproc)
         {
             if (cache.TryGet(stringValue, out int id))
             {
                 return id;
             }
 
-            _logger.LogInformation("Cache miss for string ID on {Table}", table);
+            _logger.LogInformation("Cache miss for string ID on {Sproc}", sproc);
+
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+#pragma warning disable CA2100 // Review SQL queries for security vulnerabilities. The stored procedure name is not influenced by user input, but determined by the code, so this is not vulnerable to SQL injection.
+            cmd.CommandText = sproc.ProcedureName;
+#pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
+            cmd.Parameters.AddWithValue("@stringValue", stringValue);
 
             // Forgive me father, I have sinned.
             // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)
             // and overall logic of preparing data for insert.
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-            using (SqlConnectionWrapper sqlConnectionWrapper = scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true).Result)
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                // This command are not using any user arguments, and can't be rewritten to parametrized command string
-                // because you can't parameterize column or table.
-#pragma warning disable CA2100
-                sqlCommandWrapper.CommandText = $@"
-                        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-                        BEGIN TRANSACTION
-
-                        DECLARE @id int = (SELECT {idColumn} FROM {table} WITH (UPDLOCK) WHERE {stringColumn} = @stringValue)
-
-                        IF (@id IS NULL) BEGIN
-                            INSERT INTO {table} 
-                                ({stringColumn})
-                            VALUES 
-                                (@stringValue)
-                            SET @id = SCOPE_IDENTITY()
-                        END
-
-                        COMMIT TRANSACTION
-
-                        SELECT @id";
-
-                sqlCommandWrapper.Parameters.AddWithValue("@stringValue", stringValue);
-
-#pragma warning restore CA2100
-                id = (int)sqlCommandWrapper.ExecuteScalarAsync(CancellationToken.None).Result;
-
-                cache.TryAdd(stringValue, id);
-                return id;
-            }
+            id = cmd.ExecuteScalarAsync<int>(_sqlRetryService, _logger, CancellationToken.None).GetAwaiter().GetResult();
+            cache.TryAdd(stringValue, id);
+            return id;
         }
 
         private void ThrowIfNotInitialized()
