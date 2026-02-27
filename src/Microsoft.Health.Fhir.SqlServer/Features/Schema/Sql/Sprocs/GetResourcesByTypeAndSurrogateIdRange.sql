@@ -61,7 +61,7 @@ BEGIN TRY
         WHERE IsHistory = 1
           AND (IsDeleted = 0 OR @IncludeDeleted = 1)
     ) A
-    ORDER BY ResourceSurrogateId, ResourceId
+    ORDER BY ResourceSurrogateId, ResourceTypeId
     OPTION (MAXDOP 1)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
