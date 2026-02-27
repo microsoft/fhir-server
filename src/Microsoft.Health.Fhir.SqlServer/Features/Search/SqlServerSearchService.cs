@@ -879,11 +879,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var startId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.StartSurrogateId).Value);
             var endId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.EndSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
+            var countHint = hints.FirstOrDefault(x => string.Equals(x.Param, KnownQueryParameterNames.Count, StringComparison.OrdinalIgnoreCase));
+            int? top = null;
 
-            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.History), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
+            if (!string.IsNullOrWhiteSpace(countHint.Value))
+            {
+                top = int.Parse(countHint.Value, CultureInfo.InvariantCulture);
+            }
+            else if (options.MaxItemCountSpecifiedByClient)
+            {
+                // _count is parsed by SearchOptionsFactory into MaxItemCount and is not always included in QueryHints.
+                top = options.MaxItemCount;
+            }
+
+            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.History), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted), top);
         }
 
-        private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
+        private void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalEndId, bool? includeHistory, bool? includeDeleted, int? top = null)
         {
             command.CommandType = CommandType.StoredProcedure;
             command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
@@ -893,6 +905,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
             command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
             command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
+
+            if (top.HasValue && _schemaInformation.Current >= 104)
+            {
+                command.Parameters.AddWithValue("@Top", top.Value);
+            }
         }
 
         /// <summary>
@@ -907,13 +924,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="searchParamHashFilter">When not null then we filter using the searchParameterHash</param>
         /// <param name="includeHistory">Return historical records that match the other parameters.</param>
         /// <param name="includeDeleted">Return deleted records that match the other parameters.</param>
+        /// <param name="top">Optional maximum number of resources to return.</param>
         /// <returns>All resources with surrogate ids greater than or equal to startId and less than or equal to endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
-        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null, bool includeHistory = false, bool includeDeleted = false)
+        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null, bool includeHistory = false, bool includeDeleted = false, int? top = null)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowEndId, includeHistory, includeDeleted);
+            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowEndId, includeHistory, includeDeleted, top);
             LogSqlCommand(sqlCommand);
             List<SearchResultEntry> resources = null;
             await _sqlRetryService.ExecuteSql(
@@ -1495,7 +1513,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 null,
                 null,
                 cancellationToken,
-                searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
+                searchOptions.IgnoreSearchParamHash ? null : searchParameterHash,
+                includeHistory: false,
+                includeDeleted: false,
+                top: searchOptions.MaxItemCountSpecifiedByClient ? searchOptions.MaxItemCount : null);
 
             if (results.Results.Any())
             {
