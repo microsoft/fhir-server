@@ -1098,6 +1098,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     if (jobInfo.Status != JobStatus.Completed)
                     {
                         _currentResult.FailedResources += result.FailedResourceCount != 0 ? result.FailedResourceCount : definition.ResourceCount.Count;
+
+                        // Extract error details from failed processing job
+                        if (!string.IsNullOrEmpty(result.Error))
+                        {
+                            AddErrorResult(
+                                OperationOutcomeConstants.IssueSeverity.Error,
+                                OperationOutcomeConstants.IssueType.Exception,
+                                $"Processing job failed for resource type {definition.ResourceType}: {result.Error}");
+                        }
                     }
                 }
 
