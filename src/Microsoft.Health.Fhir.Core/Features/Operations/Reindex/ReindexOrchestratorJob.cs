@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
@@ -77,14 +78,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
-        private HashSet<string> _processedSearchParameters = new HashSet<string>(); // to prevent multiple status updates
-        private HashSet<long> _processedJobIds = new HashSet<long>(); // to look at a completed job only once
+        private readonly HashSet<string> _processedSearchParameters = new HashSet<string>(); // to prevent multiple status updates
+        private readonly HashSet<long> _processedJobIds = new HashSet<long>(); // to look at a completed job only once
 
         // Transient dictionaries below are populated on processing job creates. After a job is in the terminal state
         // it is removed from _transientResourceTypeJobs. When all jobs removed then resource type is completed.
         // Similar concept is used for _transientSearchParamResouceTypes
-        private Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = new Dictionary<string, (HashSet<long> JobIds, Counts Counts)>();
-        private Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = new Dictionary<string, HashSet<string>>();
+        private readonly Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = new Dictionary<string, (HashSet<long> JobIds, Counts Counts)>();
+        private readonly Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = new Dictionary<string, HashSet<string>>();
 
         private DateTimeOffset _searchParamLastUpdated;
 
@@ -298,15 +299,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // Save the list of resource types in the reindexjob document
-            foreach (var resource in resourceTypeList)
+            foreach (var resourceType in resourceTypeList)
             {
-                _reindexJobRecord.Resources.Add(resource);
+                _reindexJobRecord.Resources.Add(resourceType);
             }
 
             // save the list of search parameters to the reindexjob document
-            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.OriginalString))
+            foreach (var url in notYetIndexedParams.Select(p => p.Url.OriginalString))
             {
-                _reindexJobRecord.SearchParams.Add(searchParams);
+                _reindexJobRecord.SearchParams.Add(url);
+            }
+
+            // populate processing lookups. this should be done prior to enqueue
+            foreach (var resourceType in resourceTypeList)
+            {
+                var urls = GetValidSearchParameterUrlsForResourceType(resourceType);
+                PopulateProcessingLookups(resourceType, urls, new List<long>());
             }
 
             await CalculateAndSetTotalAndResourceCounts();
@@ -393,7 +401,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var resourcesPerJob = (int)_reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             var allEnqueuedJobIds = new List<long>();
 
-            foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts)
+            foreach (var resourceTypeEntry in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
             {
                 var resourceType = resourceTypeEntry.Key;
                 var resourceCount = resourceTypeEntry.Value;
@@ -405,6 +413,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     _logger.LogJobWarning(_jobInfo, "No valid search parameters found for resource type {ResourceType} in reindex job {JobId}.", resourceType, _jobInfo.Id);
                 }
+
+                PopulateProcessingLookups(resourceType, validSearchParameterUrls, new List<long>());
 
                 int totalRangesEnqueued = 0;
 
@@ -463,8 +473,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                                 startId = ranges[^1].EndId + 1; // Move past the last range
                             }
-
-                            PopulateProcessingLookups(resourceType, validSearchParameterUrls, new List<long>());
                         }
                         while (ranges.Any());
                     }
@@ -852,6 +860,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             do
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException("Reindex operation cancelled by customer.");
+                }
+
                 try
                 {
                     // Adjust polling interval based on activity
