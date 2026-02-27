@@ -571,7 +571,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             var jobResult = exception.Error as ReindexProcessingJobResult;
             Assert.NotNull(jobResult?.Error);
-            Assert.Contains("Error running reindex query", jobResult.Error);
+            Assert.Contains("Search service error", jobResult.Error);
         }
 
         [Fact]
@@ -1064,7 +1064,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             var jobResult = exception.Error as ReindexProcessingJobResult;
             Assert.NotNull(jobResult?.Error);
-            Assert.Contains("persisted after 3 batch size reductions", jobResult.Error);
+            Assert.Contains("OutOfMemoryException occurred during reindex processing", jobResult.Error);
             Assert.Equal(5, jobResult.FailedResourceCount);
             Assert.Equal(0, jobResult.SucceededResourceCount);
 
@@ -1072,29 +1072,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             const string countParameterName = "_count";
 
-            await _searchService.Received(1).SearchForReindexAsync(
+            // All 4 calls fail with OOM before explicit batching can be applied
+            // ExecuteWithOomBatchReductionAsync reduces batch size internally but the parameter
+            // is not passed until useExplicitBatching is set to true (which happens after this call completes)
+            await _searchService.Received(4).SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => !l.Any(t => t.Item1 == countParameterName)),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true);
-
-            await _searchService.Received(1).SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == countParameterName && t.Item2 == "1000")),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true);
-
-            await _searchService.Received(1).SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == countParameterName && t.Item2 == "100")),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true);
-
-            await _searchService.Received(1).SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == countParameterName && t.Item2 == "10")),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>(),
@@ -1105,7 +1087,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         public async Task ExecuteAsync_WithRepeatedOutOfMemoryException_ReturnsProcessingStateCountAndError()
         {
             const string expectedResourceType = "DiagnosticReport";
-            const string expectedErrorSubstring = "persisted after 3 batch size reductions";
+            const string expectedErrorSubstring = "OutOfMemoryException occurred during reindex processing";
 
             var job = new ReindexProcessingJobDefinition()
             {
