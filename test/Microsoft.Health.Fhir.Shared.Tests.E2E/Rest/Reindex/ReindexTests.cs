@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
-            var storageMultiplier = _isSql ? 1 : 50; // allows to keep settings for cosmos and optimize sql
+            var storageMultiplier = _isSql || _fixture.IsUsingInProcTestServer ? 1 : 50; // allows to keep settings for cosmos and optimize sql
 
             // Cancel any running reindex jobs before starting this test
             await CancelAnyRunningReindexJobsAsync();
