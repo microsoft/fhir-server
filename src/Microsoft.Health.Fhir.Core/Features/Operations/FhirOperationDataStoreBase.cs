@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Polly;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations;
 
@@ -79,10 +80,18 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var status = jobInfo.Status;
         var result = jobInfo.Result;
         var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
+        var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+        var orchestratorJobDetails = groupJobs.Where(x => x.Id == jobInfo.GroupId).FirstOrDefault();
+
+        // If the Orchestrator job is already canceled by user, return 404 Job not found
+        // If the Orchestrator job was cancelled while it was in Created/Running status then the status would be set to Canceled or CancelRequested would be set to true.
+        if (orchestratorJobDetails.Status == JobStatus.CancelledByUser || orchestratorJobDetails.Status == JobStatus.Cancelled || orchestratorJobDetails.CancelRequested)
+        {
+            throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+        }
 
         if (status == JobStatus.Completed)
         {
-            var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
             var inFlightJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created || (x.EndDate != null && x.EndDate > DateTime.UtcNow.AddSeconds(-15)));
             var cancelledJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
             var failedJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Failed);

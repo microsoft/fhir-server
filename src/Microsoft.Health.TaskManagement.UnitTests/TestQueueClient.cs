@@ -43,10 +43,16 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 {
                     jobInfo.Status = JobStatus.Cancelled;
                 }
-
-                if (jobInfo.Status == JobStatus.Running)
+                else if (jobInfo.Status == JobStatus.Running)
                 {
                     jobInfo.CancelRequested = true;
+                }
+                else if (queueType == (byte)QueueType.Export
+                         && jobInfo.Id == groupId
+                         && (jobInfo.Status == JobStatus.Completed || jobInfo.Status == JobStatus.Failed))
+                {
+                    // Match SQL SP and CosmosDB behavior: for Export queue, set Completed/Failed orchestrator jobs to CancelledByUser.
+                    jobInfo.Status = JobStatus.CancelledByUser;
                 }
             }
 

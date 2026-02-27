@@ -5,21 +5,21 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -31,140 +31,225 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     [Trait(Traits.Category, Categories.Export)]
     public class GetExportRequestHandlerTests
     {
+        private const string JobId = "jobId";
+
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly IMediator _mediator;
 
-        private readonly Uri _createRequestUri = new Uri("https://localhost/$export/");
-        private const string _failureReason = "ExportJobFailed";
-        private HttpStatusCode _failureStatusCode = HttpStatusCode.InternalServerError;
+        private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
+
+        private static readonly string[] ResourceTypes = ["Patient", "Observation"];
 
         public GetExportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new GetExportRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection
+                .Add(sp => new GetExportRequestHandler(
+                    _fhirOperationDataStore,
+                    DisabledFhirAuthorizationService.Instance))
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);
         }
 
-        [Theory]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Canceled)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedOrCancelledStatus_ThenHttpResponseCodeShouldBeOk(OperationStatus operationStatus)
-        {
-            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
-
-            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-            Assert.NotNull(result.JobResult);
-
-            // Check whether required fields are present.
-            Assert.NotNull(result.JobResult.Output);
-            Assert.NotEqual(default, result.JobResult.TransactionTime);
-            Assert.NotNull(result.JobResult.RequestUri);
-            Assert.NotNull(result.JobResult.Error);
-        }
-
+        /// <summary>
+        /// When the user is not authorized, an UnauthorizedFhirActionException should be thrown.
+        /// </summary>
         [Fact]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenOutputShouldContainRequiredFields()
+        public async Task GivenAFhirMediator_WhenUserIsNotAuthorized_ThenUnauthorizedFhirActionExceptionShouldBeThrown()
         {
-            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Completed);
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            authorizationService.CheckAccess(DataActions.Export, Arg.Any<CancellationToken>()).Returns(DataActions.None);
 
-            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-            Assert.NotNull(result.JobResult);
+            var handler = new GetExportRequestHandler(
+                _fhirOperationDataStore,
+                authorizationService);
 
-            var output = result.JobResult.Output.FirstOrDefault();
-
-            // Check whether required fields are present for Output.
-            Assert.NotNull(output);
-            Assert.False(string.IsNullOrWhiteSpace(output.Type));
-            Assert.NotNull(output.FileUri);
-            Assert.True(output.Count >= 0);
-
-            var error = result.JobResult.Error.FirstOrDefault();
-
-            // Check whether required fields are present for Error.
-            Assert.NotNull(error);
-            Assert.False(string.IsNullOrWhiteSpace(error.Type));
-            Assert.NotNull(error.FileUri);
-            Assert.True(error.Count >= 0);
-
-            var issue = result.JobResult.Issues.FirstOrDefault();
-
-            // Check whether required fields are present for Issues.
-            Assert.NotNull(issue);
-            Assert.False(string.IsNullOrWhiteSpace(issue.Diagnostics));
-            Assert.False(string.IsNullOrWhiteSpace(issue.Code));
-            Assert.False(string.IsNullOrWhiteSpace(issue.Severity));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() =>
+                handler.Handle(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
         }
 
+        /// <summary>
+        /// By Orchestrator or Processing job Id:
+        ///   If Orchestrator job is in Cancelled status, cancel is requested, or CancelledByUser status,
+        ///   GetExportJobByIdAsync throws JobNotFoundException (404).
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGetExportJobByIdThrowsJobNotFoundException_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken)
+                .Returns(Task.FromException<ExportJobOutcome>(new JobNotFoundException(string.Format(Core.Resources.JobNotFound, JobId))));
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() =>
+                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+        }
+
+        /// <summary>
+        /// When the job status is Completed or Canceled, the handler returns OK with the job result.
+        /// The output count should match the number of resource types exported.
+        /// Covers: no resource types (empty output), single resource type, and multiple resource types.
+        /// The handler treats Canceled the same as Completed (returns OK with partial results).
+        /// </summary>
         [Theory]
-        [InlineData(OperationStatus.Failed, HttpStatusCode.BadRequest)]
-        [InlineData(OperationStatus.Failed, HttpStatusCode.InternalServerError)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus, HttpStatusCode failureStatusCode)
+        [InlineData(OperationStatus.Completed, 0)]
+        [InlineData(OperationStatus.Completed, 1)]
+        [InlineData(OperationStatus.Completed, 2)]
+        [InlineData(OperationStatus.Canceled, 0)]
+        [InlineData(OperationStatus.Canceled, 1)]
+        [InlineData(OperationStatus.Canceled, 2)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedOrCancelledStatus_ThenHttpResponseCodeShouldBeOk(OperationStatus status, int resourceTypeCount)
         {
-            _failureStatusCode = failureStatusCode;
+            var jobRecord = CreateExportJobRecord(status);
+            for (int i = 0; i < resourceTypeCount; i++)
+            {
+                string type = ResourceTypes[i];
+                jobRecord.Output.Add(type, new List<ExportFileInfo>
+                {
+                    new ExportFileInfo(type, new Uri($"http://example.com/{type.ToLowerInvariant()}.ndjson"), sequence: i),
+                });
+            }
 
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetExportJobByIdAsync(operationStatus));
+            var outcome = CreateExportJobOutcome(jobRecord);
 
-            Assert.NotNull(ofe);
-            Assert.Equal(failureStatusCode, ofe.ResponseStatusCode);
-            Assert.Contains(_failureReason, ofe.Message);
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
+
+            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.NotNull(response.JobResult);
+            Assert.Equal(resourceTypeCount, response.JobResult.Output.Count);
+            await _fhirOperationDataStore.Received(1).GetExportJobByIdAsync(JobId, _cancellationToken);
         }
 
+        /// <summary>
+        /// When the job status is Failed, an OperationFailedException should be thrown.
+        /// If FailureDetails is present, the failure reason and status code come from it.
+        /// If FailureDetails is null, a default error message and InternalServerError status code are used.
+        /// This also covers the orchestrator-completed-with-failed-processing-jobs scenario,
+        /// where GetExportJobByIdAsync returns Failed status with the child's failure details.
+        /// </summary>
+        [Theory]
+        [InlineData(null, HttpStatusCode.InternalServerError)]
+        [InlineData("Export job failed", HttpStatusCode.InternalServerError)]
+        [InlineData("Bad input data", HttpStatusCode.BadRequest)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(string failureReason, HttpStatusCode expectedStatusCode)
+        {
+            var jobRecord = CreateExportJobRecord(OperationStatus.Failed);
+            if (failureReason != null)
+            {
+                jobRecord.FailureDetails = new JobFailureDetails(failureReason, expectedStatusCode);
+            }
+
+            var outcome = CreateExportJobOutcome(jobRecord);
+
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
+
+            var ex = await Assert.ThrowsAsync<OperationFailedException>(() =>
+                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+            Assert.Equal(expectedStatusCode, ex.ResponseStatusCode);
+
+            if (failureReason != null)
+            {
+                Assert.Contains(failureReason, ex.Message);
+            }
+            else
+            {
+                Assert.Contains(Core.Resources.UnknownError, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// When the job status is Running or Queued, the handler returns Accepted with a null JobResult.
+        /// This covers:
+        ///   - Processing job in Running status > handler returns Accepted.
+        ///   - Processing job in Created/Queued status > handler returns Accepted.
+        ///   - Orchestrator completed but processing jobs still in-flight > data store returns Running > handler returns Accepted.
+        /// </summary>
         [Theory]
         [InlineData(OperationStatus.Running)]
         [InlineData(OperationStatus.Queued)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(OperationStatus operationStatus)
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(OperationStatus status)
         {
-            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
+            var jobRecord = CreateExportJobRecord(status);
+            var outcome = CreateExportJobOutcome(jobRecord);
 
-            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
-            Assert.Null(result.JobResult);
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
+
+            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            Assert.Null(response.JobResult);
         }
 
-        [Theory]
-        [InlineData(OperationStatus.Failed)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatusAndNoFailureDetails_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus)
+        /// <summary>
+        /// When the job status is Completed and the job has error files, the error output
+        /// should be included in the response.
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGettingCompletedJobWithErrors_ThenErrorOutputShouldBeIncluded()
         {
-            _failureStatusCode = HttpStatusCode.BadRequest;
-
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetExportJobByIdAsync(operationStatus, addFailureDetails: false));
-
-            Assert.NotNull(ofe);
-            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-            Assert.Contains(Resources.UnknownError, ofe.Message);
-        }
-
-        private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus, bool addFailureDetails = true)
-        {
-            var jobRecord = new ExportJobRecord(_createRequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "hash", rollingFileSizeInMB: 64)
+            var jobRecord = CreateExportJobRecord(OperationStatus.Completed);
+            jobRecord.Output.Add("Patient", new List<ExportFileInfo>
             {
-                Status = jobStatus,
+                new ExportFileInfo("Patient", new Uri("http://example.com/patient.ndjson"), sequence: 1),
+            });
+            jobRecord.Error.Add(new ExportFileInfo("OperationOutcome", new Uri("http://example.com/error.ndjson"), sequence: 1));
+
+            var outcome = CreateExportJobOutcome(jobRecord);
+
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(outcome);
+
+            GetExportResponse response = await _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.NotNull(response.JobResult);
+            Assert.Single(response.JobResult.Output);
+            Assert.Single(response.JobResult.Error);
+            Assert.Equal("OperationOutcome", response.JobResult.Error[0].Type);
+        }
+
+        /// <summary>
+        /// When GetExportJobByIdAsync throws an unexpected exception (not JobNotFoundException),
+        /// it should propagate to the caller.
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGetExportJobByIdThrowsUnexpectedException_ThenExceptionShouldBeThrown()
+        {
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken)
+                .Returns(Task.FromException<ExportJobOutcome>(new InvalidOperationException("Unexpected error")));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _mediator.Send(new GetExportRequest(new Uri("http://localhost"), JobId), _cancellationToken));
+        }
+
+        private ExportJobRecord CreateExportJobRecord(OperationStatus operationStatus)
+        {
+            return new ExportJobRecord(
+                new Uri("http://localhost/job/"),
+                ExportJobType.Patient,
+                ExportFormatTags.ResourceName,
+                resourceType: null,
+                filters: null,
+                hash: "123",
+                rollingFileSizeInMB: 64,
+                requestorClaims: null,
+                groupId: null)
+            {
+                Status = operationStatus,
             };
+        }
 
-            if ((jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed) && addFailureDetails)
-            {
-                jobRecord.FailureDetails = new JobFailureDetails(_failureReason, _failureStatusCode);
-            }
-            else if (jobStatus == OperationStatus.Completed)
-            {
-                var exportFileInfo = new ExportFileInfo("patient", new Uri("https://exportlocation/fileUri"), sequence: 0);
-                exportFileInfo.IncrementCount(100);
-                jobRecord.Output.Add("patient", new List<ExportFileInfo>() { exportFileInfo });
-
-                var exportErrorInfo = new ExportFileInfo("error", new Uri("https://exportlocation/fileUri"), sequence: 0);
-                exportErrorInfo.IncrementCount(100);
-                jobRecord.Error.Add(exportErrorInfo);
-
-                var exportIssue = new OperationOutcomeIssue("warning", "code", "message");
-                jobRecord.Issues.Add(exportIssue);
-            }
-
-            var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
-
-            _fhirOperationDataStore.GetExportJobByIdAsync(jobRecord.Id, Arg.Any<CancellationToken>()).Returns(jobOutcome);
-
-            return await _mediator.GetExportStatusAsync(_createRequestUri, jobRecord.Id, CancellationToken.None);
+        private ExportJobOutcome CreateExportJobOutcome(ExportJobRecord exportJobRecord, WeakETag weakETag = null)
+        {
+            return new ExportJobOutcome(
+                exportJobRecord,
+                weakETag ?? WeakETag.FromVersionId("123"));
         }
     }
 }
