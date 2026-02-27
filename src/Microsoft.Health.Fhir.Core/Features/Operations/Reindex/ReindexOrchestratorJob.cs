@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
@@ -860,11 +859,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             do
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    throw new OperationCanceledException("Reindex operation cancelled by customer.");
-                }
-
                 try
                 {
                     // Adjust polling interval based on activity
