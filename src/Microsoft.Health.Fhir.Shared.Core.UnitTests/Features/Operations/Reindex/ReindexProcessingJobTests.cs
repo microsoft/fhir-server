@@ -515,11 +515,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 true)
                 .Returns((SearchResult)null);
 
-            // When null search result is returned, the job should handle it gracefully and return error in result
-            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
-            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+            // When null search result is returned, the job should throw JobExecutionSoftFailureException with error in result
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            Assert.NotNull(jobResult.Error);
+            var jobResult = exception.Error as ReindexProcessingJobResult;
+            Assert.NotNull(jobResult?.Error);
             Assert.Contains("null search result", jobResult.Error);
         }
 
@@ -564,12 +565,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 true)
                 .Returns(Task.FromException<SearchResult>(new InvalidOperationException("Search service error")));
 
-            // When search service throws an exception, the job should handle it gracefully and return error in result
-            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
-            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+            // When search service throws an exception, the job should throw JobExecutionSoftFailureException with error in result
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            Assert.NotNull(jobResult.Error);
-            Assert.Contains("Error running reindex query", jobResult.Error);
+            var jobResult = exception.Error as ReindexProcessingJobResult;
+            Assert.NotNull(jobResult?.Error);
+            Assert.Contains("Search service error", jobResult.Error);
         }
 
         [Fact]
@@ -626,10 +628,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromException(new InvalidOperationException("General error during bulk update")));
 
-            var result = await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken);
-            var jobResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(result);
+            // Expect JobExecutionSoftFailureException to be thrown
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            Assert.NotNull(jobResult.Error);
+            var jobResult = exception.Error as ReindexProcessingJobResult;
+            Assert.NotNull(jobResult?.Error);
             Assert.Contains("General error", jobResult.Error);
             Assert.Equal(1, jobResult.FailedResourceCount);
         }
@@ -1006,6 +1010,130 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // Verify OOM was handled and recovery happened (first call fails, subsequent calls succeed)
             Assert.True(callCount >= 2, $"Expected at least 2 search calls for OOM recovery, but got {callCount}");
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithRepeatedOutOfMemoryException_SoftFailsAfterFourthOom()
+        {
+            var expectedResourceType = "DiagnosticReport";
+            int callCount = 0;
+
+            ReindexProcessingJobDefinition job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 10000,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 5,
+                    EndResourceSurrogateId = 1000,
+                    StartResourceSurrogateId = 1,
+                },
+                SearchParameterHash = "diagnosticHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 101,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 101,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(_ =>
+                {
+                    callCount++;
+                    return Task.FromException<SearchResult>(new OutOfMemoryException("Simulated repeated OOM when fetching resources"));
+                });
+
+            // Expect JobExecutionSoftFailureException to be thrown
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            var jobResult = exception.Error as ReindexProcessingJobResult;
+            Assert.NotNull(jobResult?.Error);
+            Assert.Contains("OutOfMemoryException occurred during reindex processing", jobResult.Error);
+            Assert.Equal(5, jobResult.FailedResourceCount);
+            Assert.Equal(0, jobResult.SucceededResourceCount);
+
+            Assert.Equal(4, callCount);
+
+            const string countParameterName = "_count";
+
+            // All 4 calls fail with OOM before explicit batching can be applied
+            // ExecuteWithOomBatchReductionAsync reduces batch size internally but the parameter
+            // is not passed until useExplicitBatching is set to true (which happens after this call completes)
+            await _searchService.Received(4).SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => !l.Any(t => t.Item1 == countParameterName)),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WithRepeatedOutOfMemoryException_ReturnsProcessingStateCountAndError()
+        {
+            const string expectedResourceType = "DiagnosticReport";
+            const string expectedErrorSubstring = "OutOfMemoryException occurred during reindex processing";
+
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 10000,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = 5,
+                    EndResourceSurrogateId = 1000,
+                    StartResourceSurrogateId = 1,
+                },
+                SearchParameterHash = "diagnosticHash",
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/DiagnosticReport-code" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(job.SearchParameterHash);
+
+            var jobInfo = new JobInfo()
+            {
+                Id = 102,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 102,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true)
+                .Returns(Task.FromException<SearchResult>(new OutOfMemoryException("Simulated repeated OOM")));
+
+            // Processing job should throw JobExecutionSoftFailureException with failure details in result
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            var jobResult = exception.Error as ReindexProcessingJobResult;
+            Assert.Equal(0, jobResult.SucceededResourceCount);
+            Assert.Equal(5, jobResult.FailedResourceCount);
+            Assert.NotNull(jobResult.Error);
+            Assert.Contains(expectedErrorSubstring, jobResult.Error);
         }
     }
 }

@@ -471,6 +471,57 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
+        public async Task SearchForReindex_WithSurrogateIdRangeAndCount_ReturnsDeterministicTopResults()
+        {
+            // Arrange
+            var patients = await CreateTestPatients(6);
+            var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
+            const int count = 2;
+
+            var queryParameters = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("_type", "Patient"),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
+                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.Count, count.ToString()),
+            };
+
+            // Act
+            var firstResult = await _searchService.SearchForReindexAsync(
+                queryParameters,
+                searchParameterHash: string.Empty,
+                countOnly: false,
+                CancellationToken.None);
+
+            var secondResult = await _searchService.SearchForReindexAsync(
+                queryParameters,
+                searchParameterHash: string.Empty,
+                countOnly: false,
+                CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(firstResult);
+            Assert.NotNull(secondResult);
+            Assert.NotNull(firstResult.Results);
+            Assert.NotNull(secondResult.Results);
+            Assert.True(firstResult.Results.Any());
+            Assert.True(firstResult.Results.Count() <= count, $"Expected at most {count} results, got {firstResult.Results.Count()}");
+
+            var firstIds = firstResult.Results.Select(x => x.Resource.ResourceSurrogateId).ToList();
+            var secondIds = secondResult.Results.Select(x => x.Resource.ResourceSurrogateId).ToList();
+
+            Assert.Equal(firstIds.Count, secondIds.Count);
+            Assert.Equal(firstIds, secondIds);
+
+            for (int i = 1; i < firstIds.Count; i++)
+            {
+                Assert.True(firstIds[i] >= firstIds[i - 1], $"Expected ascending surrogate order: {firstIds[i]} >= {firstIds[i - 1]}");
+            }
+        }
+
+        [Fact]
         public async Task Search_WithTokenParameter_UsesOptimizedPath()
         {
             // Arrange - Create patients with identifiers

@@ -1,6 +1,4 @@
-﻿--DROP PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
-GO
-CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0, @Top bigint = NULL
+ALTER PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0, @Top bigint = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
@@ -9,8 +7,8 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
                            +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL')
                            +' HI='+isnull(convert(varchar,@IncludeHistory),'NULL')
-            +' DE='+isnull(convert(varchar,@IncludeDeleted),'NULL')
-            +' T='+isnull(convert(varchar,@Top),'NULL')
+                           +' DE='+isnull(convert(varchar,@IncludeDeleted),'NULL')
+                           +' T='+isnull(convert(varchar,@Top),'NULL')
        ,@st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@TopRows bigint
@@ -36,7 +34,7 @@ BEGIN TRY
       INSERT INTO @SurrogateIds
         SELECT ResourceSurrogateId
           FROM (SELECT ResourceId, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId DESC)
-                  FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) -- w/o hint access to Resource table is inefficient when many versions are present. Hint is ignored if Resource is a view.
+                  FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version)
                   WHERE ResourceTypeId = @ResourceTypeId
                     AND ResourceId IN (SELECT TOP (@DummyTop) ResourceId FROM @ResourceIds)
                     AND ResourceSurrogateId BETWEEN @StartId AND @GlobalEndId
@@ -72,20 +70,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---set nocount on
---DECLARE @Ranges TABLE (UnitId int PRIMARY KEY, MinId bigint, MaxId bigint, Cnt int)
---INSERT INTO @Ranges
---  EXECUTE dbo.GetResourceSurrogateIdRanges 96, 0, 9e18, 90000, 10
---SELECT count(*) FROM @Ranges
---DECLARE @UnitId int
---       ,@MinId bigint
---       ,@MaxId bigint
---DECLARE @Resources TABLE (RawResource varbinary(max))
---WHILE EXISTS (SELECT * FROM @Ranges)
---BEGIN
---  SELECT TOP 1 @UnitId = UnitId, @MinId = MinId, @MaxId = MaxId FROM @Ranges ORDER BY UnitId
---  INSERT INTO @Resources
---    EXECUTE dbo.GetResourcesByTypeAndSurrogateIdRange 96, @MinId, @MaxId, NULL, @MaxId -- last is to invoke snapshot logic 
---  DELETE FROM @Resources
---  DELETE FROM @Ranges WHERE UnitId = @UnitId
---END
