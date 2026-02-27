@@ -77,10 +77,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
-        private HashSet<string> _processedSearchParameters = new HashSet<string>();
-        private HashSet<long> _processedJobIds = new HashSet<long>();
-        private Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = new Dictionary<string, HashSet<string>>();
+        private HashSet<string> _processedSearchParameters = new HashSet<string>(); // to prevent multiple status updates
+        private HashSet<long> _processedJobIds = new HashSet<long>(); // to look at a completed job only once
+
+        // Transient dictionaries below are populated on processing job creates. After a job is in the terminal state
+        // it is removed from _transientResourceTypeJobs. When all jobs removed then resource type is completed.
+        // Similar concept is used for _transientSearchParamResouceTypes
         private Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = new Dictionary<string, (HashSet<long> JobIds, Counts Counts)>();
+        private Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = new Dictionary<string, HashSet<string>>();
+
         private DateTimeOffset _searchParamLastUpdated;
 
         public ReindexOrchestratorJob(
@@ -183,7 +188,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                HandleException(ex);
+                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
+                LogReindexJobRecordErrorMessage();
+                _logger.LogJobError(ex, _jobInfo, "ReindexJob Failed and didn't complete.");
             }
 
             return JsonConvert.SerializeObject(_currentResult);
@@ -194,18 +201,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
         }
 
+        // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
         private async Task RefreshSearchParameterCache(bool isReindexStart)
         {
-            // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
             await WaitForRefresh(); // wait for M * cache refresh intervals
 
-            // Update the reindex job record with the latest hash map
+            // capture search param last updated to pass to processing jobs for comparison
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             _searchParamLastUpdated = currentDate;
-
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, _cancellationToken);
         }
@@ -720,15 +726,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private void HandleException(Exception ex)
-        {
-            AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, ex.Message);
-
-            LogReindexJobRecordErrorMessage();
-
-            _logger.LogJobError(ex, _jobInfo, "ReindexJob Failed and didn't complete.");
-        }
-
         private async Task UpdateSearchParameterStatus(List<string> readySearchParameters, CancellationToken cancellationToken)
         {
             // Check if all the resource types which are base types of the search parameter
@@ -987,233 +984,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task ProcessCompletedJobs(bool allJobsComplete, List<JobInfo> allJobs, List<string> readySearchParameters, CancellationToken cancellationToken)
-        {
-            if (_jobInfo.CancelRequested)
-            {
-                throw new OperationCanceledException("Reindex operation cancelled by customer.");
-            }
-
-            // If all jobs are complete, fetch all jobs excluding the orchestrator job
-            // to ensure we did not miss anything
-            if (allJobsComplete)
-            {
-                // Exclude jobs already processed, about to be processed and include only those in completed and Failed
-                var processingJobs = allJobs.Where(j => (j.Status == JobStatus.Completed || j.Status == JobStatus.Failed)).ToList();
-
-                if (processingJobs.Any())
-                {
-                    _logger.LogJobInformation(
-                        _jobInfo,
-                        "Retrieved {TotalJobs} processing job(s) for final completion processing. {CompletedCount} completed, {Failed} failed.",
-                        processingJobs.Count,
-                        processingJobs.Count(j => j.Status == JobStatus.Completed),
-                        processingJobs.Count(j => j.Status == JobStatus.Failed));
-                }
-            }
-
-            // Get completed and failed jobs
-            var failedJobInfos = allJobs.Where(j => j.Status == JobStatus.Failed).ToList();
-
-            // Remove search parameters associated with failed jobs from readySearchParameters
-            if (failedJobInfos.Any())
-            {
-                var failedJobSearchParams = new HashSet<string>();
-
-                foreach (var failedJobInfo in failedJobInfos)
-                {
-                    var definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(failedJobInfo.Definition);
-
-                    // Collect search parameters from failed jobs
-                    if (definition?.SearchParameterUrls != null)
-                    {
-                        failedJobSearchParams.UnionWith(definition.SearchParameterUrls);
-                    }
-                }
-
-                // Remove failed job search parameters from ready list
-                if (failedJobSearchParams.Any() && readySearchParameters != null)
-                {
-                    var removedParams = readySearchParameters.Where(sp => failedJobSearchParams.Contains(sp)).ToList();
-                    readySearchParameters = readySearchParameters.Where(sp => !failedJobSearchParams.Contains(sp)).ToList();
-
-                    if (removedParams.Any())
-                    {
-                        _logger.LogJobInformation(
-                            _jobInfo,
-                            "Removed {RemovedCount} search parameter(s) from ready list due to {FailedJobCount} failed job(s). Removed parameters: {RemovedParams}",
-                            removedParams.Count,
-                            failedJobInfos.Count,
-                            string.Join(", ", removedParams));
-                    }
-                }
-
-                LogReindexJobRecordErrorMessage();
-            }
-
-            readySearchParameters = await VerifyCountsAndUpdateReadySearchParameters(allJobs, readySearchParameters);
-
-            await UpdateSearchParameterStatus(readySearchParameters, cancellationToken);
-
-            if (allJobsComplete)
-            {
-                _currentResult.CompletedJobs += allJobs.Count(j => j.Status == JobStatus.Completed);
-
-                foreach (var jobInfo in allJobs)
-                {
-                    var definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
-                    var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(jobInfo.Result);
-                    _currentResult.SucceededResources += result.SucceededResourceCount;
-
-                    if (jobInfo.Status != JobStatus.Completed)
-                    {
-                        _currentResult.FailedResources += result.FailedResourceCount != 0 ? result.FailedResourceCount : definition.ResourceCount.Count;
-                    }
-                }
-
-                var totalResources = _currentResult.SucceededResources + _currentResult.FailedResources;
-
-                _jobInfo.Data = totalResources;
-                _reindexJobRecord.Count = totalResources;
-                _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs, _currentResult.CreatedJobs);
-            }
-
-            return;
-        }
-
-        /// <summary>
-        /// Calculates the total count of resources and identifies resource types that failed to be reindexed.
-        /// </summary>
-        /// <param name="succeededJobs">List of succeeded jobs.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains a tuple with the total count of failed resources and a list of resource types.</returns>
-        private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount(List<JobInfo> succeededJobs)
-        {
-            int totalCount = 0;
-            var resourcesTypes = new HashSet<string>(); // Use HashSet to prevent duplicates
-
-            // Extract unique resource types from jobs to avoid duplicate counting
-            var uniqueResourceTypes = succeededJobs
-                .Select(j => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition))
-                .Select(jobDef => jobDef.ResourceType)
-                .Distinct()
-                .ToList();
-
-            // Process each unique resource type only once
-            foreach (string resourceType in uniqueResourceTypes)
-            {
-                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
-                {
-                    LastModified = Clock.UtcNow,
-                    Status = OperationStatus.Queued,
-                };
-
-                SearchResult countOnlyResults = await GetResourceCountForQueryAsync(queryForCount, countOnly: true, false, _cancellationToken);
-
-                if (countOnlyResults?.TotalCount != null)
-                {
-                    totalCount += countOnlyResults.TotalCount.Value;
-                    resourcesTypes.Add(resourceType);
-                    }
-                }
-
-            return (totalCount, resourcesTypes.ToList());
-        }
-
-        /// <summary>
-        /// Unified method to process completed jobs and determine which search parameters are ready for status updates.
-        /// Combines job processing with search parameter readiness checking to reduce duplication.
-        /// </summary>
-        private List<string> ProcessCompletedJobsAndDetermineReadiness(IReadOnlyList<JobInfo> allJobs)
-        {
-            // Check which search parameters are ready for status updates
-            var readySearchParameters = new List<string>();
-
-            foreach (var searchParamUrl in _reindexJobRecord.SearchParams.Where(sp => !_processedSearchParameters.Contains(sp)))
-            {
-                if (IsSearchParameterFullyCompleted(searchParamUrl, allJobs))
-                {
-                    readySearchParameters.Add(searchParamUrl);
-                    _logger.LogJobInformation(_jobInfo, $"Search param {searchParamUrl} is ready for status update - no related resource types in-flight");
-                }
-            }
-
-            return readySearchParameters;
-        }
-
-        /// <summary>
-        /// Safely parses job definition with consistent error handling
-        /// </summary>
-        private ReindexProcessingJobDefinition ParseJobDefinition(JobInfo job)
-        {
-            try
-            {
-                return JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogJobWarning(ex, _jobInfo, "Failed to parse job definition for job {JobId}", job.Id);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Determines if a search parameter has all its related resource types completed.
-        /// Consolidates the logic for checking job completion across resource types.
-        /// </summary>
-        private bool IsSearchParameterFullyCompleted(string searchParamUrl, IReadOnlyList<JobInfo> allJobs)
-        {
-            try
-            {
-                // Check if all jobs for search paramater url are completed
-                if (!AreAllJobsSearchParameterCompleted(searchParamUrl, allJobs))
-                {
-                    _logger.LogDebug(
-                        "Search parameter {SearchParamUrl} not ready. Still has incomplete jobs", searchParamUrl);
-                    return false;
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogJobWarning(ex, _jobInfo, "Error checking completion status for search parameter {SearchParamUrl}", searchParamUrl);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Checks if all jobs for a specific resource type and search parameter combination are completed.
-        /// Consolidates the job filtering logic used throughout the class.
-        /// </summary>
-        private bool AreAllJobsSearchParameterCompleted(string searchParamUrl, IReadOnlyList<JobInfo> allJobs)
-        {
-            if (allJobs.Count == 0)
-            {
-                return true;
-            }
-
-            var jobsForSearchParam = GetJobsForSearchParameter(allJobs, searchParamUrl);
-            var ready = jobsForSearchParam.Any() && !jobsForSearchParam.Any(j => j.Status == JobStatus.Created || j.Status == JobStatus.Running);
-            return ready;
-        }
-
-        /// <summary>
-        /// Unified method to filter jobs by resource type and search parameter.
-        /// Replaces multiple similar LINQ queries throughout the class.
-        /// </summary>
-        private List<JobInfo> GetJobsForSearchParameter(
-            IReadOnlyList<JobInfo> allJobs,
-            string searchParamUrl)
-        {
-            return allJobs.Where(j =>
-                {
-                    var jobDefinition = ParseJobDefinition(j);
-                    return jobDefinition != null &&
-                           jobDefinition.SearchParameterUrls.Contains(searchParamUrl);
-                })
-                .ToList();
-        }
-
         /// <summary>
         /// Gets the search parameter URLs that are valid for the specified resource type.
         /// Filters the reindex job's search parameters to only include those that apply to the given resource type.
@@ -1277,54 +1047,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // Fallback to all search parameters if there's an error
                 return _reindexJobRecord.SearchParams.ToList();
             }
-        }
-
-        private async Task<List<string>> VerifyCountsAndUpdateReadySearchParameters(List<JobInfo> jobs, List<string> readySearchParameters)
-        {
-            (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount(jobs);
-            if (totalCount != 0)
-            {
-                string userMessage = string.Format(Core.Resources.ReindexingFailedForResourcesListed, totalCount, string.Join("', '", resourcesTypes)) +
-                    " " + Core.Resources.ReindexingUserAction;
-
-                AddErrorResult(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Incomplete,
-                    userMessage);
-                _logger.LogError("{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}' for job id: {Id}.", totalCount, string.Join("', '", resourcesTypes), _jobInfo.Id);
-
-                LogReindexJobRecordErrorMessage();
-
-                // Remove url from valid search params
-                foreach (var resourceType in resourcesTypes)
-                {
-                    var notReadySearchParamUrls = GetValidSearchParameterUrlsForResourceType(resourceType);
-
-                    // Remove any search parameters that are not ready from the readySearchParameters list
-                    if (notReadySearchParamUrls.Any() && readySearchParameters != null)
-                    {
-                        // Remove URLs that are found in notReadySearchParamUrls from readySearchParameters
-                        var filteredReadySearchParameters = readySearchParameters
-                            .Where(url => !notReadySearchParamUrls.Contains(url))
-                            .ToList();
-
-                        if (filteredReadySearchParameters.Count != readySearchParameters.Count)
-                        {
-                            _logger.LogInformation(
-                                "Removed {RemovedCount} search parameters from ready list for resource type {ResourceType} due to incomplete reindexing. " +
-                                "Removed parameters: {RemovedParams}",
-                                readySearchParameters.Count - filteredReadySearchParameters.Count,
-                                resourceType,
-                                string.Join(", ", readySearchParameters.Except(filteredReadySearchParameters)));
-
-                            // Update the readySearchParameters reference
-                            readySearchParameters = filteredReadySearchParameters;
-                        }
-                    }
-                }
-            }
-
-            return readySearchParameters;
         }
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
