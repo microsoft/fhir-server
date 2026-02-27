@@ -343,14 +343,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             _logger.LogInformation("Initializing search parameters statuses.");
 
+            List<ResourceSearchParameterStatus> fileStatuses = (await _filebasedSearchParameterStatusDataStore
+                    .GetSearchParameterStatuses(cancellationToken)).ToList();
+
+            using var getStatusCmd = new SqlCommand();
+            getStatusCmd.CommandType = CommandType.StoredProcedure;
+            getStatusCmd.CommandText = "dbo.GetSearchParamStatuses";
+
+            var existingParams = await getStatusCmd.ExecuteReaderAsync(
+                _sqlRetryService,
+                (reader) =>
+                {
+                    (var id, var uri, var stringStatus, var lastUpdated, var isPartiallySupported) = reader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
+                            VLatest.SearchParam.Uri,
+                            VLatest.SearchParam.Status,
+                            VLatest.SearchParam.LastUpdated,
+                            VLatest.SearchParam.IsPartiallySupported);
+                    return new ResourceSearchParameterStatus
+                    {
+                        Uri = new Uri(uri),
+                        Status = Enum.Parse<SearchParameterStatus>(stringStatus),
+                        LastUpdated = lastUpdated,
+                        IsPartiallySupported = isPartiallySupported,
+                    };
+                },
+                _logger,
+                cancellationToken);
+
+            fileStatuses.RemoveAll((fs) => existingParams.Any((param) => param.Uri == fs.Uri && (param.Status != SearchParameterStatus.Initialized)));
+
+            using var resourceExistCmd = new SqlCommand();
+            resourceExistCmd.CommandType = CommandType.Text;
+            resourceExistCmd.CommandText = "SELECT TOP 1 1 FROM dbo.Resource";
+            var hasResources = await resourceExistCmd.ExecuteScalarAsync<int?>(_sqlRetryService, _logger, cancellationToken) == 1;
+
+            fileStatuses.ForEach(fs =>
+            {
+                fs.Status = hasResources ? SearchParameterStatus.Supported : SearchParameterStatus.Enabled;
+                fs.LastUpdated = existingParams.FirstOrDefault(p => p.Uri == fs.Uri)?.LastUpdated ?? fs.LastUpdated;
+            });
+
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeSearchParams";
 
-            IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
-                    .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
-
-            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
+            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(fileStatuses));
 
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
