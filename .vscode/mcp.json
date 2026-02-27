@@ -1,0 +1,19 @@
+{
+    "servers": {
+            "ado_microsofthealthoss": {
+                "type": "stdio",
+                "command": "npx",
+                "args": [
+                    "--registry",
+                    "https://registry.npmjs.org",
+                    "-y",
+                    "@azure-devops/mcp",
+                    "microsofthealthoss"
+                ],                
+            },
+            "github": {
+                "type": "http",
+                "url": "https://api.githubcopilot.com/mcp/"
+		    },
+        }
+}
