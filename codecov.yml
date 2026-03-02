@@ -1,6 +1,16 @@
 # Codecov configuration for microsoft/fhir-server
 # Docs: https://docs.codecov.com/docs/codecov-yaml
 
+# Fix file paths from Azure DevOps agent directories to match repo structure.
+# Tests run on both Windows and Linux agents, producing paths like:
+#   Windows: D:\a\1\s\src\...  or  D:\a\_work\1\s\src\...
+#   Linux:   /mnt/vss/_work/1/s/src/...  or  /home/vsts/work/1/s/src/...
+fixes:
+  - "D:\\a\\1\\s\\::"
+  - "D:\\a\\_work\\1\\s\\::"
+  - "/mnt/vss/_work/1/s/::"
+  - "/home/vsts/work/1/s/::"
+
 coverage:
   status:
     # Overall project coverage check (informational, non-blocking)
