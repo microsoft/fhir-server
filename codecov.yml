@@ -2,11 +2,11 @@
 # Docs: https://docs.codecov.com/docs/codecov-yaml
 
 # Fix file paths to match repo structure.
-# DeterministicReport=true in CodeCoverage.Mtp.settings.xml causes paths
-# to use the deterministic prefix /_/ instead of absolute agent paths.
-# Example: /_/src/Microsoft.Health.Fhir.Core/... → src/Microsoft.Health.Fhir.Core/...
+# DeterministicReport=true + SourceLink produces full GitHub raw URLs as paths:
+#   https://raw.githubusercontent.com/microsoft/fhir-server/<sha>/src/...
+# Strip the URL prefix so Codecov sees just: src/...
 fixes:
-  - "/_/::"
+  - "https://raw.githubusercontent.com/microsoft/fhir-server/[a-f0-9]+/::"
 
 coverage:
   status:
