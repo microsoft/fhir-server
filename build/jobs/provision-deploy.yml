@@ -48,7 +48,7 @@ jobs:
 
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
-    retryCountOnTaskFailure: 1
+    retryCountOnTaskFailure: 2
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
@@ -147,13 +147,15 @@ jobs:
 
             $account = Get-AzContext
 
-            # Retry Get-AzADServicePrincipal for AAD replication delays
-            $principalId = Invoke-WithRetry -OperationName "Get Service Principal" -ScriptBlock {
+            # Retry Get-AzADServicePrincipal for AAD replication delays.
+            # Use fast-fail (3 retries, 10s initial delay) so ADO task retry handles persistent race conditions.
+            $principalId = Invoke-WithRetry -OperationName "Get Service Principal" -MaxRetries 3 -InitialDelaySeconds 10 -ScriptBlock {
                 (Get-AzADServicePrincipal -ApplicationId $account.Account.Id -ErrorAction Stop).Id
             }
 
-            # Retry CosmosDB role assignment for resource propagation delays
-            Invoke-WithRetry -OperationName "CosmosDB Role Assignment" -ScriptBlock {
+            # Retry CosmosDB role assignment for resource propagation delays.
+            # Use fast-fail (3 retries, 10s initial delay) so ADO task retry handles persistent race conditions.
+            Invoke-WithRetry -OperationName "CosmosDB Role Assignment" -MaxRetries 3 -InitialDelaySeconds 10 -ScriptBlock {
                 New-AzCosmosDBSqlRoleAssignment `
                   -AccountName $webAppName `
                   -ResourceGroupName $resourceGroupName `
@@ -182,8 +184,9 @@ jobs:
                 'nspProfile' = 'default'
             }
                 
-            # Retry NSP association deployment for resource propagation delays
-            $nspDeploymentResult = Invoke-WithRetry -OperationName "NSP Association Deployment" -ScriptBlock {
+            # Retry NSP association deployment for resource propagation delays.
+            # Use fast-fail (3 retries, 10s initial delay) so ADO task retry handles persistent race conditions.
+            $nspDeploymentResult = Invoke-WithRetry -OperationName "NSP Association Deployment" -MaxRetries 3 -InitialDelaySeconds 10 -ScriptBlock {
                 New-AzResourceGroupDeployment `
                   -ResourceGroupName $resourceGroupName `
                   -Name "$webAppName-cosmosdb-nsp-association" `
