@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     /// <summary>
-    /// Core feature configurations.
+    /// Core feature configurations for the FHIR server.
     /// </summary>
     public class CoreFeatureConfiguration
     {
