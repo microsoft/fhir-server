@@ -41,5 +41,10 @@ namespace Microsoft.Health.JobManagement
         /// Job Archived.
         /// </summary>
         Archived,
+
+        /// <summary>
+        /// Cancelled by user.
+        /// </summary>
+        CancelledByUser,
     }
 }
