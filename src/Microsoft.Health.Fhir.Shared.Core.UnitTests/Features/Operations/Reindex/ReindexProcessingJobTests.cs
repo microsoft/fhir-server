@@ -520,8 +520,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             var jobResult = exception.Error as ReindexProcessingJobResult;
-            Assert.NotNull(jobResult?.Error);
-            Assert.Contains("null search result", jobResult.Error);
+            string errorMessage = Assert.IsType<string>(jobResult?.Error);
+            Assert.Contains("null search result", errorMessage);
         }
 
         [Fact]
@@ -570,8 +570,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             var jobResult = exception.Error as ReindexProcessingJobResult;
-            Assert.NotNull(jobResult?.Error);
-            Assert.Contains("Search service error", jobResult.Error);
+            string errorMessage = Assert.IsType<string>(jobResult?.Error);
+            Assert.Contains("Search service error", errorMessage);
         }
 
         [Fact]
@@ -633,8 +633,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
             var jobResult = exception.Error as ReindexProcessingJobResult;
-            Assert.NotNull(jobResult?.Error);
-            Assert.Contains("General error", jobResult.Error);
+            string errorMessage = Assert.IsType<string>(jobResult?.Error);
+            Assert.Contains("General error", errorMessage);
             Assert.Equal(1, jobResult.FailedResourceCount);
         }
 

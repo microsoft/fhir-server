@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private const int MaxTimeoutRetries = 3;
 
         private const int OomReductionFactor = 10;
-        private const int MinEffectiveBatchSize = 10;
+        private const int MinEffectiveBatchSize = 1;
         private const int MaxOomReductionsBeforeSoftFail = 3;
 
         /// <summary>
@@ -241,6 +241,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexProcessingJobResult.FailedResourceCount = failedResourceCount > 0 ? failedResourceCount : 0;
         }
 
+        private bool TryReduceEffectiveBatchSize()
+        {
+            // Never increase batch size while handling OOM. If already at or below the minimum threshold,
+            // keep the current value and signal that no further reduction is possible.
+            if (_effectiveBatchSize <= MinEffectiveBatchSize)
+            {
+                return false;
+            }
+
+            int reducedBatchSize = Math.Max(MinEffectiveBatchSize, _effectiveBatchSize / OomReductionFactor);
+            reducedBatchSize = Math.Min(reducedBatchSize, _effectiveBatchSize);
+
+            if (reducedBatchSize == _effectiveBatchSize)
+            {
+                return false;
+            }
+
+            _effectiveBatchSize = reducedBatchSize;
+            return true;
+        }
+
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
         {
             if (_reindexProcessingJobDefinition == null)
@@ -319,10 +340,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             long initialStartId = _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId;
             long initialEndId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
-            int reductionCount = 0;
-            var rangeQueue = new Queue<(long StartId, long EndId, int Count)>();
+            var rangeQueue = new Queue<(long StartId, long EndId, int Count, int OomReductionCount)>();
             int initialCount = (int)Math.Min(_reindexProcessingJobDefinition.ResourceCount.Count, int.MaxValue);
-            rangeQueue.Enqueue((initialStartId, initialEndId, initialCount));
+            rangeQueue.Enqueue((initialStartId, initialEndId, initialCount, 0));
 
             _logger.LogJobInformation(
                 _jobInfo,
@@ -350,7 +370,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (OutOfMemoryException oomEx)
                 {
-                    reductionCount = await SplitAndQueueSubRangesAsync(workItem, rangeQueue, reductionCount, "surrogate ID resource fetch", oomEx, cancellationToken);
+                    await SplitAndQueueSubRangesAsync(workItem, rangeQueue, "surrogate ID resource fetch", oomEx, cancellationToken);
                     continue;
                 }
 
@@ -373,7 +393,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (OutOfMemoryException oomEx)
                 {
-                    reductionCount = await SplitAndQueueSubRangesAsync(workItem, rangeQueue, reductionCount, "search results processing", oomEx, cancellationToken);
+                    await SplitAndQueueSubRangesAsync(workItem, rangeQueue, "search results processing", oomEx, cancellationToken);
                     continue;
                 }
 
@@ -394,23 +414,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     long nextStartId = result.MaxResourceSurrogateId + 1;
                     int remainingCount = Math.Max(0, workItem.Count - batchResourceCount);
-                    rangeQueue.Enqueue((nextStartId, workItem.EndId, remainingCount));
+                    rangeQueue.Enqueue((nextStartId, workItem.EndId, remainingCount, workItem.OomReductionCount));
                 }
             }
         }
 
-        private async Task<int> SplitAndQueueSubRangesAsync(
-            (long StartId, long EndId, int Count) failedRange,
-            Queue<(long StartId, long EndId, int Count)> rangeQueue,
-            int reductionCount,
+        private async Task SplitAndQueueSubRangesAsync(
+            (long StartId, long EndId, int Count, int OomReductionCount) failedRange,
+            Queue<(long StartId, long EndId, int Count, int OomReductionCount)> rangeQueue,
             string operationLabel,
             OutOfMemoryException oomEx,
             CancellationToken cancellationToken)
         {
             int previousBatchSize = _effectiveBatchSize;
-            _effectiveBatchSize = Math.Max(MinEffectiveBatchSize, _effectiveBatchSize / OomReductionFactor);
+            bool wasReduced = TryReduceEffectiveBatchSize();
 
-            if (_effectiveBatchSize == previousBatchSize)
+            if (!wasReduced)
             {
                 _logger.LogJobError(
                     oomEx,
@@ -424,7 +443,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw oomEx;
             }
 
-            reductionCount++;
+            int reductionCount = failedRange.OomReductionCount + 1;
             if (reductionCount > MaxOomReductionsBeforeSoftFail)
             {
                 _logger.LogJobError(
@@ -483,10 +502,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             foreach (var range in subRanges)
             {
-                rangeQueue.Enqueue((range.StartId, range.EndId, range.Count));
+                rangeQueue.Enqueue((range.StartId, range.EndId, range.Count, reductionCount));
             }
-
-            return reductionCount;
         }
 
         /// <summary>
@@ -520,9 +537,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (OutOfMemoryException oomEx)
             {
                 // Reduce batch size and retry.
-                _effectiveBatchSize = Math.Max(
-                    MinEffectiveBatchSize,
-                    (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery / OomReductionFactor);
+                if (!TryReduceEffectiveBatchSize())
+                {
+                    throw;
+                }
 
                 _logger.LogJobWarning(
                     oomEx,
@@ -587,9 +605,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     catch (OutOfMemoryException oomEx)
                     {
                         // Reduce batch size and retry.
-                        _effectiveBatchSize = Math.Max(
-                            MinEffectiveBatchSize,
-                            (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery / OomReductionFactor);
+                        if (!TryReduceEffectiveBatchSize())
+                        {
+                            throw;
+                        }
 
                         _logger.LogJobWarning(
                             oomEx,
