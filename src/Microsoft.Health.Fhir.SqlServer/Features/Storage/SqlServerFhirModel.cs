@@ -224,6 +224,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeBase(CancellationToken cancellationToken)
         {
+            if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
+            {
+                await LegacyInitializeBase(cancellationToken);
+                return;
+            }
+
             string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
             string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
             string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
@@ -361,6 +367,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
+            if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
+            {
+                await LegacyInitializeSearchParameterStatuses(cancellationToken);
+                return;
+            }
+
             _logger.LogInformation("Initializing search parameters statuses.");
 
             List<ResourceSearchParameterStatus> fileStatuses = (await _filebasedSearchParameterStatusDataStore
@@ -468,6 +480,223 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 _logger.LogError($"The SQL Schema initialization is in progress.");
                 throw new ServiceUnavailableException();
+            }
+        }
+
+        private async Task LegacyInitializeBase(CancellationToken cancellationToken)
+        {
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                // Synchronous calls are used because this code is executed on startup and doesn't need to be async.
+                // Additionally, XUnit task scheduler constraints prevent async calls from being easily tested.
+                sqlCommandWrapper.CommandText = @"
+                        SET XACT_ABORT ON
+                        BEGIN TRANSACTION
+
+                        INSERT INTO dbo.ResourceType (Name)
+                        SELECT value FROM string_split(@resourceTypes, ',')
+                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX);
+
+                        -- result set 1
+                        SELECT ResourceTypeId, Name FROM dbo.ResourceType;
+
+                        ;WITH Input AS (
+                          SELECT DISTINCT
+                                 j.Uri,
+                                 CAST(j.IsPartiallySupported AS bit) AS IsPartiallySupported
+                          FROM OPENJSON(@searchParams)
+                          WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported') AS j
+                        )
+                        INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
+                        SELECT i.Uri, 'Initialized', SYSDATETIMEOFFSET(), i.IsPartiallySupported
+                        FROM Input AS i
+                        WHERE NOT EXISTS (SELECT 1 FROM dbo.SearchParam AS sp WHERE sp.Uri = i.Uri);
+
+                        -- result set 2
+                        SELECT Uri, SearchParamId FROM dbo.SearchParam;
+
+                        INSERT INTO dbo.ClaimType (Name)
+                        SELECT value FROM string_split(@claimTypes, ',')
+                        EXCEPT SELECT Name FROM dbo.ClaimType;
+
+                        -- result set 3
+                        SELECT ClaimTypeId, Name FROM dbo.ClaimType;
+
+                        INSERT INTO dbo.CompartmentType (Name)
+                        SELECT value FROM string_split(@compartmentTypes, ',')
+                        EXCEPT SELECT Name FROM dbo.CompartmentType;
+
+                        -- result set 4
+                        SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
+                        
+                        COMMIT TRANSACTION
+    
+                        -- result set 5
+                        SELECT Value, SystemId from dbo.System;
+
+                        -- result set 6
+                        SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
+
+                string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
+                string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
+                string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
+                string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
+
+                sqlCommandWrapper.Parameters.AddWithValue("@searchParams", searchParametersJson);
+                sqlCommandWrapper.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
+                sqlCommandWrapper.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
+                sqlCommandWrapper.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
+
+                using (SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                {
+                    var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
+                    var resourceTypeIdToTypeName = new Dictionary<short, string>();
+                    var searchParamUriToId = new Dictionary<Uri, short>();
+                    var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
+                    var compartmentTypeToId = new Dictionary<string, byte>();
+
+                    // result set 1
+                    short lowestResourceTypeId = short.MaxValue;
+                    short highestResourceTypeId = short.MinValue;
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
+
+                        resourceTypeToId.Add(resourceTypeName, id);
+                        if (id > highestResourceTypeId)
+                        {
+                            highestResourceTypeId = id;
+                        }
+
+                        if (id < lowestResourceTypeId)
+                        {
+                            lowestResourceTypeId = id;
+                        }
+
+                        resourceTypeIdToTypeName.Add(id, resourceTypeName);
+                    }
+
+                    // result set 2
+                    await reader.NextResultAsync(cancellationToken);
+
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
+                        searchParamUriToId.Add(new Uri(uri), searchParamId);
+                    }
+
+                    // result set 3
+                    await reader.NextResultAsync(cancellationToken);
+
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
+                        claimNameToId.Add(claimTypeName, id);
+                    }
+
+                    // result set 4
+                    await reader.NextResultAsync(cancellationToken);
+
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
+                        compartmentTypeToId.Add(compartmentName, id);
+                    }
+
+                    // result set 5
+                    await reader.NextResultAsync(cancellationToken);
+
+                    _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
+                    bool systemWarningLogged = false;
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
+
+                        if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
+                            systemWarningLogged = true;
+                        }
+                    }
+
+                    // result set 6
+                    await reader.NextResultAsync(cancellationToken);
+
+                    _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
+                    bool quantityCodeWarningLogged = false;
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+
+                        if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_quantityCodeToId.Name}' reached the limit of {_quantityCodeToId.CacheMemoryLimit} bytes (with {_quantityCodeToId.Count} cached elements).");
+                            quantityCodeWarningLogged = true;
+                        }
+                    }
+
+                    _resourceTypeToId = resourceTypeToId;
+                    _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
+                    _searchParamUriToId = searchParamUriToId;
+                    _claimNameToId = claimNameToId;
+                    _compartmentTypeToId = compartmentTypeToId;
+                    _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
+                }
+            }
+        }
+
+        private async Task LegacyInitializeSearchParameterStatuses(CancellationToken cancellationToken)
+        {
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                _logger.LogInformation("Initializing search parameters statuses.");
+                sqlCommandWrapper.CommandText = @"
+                        SET XACT_ABORT ON;
+                        BEGIN TRANSACTION;
+                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET();
+
+                        UPDATE dbo.SearchParam
+                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
+                        ON dbo.SearchParam.Uri = sps.Uri
+                        WHERE dbo.SearchParam.Status = 'Initialized' OR dbo.SearchParam.IsPartiallySupported IS NULL OR dbo.SearchParam.LastUpdated IS NULL;
+
+                        SELECT @RowsAffected = @@ROWCOUNT;
+                        COMMIT TRANSACTION;";
+
+                IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
+                    .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
+
+                // Use the appropriate collection based on schema version
+                bool includeLastUpdated = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency;
+                var collection = new SearchParameterStatusCollection(includeLastUpdated);
+                collection.AddRange(statuses);
+
+                // Use the appropriate table type based on schema version
+                string tableTypeName = _schemaInformation.Current >= SchemaVersionConstants.SearchParameterOptimisticConcurrency
+                    ? "dbo.SearchParamList"
+                    : "dbo.SearchParamTableType_2";
+
+                var tableValuedParameter = new SqlParameter
+                {
+                    ParameterName = "searchParamStatuses",
+                    SqlDbType = SqlDbType.Structured,
+                    Value = collection,
+                    Direction = ParameterDirection.Input,
+                    TypeName = tableTypeName,
+                };
+
+                sqlCommandWrapper.Parameters.Add(tableValuedParameter);
+                sqlCommandWrapper.Parameters.Add(new SqlParameter("@RowsAffected", SqlDbType.Int) { Direction = ParameterDirection.Output });
+
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                int rowsAffected = (int)sqlCommandWrapper.Parameters["@RowsAffected"].Value;
+                _logger.LogInformation("Number of Search Parameters initialized: {RowsAffected}.", rowsAffected);
             }
         }
     }

@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SearchParameterOptimisticConcurrency = (int)SchemaVersion.V95;
         public const int SearchParameterMaxLastUpdatedStoredProcedure = (int)SchemaVersion.V96;
         public const int SearchParameterLastUpdatedIndex = (int)SchemaVersion.V98;
+        public const int FhirModelInitialization = (int)SchemaVersion.V105;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;
