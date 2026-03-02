@@ -3,6 +3,14 @@
 
 trigger: none
 
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - .vscode/**
+
 variables:
 - template: pr-variables.yml
 - template: build-variables.yml
