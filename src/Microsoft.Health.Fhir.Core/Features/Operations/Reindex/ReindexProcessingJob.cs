@@ -70,7 +70,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
         private string _searchParameterHash;
         private const int MaxTimeoutRetries = 3;
-        private const int FallbackBatchSizeOnOOM = 2000;
 
         private const int OomReductionFactor = 10;
         private const int MinEffectiveBatchSize = 10;
@@ -521,7 +520,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (OutOfMemoryException oomEx)
             {
                 // Reduce batch size and retry.
-                _effectiveBatchSize = FallbackBatchSizeOnOOM;
+                _effectiveBatchSize = Math.Max(
+                    MinEffectiveBatchSize,
+                    (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery / OomReductionFactor);
 
                 _logger.LogJobWarning(
                     oomEx,
@@ -586,7 +587,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     catch (OutOfMemoryException oomEx)
                     {
                         // Reduce batch size and retry.
-                        _effectiveBatchSize = FallbackBatchSizeOnOOM;
+                        _effectiveBatchSize = Math.Max(
+                            MinEffectiveBatchSize,
+                            (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery / OomReductionFactor);
 
                         _logger.LogJobWarning(
                             oomEx,
