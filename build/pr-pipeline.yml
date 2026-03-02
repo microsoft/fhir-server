@@ -10,6 +10,8 @@ pr:
   paths:
     exclude:
     - .vscode/**
+    - .github/**
+    - docs/**
 
 variables:
 - template: pr-variables.yml
