@@ -70,12 +70,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
         private string _searchParameterHash;
         private const int MaxTimeoutRetries = 3;
-
-        /// <summary>
-        /// Fallback batch size to use when OutOfMemoryException is encountered.
-        /// This smaller batch size reduces memory pressure when processing large FHIR resources.
-        /// </summary>
         private const int FallbackBatchSizeOnOOM = 2000;
+
+        private const int OomReductionFactor = 10;
+        private const int MinEffectiveBatchSize = 10;
+        private const int MaxOomReductionsBeforeSoftFail = 3;
 
         /// <summary>
         /// Current effective batch size for fetching resources. Starts at the configured MaximumNumberOfResourcesPerQuery
@@ -165,12 +164,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken, int? maxBatchSize = null)
+        private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
                 Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
             };
+
+            int batchSize = _effectiveBatchSize;
 
             if (searchResultReindex != null)
             {
@@ -193,18 +194,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                     });
 
-                    // When maxBatchSize is provided, add a count parameter to limit resources fetched per query
-                    // This prevents OutOfMemoryException when processing large batches with large resources
-                    if (maxBatchSize.HasValue)
-                    {
-                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, maxBatchSize.Value.ToString()));
-                    }
+                    // SQL surrogate-range path uses server-selected ranges. OOM mitigation is handled by
+                    // splitting ranges via GetSurrogateIdRanges instead of adding a _count hint.
                 }
                 else
                 {
-                    // Cosmos DB path: Use maxBatchSize if provided, otherwise use _effectiveBatchSize
-                    // _effectiveBatchSize starts at MaximumNumberOfResourcesPerQuery but may be reduced on OOM
-                    int batchSize = maxBatchSize ?? _effectiveBatchSize;
+                    // Cosmos DB path uses _count based on effective batch size.
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, batchSize.ToString()));
                 }
 
@@ -212,6 +207,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, searchResultReindex.ContinuationToken));
                 }
+            }
+            else
+            {
+                // Cosmos DB path with no query state provided still needs explicit _count to enforce memory-safe paging.
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, batchSize.ToString()));
             }
 
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
@@ -222,27 +222,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (OutOfMemoryException)
                 {
-                    // Let OutOfMemoryException bubble up without wrapping so it can be caught and handled
-                    // by the caller for batch size reduction and retry
+                    // Let OutOfMemoryException bubble up so the top-level handler can soft-fail the job.
                     throw;
                 }
                 catch (Exception ex)
                 {
-                    var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
-                    var reindexJobException = new ReindexProcessingJobSoftException(message, ex);
                     _logger.LogJobError(ex, _jobInfo, "Error running reindex query for resource type {ResourceType}.", _reindexProcessingJobDefinition.ResourceType);
-                    LogReindexProcessingJobErrorMessage();
-
-                    throw reindexJobException;
+                    throw;
                 }
             }
         }
 
-        private void LogReindexProcessingJobErrorMessage()
+        private void SetJobError(string errorMessage)
         {
-            var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
-            var result = JsonConvert.SerializeObject(_reindexProcessingJobResult);
-            _logger.LogJobInformation(_jobInfo, "ReindexProcessingJob Error: Current ReindexJobRecord: {JobDefinition}. ReindexProcessing Job Result: {JobResult}.", ser, result);
+            long totalResourceCount = _reindexProcessingJobDefinition?.ResourceCount?.Count ?? 0;
+            long failedResourceCount = totalResourceCount - _reindexProcessingJobResult.SucceededResourceCount;
+
+            _reindexProcessingJobResult.Error = errorMessage;
+            _reindexProcessingJobResult.FailedResourceCount = failedResourceCount > 0 ? failedResourceCount : 0;
         }
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
@@ -257,7 +254,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return;
             }
 
-            long resourceCount = 0;
             try
             {
                 _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition.SearchParameterUrls;
@@ -286,52 +282,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (SqlException sqlEx)
             {
-                LogReindexProcessingJobErrorMessage();
-
-                // Check if this is a timeout exception
-                if (sqlEx.IsExecutionTimeout())
-                {
-                    // Increment the timeout count in the job result
-                    _reindexProcessingJobResult.TimeoutCount = (_reindexProcessingJobResult.TimeoutCount ?? 0) + 1;
-
-                    // If we've hit max retries for timeouts, fail the job
-                    if (_reindexProcessingJobResult.TimeoutCount >= MaxTimeoutRetries)
-                    {
-                        _logger.LogJobError(_jobInfo, "Maximum SQL timeout retries ({MaxRetries}) reached.", MaxTimeoutRetries);
-
-                        _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
-                        _reindexProcessingJobResult.FailedResourceCount = resourceCount;
-
-                        throw new OperationFailedException($"Maximum SQL timeout retries reached: {sqlEx.Message}", HttpStatusCode.InternalServerError);
-                    }
-
-                    // Otherwise log a warning and return without throwing (allowing a retry)
-                    _logger.LogJobWarning(_jobInfo, "SQL timeout occurred during reindex processing - retry {RetryCount} of {MaxRetries}.", _reindexProcessingJobResult.TimeoutCount, MaxTimeoutRetries);
-                    _jobInfo.Status = JobStatus.Created;
-
-                    return;
-                }
-
-                // For non-timeout SQL errors, throw an exception to fail the job
+                // For non-timeout SQL errors
                 _logger.LogJobError(sqlEx, _jobInfo, "SQL error occurred during reindex processing.");
-                _reindexProcessingJobResult.Error = $"SQL Error: {sqlEx.Message}";
-                _reindexProcessingJobResult.FailedResourceCount = resourceCount;
+                SetJobError($"SQL Error: {sqlEx.Message}");
 
-                throw new OperationFailedException($"SQL Error occurred during reindex processing: {sqlEx.Message}", HttpStatusCode.InternalServerError);
+                throw new JobExecutionSoftFailureException($"SQL error occurred during reindex processing: {sqlEx.Message}", _reindexProcessingJobResult, sqlEx, isCustomerCaused: false);
+            }
+            catch (OutOfMemoryException oomEx)
+            {
+                string errorMsg = $"OutOfMemoryException occurred during reindex processing for resource type {_reindexProcessingJobDefinition.ResourceType}. Final batch size was {_effectiveBatchSize}.";
+                _logger.LogJobError(oomEx, _jobInfo, errorMsg);
+                SetJobError(errorMsg);
+
+                throw new JobExecutionSoftFailureException(errorMsg, _reindexProcessingJobResult, oomEx, isCustomerCaused: false);
             }
             catch (FhirException ex)
             {
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'true'.");
-                LogReindexProcessingJobErrorMessage();
-                _reindexProcessingJobResult.Error = ex.Message;
-                _reindexProcessingJobResult.FailedResourceCount = _reindexProcessingJobDefinition.ResourceCount.Count - _reindexProcessingJobResult.SucceededResourceCount;
+                SetJobError(ex.Message);
+
+                throw new JobExecutionSoftFailureException(ex.Message, _reindexProcessingJobResult, ex, isCustomerCaused: false);
             }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, _jobInfo, "Reindex processing job error occurred. Is FhirException: 'false'.");
-                LogReindexProcessingJobErrorMessage();
-                _reindexProcessingJobResult.Error = ex.Message;
-                _reindexProcessingJobResult.FailedResourceCount = _reindexProcessingJobDefinition.ResourceCount.Count - _reindexProcessingJobResult.SucceededResourceCount;
+                SetJobError(ex.Message);
+
+                throw new JobExecutionSoftFailureException(ex.Message, _reindexProcessingJobResult, ex, isCustomerCaused: false);
             }
         }
 
@@ -341,50 +318,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private async Task ProcessWithSurrogateIdBatchingAsync(string searchParameterHash, CancellationToken cancellationToken)
         {
-            long currentStartId = _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId;
-            long globalEndId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
-            bool useExplicitBatching = false;
+            long initialStartId = _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId;
+            long initialEndId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId;
+            int reductionCount = 0;
+            var rangeQueue = new Queue<(long StartId, long EndId, int Count)>();
+            int initialCount = (int)Math.Min(_reindexProcessingJobDefinition.ResourceCount.Count, int.MaxValue);
+            rangeQueue.Enqueue((initialStartId, initialEndId, initialCount));
 
             _logger.LogJobInformation(
                 _jobInfo,
                 "Starting reindex with surrogate ID range. StartId={StartId}, EndId={EndId}, BatchSize={BatchSize}",
-                currentStartId,
-                globalEndId,
+                initialStartId,
+                initialEndId,
                 _effectiveBatchSize);
 
-            while (currentStartId <= globalEndId && !cancellationToken.IsCancellationRequested)
+            while (rangeQueue.Count > 0 && !cancellationToken.IsCancellationRequested)
             {
-                // Create a search request for the current batch
-                var batchSearchResult = new SearchResultReindex(_reindexProcessingJobDefinition.ResourceCount.Count)
+                var workItem = rangeQueue.Dequeue();
+
+                var batchSearchResult = new SearchResultReindex(workItem.Count)
                 {
-                    StartResourceSurrogateId = currentStartId,
-                    EndResourceSurrogateId = globalEndId,
+                    StartResourceSurrogateId = workItem.StartId,
+                    EndResourceSurrogateId = workItem.EndId,
                 };
 
                 SearchResult result;
+
                 try
                 {
-                    // Only pass explicit batch size if we've encountered OOM before
-                    int? batchSizeParam = useExplicitBatching ? _effectiveBatchSize : null;
-
                     result = await _timeoutRetries.ExecuteAsync(
-                        async () => await GetResourcesToReindexAsync(batchSearchResult, cancellationToken, batchSizeParam));
+                        async () => await GetResourcesToReindexAsync(batchSearchResult, cancellationToken));
                 }
                 catch (OutOfMemoryException oomEx)
                 {
-                    // Reduce batch size and enable explicit batching for all subsequent requests
-                    _effectiveBatchSize = FallbackBatchSizeOnOOM;
-                    useExplicitBatching = true;
-
-                    _logger.LogJobWarning(
-                        oomEx,
-                        _jobInfo,
-                        "OutOfMemoryException caught during resource fetch. Reducing batch size to {BatchSize} and retrying.",
-                        _effectiveBatchSize);
-
-                    // Retry with smaller batch size
-                    result = await _timeoutRetries.ExecuteAsync(
-                        async () => await GetResourcesToReindexAsync(batchSearchResult, cancellationToken, _effectiveBatchSize));
+                    reductionCount = await SplitAndQueueSubRangesAsync(workItem, rangeQueue, reductionCount, "surrogate ID resource fetch", oomEx, cancellationToken);
+                    continue;
                 }
 
                 if (result == null)
@@ -395,46 +363,149 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 int batchResourceCount = result.Results?.Count() ?? 0;
                 if (batchResourceCount == 0)
                 {
-                    // No more resources in this range
-                    _logger.LogJobInformation(_jobInfo, "No more resources found in surrogate ID range. CurrentStartId={CurrentStartId}, GlobalEndId={GlobalEndId}", currentStartId, globalEndId);
-                    break;
+                    _logger.LogJobInformation(_jobInfo, "No resources found in surrogate ID range. StartId={StartId}, EndId={EndId}", workItem.StartId, workItem.EndId);
+                    continue;
                 }
 
-                // Process the current batch
-                await _timeoutRetries.ExecuteAsync(
-                    async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                try
+                {
+                    await _timeoutRetries.ExecuteAsync(
+                        async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
+                }
+                catch (OutOfMemoryException oomEx)
+                {
+                    reductionCount = await SplitAndQueueSubRangesAsync(workItem, rangeQueue, reductionCount, "search results processing", oomEx, cancellationToken);
+                    continue;
+                }
 
                 _reindexProcessingJobResult.SucceededResourceCount += batchResourceCount;
                 _jobInfo.Data = _reindexProcessingJobResult.SucceededResourceCount;
 
                 _logger.LogJobInformation(
                     _jobInfo,
-                    "Reindex batch complete. BatchSize={BatchSize}, CurrentStartId={CurrentStartId}, MaxResourceSurrogateId={MaxId}, TotalProcessed={TotalProcessed}",
+                    "Reindex range complete. RangeStart={RangeStart}, RangeEnd={RangeEnd}, BatchSize={BatchSize}, TotalProcessed={TotalProcessed}",
+                    workItem.StartId,
+                    workItem.EndId,
                     batchResourceCount,
-                    currentStartId,
-                    result.MaxResourceSurrogateId,
                     _reindexProcessingJobResult.SucceededResourceCount);
 
-                // Move to the next batch - start from the resource after the last one we processed
-                if (result.MaxResourceSurrogateId > 0)
+                // If the store returned a partial window for this surrogate range, enqueue the remaining tail.
+                // This preserves existing range-walk behavior when SQL limits the returned set.
+                if (result.MaxResourceSurrogateId > 0 && result.MaxResourceSurrogateId < workItem.EndId)
                 {
-                    currentStartId = result.MaxResourceSurrogateId + 1;
-                }
-                else
-                {
-                    // Fallback: if MaxResourceSurrogateId is not set, we're done
-                    break;
+                    long nextStartId = result.MaxResourceSurrogateId + 1;
+                    int remainingCount = Math.Max(0, workItem.Count - batchResourceCount);
+                    rangeQueue.Enqueue((nextStartId, workItem.EndId, remainingCount));
                 }
             }
         }
 
+        private async Task<int> SplitAndQueueSubRangesAsync(
+            (long StartId, long EndId, int Count) failedRange,
+            Queue<(long StartId, long EndId, int Count)> rangeQueue,
+            int reductionCount,
+            string operationLabel,
+            OutOfMemoryException oomEx,
+            CancellationToken cancellationToken)
+        {
+            int previousBatchSize = _effectiveBatchSize;
+            _effectiveBatchSize = Math.Max(MinEffectiveBatchSize, _effectiveBatchSize / OomReductionFactor);
+
+            if (_effectiveBatchSize == previousBatchSize)
+            {
+                _logger.LogJobError(
+                    oomEx,
+                    _jobInfo,
+                    "OutOfMemoryException persisted during {OperationLabel}. Batch size already at minimum {MinBatchSize}. RangeStart={StartId}, RangeEnd={EndId}.",
+                    operationLabel,
+                    MinEffectiveBatchSize,
+                    failedRange.StartId,
+                    failedRange.EndId);
+
+                throw oomEx;
+            }
+
+            reductionCount++;
+            if (reductionCount > MaxOomReductionsBeforeSoftFail)
+            {
+                _logger.LogJobError(
+                    oomEx,
+                    _jobInfo,
+                    "OutOfMemoryException persisted after {MaxAttempts} reductions during {OperationLabel}. CurrentBatchSize={CurrentBatchSize}, RangeStart={StartId}, RangeEnd={EndId}.",
+                    MaxOomReductionsBeforeSoftFail,
+                    operationLabel,
+                    _effectiveBatchSize,
+                    failedRange.StartId,
+                    failedRange.EndId);
+
+                throw oomEx;
+            }
+
+            int rangeSize = _effectiveBatchSize;
+            int numberOfRanges = Math.Max(1, (int)Math.Ceiling((double)previousBatchSize / _effectiveBatchSize));
+
+            _logger.LogJobWarning(
+                oomEx,
+                _jobInfo,
+                "OutOfMemoryException during {OperationLabel}. Splitting range StartId={StartId}, EndId={EndId}. ReductionAttempt={ReductionAttempt}/{MaxAttempts}, PreviousBatchSize={PreviousBatchSize}, NextBatchSize={NextBatchSize}, RangeSize={RangeSize}, NumberOfRanges={NumberOfRanges}.",
+                operationLabel,
+                failedRange.StartId,
+                failedRange.EndId,
+                reductionCount,
+                MaxOomReductionsBeforeSoftFail,
+                previousBatchSize,
+                _effectiveBatchSize,
+                rangeSize,
+                numberOfRanges);
+
+            IReadOnlyList<(long StartId, long EndId, int Count)> subRanges;
+            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            {
+                subRanges = await searchService.Value.GetSurrogateIdRanges(
+                    _reindexProcessingJobDefinition.ResourceType,
+                    failedRange.StartId,
+                    failedRange.EndId,
+                    rangeSize,
+                    numberOfRanges,
+                    true,
+                    cancellationToken,
+                    true);
+            }
+
+            if (subRanges == null || subRanges.Count == 0)
+            {
+                _logger.LogJobError(
+                    _jobInfo,
+                    "Failed to split surrogate range after OOM. No sub-ranges returned for StartId={StartId}, EndId={EndId}.",
+                    failedRange.StartId,
+                    failedRange.EndId);
+                throw oomEx;
+            }
+
+            foreach (var range in subRanges)
+            {
+                rangeQueue.Enqueue((range.StartId, range.EndId, range.Count));
+            }
+
+            return reductionCount;
+        }
+
         /// <summary>
         /// Processes resources using continuation tokens for Cosmos DB.
-        /// Uses the configured batch size by default, but switches to smaller batches if OutOfMemoryException occurs.
         /// </summary>
         private async Task ProcessWithContinuationTokensAsync(string searchParameterHash, CancellationToken cancellationToken)
         {
             long totalResourceCount = 0;
+
+            // Keep local query state so we do not mutate the original job definition during continuation paging.
+            SearchResultReindex queryState = _reindexProcessingJobDefinition.ResourceCount == null
+                ? new SearchResultReindex(_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery)
+                : new SearchResultReindex(_reindexProcessingJobDefinition.ResourceCount.Count)
+                {
+                    StartResourceSurrogateId = _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId,
+                    EndResourceSurrogateId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId,
+                    ContinuationToken = _reindexProcessingJobDefinition.ResourceCount.ContinuationToken,
+                };
 
             _logger.LogJobInformation(
                 _jobInfo,
@@ -445,11 +516,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             try
             {
                 result = await _timeoutRetries.ExecuteAsync(
-                    async () => await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken));
+                    async () => await GetResourcesToReindexAsync(queryState, cancellationToken));
             }
             catch (OutOfMemoryException oomEx)
             {
-                // Reduce batch size and retry
+                // Reduce batch size and retry.
                 _effectiveBatchSize = FallbackBatchSizeOnOOM;
 
                 _logger.LogJobWarning(
@@ -459,7 +530,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _effectiveBatchSize);
 
                 result = await _timeoutRetries.ExecuteAsync(
-                    async () => await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken));
+                    async () => await GetResourcesToReindexAsync(queryState, cancellationToken));
             }
 
             if (result == null)
@@ -496,17 +567,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogJobInformation(_jobInfo, "Continuation token found. Fetching next batch of resources for reindexing.");
 
                     // Clear the previous continuation token first to avoid conflicts
-                    _reindexProcessingJobDefinition.ResourceCount.ContinuationToken = null;
+                    queryState.ContinuationToken = null;
 
                     // Create a new SearchResultReindex with the continuation token for the next query
-                    var nextSearchResultReindex = new SearchResultReindex(_reindexProcessingJobDefinition.ResourceCount.Count)
+                    var nextSearchResultReindex = new SearchResultReindex(queryState.Count)
                     {
-                        StartResourceSurrogateId = _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId,
-                        EndResourceSurrogateId = _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId,
+                        StartResourceSurrogateId = queryState.StartResourceSurrogateId,
+                        EndResourceSurrogateId = queryState.EndResourceSurrogateId,
                         ContinuationToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ContinuationToken)),
                     };
 
-                    // Fetch the next batch of results - handle potential OOM
+                    // Fetch the next batch of results - handle potential OOM.
                     try
                     {
                         result = await _timeoutRetries.ExecuteAsync(
@@ -514,7 +585,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     catch (OutOfMemoryException oomEx)
                     {
-                        // Reduce batch size and retry
+                        // Reduce batch size and retry.
                         _effectiveBatchSize = FallbackBatchSizeOnOOM;
 
                         _logger.LogJobWarning(
