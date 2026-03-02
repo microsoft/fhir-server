@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -236,107 +237,126 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
             cmd.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
-            await _sqlRetryService.ExecuteSql(
-                cmd,
-                async (sqlCommand, cancellationToken) =>
+            var resultsList = await cmd.ExecuteMultiResultReaderAsync(
+                _sqlRetryService,
+                new List<Func<SqlDataReader, object>>()
                 {
-                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
-                    var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
-                    var resourceTypeIdToTypeName = new Dictionary<short, string>();
-                    var searchParamUriToId = new Dictionary<Uri, short>();
-                    var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
-                    var compartmentTypeToId = new Dictionary<string, byte>();
-
-                    // result set 1
-                    short lowestResourceTypeId = short.MaxValue;
-                    short highestResourceTypeId = short.MinValue;
-                    while (await reader.ReadAsync(cancellationToken))
+                    (reader) =>
                     {
-                        (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
-
-                        resourceTypeToId.Add(resourceTypeName, id);
-                        if (id > highestResourceTypeId)
-                        {
-                            highestResourceTypeId = id;
-                        }
-
-                        if (id < lowestResourceTypeId)
-                        {
-                            lowestResourceTypeId = id;
-                        }
-
-                        resourceTypeIdToTypeName.Add(id, resourceTypeName);
-                    }
-
-                    // result set 2
-                    await reader.NextResultAsync(cancellationToken);
-
-                    while (await reader.ReadAsync(cancellationToken))
+                        return reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
+                    },
+                    (reader) =>
                     {
-                        (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
-                        searchParamUriToId.Add(new Uri(uri), searchParamId);
-                    }
-
-                    // result set 3
-                    await reader.NextResultAsync(cancellationToken);
-
-                    while (await reader.ReadAsync(cancellationToken))
+                        return reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
+                    },
+                    (reader) =>
                     {
-                        (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
-                        claimNameToId.Add(claimTypeName, id);
-                    }
-
-                    // result set 4
-                    await reader.NextResultAsync(cancellationToken);
-
-                    while (await reader.ReadAsync(cancellationToken))
+                        return reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
+                    },
+                    (reader) =>
                     {
-                        (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
-                        compartmentTypeToId.Add(compartmentName, id);
-                    }
-
-                    // result set 5
-                    await reader.NextResultAsync(cancellationToken);
-
-                    _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
-                    bool systemWarningLogged = false;
-                    while (await reader.ReadAsync(cancellationToken))
+                        return reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
+                    },
+                    (reader) =>
                     {
-                        var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
-
-                        if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
-                        {
-                            _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
-                            systemWarningLogged = true;
-                        }
-                    }
-
-                    // result set 6
-                    await reader.NextResultAsync(cancellationToken);
-
-                    _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
-                    bool quantityCodeWarningLogged = false;
-                    while (await reader.ReadAsync(cancellationToken))
+                        return reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
+                    },
+                    (reader) =>
                     {
-                        (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
-
-                        if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
-                        {
-                            _logger.LogWarning($"Cache '{_quantityCodeToId.Name}' reached the limit of {_quantityCodeToId.CacheMemoryLimit} bytes (with {_quantityCodeToId.Count} cached elements).");
-                            quantityCodeWarningLogged = true;
-                        }
-                    }
-
-                    _resourceTypeToId = resourceTypeToId;
-                    _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
-                    _searchParamUriToId = searchParamUriToId;
-                    _claimNameToId = claimNameToId;
-                    _compartmentTypeToId = compartmentTypeToId;
-                    _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
+                        return reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+                    },
                 },
                 _logger,
+                cancellationToken,
                 null,
-                cancellationToken);
+                isReadOnly: true);
+
+            if (resultsList.Count != 6)
+            {
+                _logger.LogError("Unexpected number of result sets returned from InitializeBase sproc. Expected: 6, Actual: {Count}", resultsList.Count);
+                throw new InvalidOperationException($"Unexpected number of result sets returned from InitializeBase sproc. Expected: 6, Actual: {resultsList.Count}");
+            }
+
+            var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
+            var resourceTypeIdToTypeName = new Dictionary<short, string>();
+            var searchParamUriToId = new Dictionary<Uri, short>();
+            var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
+            var compartmentTypeToId = new Dictionary<string, byte>();
+
+            // result set 1
+            short lowestResourceTypeId = short.MaxValue;
+            short highestResourceTypeId = short.MinValue;
+            foreach (var result in resultsList[0])
+            {
+                (short id, string resourceTypeName) = ((short, string))result;
+                resourceTypeToId.Add(resourceTypeName, id);
+                if (id > highestResourceTypeId)
+                {
+                    highestResourceTypeId = id;
+                }
+
+                if (id < lowestResourceTypeId)
+                {
+                    lowestResourceTypeId = id;
+                }
+
+                resourceTypeIdToTypeName.Add(id, resourceTypeName);
+            }
+
+            // result set 2
+            foreach (var result in resultsList[1])
+            {
+                (string uri, short searchParamId) = ((string, short))result;
+                searchParamUriToId.Add(new Uri(uri), searchParamId);
+            }
+
+            // result set 3
+            foreach (var result in resultsList[2])
+            {
+                (byte id, string claimTypeName) = ((byte, string))result;
+                claimNameToId.Add(claimTypeName, id);
+            }
+
+            // result set 4
+            foreach (var result in resultsList[3])
+            {
+                (byte id, string compartmentName) = ((byte, string))result;
+                compartmentTypeToId.Add(compartmentName, id);
+            }
+
+            // result set 5
+            _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
+            bool systemWarningLogged = false;
+            foreach (var result in resultsList[4])
+            {
+                var (value, systemId) = ((string, int))result;
+
+                if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
+                {
+                    _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
+                    systemWarningLogged = true;
+                }
+            }
+
+            // result set 6
+            _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
+            bool quantityCodeWarningLogged = false;
+            foreach (var result in resultsList[5])
+            {
+                (string value, int quantityCodeId) = ((string, int))result;
+                if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
+                {
+                    _logger.LogWarning($"Cache '{_quantityCodeToId.Name}' reached the limit of {_quantityCodeToId.CacheMemoryLimit} bytes (with {_quantityCodeToId.Count} cached elements).");
+                    quantityCodeWarningLogged = true;
+                }
+            }
+
+            _resourceTypeToId = resourceTypeToId;
+            _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
+            _searchParamUriToId = searchParamUriToId;
+            _claimNameToId = claimNameToId;
+            _compartmentTypeToId = compartmentTypeToId;
+            _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
         }
 
         private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)

@@ -317,6 +317,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results;
         }
 
+        public async Task<IReadOnlyList<IReadOnlyList<TResult>>> ExecuteMultiResultReaderAsync<TResult>(SqlCommand sqlCommand, IList<Func<SqlDataReader, TResult>> readersToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
+        {
+            EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
+            EnsureArg.IsNotNull(readersToResult, nameof(readersToResult));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
+            List<IReadOnlyList<TResult>> results = null;
+            await ExecuteSql(
+                sqlCommand,
+                async (sqlCommand, cancellationToken) =>
+                {
+                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+                    results = new List<IReadOnlyList<TResult>>();
+
+                    do
+                    {
+                        List<TResult> resultSet = new List<TResult>();
+                        var readerToResult = readersToResult[results.Count];
+
+                        while (await reader.ReadAsync(cancellationToken))
+                        {
+                            resultSet.Add(readerToResult(reader));
+                        }
+
+                        results.Add(resultSet);
+                    }
+                    while (await reader.NextResultAsync(cancellationToken));
+                },
+                logger,
+                logMessage,
+                cancellationToken,
+                isReadOnly);
+
+            return results;
+        }
+
         /// <summary>
         /// Executes <paramref name="sqlCommand"/> and reads all the rows. Translates the read rows by using <paramref name="readerToResult"/>
         /// into the <typeparamref name="TResult"/> data type and returns them. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed

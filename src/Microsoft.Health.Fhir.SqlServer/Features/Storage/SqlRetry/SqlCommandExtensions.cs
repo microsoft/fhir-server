@@ -24,6 +24,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await retryService.ExecuteReaderAsync(cmd, readerToResult, logger, logMessage, cancellationToken, isReadOnly);
         }
 
+        public static async Task<IReadOnlyList<IReadOnlyList<TResult>>> ExecuteMultiResultReaderAsync<TResult>(this SqlCommand cmd, ISqlRetryService retryService, IList<Func<SqlDataReader, TResult>> readersToResult, ILogger logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false)
+        {
+            return await retryService.ExecuteMultiResultReaderAsync(cmd, readersToResult, logger, logMessage, cancellationToken, isReadOnly);
+        }
+
         public static async Task<object> ExecuteScalarAsync(this SqlCommand cmd, ISqlRetryService retryService, ILogger logger, CancellationToken cancellationToken, string logMessage = null, bool isReadOnly = false, bool disableRetries = false)
         {
             object scalar = null;
