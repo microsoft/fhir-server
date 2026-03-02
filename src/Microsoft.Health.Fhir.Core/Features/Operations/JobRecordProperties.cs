@@ -29,8 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string CanceledTime = "canceledTime";
 
-        public const string CancelRequested = "CancelRequested";
-
         public const string RequestUri = "requestUri";
 
         public const string RequestorClaims = "requestorClaims";
