@@ -116,6 +116,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var systemUnsupported = new UnsupportedSearchParameters();
             foreach (var searchParameter in resourceAndSearchParameters.SelectMany(x => x.parameters))
             {
+                if (searchParameter.Code == "_type")
+                {
+                    continue;
+                }
+
                 if (!searchParameter.IsSupported)
                 {
                     systemUnsupported.Unsupported.Add(searchParameter.Url);
@@ -140,9 +145,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchParameterDefinitionManager searchParameterDefinitionManager = await _fixture.GetSearchDefinitionManagerAsync();
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
-                .Select(x => (searchParameterDefinitionManager.UrlLookup[x.DefinitionUrl.OriginalString].Type,
-                    SearchParameterFixtureData.Compiler.Parse(x.Expression),
-                    x.DefinitionUrl))
+                .Select(x =>
+                {
+                    SearchParameterInfo componentParameter = searchParameterDefinitionManager.GetSearchParameter(x.DefinitionUrl.OriginalString);
+
+                    return (componentParameter.Type,
+                        SearchParameterFixtureData.Compiler.Parse(x.Expression),
+                        x.DefinitionUrl);
+                })
                 .ToArray();
 
             SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(

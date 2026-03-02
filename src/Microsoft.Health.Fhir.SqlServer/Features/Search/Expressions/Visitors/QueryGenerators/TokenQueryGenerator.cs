@@ -48,13 +48,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     return context;
 
                 case FieldName.TokenCode:
-                    // Temporary fix, once all of the databases are reindexed truncation128 should be removed.
-                    bool truncation128 = expression.Value.Length > 128;
-                    if (truncation128)
-                    {
-                        context.StringBuilder.Append("((");
-                    }
-
                     if (expression.Value.Length < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
                     {
                         // In this case CodeOverflow in the DB table is always NULL, no need to test. There are SQL constraints in each table to enforce this.
@@ -80,13 +73,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
                         context.StringBuilder.Append(" IS NOT NULL AND ");
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value[codeLength..]);
-                    }
-
-                    if (truncation128)
-                    {
-                        context.StringBuilder.Append(") OR (");
-                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
-                        context.StringBuilder.Append("))");
                     }
 
                     break;

@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
@@ -37,13 +38,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         private readonly string _invalidDefinitionsFile = "SearchParametersWithInvalidDefinitions.json";
         private readonly string _validEntriesFile = "SearchParameters.json";
         private readonly ConcurrentDictionary<string, SearchParameterInfo> _uriDictionary;
-        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> _resourceTypeDictionary;
+        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> _resourceTypeDictionary;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
 
         public SearchParameterDefinitionBuilderTests()
         {
             _uriDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
-            _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             _searchParameterComparer = new SearchParameterComparer(Substitute.For<ILogger<ISearchParameterComparer<SearchParameterInfo>>>());
         }
 
@@ -85,12 +86,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
 
-            Assert.Equal(6, _uriDictionary.Count);
+            Assert.Equal(7, _uriDictionary.Count);
 
             Bundle staticBundle = Definitions.GetDefinition("SearchParameters");
+            var expectedUrls = staticBundle.Entry
+                .Select(entry => entry.FullUrl)
+                .Concat(new[] { SearchParameterNames.ResourceTypeUri.OriginalString })
+                .OrderBy(s => s, StringComparer.OrdinalIgnoreCase);
 
             Assert.Equal(
-                staticBundle.Entry.Select(entry => entry.FullUrl).OrderBy(s => s, StringComparer.OrdinalIgnoreCase),
+                expectedUrls,
                 _uriDictionary.Values.Select(value => value.Url.ToString()).OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
         }
 
@@ -120,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 typeof(EmbeddedResourceManager).Assembly);
 
             SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
-            IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
+            IDictionary<string, ConcurrentQueue<string>> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -129,6 +134,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 ("balance", SearchParamType.Quantity, "Account.balance"),
                 ("identifier", SearchParamType.Token, "Account.identifier"));
         }
+
+#if R5
+        [Fact]
+        public void GivenR5SystemSearchParameters_WhenBuilt_ThenResourceTypeCodeResolvesToTokenDefinition()
+        {
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                "search-parameters.json",
+                ModelInfoProvider.Instance);
+
+            SearchParameterDefinitionBuilder.Build(
+                bundle.Entries.Select(e => e.Resource).ToList(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: true);
+
+            var resourceTypeByUrl = _uriDictionary.Values
+                .Where(x => x.Url != null && string.Equals(x.Url.OriginalString, SearchParameterNames.ResourceTypeUri.OriginalString, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            Assert.NotEmpty(resourceTypeByUrl);
+            Assert.Contains(resourceTypeByUrl, sp => sp.Type == SearchParamType.Token.ToValueSet());
+
+            Assert.True(_resourceTypeDictionary.TryGetValue(KnownResourceTypes.Resource, out var resourceLookup));
+            Assert.True(resourceLookup.TryGetValue(SearchParameterNames.ResourceType, out var queue));
+
+            SearchParameterInfo typeParam = _uriDictionary[queue.First()];
+            Assert.Equal(SearchParamType.Token.ToValueSet(), typeParam.Type);
+        }
+#endif
 
         [Theory]
         [InlineData(ResourceType.MedicationRequest)]
@@ -145,13 +182,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, _searchParameterComparer, NullLogger.Instance);
 
-            IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
+            IDictionary<string, ConcurrentQueue<string>> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
                 ("_type", SearchParamType.Token, "Resource.type().name"),
                 ("_id", SearchParamType.Token, "Resource.id"),
                 ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
+        }
+
+        [Fact]
+        public void GivenExistingSearchParameterWithSameUrl_WhenBuilt_ThenStaticResourceTypeDefinitionOverwrites()
+        {
+            var existingParam = new SearchParameterInfo(
+                name: "existing-resource-type",
+                code: SearchParameterNames.ResourceType,
+                searchParamType: Microsoft.Health.Fhir.ValueSets.SearchParamType.Special,
+                url: SearchParameterNames.ResourceTypeUri,
+                expression: "Resource.meta",
+                baseResourceTypes: new List<string> { KnownResourceTypes.Resource });
+
+            _uriDictionary[SearchParameterNames.ResourceTypeUri.OriginalString] = existingParam;
+
+            SearchParameterDefinitionBuilder.Build(
+                new List<ITypedElement>(),
+                _uriDictionary,
+                _resourceTypeDictionary,
+                ModelInfoProvider.Instance,
+                _searchParameterComparer,
+                NullLogger.Instance,
+                isSystemDefined: true);
+
+            // The static ResourceTypeSearchParameter always overwrites any pre-existing entry
+            // for the _type URL, ensuring the Token-typed definition is the single source of truth.
+            Assert.True(_uriDictionary.TryGetValue(SearchParameterNames.ResourceTypeUri.OriginalString, out var resolved));
+            Assert.Same(SearchParameterInfo.ResourceTypeSearchParameter, resolved);
         }
 
         [Theory]
@@ -184,18 +249,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 NullLogger.Instance);
             Assert.Equal(searchParametersShouldBeAdded.Length, _resourceTypeDictionary[resourceType][code].Count);
 
-            int i = 0;
-            while (_resourceTypeDictionary[resourceType][code].Any())
-            {
-                if (_resourceTypeDictionary[resourceType][code].TryDequeue(out var sp))
-                {
-                    Assert.Equal(searchParametersShouldBeAdded[i++], sp.Url.OriginalString);
-                }
-                else
-                {
-                    Assert.Fail("TryDequeue failed.");
-                }
-            }
+            var actualUrls = _resourceTypeDictionary[resourceType][code]
+                .Select(url => _uriDictionary[url].Url.OriginalString)
+                .ToArray();
+
+            Assert.Equal(searchParametersShouldBeAdded, actualUrls);
         }
 
         [Theory]
@@ -224,7 +282,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Single(_resourceTypeDictionary[resourceType][code]);
             Assert.Collection(
                 _resourceTypeDictionary[resourceType][code],
-                x => string.Equals(searchParameters.First().Url, x.Url.OriginalString, StringComparison.OrdinalIgnoreCase));
+                x => string.Equals(searchParameters.First().Url, _uriDictionary[x].Url.OriginalString, StringComparison.OrdinalIgnoreCase));
         }
 
         private void BuildAndVerify(string filename, string expectedIssue)
@@ -245,16 +303,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         private void ValidateSearchParameters(
-            IDictionary<string, ConcurrentQueue<SearchParameterInfo>> searchParametersDictionary,
+            IDictionary<string, ConcurrentQueue<string>> searchParametersDictionary,
             params (string, SearchParamType, string)[] expectedEntries)
         {
             Assert.Equal(expectedEntries.Length, searchParametersDictionary.Count);
 
             foreach ((string code, SearchParamType searchParameterType, string expression) in expectedEntries)
             {
-                Assert.True(searchParametersDictionary.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q));
+                Assert.True(searchParametersDictionary.TryGetValue(code, out ConcurrentQueue<string> q));
 
-                var searchParameter = q.FirstOrDefault();
+                var searchParameter = q.Select(url => _uriDictionary[url]).FirstOrDefault();
                 Assert.Equal(code, searchParameter?.Code);
                 Assert.Equal(searchParameterType.ToValueSet(), searchParameter?.Type);
                 Assert.Equal(expression, searchParameter?.Expression);
