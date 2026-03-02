@@ -6,16 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Security;
-using Microsoft.Health.Fhir.Api.UnitTests.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -44,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 
         private readonly SecurityProvider _provider;
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IOidcDiscoveryService _oidcDiscoveryService;
         private readonly IUrlResolver _urlResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly SmartIdentityProviderConfiguration _smartIdentityProviderConfiguration;
@@ -59,8 +55,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                 },
             };
 
-            _httpClientFactory = Substitute.For<IHttpClientFactory>();
-            _httpClientFactory.CreateClient().Returns(new HttpClient());
+            _oidcDiscoveryService = Substitute.For<IOidcDiscoveryService>();
+            _oidcDiscoveryService.ResolveEndpointsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns((new Uri(OpenIdAuthorizationEndpointUri), new Uri(OpenIdTokenEndpointUri)));
 
             _urlResolver = Substitute.For<IUrlResolver>();
             _urlResolver.ResolveRouteNameUrl(
@@ -78,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             _smartIdentityProviderConfiguration = new SmartIdentityProviderConfiguration();
             _provider = new SecurityProvider(
                 Options.Create(_securityConfiguration),
-                _httpClientFactory,
+                _oidcDiscoveryService,
                 Substitute.For<ILogger<SecurityConfiguration>>(),
                 _urlResolver,
                 _modelInfoProvider,
@@ -132,41 +129,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         }
 
         [Theory]
-        [InlineData(true, FhirSpecification.R4, HttpStatusCode.OK, true, false)] // R4 success - Security populated
-        [InlineData(true, FhirSpecification.Stu3, HttpStatusCode.OK, true, false)] // Stu3 success - Security populated
-        [InlineData(false, FhirSpecification.R4, HttpStatusCode.OK, true, false)] // Disabled - Security skipped
-        [InlineData(true, FhirSpecification.R4, HttpStatusCode.BadRequest, true, false)] // Failed response from openId well-known endpoint - Security not populated
-        [InlineData(true, FhirSpecification.R4, HttpStatusCode.OK, false, false)] // Bad response content from openId well-known endpoint - Security not populated
-        [InlineData(true, FhirSpecification.R4, HttpStatusCode.OK, true, true)] // Exception on calling openId well-known endpoint - Security not populated
+        [InlineData(true, FhirSpecification.R4)]
+        [InlineData(true, FhirSpecification.Stu3)]
+        [InlineData(false, FhirSpecification.R4)]
         public async Task GivenConfiguration_WhenBuildingCapabilityStatement_ThenCapabilityStatementShouldHaveOAuthEndpoints(
             bool enabled,
-            FhirSpecification specification,
-            HttpStatusCode statusCode,
-            bool validContent,
-            bool throwException)
+            FhirSpecification specification)
         {
             _securityConfiguration.Enabled = enabled;
             _securityConfiguration.EnableAadSmartOnFhirProxy = false;
             _modelInfoProvider.Version.Returns(specification);
-
-            var responseBody = new
-            {
-                authorization_endpoint = OpenIdAuthorizationEndpointUri,
-                token_endpoint = OpenIdTokenEndpointUri,
-            };
-
-            var responseMessage = new HttpResponseMessage()
-            {
-                StatusCode = statusCode,
-                Content = new StringContent(
-                    validContent ? JObject.FromObject(responseBody).ToString() : "{}"),
-            };
-
-            var httpMessageHandler = new TestHttpMessageHandler(
-                responseMessage,
-                throwException ? new Exception("something went wrong") : null);
-            var httpClient = new HttpClient(httpMessageHandler);
-            _httpClientFactory.CreateClient().Returns(httpClient);
 
             var restComponent = new ListedRestComponent()
             {
@@ -186,25 +158,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                         action.Invoke(capabilityStatement);
                     });
 
-            try
-            {
-                await _provider.BuildAsync(builder, CancellationToken.None);
-                Assert.True(IsSuccessStatusCode(statusCode) && validContent && !throwException);
+            await _provider.BuildAsync(builder, CancellationToken.None);
 
-                Validate(
-                    enabled,
-                    restComponent,
-                    specification,
-                    _smartIdentityProviderConfiguration,
-                    OpenIdAuthorizationEndpointUri,
-                    OpenIdTokenEndpointUri);
-            }
-            catch (OpenIdConfigurationException)
-            {
-                Assert.True(!IsSuccessStatusCode(statusCode) || !validContent || throwException);
-            }
+            Validate(
+                enabled,
+                restComponent,
+                specification,
+                _smartIdentityProviderConfiguration,
+                OpenIdAuthorizationEndpointUri,
+                OpenIdTokenEndpointUri);
 
-            _httpClientFactory.Received(enabled ? 1 : 0).CreateClient();
+            await _oidcDiscoveryService.Received(enabled ? 1 : 0)
+                .ResolveEndpointsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
         [Theory]
@@ -260,11 +225,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
                 introspection,
                 management,
                 revocation);
-        }
-
-        private static bool IsSuccessStatusCode(HttpStatusCode statusCode)
-        {
-            return ((int)statusCode >= 200) && ((int)statusCode <= 299);
         }
 
         private static void Validate(
