@@ -21,6 +21,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Logging.Metrics
     [Trait(Traits.Category, Categories.Operations)]
     public class HealthCheckMetricPublisherTests
     {
+        private const string DataStoreHealthCheck = "DataStoreHealthCheck";
+        private const string StorageInitializedHealthCheck = "StorageInitializedHealthCheck";
+        private const string BehaviorHealthCheck = "BehaviorHealthCheck";
+
         [Fact]
         public void GivenHealthyStatus_WhenPublish_ThenMetricIsEmittedWithReportStatusAndDimensions()
         {
@@ -30,8 +34,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Logging.Metrics
             var healthReport = new HealthReport(
                 new Dictionary<string, HealthReportEntry>
                 {
-                    { "SqlHealthCheck", CreateEntry(HealthStatus.Healthy) },
+                    { BehaviorHealthCheck, CreateEntry(HealthStatus.Healthy) },
+                    { StorageInitializedHealthCheck, CreateEntry(HealthStatus.Healthy) },
+                    { DataStoreHealthCheck, CreateEntry(HealthStatus.Healthy) },
                 },
+                HealthStatus.Healthy,
                 TimeSpan.FromMilliseconds(1));
 
             publisher.Publish(healthReport);
@@ -52,8 +59,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Logging.Metrics
             var healthReport = new HealthReport(
                 new Dictionary<string, HealthReportEntry>
                 {
-                    { "SqlHealthCheck", CreateEntry(HealthStatus.Unhealthy) },
+                    { BehaviorHealthCheck, CreateEntry(HealthStatus.Healthy) },
+                    { StorageInitializedHealthCheck, CreateEntry(HealthStatus.Unhealthy) },
+                    { DataStoreHealthCheck, CreateEntry(HealthStatus.Unhealthy) },
                 },
+                HealthStatus.Unhealthy,
                 TimeSpan.FromMilliseconds(1));
 
             publisher.Publish(healthReport);

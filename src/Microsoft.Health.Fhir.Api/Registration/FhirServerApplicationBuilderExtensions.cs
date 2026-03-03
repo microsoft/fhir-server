@@ -119,7 +119,7 @@ namespace Microsoft.AspNetCore.Builder
 
         internal static bool IsCosmosDbDataStoreHealthCheck(HttpContext httpContext, HealthReport healthReport)
         {
-            // For now, we will not publish health check metrics for Cosmos DB data store
+            // We will not publish health check metrics for Cosmos DB data store
             if (!(healthReport.Entries.Count == 1 && healthReport.Entries.ContainsKey(DataStoreHealthCheckName)))
             {
                 return false;
