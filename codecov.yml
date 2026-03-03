@@ -1,13 +1,6 @@
 # Codecov configuration for microsoft/fhir-server
 # Docs: https://docs.codecov.com/docs/codecov-yaml
 
-# Fix file paths to match repo structure.
-# DeterministicReport=true + SourceLink produces full GitHub raw URLs as paths:
-#   https://raw.githubusercontent.com/microsoft/fhir-server/<sha>/src/...
-# Strip the URL prefix so Codecov sees just: src/...
-fixes:
-  - "https://raw.githubusercontent.com/microsoft/fhir-server/[a-f0-9]+/::"
-
 coverage:
   status:
     # Overall project coverage check (informational, non-blocking)
