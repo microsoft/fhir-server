@@ -14,14 +14,19 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.Builder
 {
     public static class FhirServerApplicationBuilderExtensions
     {
+        internal const string AzureTrafficManagerEndpointMonitorUserAgent = "Azure Traffic Manager Endpoint Monitor";
+
         /// <summary>
         /// Adds FHIR server functionality to the pipeline with health check filter.
         /// </summary>
@@ -66,6 +71,8 @@ namespace Microsoft.AspNetCore.Builder
                             Predicate = healthCheckOptionsPredicate,
                             ResponseWriter = async (httpContext, healthReport) =>
                             {
+                                PublishHealthCheckMetricIfApplicable(httpContext, healthReport);
+
                                 var response = JsonConvert.SerializeObject(
                                     new
                                     {
@@ -118,6 +125,25 @@ namespace Microsoft.AspNetCore.Builder
                     context.Request.PathBase = originalPathBase;
                 }
             }
+        }
+
+        internal static void PublishHealthCheckMetricIfApplicable(HttpContext httpContext, HealthReport healthReport)
+        {
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
+            EnsureArg.IsNotNull(healthReport, nameof(healthReport));
+
+            if (!IsAzureTrafficManagerEndpointMonitor(httpContext.Request.Headers[HeaderNames.UserAgent]))
+            {
+                return;
+            }
+
+            IHealthCheckMetricPublisher healthCheckMetricPublisher = httpContext.RequestServices.GetService<IHealthCheckMetricPublisher>();
+            healthCheckMetricPublisher?.Publish(healthReport);
+        }
+
+        internal static bool IsAzureTrafficManagerEndpointMonitor(StringValues userAgentHeader)
+        {
+            return userAgentHeader.Count == 1 && string.Equals(userAgentHeader[0], AzureTrafficManagerEndpointMonitorUserAgent, StringComparison.Ordinal);
         }
     }
 }
