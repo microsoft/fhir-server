@@ -43,16 +43,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 {
                     jobInfo.Status = JobStatus.Cancelled;
                 }
-                else if (jobInfo.Status == JobStatus.Running)
+
+                if (jobInfo.Status == JobStatus.Running)
                 {
                     jobInfo.CancelRequested = true;
-                }
-                else if (queueType == (byte)QueueType.Export
-                         && jobInfo.Id == groupId
-                         && (jobInfo.Status == JobStatus.Completed || jobInfo.Status == JobStatus.Failed))
-                {
-                    // Match SQL SP and CosmosDB behavior: for Export queue, set Completed/Failed orchestrator jobs to CancelledByUser.
-                    jobInfo.Status = JobStatus.CancelledByUser;
                 }
             }
 
@@ -205,6 +199,38 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
 
             return Task.FromResult<IReadOnlyList<JobInfo>>(result);
+        }
+
+        public Task<IReadOnlyList<JobInfo>> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            var response = new List<JobInfo>();
+
+            if (jobInfos.Any(t => t.Definition.Equals(definition)))
+            {
+                response.Add(jobInfos.First(t => t.Definition.Equals(definition)));
+            }
+            else
+            {
+                var newJob = new JobInfo()
+                {
+                    Definition = definition,
+                    Id = largestId + 1,
+                    GroupId = groupId,
+                    Status = jobStatus,
+                    HeartbeatDateTime = DateTime.UtcNow,
+                    QueueType = queueType,
+                };
+
+                if (newJob.Status == JobStatus.Created)
+                {
+                    newJob.CreateDate = DateTime.UtcNow;
+                }
+
+                response.Add(newJob);
+                jobInfos.Add(newJob);
+            }
+
+            return Task.FromResult<IReadOnlyList<JobInfo>>(response);
         }
 
         public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)

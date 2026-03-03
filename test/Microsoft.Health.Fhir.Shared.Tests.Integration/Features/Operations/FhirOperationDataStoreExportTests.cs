@@ -642,7 +642,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             jobRecord.Status = OperationStatus.Canceled;
 
-            await _operationDataStore.UpdateExportJobAsync(jobRecord, WeakETag.FromVersionId("0"), CancellationToken.None);
+            await _operationDataStore.UpdateExportJobAsync(jobRecord, WeakETag.FromVersionId("0"), false, CancellationToken.None);
 
             // Verify queue-level cancellation: Created jobs become Cancelled, Running jobs get CancelRequested
             var updatedParent = queueClient.JobInfos.First(j => j.Id == jobId);
@@ -670,7 +670,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             jobRecord.Status = status;
 
             await Assert.ThrowsAsync<NotSupportedException>(
-                () => _operationDataStore.UpdateExportJobAsync(jobRecord, WeakETag.FromVersionId("0"), CancellationToken.None));
+                () => _operationDataStore.UpdateExportJobAsync(jobRecord, WeakETag.FromVersionId("0"), false, CancellationToken.None));
         }
 
         /// <summary>
@@ -686,7 +686,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             jobRecord.Status = OperationStatus.Canceled;
 
             ExportJobOutcome outcome = await _operationDataStore.UpdateExportJobAsync(
-                jobRecord, WeakETag.FromVersionId("0"), CancellationToken.None);
+                jobRecord, WeakETag.FromVersionId("0"), false, CancellationToken.None);
 
             Assert.NotNull(outcome);
             Assert.Equal(jobRecord.Id, outcome.JobRecord.Id);
@@ -705,7 +705,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             // UpdateExportJobAsync requires Status == Canceled.
             jobRecord.Status = OperationStatus.Canceled;
 
-            ExportJobOutcome outcome = await _operationDataStore.UpdateExportJobAsync(jobRecord, null, CancellationToken.None);
+            ExportJobOutcome outcome = await _operationDataStore.UpdateExportJobAsync(jobRecord, null, false, CancellationToken.None);
 
             Assert.NotNull(outcome);
             Assert.NotNull(outcome.ETag);
@@ -743,13 +743,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 jobRecord.Id = result.JobRecord.Id;
                 if (jobRecord.Status == OperationStatus.Canceled)
                 {
-                    await _operationDataStore.UpdateExportJobAsync(jobRecord, null, CancellationToken.None);
+                    await _operationDataStore.UpdateExportJobAsync(jobRecord, null, false, CancellationToken.None);
                 }
                 else if (jobRecord.Status == OperationStatus.Failed)
                 {
                     var single = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(600), CancellationToken.None)).First();
                     single.JobRecord.Status = jobRecord.Status;
-                    await _operationDataStore.UpdateExportJobAsync(single.JobRecord, single.ETag, CancellationToken.None);
+                    await _operationDataStore.UpdateExportJobAsync(single.JobRecord, single.ETag, false, CancellationToken.None);
                 }
             }
 

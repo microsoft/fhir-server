@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -151,18 +152,44 @@ public class CosmosQueueClient : IQueueClient
                     throw new JobConflictException("Failed to enqueue job.");
                 }
 
-                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, null, cancellationToken));
             }
         }
         else
         {
-            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, null, cancellationToken));
         }
 
         return jobInfos;
     }
 
-    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<JobInfo>> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+    {
+        // This is a speacial case, we are adding this function to support Handle Bulk data access 2.0
+        // Only limited changes are made in order to get Cosmos working
+        var jobInfos = new List<JobInfo>();
+        using IScoped<Container> container = _containerFactory.Invoke();
+
+        QueryDefinition maxJobIdSpec = new QueryDefinition(@"SELECT VALUE MAX(StringToNumber(d.jobId)) FROM root c
+            JOIN d IN c.definitions
+            WHERE c.queueType = @queueType
+            AND c.groupId = @groupId")
+                    .WithParameter("@queueType", queueType)
+                    .WithParameter("@groupId", groupId.ToString());
+
+        var query = _queryFactory.Create<long?>(
+            container.Value,
+            new CosmosQueryContext(
+                maxJobIdSpec,
+                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)) }));
+
+        FeedResponse<long?> response = await query.ExecuteNextAsync(cancellationToken);
+        long maxJobId = response.Resource.FirstOrDefault() ?? 0;
+        jobInfos.AddRange(await CreateNewJob(maxJobId + 1, queueType, new[] { definition }, groupId, JobStatus.CancelledByUser, cancellationToken));
+        return jobInfos;
+    }
+
+    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, JobStatus? jobStatus, CancellationToken cancellationToken)
     {
         var jobInfo = new JobGroupWrapper
         {
@@ -181,7 +208,7 @@ public class CosmosQueueClient : IQueueClient
             var definitionInfo = new JobDefinitionWrapper
             {
                 JobId = (jobId++).ToString(),
-                Status = (byte)JobStatus.Created,
+                Status = jobStatus.HasValue ? (byte)jobStatus.Value : (byte)JobStatus.Created,
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
             };
@@ -423,15 +450,6 @@ public class CosmosQueueClient : IQueueClient
                     item.CancelRequested = true;
                     saveRequired = true;
                 }
-                else if (queueType == (byte)QueueType.Export
-                         && item.JobId == groupId.ToString()
-                         && (item.Status == (byte)JobStatus.Completed || item.Status == (byte)JobStatus.Failed))
-                {
-                    // We are following this IG - https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
-                    // Only for export, we want to set the status as CancelledByUser on Failed or Completed Orchestrator job
-                    item.Status = (byte)JobStatus.CancelledByUser;
-                    saveRequired = true;
-                }
             }
 
             if (saveRequired)
@@ -446,6 +464,8 @@ public class CosmosQueueClient : IQueueClient
                     },
                     cancellationToken));
             }
+
+            // If its an export job and if the it is a user requested cancellation then let's enqueue a new processing job with CancelledByUser status in the same group
         }
 
         await Task.WhenAll(cancelTasks);

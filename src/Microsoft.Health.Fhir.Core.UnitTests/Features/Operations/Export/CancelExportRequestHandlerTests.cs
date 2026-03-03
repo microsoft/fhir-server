@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.NoContent, outcome.JobRecord.FailureDetails.FailureStatusCode);
             Assert.Equal(Core.Resources.UserRequestedCancellation, outcome.JobRecord.FailureDetails.FailureReason);
 
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
+            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, false, _cancellationToken);
         }
 
         /// <summary>
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             void SetupOperationDataStore(int index, Func<NSubstitute.Core.CallInfo, ExportJobOutcome> returnThis)
             {
-                _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), weakETags[index], Arg.Any<CancellationToken>())
+                _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), weakETags[index], Arg.Any<bool>(), Arg.Any<CancellationToken>())
                     .Returns(returnThis);
             }
         }
@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken).Returns(_ => CreateExportJobOutcome(CreateExportJobRecord(OperationStatus.Queued)));
 
-            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>())
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns<ExportJobOutcome>(_ => throw new JobConflictException());
 
             await Assert.ThrowsAsync<JobConflictException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
@@ -210,12 +210,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             SetupExportJob(OperationStatus.Queued);
 
-            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>())
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns<ExportJobOutcome>(_ => throw new InvalidOperationException("Unexpected error"));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
 
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>());
+            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
 
         private ExportJobOutcome SetupExportJob(OperationStatus operationStatus, WeakETag weakETag = null)

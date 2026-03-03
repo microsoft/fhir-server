@@ -12,6 +12,7 @@ DECLARE @SP varchar(100) = 'EnqueueJobs'
        ,@st datetime = getUTCdate()
        ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
        ,@MaxJobId bigint
+       ,@MaxProcessingJobIdWithinAGroup bigint
        ,@Rows int
        ,@msg varchar(1000)
        ,@JobIds BigintList
@@ -36,10 +37,15 @@ BEGIN TRY
     IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
       RAISERROR('There are other active job groups',18,127)
 
-    IF @GroupId IS NOT NULL AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @GroupId AND CancelRequested = 1)
+    IF @GroupId IS NOT NULL AND @Status <> 6 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @GroupId AND CancelRequested = 1)
       RAISERROR('The specified job group is cancelled',18,127)
 
     SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+
+    IF @Status = 6  -- If status is CancelledByUser, get the max processing job id within the group
+    BEGIN
+        SET @MaxProcessingJobIdWithinAGroup = isnull((SELECT TOP 1 JobId + 1 FROM dbo.JobQueue WHERE QueueType = @QueueType AND GroupId = @GroupId ORDER BY JobId DESC),0)
+    END
   
     INSERT INTO dbo.JobQueue
         (
@@ -56,7 +62,7 @@ BEGIN TRY
       OUTPUT inserted.JobId INTO @JobIds
       SELECT @QueueType
             ,GroupId = isnull(@GroupId,@MaxJobId+1)
-            ,JobId
+            ,JobId = CASE WHEN @Status = 6 THEN @MaxProcessingJobIdWithinAGroup ELSE JobId END
             ,Definition
             ,DefinitionHash
             ,Status = isnull(@Status,0)

@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         await ChangeDatabaseSettingsAsync(false, cancel.Token);
                         await Parallel.ForEachAsync(tables, new ParallelOptions { MaxDegreeOfParallelism = _threads }, async (table, _) =>
                         {
-                            var job = await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, coord.groupId, table, JobStatus.Running, null, null, cancel.Token);
+                            var job = (await _sqlQueueClient.EnqueueWithStatusAsync(QueueType, coord.groupId, table, JobStatus.Running, null, null, cancel.Token))[0];
                             var items = (await GetFragmentation(table, null, null, cancel.Token)).ToDictionary(_ => (_.Table, _.Index, _.Partition), _ => _.Frag);
                             _logger.LogInformation($"DefragWatchdog.GetFragmentation.coord={job.GroupId}: job={job.Id} table={table} items={items.Count}.");
                             var existingItems = await GetExistingItems(job.Id, cancel.Token);

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,19 @@ namespace Microsoft.Health.JobManagement
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Job ids for all jobs, include existed jobs.</returns>
         public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Enqueue new jobs
+        /// </summary>
+        /// <param name="queueType">Queue Type for new jobs</param>
+        /// <param name="groupId">Group id for jobs. Optional</param>
+        /// <param name="definition">Job definiation</param>
+        /// <param name="jobStatus">Job status</param>
+        /// <param name="result">Job result</param>
+        /// <param name="startDate">Job start date</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        /// <returns>Job ids for all jobs, include existed jobs.</returns>
+        public Task<IReadOnlyList<JobInfo>> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken);
 
         /// <summary>
         /// Dequeue multiple jobs
