@@ -41,58 +41,25 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
         {
             EnsureArg.IsNotNull(healthReport, nameof(healthReport));
 
+            if (IsCosmosHealthCheck(healthReport))
+            {
+                return;
+            }
+
             HealthStatusReason defaultReason = GetDefaultReasonForStatus(healthReport.Status);
-            HealthStatusReason reason = healthReport.Status == HealthStatus.Degraded
-                ? GetHighestSeverityReasonIgnoringCosmos(healthReport, defaultReason)
-                : defaultReason;
 
             _metricHandler.EmitHealthMetric(new HealthCheckMetricNotification
             {
                 OverallStatus = healthReport.Status.ToString(),
-                Reason = reason.ToString(),
+                Reason = defaultReason.ToString(),
                 ArmGeoLocation = _resourceHealthDimensionOptions?.ArmGeoLocation,
                 ArmResourceId = _resourceHealthDimensionOptions?.ArmResourceId,
             });
         }
 
-        private static HealthStatusReason GetHighestSeverityReasonIgnoringCosmos(HealthReport report, HealthStatusReason defaultReason)
+        private static bool IsCosmosHealthCheck(HealthReport healthReport)
         {
-            HealthStatusReason highestReason = defaultReason;
-
-            foreach (HealthReportEntry entry in report.Entries
-                .Where(x => !string.Equals(x.Key, CosmosDataStoreHealthCheckName, System.StringComparison.OrdinalIgnoreCase))
-                .Select(x => x.Value))
-            {
-                if (!entry.Data.TryGetValue("Reason", out object reasonValue))
-                {
-                    continue;
-                }
-
-                if (TryParseReason(reasonValue, out HealthStatusReason parsedReason) && parsedReason > highestReason)
-                {
-                    highestReason = parsedReason;
-                }
-            }
-
-            return highestReason;
-        }
-
-        private static bool TryParseReason(object value, out HealthStatusReason reason)
-        {
-            if (value is HealthStatusReason enumReason)
-            {
-                reason = enumReason;
-                return true;
-            }
-
-            if (value is string text && System.Enum.TryParse(text, ignoreCase: true, out HealthStatusReason parsedReason))
-            {
-                reason = parsedReason;
-                return true;
-            }
-
-            reason = default;
-            return false;
+            return healthReport.Entries.Count == 1 && healthReport.Entries.Keys.Any(x => string.Equals(x, CosmosDataStoreHealthCheckName, System.StringComparison.OrdinalIgnoreCase));
         }
 
         private static HealthStatusReason GetDefaultReasonForStatus(HealthStatus status)
