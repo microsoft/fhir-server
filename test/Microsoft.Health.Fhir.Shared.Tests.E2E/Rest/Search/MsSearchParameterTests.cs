@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResource_WhenSearchedWithMsSearchParameter_ThenResourcesAreReturned()
         {
+            await CheckSearchParameterStatus("https://azurehealthcareapis.com/data-extensions/expiry-date");
+
             // Create various resources.
             string tag = Guid.NewGuid().ToString();
             var patient = new Patient();
@@ -59,6 +61,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             patient = (await Client.CreateAsync(patient)).Resource;
 
             await ExecuteAndValidateBundle($"Patient?_expiryDate=lt2025&_tag={tag}", patient);
+        }
+
+        private async Task CheckSearchParameterStatus(string searchParameterUrl)
+        {
+            var metadata = await Client.ReadAsync<CapabilityStatement>("metadata");
+            Assert.Contains(metadata.Resource.Rest[0].Resource[0].SearchParam, (sp) => sp.Definition == searchParameterUrl);
         }
     }
 }
