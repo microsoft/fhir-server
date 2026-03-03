@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.PutJobCancelation
 GO
-CREATE PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint = NULL, @JobId bigint = NULL
+CREATE PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint = NULL, @JobId bigint = NULL, @RequestCancellationOnFailure bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobCancelation'
@@ -55,6 +55,17 @@ BEGIN TRY
         AND GroupId = @GroupId
         AND Status = 1
     SET @Rows += @@rowcount
+
+    IF @QueueType = 1 AND @RequestCancellationOnFailure = 0 -- Only for export, we want to set the status as CancelledByUser on Failed or Completed Orchestrator job as per this IG - https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+    BEGIN
+        UPDATE dbo.JobQueue
+          SET status = 6 -- CancelledByUser
+          WHERE QueueType = @QueueType
+            AND GroupId = @GroupId
+            AND JobId = @GroupId
+            AND Status in (2, 3)
+        SET @Rows += @@rowcount
+    END
   END
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows

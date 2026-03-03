@@ -38,8 +38,29 @@ steps:
 - script: |
     curl -Os https://cli.codecov.io/latest/linux/codecov
     chmod +x codecov
-    ./codecov --verbose upload-process --disable-search --git-service github -f $(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml
+
+    # Build the base command
+    CMD="./codecov --verbose upload-process \
+      --disable-search \
+      --git-service github \
+      --slug microsoft/fhir-server \
+      -f $(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
+
+    # For PR builds, use the PR head commit and source branch so Codecov
+    # can associate the upload with the correct pull request.
+    if [ "$BUILD_REASON" = "PullRequest" ]; then
+      CMD="$CMD --sha $PR_HEAD_SHA --branch $PR_SOURCE_BRANCH --pr $PR_NUMBER"
+    else
+      CMD="$CMD --sha $(Build.SourceVersion) --branch $(Build.SourceBranch)"
+    fi
+
+    echo "Running: $CMD"
+    eval $CMD
   displayName: 'Upload coverage to Codecov'
   condition: succeededOrFailed()
   env:
     CODECOV_TOKEN: $(CODECOV_TOKEN)
+    BUILD_REASON: $(Build.Reason)
+    PR_HEAD_SHA: $(System.PullRequest.SourceCommitId)
+    PR_SOURCE_BRANCH: $(System.PullRequest.SourceBranch)
+    PR_NUMBER: $(System.PullRequest.PullRequestNumber)

@@ -9,12 +9,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
+using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -93,10 +95,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobsWithSameDefinition_WhenEnqueue_ThenOnlyOneJobShouldBeEnqueued;
 
-            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1"}, null, false, CancellationToken.None);
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, CancellationToken.None);
             Assert.Single(jobInfos);
             long jobId = jobInfos.First().Id;
-            jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1"}, null, false, CancellationToken.None);
+            jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, CancellationToken.None);
             Assert.Equal(jobId, jobInfos.First().Id);
         }
 
@@ -110,7 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(groupId, jobInfos.First().GroupId);
             Assert.Equal(groupId, jobInfos.Last().GroupId);
-            jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job3", "job4"}, groupId, false, CancellationToken.None);
+            jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job3", "job4" }, groupId, false, CancellationToken.None);
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(groupId, jobInfos.First().GroupId);
             Assert.Equal(groupId, jobInfos.Last().GroupId);
@@ -131,6 +133,78 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             definitions = new[] { "job2" };
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await _queueClient.EnqueueAsync(queueType, definitions, jobInfos.First().GroupId, false, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenCompletedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenStatusShouldBeCancelledByUser()
+        {
+            byte queueType = (byte)QueueType.Export;
+
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, null, false, CancellationToken.None);
+            long groupId = jobInfos.First().GroupId;
+
+            // Dequeue and complete the orchestrator job (first job where Id == GroupId)
+            JobInfo orchestratorJob = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            orchestratorJob.Status = JobStatus.Completed;
+            orchestratorJob.Result = "Completed";
+            await _queueClient.CompleteJobAsync(orchestratorJob, false, CancellationToken.None);
+
+            // Cancel the group - for Export queue, Completed orchestrator job (Id == GroupId) transitions to CancelledByUser
+            await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
+
+            // Verify the orchestrator job has status CancelledByUser per the IG:
+            // https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+            JobInfo updatedOrchestratorJob = await _queueClient.GetJobByIdAsync(queueType, orchestratorJob.Id, false, CancellationToken.None);
+            Assert.NotNull(updatedOrchestratorJob);
+            Assert.Equal(JobStatus.CancelledByUser, updatedOrchestratorJob.Status);
+        }
+
+        [Fact]
+        public async Task GivenFailedExportOrchestratorJob_WhenCancelJobsByGroupId_ThenStatusShouldBeCancelledByUser()
+        {
+            byte queueType = (byte)QueueType.Export;
+
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, null, false, CancellationToken.None);
+            long groupId = jobInfos.First().GroupId;
+
+            // Dequeue and fail the orchestrator job (first job where Id == GroupId)
+            JobInfo orchestratorJob = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            orchestratorJob.Status = JobStatus.Failed;
+            orchestratorJob.Result = "Failed";
+            await _queueClient.CompleteJobAsync(orchestratorJob, false, CancellationToken.None);
+
+            // Cancel the group - for Export queue, Failed orchestrator job (Id == GroupId) transitions to CancelledByUser
+            await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
+
+            // Verify the orchestrator job has status CancelledByUser per the IG:
+            // https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+            JobInfo updatedOrchestratorJob = await _queueClient.GetJobByIdAsync(queueType, orchestratorJob.Id, false, CancellationToken.None);
+            Assert.NotNull(updatedOrchestratorJob);
+            Assert.Equal(JobStatus.CancelledByUser, updatedOrchestratorJob.Status);
+        }
+
+        [Fact]
+        public async Task GivenCompletedNonExportOrchestratorJob_WhenCancelJobsByGroupId_ThenStatusShouldRemainCompleted()
+        {
+            byte queueType = (byte)QueueType.Reindex;
+
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, CancellationToken.None);
+            long groupId = jobInfos.First().GroupId;
+
+            // Dequeue and complete the job
+            JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            job.Status = JobStatus.Completed;
+            job.Result = "Completed";
+            await _queueClient.CompleteJobAsync(job, false, CancellationToken.None);
+
+            // Cancel the group
+            await _queueClient.CancelJobByGroupIdAsync(queueType, groupId, CancellationToken.None);
+
+            // For non-export queue types, completed jobs should NOT transition to CancelledByUser
+            JobInfo updatedJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, false, CancellationToken.None);
+            Assert.NotNull(updatedJob);
+            Assert.False(updatedJob.CancelRequested);
+            Assert.Equal(JobStatus.Completed, updatedJob.Status);
         }
 
         [Fact]
@@ -290,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status is (JobStatus?)JobStatus.Cancelled or (JobStatus?)JobStatus.Failed));
         }
 
-        [Fact(Skip ="Doesn't run within time limits. Bug: 103102")]
+        [Fact(Skip = "Doesn't run within time limits. Bug: 103102")]
         public async Task GivenAJob_WhenExecutedWithHeartbeats_ThenHeartbeatsAreRecorded()
         {
             await this.RetryAsync(

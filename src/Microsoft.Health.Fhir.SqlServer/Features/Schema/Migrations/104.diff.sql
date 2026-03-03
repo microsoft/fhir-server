@@ -1,118 +1,124 @@
-ALTER PROCEDURE dbo.GetSearchParamStatuses @StartLastUpdated datetimeoffset(7) = NULL, @LastUpdated datetimeoffset(7) = NULL OUT
+ALTER PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint = NULL, @JobId bigint = NULL, @RequestCancellationOnFailure bit = 0
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'GetSearchParamStatuses'
-       ,@Mode varchar(100) = 'S='+isnull(substring(convert(varchar,@StartLastUpdated),1,23),'NULL')
+DECLARE @SP varchar(100) = 'PutJobCancelation'
+       ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
+                           +' G='+isnull(convert(varchar,@GroupId),'NULL')
+                           +' J='+isnull(convert(varchar,@JobId),'NULL')
        ,@st datetime = getUTCdate()
-       ,@msg varchar(100)
        ,@Rows int
+       ,@PartitionId tinyint = @JobId % 16
 
 BEGIN TRY
-  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
-  
-  BEGIN TRANSACTION
+  IF @JobId IS NULL AND @GroupId IS NULL
+    RAISERROR('@JobId = NULL and @GroupId = NULL',18,127)
 
-  SET @LastUpdated = (SELECT max(LastUpdated) FROM dbo.SearchParam)
-  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)
+  IF @JobId IS NOT NULL
+  BEGIN
+    UPDATE dbo.JobQueue
+      SET Status = 4 -- cancelled
+         ,EndDate = getUTCdate()
+         ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
+      WHERE QueueType = @QueueType
+        AND PartitionId = @PartitionId
+        AND JobId = @JobId
+        AND Status = 0
+    SET @Rows = @@rowcount
 
-  IF @StartLastUpdated IS NULL
-    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam
-  ELSE
-    SELECT SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam WHERE LastUpdated > @StartLastUpdated
-  
-  SET @Rows = @@rowcount
+    IF @Rows = 0
+    BEGIN
+      UPDATE dbo.JobQueue
+        SET CancelRequested = 1 -- It is upto job logic to determine what to do 
+        WHERE QueueType = @QueueType
+          AND PartitionId = @PartitionId
+          AND JobId = @JobId
+          AND Status = 1
+      SET @Rows = @@rowcount
+    END
+  END
+  ELSE 
+  BEGIN
+    UPDATE dbo.JobQueue
+      SET Status = 4 -- cancelled 
+         ,EndDate = getUTCdate()
+         ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
+      WHERE QueueType = @QueueType
+        AND GroupId = @GroupId
+        AND Status = 0
+    SET @Rows = @@rowcount
 
-  COMMIT TRANSACTION
+    UPDATE dbo.JobQueue
+      SET CancelRequested = 1 -- It is upto job logic to determine what to do
+      WHERE QueueType = @QueueType
+        AND GroupId = @GroupId
+        AND Status = 1
+    SET @Rows += @@rowcount
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Action='Select',@Target='SearchParam',@Text=@msg
+    IF @QueueType = 1 AND @RequestCancellationOnFailure = 0 -- Only for export, we want to set the status as CancelledByUser on Failed or Completed Orchestrator job as per this IG - https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+    BEGIN
+        UPDATE dbo.JobQueue
+          SET status = 6 -- CancelledByUser
+          WHERE QueueType = @QueueType
+            AND GroupId = @GroupId
+            AND JobId = @GroupId
+            AND Status in (2, 3)
+        SET @Rows += @@rowcount
+    END
+  END
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
   THROW
 END CATCH
 GO
-INSERT INTO dbo.Parameters (Id,Char) SELECT 'GetSearchParamStatuses', 'LogEvent'
-GO
-CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
+ALTER PROCEDURE dbo.PutJobStatus @QueueType tinyint, @JobId bigint, @Version bigint, @Failed bit, @Data bigint, @FinalResult varchar(max), @RequestCancellationOnFailure bit
 AS
 set nocount on
-DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
+DECLARE @SP varchar(100) = 'PutJobStatus'
+       ,@Mode varchar(100)
        ,@st datetime = getUTCdate()
-       ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
-       ,@msg varchar(4000)
-       ,@Rows int
-       ,@Uri varchar(4000)
-       ,@Status varchar(20)
+       ,@Rows int = 0
+       ,@PartitionId tinyint = @JobId % 16
+       ,@GroupId bigint
 
-DECLARE @SearchParamsCopy dbo.SearchParamList
-INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
-WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
-BEGIN
-  SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
-  SET @msg = 'Uri='+@Uri+' Status='+@Status
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
-  DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
-END
-
-DECLARE @SummaryOfChanges TABLE (Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL, Operation varchar(20) NOT NULL)
+SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)+' F='+convert(varchar,@Failed)+' R='+isnull(@FinalResult,'NULL')
 
 BEGIN TRY
-  SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-
-  BEGIN TRANSACTION
+  UPDATE dbo.JobQueue
+    SET EndDate = getUTCdate()
+       ,Status = CASE WHEN @Failed = 1 THEN 3 WHEN CancelRequested = 1 THEN 4 ELSE 2 END -- 2=completed 3=failed 4=cancelled
+       ,Data = @Data
+       ,Result = @FinalResult
+       -- This call must be idempotent, so version cannot be changed.
+       ,@GroupId = GroupId
+    WHERE QueueType = @QueueType
+      AND PartitionId = @PartitionId
+      AND JobId = @JobId
+      AND Status = 1
+      AND Version = @Version
+  SET @Rows = @@rowcount
   
-  -- Check for concurrency conflicts first using LastUpdated
-  SELECT @msg = string_agg(S.Uri, ', ') 
-    FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
-    WHERE I.LastUpdated != S.LastUpdated
-  IF @msg IS NOT NULL
+  IF @Rows = 0
   BEGIN
-    SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
-    ROLLBACK TRANSACTION;
-    THROW 50001, @msg, 1
+    SET @GroupId = (SELECT GroupId FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId AND Version = @Version AND Status IN (2,3,4))
+    IF @GroupId IS NULL
+      IF EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId)
+        THROW 50412, 'Precondition failed', 1
+      ELSE
+        THROW 50404, 'Job record not found', 1
   END
 
-  MERGE INTO dbo.SearchParam S
-    USING @SearchParams I ON I.Uri = S.Uri
-    WHEN MATCHED THEN 
-      UPDATE 
-        SET Status = I.Status
-           ,LastUpdated = @LastUpdated
-           ,IsPartiallySupported = I.IsPartiallySupported
-    WHEN NOT MATCHED BY TARGET THEN 
-      INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
-        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported)
-    OUTPUT I.Uri, $action INTO @SummaryOfChanges;
-  SET @Rows = @@rowcount
+  IF @Failed = 1 AND @RequestCancellationOnFailure = 1
+    EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId, @RequestCancellationOnFailure = @RequestCancellationOnFailure
 
-  SELECT S.SearchParamId
-        ,S.Uri
-        ,S.LastUpdated
-    FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
-    WHERE C.Operation = 'INSERT'
-  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
-
-  COMMIT TRANSACTION
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows,@Text=@msg
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION;
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
   THROW
 END CATCH
 GO
-INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent'
-GO
-IF object_id('UpsertSearchParams') IS NOT NULL DROP PROCEDURE UpsertSearchParams
-GO
-IF EXISTS (SELECT * FROM systypes WHERE name = 'SearchParamTableType_2') DROP TYPE dbo.SearchParamTableType_2
-GO
-IF EXISTS (SELECT * FROM systypes WHERE name = 'BulkReindexResourceTableType_1') DROP TYPE dbo.BulkReindexResourceTableType_1
-GO
-INSERT INTO Parameters (Id,Char) SELECT 'EnqueueJobs','LogEvent'
-GO
-

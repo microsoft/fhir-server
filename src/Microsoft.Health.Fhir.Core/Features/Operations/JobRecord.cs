@@ -39,6 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         [JsonProperty(JobRecordProperties.CanceledTime)]
         public DateTimeOffset? CanceledTime { get; set; }
 
+        [JsonProperty(JobRecordProperties.CancelRequested)]
+        public bool CancelRequested { get; private set; }
+
         [JsonProperty(JobRecordProperties.FailureDetails)]
         public JobFailureDetails FailureDetails { get; set; }
     }
