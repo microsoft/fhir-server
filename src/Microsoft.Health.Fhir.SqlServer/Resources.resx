@@ -173,4 +173,7 @@
   <data name="InvalidIncludesContinuationToken" xml:space="preserve">
     <value>The provided continuation token for $includes operation is not valid.</value>
   </data>
+  <data name="ResourceConcurrentUpdateConflict" xml:space="preserve">
+    <value>One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates</value>
+  </data>
 </root>
