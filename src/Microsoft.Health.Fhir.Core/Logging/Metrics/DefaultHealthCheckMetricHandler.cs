@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
         public DefaultHealthCheckMetricHandler(IMeterFactory meterFactory)
             : base(meterFactory)
         {
-            _healthCheckCounter = Meter.CreateCounter<long>(MetricName);
+            _healthCheckCounter = MetricMeter.CreateCounter<long>(MetricName);
         }
 
         public void EmitHealthMetric(HealthCheckMetricNotification notification)
@@ -30,13 +31,10 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 
             _healthCheckCounter.Add(
                 1,
-                new List<KeyValuePair<string, object>>
-                {
-                    new KeyValuePair<string, object>(OverallStatusTagName, notification.OverallStatus ?? string.Empty),
-                    new KeyValuePair<string, object>(ReasonTagName, notification.Reason ?? string.Empty),
-                    new KeyValuePair<string, object>(ArmGeoLocationTagName, notification.ArmGeoLocation ?? string.Empty),
-                    new KeyValuePair<string, object>(ArmResourceIdTagName, notification.ArmResourceId ?? string.Empty),
-                });
+                KeyValuePair.Create<string, object>(OverallStatusTagName, notification.OverallStatus ?? string.Empty),
+                KeyValuePair.Create<string, object>(ReasonTagName, notification.Reason ?? string.Empty),
+                KeyValuePair.Create<string, object>(ArmGeoLocationTagName, notification.ArmGeoLocation ?? string.Empty),
+                KeyValuePair.Create<string, object>(ArmResourceIdTagName, notification.ArmResourceId ?? string.Empty));
         }
     }
 }

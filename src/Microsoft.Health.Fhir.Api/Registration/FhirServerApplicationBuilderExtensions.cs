@@ -95,6 +95,25 @@ namespace Microsoft.AspNetCore.Builder
             return app;
         }
 
+        internal static void PublishHealthCheckMetricIfApplicable(HttpContext httpContext, HealthReport healthReport)
+        {
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
+            EnsureArg.IsNotNull(healthReport, nameof(healthReport));
+
+            if (!IsAzureTrafficManagerEndpointMonitor(httpContext.Request.Headers[HeaderNames.UserAgent]))
+            {
+                return;
+            }
+
+            IHealthCheckMetricPublisher healthCheckMetricPublisher = httpContext.RequestServices.GetService<IHealthCheckMetricPublisher>();
+            healthCheckMetricPublisher?.Publish(healthReport);
+        }
+
+        internal static bool IsAzureTrafficManagerEndpointMonitor(StringValues userAgentHeader)
+        {
+            return userAgentHeader.Count == 1 && string.Equals(userAgentHeader[0], AzureTrafficManagerEndpointMonitorUserAgent, StringComparison.Ordinal);
+        }
+
         private class PathBaseMiddleware
         {
             private readonly RequestDelegate _next;
@@ -125,25 +144,6 @@ namespace Microsoft.AspNetCore.Builder
                     context.Request.PathBase = originalPathBase;
                 }
             }
-        }
-
-        internal static void PublishHealthCheckMetricIfApplicable(HttpContext httpContext, HealthReport healthReport)
-        {
-            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
-            EnsureArg.IsNotNull(healthReport, nameof(healthReport));
-
-            if (!IsAzureTrafficManagerEndpointMonitor(httpContext.Request.Headers[HeaderNames.UserAgent]))
-            {
-                return;
-            }
-
-            IHealthCheckMetricPublisher healthCheckMetricPublisher = httpContext.RequestServices.GetService<IHealthCheckMetricPublisher>();
-            healthCheckMetricPublisher?.Publish(healthReport);
-        }
-
-        internal static bool IsAzureTrafficManagerEndpointMonitor(StringValues userAgentHeader)
-        {
-            return userAgentHeader.Count == 1 && string.Equals(userAgentHeader[0], AzureTrafficManagerEndpointMonitorUserAgent, StringComparison.Ordinal);
         }
     }
 }
