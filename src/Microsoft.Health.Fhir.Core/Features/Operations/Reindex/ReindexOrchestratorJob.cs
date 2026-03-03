@@ -78,13 +78,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
         private readonly HashSet<string> _processedSearchParameters = new HashSet<string>(); // to prevent multiple status updates
-        private readonly HashSet<long> _processedJobIds = new HashSet<long>(); // to look at a completed job only once
 
         // Transient dictionaries below are populated on processing job creates. After a job is in the terminal state
         // it is removed from _transientResourceTypeJobs. When all jobs removed then resource type is completed.
         // Similar concept is used for _transientSearchParamResouceTypes
         private readonly Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = new Dictionary<string, (HashSet<long> JobIds, Counts Counts)>();
         private readonly Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = new Dictionary<string, HashSet<string>>();
+        //// holds enqueued job ids on the start. job is removed after it is finished.
+        private readonly HashSet<long> _transientProcessingJobIds = new HashSet<long>();
 
         private DateTimeOffset _searchParamLastUpdated;
 
@@ -172,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _currentResult.CreatedJobs = processingJobs.Count; // TODO: Move this logic inside create
 
-                await CheckForCompletionAsync(processingJobs, cancellationToken);
+                await CheckForCompletionAsync(cancellationToken);
 
                 await RefreshSearchParameterCache(false);
             }
@@ -537,6 +538,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
+            foreach (var jobId in jobIds)
+            {
+                _transientProcessingJobIds.Add(jobId);
+            }
+
             foreach (var url in urls)
             {
                 if (!_transientSearchParamResouceTypes.TryGetValue(url, out var resourceTypes))
@@ -741,28 +747,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             foreach (var searchParameterUrl in readySearchParameters.Where(_ => !_processedSearchParameters.Contains(_)))
             {
                 var spStatus = searchParamStatusCollection.FirstOrDefault(sp => string.Equals(sp.Uri.OriginalString, searchParameterUrl, StringComparison.Ordinal))?.Status;
-                switch (spStatus)
-                {
-                    case SearchParameterStatus.PendingDisable:
-                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Disabled.", searchParameterUrl);
-                        await _searchParameterStatusRetries.ExecuteAsync(
-                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Disabled, cancellationToken));
-                        _processedSearchParameters.Add(searchParameterUrl);
-                        break;
-                    case SearchParameterStatus.PendingDelete:
-                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Deleted.", searchParameterUrl);
-                        await _searchParameterStatusRetries.ExecuteAsync(
-                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Deleted, cancellationToken));
-                        _processedSearchParameters.Add(searchParameterUrl);
-                        break;
-                    case SearchParameterStatus.Supported:
-                    case SearchParameterStatus.Enabled:
-                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Enabled.", searchParameterUrl);
-                        await _searchParameterStatusRetries.ExecuteAsync(
-                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Enabled, cancellationToken));
-                        _processedSearchParameters.Add(searchParameterUrl);
-                        break;
-                }
+                var output = spStatus == SearchParameterStatus.PendingDisable
+                                ? SearchParameterStatus.Disabled
+                                : spStatus == SearchParameterStatus.PendingDelete
+                                    ? SearchParameterStatus.Deleted
+                                    : spStatus == SearchParameterStatus.Supported
+                                        ? SearchParameterStatus.Enabled
+                                        : throw new InvalidOperationException("Unexpected input status");
+                _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to {Status}.", searchParameterUrl, output);
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, output, cancellationToken));
+                _processedSearchParameters.Add(searchParameterUrl);
             }
         }
 
@@ -817,90 +812,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger.LogJobInformation(_jobInfo, "ReindexJob Error: Current ReindexJobRecord for reference: {ReindexJobRecord}", ser);
         }
 
-        private async Task CheckForCompletionAsync(List<JobInfo> processingJobs, CancellationToken cancellationToken)
+        private async Task CheckForCompletionAsync(CancellationToken cancellationToken)
         {
-            if (processingJobs.Count == 0)
+            if (_transientProcessingJobIds.Count == 0)
             {
-                await ProcessFinishedJobs(processingJobs, cancellationToken);
+                await ProcessFinishedJobs(new List<JobInfo>(), cancellationToken);
                 return;
             }
 
-            var activeJobs = processingJobs.Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created).ToList();
-
-            // Track job counts and timing
-            int lastActiveJobCount = activeJobs.Count;
-            int unchangedCount = 0;
-            int changeDetectedCount = 0;
-
-            const int MAX_UNCHANGED_CYCLES = 3;
-            const int MIN_POLL_INTERVAL_MS = 10000;
-            const int MAX_POLL_INTERVAL_MS = 30000;
-            const int DEFAULT_POLL_INTERVAL_MS = 10000;
-
-            int currentPollInterval = DEFAULT_POLL_INTERVAL_MS;
-
             do
             {
-                try
-                {
-                    // Adjust polling interval based on activity
-                    if (activeJobs.Count != lastActiveJobCount)
-                    {
-                        // Changes detected - increase polling frequency
-                        changeDetectedCount++;
-                        unchangedCount = 0;
-                        currentPollInterval = Math.Max(MIN_POLL_INTERVAL_MS, currentPollInterval / (1 + (changeDetectedCount / 2)));
+                await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), cancellationToken);
 
-                        _logger.LogJobInformation(
-                            _jobInfo,
-                            "Reindex processing jobs changed for Id: {Id}. {Count} jobs active. Polling interval: {Interval}ms",
-                            _jobInfo.Id,
-                            activeJobs.Count,
-                            currentPollInterval);
+                var batch = await _timeoutRetries.ExecuteAsync(async () =>
+                    await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.OrderBy(_ => _).Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, cancellationToken));
 
-                        lastActiveJobCount = activeJobs.Count;
-                    }
-                    else
-                    {
-                        // No changes - gradually back off
-                        unchangedCount++;
-                        changeDetectedCount = 0;
-                        if (unchangedCount > MAX_UNCHANGED_CYCLES)
-                        {
-                            currentPollInterval = Math.Min(MAX_POLL_INTERVAL_MS, currentPollInterval * 2);
-                        }
-                    }
+                var finishedJobs = batch.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).ToList();
 
-                    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    linkedCts.CancelAfter(currentPollInterval);
-
-                    try
-                    {
-                        var newjobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, linkedCts.Token))
-                                            .Where(j => j.Id != _jobInfo.GroupId && !_processedJobIds.Contains(j.Id)).ToList();
-
-                        activeJobs = newjobs.Where(j => j.Status == JobStatus.Running || j.Status == JobStatus.Created).ToList();
-
-                        var newFinishedJobs = newjobs.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).ToList();
-
-                        await ProcessFinishedJobs(newFinishedJobs, cancellationToken);
-                    }
-                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                    {
-                        // Poll interval timeout occurred - log and continue with next iteration
-                        _logger.LogDebug("Poll interval timeout occurred for job {JobId}. Continuing with next iteration.", _jobInfo.Id);
-                    }
-
-                    await Task.Delay(Math.Min(MIN_POLL_INTERVAL_MS, currentPollInterval / 10), cancellationToken);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogJobWarning(ex, _jobInfo, "Error checking job status for Id: {Id}. Will retry with increased interval.", _jobInfo.Id);
-                    currentPollInterval = Math.Min(MAX_POLL_INTERVAL_MS, currentPollInterval * 2);
-                    await Task.Delay(currentPollInterval, cancellationToken);
-                }
+                await ProcessFinishedJobs(finishedJobs, cancellationToken);
             }
-            while (activeJobs.Any());
+            while (_transientProcessingJobIds.Any());
         }
 
         private async Task ProcessFinishedJobs(IReadOnlyList<JobInfo> finishedJobs, CancellationToken cancellationToken)
@@ -928,7 +859,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                _processedJobIds.Add(job.Id);
+                _transientProcessingJobIds.Remove(job.Id);
             }
 
             _currentResult.CompletedJobs += finishedJobs.Count(j => j.Status == JobStatus.Completed);
