@@ -814,18 +814,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task CheckForCompletionAsync(CancellationToken cancellationToken)
         {
-            if (_transientProcessingJobIds.Count == 0)
-            {
-                await ProcessFinishedJobs(new List<JobInfo>(), cancellationToken);
-                return;
-            }
-
             do
             {
                 await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), cancellationToken);
 
-                var batch = await _timeoutRetries.ExecuteAsync(async () =>
-                    await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.OrderBy(_ => _).Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, cancellationToken));
+                var batch = _transientProcessingJobIds.Any()
+                          ? await _timeoutRetries.ExecuteAsync(async () =>
+                                await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.OrderBy(_ => _).Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, cancellationToken))
+                          : new List<JobInfo>();
 
                 var finishedJobs = batch.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).ToList();
 
