@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(OperationStatus.Running, record.Status);
 
             record.Status = OperationStatus.Canceled;
-            var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
+            var result = await _operationDataStore.UpdateExportJobAsync(record, null, false, CancellationToken.None);
 
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
 
