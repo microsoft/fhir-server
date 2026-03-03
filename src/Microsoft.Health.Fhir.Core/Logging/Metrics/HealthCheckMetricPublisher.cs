@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
@@ -17,8 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
     /// </summary>
     public class HealthCheckMetricPublisher : IHealthCheckMetricPublisher
     {
-        private const string CosmosDataStoreHealthCheckName = "DataStoreHealthCheck";
-
         private readonly IHealthCheckMetricHandler _metricHandler;
         private readonly ResourceHealthDimensionOptions _resourceHealthDimensionOptions;
 
@@ -41,11 +38,6 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
         {
             EnsureArg.IsNotNull(healthReport, nameof(healthReport));
 
-            if (IsCosmosHealthCheck(healthReport))
-            {
-                return;
-            }
-
             HealthStatusReason defaultReason = GetDefaultReasonForStatus(healthReport.Status);
 
             _metricHandler.EmitHealthMetric(new HealthCheckMetricNotification
@@ -55,11 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
                 ArmGeoLocation = _resourceHealthDimensionOptions?.ArmGeoLocation,
                 ArmResourceId = _resourceHealthDimensionOptions?.ArmResourceId,
             });
-        }
-
-        private static bool IsCosmosHealthCheck(HealthReport healthReport)
-        {
-            return healthReport.Entries.Count == 1 && healthReport.Entries.Keys.Any(x => string.Equals(x, CosmosDataStoreHealthCheckName, System.StringComparison.OrdinalIgnoreCase));
         }
 
         private static HealthStatusReason GetDefaultReasonForStatus(HealthStatus status)

@@ -26,6 +26,8 @@ namespace Microsoft.AspNetCore.Builder
     public static class FhirServerApplicationBuilderExtensions
     {
         internal const string AzureTrafficManagerEndpointMonitorUserAgent = "Azure Traffic Manager Endpoint Monitor";
+        private const string DataStoreHealthCheckName = "DataStoreHealthCheck";
+        private const string CosmosDataStoreTag = "datastore:cosmosDB";
 
         /// <summary>
         /// Adds FHIR server functionality to the pipeline with health check filter.
@@ -100,7 +102,8 @@ namespace Microsoft.AspNetCore.Builder
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
             EnsureArg.IsNotNull(healthReport, nameof(healthReport));
 
-            if (!IsAzureTrafficManagerEndpointMonitor(httpContext.Request.Headers[HeaderNames.UserAgent]))
+            if (IsCosmosDbDataStoreHealthCheck(httpContext, healthReport)
+                || !IsAzureTrafficManagerEndpointMonitor(httpContext.Request.Headers[HeaderNames.UserAgent]))
             {
                 return;
             }
@@ -112,6 +115,22 @@ namespace Microsoft.AspNetCore.Builder
         internal static bool IsAzureTrafficManagerEndpointMonitor(StringValues userAgentHeader)
         {
             return userAgentHeader.Count == 1 && string.Equals(userAgentHeader[0], AzureTrafficManagerEndpointMonitorUserAgent, StringComparison.Ordinal);
+        }
+
+        internal static bool IsCosmosDbDataStoreHealthCheck(HttpContext httpContext, HealthReport healthReport)
+        {
+            // For now, we will not publish health check metrics for Cosmos DB data store
+            if (!(healthReport.Entries.Count == 1 && healthReport.Entries.ContainsKey(DataStoreHealthCheckName)))
+            {
+                return false;
+            }
+
+            HealthCheckServiceOptions options = httpContext.RequestServices.GetService<IOptions<HealthCheckServiceOptions>>()?.Value;
+            HealthCheckRegistration registration = options?.Registrations
+                .FirstOrDefault(x => string.Equals(x.Name, DataStoreHealthCheckName, StringComparison.Ordinal));
+
+            return registration != null &&
+                registration.Tags.Contains(CosmosDataStoreTag, StringComparer.OrdinalIgnoreCase);
         }
 
         private class PathBaseMiddleware
