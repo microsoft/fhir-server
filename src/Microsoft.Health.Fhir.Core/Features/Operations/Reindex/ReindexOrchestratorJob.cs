@@ -194,18 +194,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_currentResult);
         }
 
-        private async Task WaitForRefresh()
-        {
-            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
-        }
-
         // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
         private async Task RefreshSearchParameterCache(bool isReindexStart)
         {
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
-            await WaitForRefresh(); // wait for M * cache refresh intervals
+            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
 
             // capture search param last updated to pass to processing jobs for comparison
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
