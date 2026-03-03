@@ -77,15 +77,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
-        private readonly HashSet<string> _processedSearchParameters = new HashSet<string>(); // to prevent multiple status updates
+        private readonly HashSet<string> _processedSearchParameters = []; // to prevent multiple status updates
 
         // Transient dictionaries below are populated on processing job creates. After a job is in the terminal state
         // it is removed from _transientResourceTypeJobs. When all jobs removed then resource type is completed.
         // Similar concept is used for _transientSearchParamResouceTypes
-        private readonly Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = new Dictionary<string, (HashSet<long> JobIds, Counts Counts)>();
-        private readonly Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = new Dictionary<string, HashSet<string>>();
-        //// holds enqueued job ids on the start. job is removed after it is finished.
-        private readonly HashSet<long> _transientProcessingJobIds = new HashSet<long>();
+        private readonly Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = [];
+        private readonly Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = [];
+        //// populated with holds enqueued job ids. job is removed after it is finished (terminal state, completed or failed).
+        private readonly HashSet<long> _transientProcessingJobIds = [];
 
         private DateTimeOffset _searchParamLastUpdated;
 
@@ -146,22 +146,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _jobInfo.Status = JobStatus.Running;
                 _logger.LogInformation("Reindex job with Id: {Id} has been started. Status: {Status}.", _jobInfo.Id, _reindexJobRecord.Status);
 
-                var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
-                var processingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                var processingJobs = new List<JobInfo>();
+                if (!_isSurrogateIdRangingSupported) // get all jobs only for cosmos as in sql number of jobs can be large and call can timeout
+                {
+                    var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
+                    processingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList();
+                }
 
                 // For SQL Server, always attempt job creation - we use Export-style resume logic
                 // to calculate remaining work from existing jobs, preventing duplicates.
                 // For Cosmos, use the existing binary check since job definitions don't have unique ranges.
                 if (_isSurrogateIdRangingSupported || !processingJobs.Any())
                 {
-                    if (processingJobs.Any())
-                    {
-                        _logger.LogJobInformation(_jobInfo, "Found {Count} existing processing jobs. Re-submitting jobs (database handles deduplication).", processingJobs.Count);
-                    }
-
                     await CreateReindexProcessingJobsAsync(cancellationToken);
-                    jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
-                    processingJobs = jobs.Where(j => j.Id != _jobInfo.GroupId).ToList(); // TODO: Move this logic inside create
                 }
                 else // cosmos job restart
                 {
