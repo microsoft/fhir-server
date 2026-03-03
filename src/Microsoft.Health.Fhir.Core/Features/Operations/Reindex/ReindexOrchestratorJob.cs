@@ -77,6 +77,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         private static readonly AsyncPolicy _searchParameterStatusRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
 
+        /// <summary>
+        /// Retry policy for reindex query execution.
+        /// Handles transient SQL timeouts and Cosmos DB request rate limiting.
+        /// </summary>
+        private static readonly AsyncPolicy _reindexQueryRetries = Policy.WrapAsync(_requestRateRetries, _timeoutRetries);
+
         private HashSet<long> _processedJobIds = new HashSet<long>();
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
         private List<JobInfo> _jobsToProcess;
@@ -727,7 +733,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly: countOnly, cancellationToken, true);
+                    return await _reindexQueryRetries.ExecuteAsync(
+                        async () => await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly: countOnly, cancellationToken, true));
                 }
                 catch (Exception ex)
                 {

@@ -14,9 +14,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -401,48 +403,156 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             const int chunkSize = 100;
-            var searchParametersByUrl = new Dictionary<string, ITypedElement>();
+            const int maxFallbackPages = 1000;
+            var searchParametersByUrl = new Dictionary<string, ITypedElement>(StringComparer.Ordinal);
+            var unresolvedUrls = new HashSet<string>(urls, StringComparer.Ordinal);
 
-            // Process URLs in chunks to avoid SQL query limitations
-            for (int i = 0; i < urls.Count; i += chunkSize)
+            await ResolveSearchParametersByUrlQuery(
+                urls,
+                chunkSize,
+                searchParametersByUrl,
+                unresolvedUrls,
+                cancellationToken);
+
+            if (unresolvedUrls.Count > 0)
             {
-                var urlChunk = urls.Skip(i).Take(chunkSize).ToList();
+                await ResolveSearchParametersByPagedScan(
+                    chunkSize,
+                    maxFallbackPages,
+                    searchParametersByUrl,
+                    unresolvedUrls,
+                    cancellationToken);
 
-                using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
-
-                // Build a query like: url=url1,url2,url3
-                var urlQueryValue = string.Join(",", urlChunk);
-                var queryParams = new List<Tuple<string, string>>
+                if (unresolvedUrls.Count > 0)
                 {
-                    new Tuple<string, string>("url", urlQueryValue),
-                    new Tuple<string, string>("_count", chunkSize.ToString()), // we only need a maximum of chunkSize results back
-                };
-
-                var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-
-                if (result != null)
-                {
-                    foreach (var searchResultEntry in result.Results)
-                    {
-                        var typedElement = searchResultEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-                        var url = typedElement.GetStringScalar("url");
-
-                        if (!string.IsNullOrEmpty(url))
-                        {
-                            if (!searchParametersByUrl.ContainsKey(url))
-                            {
-                                searchParametersByUrl[url] = typedElement;
-                            }
-                            else
-                            {
-                                _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
-                            }
-                        }
-                    }
+                    _logger.LogWarning(
+                        "Fallback SearchParameter lookup could not resolve {Count} URL(s). Sample unresolved URL(s): {Urls}",
+                        unresolvedUrls.Count,
+                        string.Join(", ", unresolvedUrls.Take(10)));
                 }
             }
 
             return searchParametersByUrl;
+        }
+
+        private async Task ResolveSearchParametersByUrlQuery(
+            List<string> urls,
+            int chunkSize,
+            Dictionary<string, ITypedElement> searchParametersByUrl,
+            HashSet<string> unresolvedUrls,
+            CancellationToken cancellationToken)
+        {
+            // Process URLs in chunks to avoid SQL query limitations
+            for (int i = 0; i < urls.Count; i += chunkSize)
+            {
+                if (unresolvedUrls.Count == 0)
+                {
+                    break;
+                }
+
+                var urlChunk = urls.Skip(i).Take(chunkSize);
+                var unresolvedChunk = urlChunk.Where(unresolvedUrls.Contains).ToList();
+                if (unresolvedChunk.Count == 0)
+                {
+                    continue;
+                }
+
+                using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+
+                // Build a query like: url=url1,url2,url3
+                var urlQueryValue = string.Join(",", unresolvedChunk);
+                var queryParams = new List<Tuple<string, string>>
+                {
+                    new Tuple<string, string>("url", urlQueryValue),
+                    Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
+                };
+
+                var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+
+                if (result?.Results != null)
+                {
+                    foreach (var searchResultEntry in result.Results)
+                    {
+                        var typedElement = searchResultEntry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
+                        AddTypedElementByUrl(searchParametersByUrl, typedElement, unresolvedUrls);
+                    }
+                }
+            }
+        }
+
+        private async Task ResolveSearchParametersByPagedScan(
+            int chunkSize,
+            int maxFallbackPages,
+            Dictionary<string, ITypedElement> searchParametersByUrl,
+            HashSet<string> unresolvedUrls,
+            CancellationToken cancellationToken)
+        {
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+
+            string continuationToken = null;
+            int pageNumber = 0;
+
+            do
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var fallbackQuery = new List<Tuple<string, string>>
+                {
+                    Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
+                };
+
+                if (!string.IsNullOrEmpty(continuationToken))
+                {
+                    fallbackQuery.Add(
+                        Tuple.Create(
+                            KnownQueryParameterNames.ContinuationToken,
+                            ContinuationTokenEncoder.Encode(continuationToken)));
+                }
+
+                var fallbackResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, fallbackQuery, cancellationToken);
+                if (fallbackResult?.Results != null)
+                {
+                    foreach (var entry in fallbackResult.Results)
+                    {
+                        var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
+                        AddTypedElementByUrl(searchParametersByUrl, typedElement, unresolvedUrls);
+
+                        if (unresolvedUrls.Count == 0)
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                continuationToken = fallbackResult?.ContinuationToken;
+                pageNumber++;
+            }
+            while (unresolvedUrls.Count > 0 && !string.IsNullOrEmpty(continuationToken) && pageNumber < maxFallbackPages);
+        }
+
+        private void AddTypedElementByUrl(Dictionary<string, ITypedElement> searchParametersByUrl, ITypedElement typedElement, HashSet<string> unresolved)
+        {
+            if (typedElement == null)
+            {
+                return;
+            }
+
+            var url = typedElement.GetStringScalar("url");
+            if (string.IsNullOrEmpty(url))
+            {
+                return;
+            }
+
+            if (!searchParametersByUrl.ContainsKey(url))
+            {
+                searchParametersByUrl[url] = typedElement;
+            }
+            else
+            {
+                _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
+            }
+
+            unresolved?.Remove(url);
         }
     }
 }

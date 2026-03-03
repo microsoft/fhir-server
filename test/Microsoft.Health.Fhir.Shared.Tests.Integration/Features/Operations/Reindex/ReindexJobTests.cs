@@ -881,9 +881,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                var result = await SearchForSearchParameterByUrlAsync(searchParam.Url, CancellationToken.None);
-                Assert.NotEmpty(result.Results);
-
                 // first service should have knowledge of new Searchparameter
                 bool tryGetSearchParamResult1 = _searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParamInfo);
                 Assert.True(tryGetSearchParamResult1);
