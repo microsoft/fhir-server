@@ -361,39 +361,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     EndResourceSurrogateId = workItem.EndId,
                 };
 
+                int batchResourceCount;
                 SearchResult result;
 
                 try
                 {
                     result = await _timeoutRetries.ExecuteAsync(
                         async () => await GetResourcesToReindexAsync(batchSearchResult, cancellationToken));
-                }
-                catch (OutOfMemoryException oomEx)
-                {
-                    await SplitAndQueueSubRangesAsync(workItem, rangeQueue, "surrogate ID resource fetch", oomEx, cancellationToken);
-                    continue;
-                }
 
-                if (result == null)
-                {
-                    throw new OperationFailedException("Search service returned null search result.", HttpStatusCode.InternalServerError);
-                }
+                    if (result == null)
+                    {
+                        throw new OperationFailedException("Search service returned null search result.", HttpStatusCode.InternalServerError);
+                    }
 
-                int batchResourceCount = result.Results?.Count() ?? 0;
-                if (batchResourceCount == 0)
-                {
-                    _logger.LogJobInformation(_jobInfo, "No resources found in surrogate ID range. StartId={StartId}, EndId={EndId}", workItem.StartId, workItem.EndId);
-                    continue;
-                }
+                    batchResourceCount = result.Results?.Count() ?? 0;
+                    if (batchResourceCount == 0)
+                    {
+                        _logger.LogJobInformation(_jobInfo, "No resources found in surrogate ID range. StartId={StartId}, EndId={EndId}", workItem.StartId, workItem.EndId);
+                        continue;
+                    }
 
-                try
-                {
                     await _timeoutRetries.ExecuteAsync(
                         async () => await ProcessSearchResultsAsync(result, searchParameterHash, (int)_reindexProcessingJobDefinition.MaximumNumberOfResourcesPerWrite, cancellationToken));
                 }
                 catch (OutOfMemoryException oomEx)
                 {
-                    await SplitAndQueueSubRangesAsync(workItem, rangeQueue, "search results processing", oomEx, cancellationToken);
+                    await SplitAndQueueSubRangesAsync(workItem, rangeQueue, "surrogate ID resource fetch or search results processing", oomEx, cancellationToken);
                     continue;
                 }
 
