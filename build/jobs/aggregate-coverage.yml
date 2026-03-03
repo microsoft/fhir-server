@@ -41,14 +41,14 @@ steps:
 
 - script: |
     # Fix file paths in Cobertura XML before uploading.
-    # DeterministicReport + SourceLink produces full GitHub raw URLs as filenames:
-    #   https://raw.githubusercontent.com/microsoft/fhir-server/<sha>/src/...
+    # DeterministicReport produces paths with a /_/ prefix:
+    #   /_/src/Microsoft.Health.Fhir.Api/...
     # Codecov needs repo-relative paths like: src/...
     REPORT="$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
     echo "=== Sample paths before fix ==="
     grep -oP 'filename="[^"]*"' "$REPORT" | head -5
 
-    sed -i 's|https://raw\.githubusercontent\.com/microsoft/fhir-server/[^/]*/||g' "$REPORT"
+    sed -i 's|/_/||g' "$REPORT"
 
     echo "=== Sample paths after fix ==="
     grep -oP 'filename="[^"]*"' "$REPORT" | head -5
