@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <summary>
-        /// Marks the Search Parameter as PendingDelete. This is only used by DeletionService.cs and will be removed when refactoring is done 
+        /// Marks the Search Parameter as PendingDelete. This is only used by DeletionService.cs and will be removed when refactoring is done
         /// to allow deletion service to properly handle Hard deletions for Search Parameters (e.g. allow reindex prior to removing resource from DB).
         /// </summary>
         /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
