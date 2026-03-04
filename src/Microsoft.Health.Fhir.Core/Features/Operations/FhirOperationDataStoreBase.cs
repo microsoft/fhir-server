@@ -185,6 +185,11 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         try
         {
             var jobWithGroupId = await _queueClient.GetJobByIdAsync(QueueType.Export, long.Parse(jobRecord.Id), false, cancellationToken);
+            if (jobWithGroupId == null)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+            }
+
             await _queueClient.CancelJobByGroupIdAsync(QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
 
             // Only for export, we want to add a new job with CancelledByUser status as per this IG - https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request

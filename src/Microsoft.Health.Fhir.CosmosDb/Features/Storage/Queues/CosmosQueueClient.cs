@@ -168,24 +168,7 @@ public class CosmosQueueClient : IQueueClient
         // This is a speacial case, we are adding this function to support Handle Bulk data access 2.0
         // Only limited changes are made in order to get Cosmos working
         var jobInfos = new List<JobInfo>();
-        using IScoped<Container> container = _containerFactory.Invoke();
-
-        QueryDefinition maxJobIdSpec = new QueryDefinition(@"SELECT VALUE MAX(StringToNumber(d.jobId)) FROM root c
-            JOIN d IN c.definitions
-            WHERE c.queueType = @queueType
-            AND c.groupId = @groupId")
-                    .WithParameter("@queueType", queueType)
-                    .WithParameter("@groupId", groupId.ToString());
-
-        var query = _queryFactory.Create<long?>(
-            container.Value,
-            new CosmosQueryContext(
-                maxJobIdSpec,
-                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)) }));
-
-        FeedResponse<long?> response = await query.ExecuteNextAsync(cancellationToken);
-        long maxJobId = response.Resource.FirstOrDefault() ?? 0;
-        jobInfos.AddRange(await CreateNewJob(maxJobId + 1, queueType, new[] { definition }, groupId, JobStatus.CancelledByUser, cancellationToken));
+        jobInfos.AddRange(await CreateNewJob(GetLongId(), queueType, new[] { definition }, groupId, JobStatus.CancelledByUser, cancellationToken));
         return jobInfos;
     }
 
@@ -464,8 +447,6 @@ public class CosmosQueueClient : IQueueClient
                     },
                     cancellationToken));
             }
-
-            // If its an export job and if the it is a user requested cancellation then let's enqueue a new processing job with CancelledByUser status in the same group
         }
 
         await Task.WhenAll(cancelTasks);

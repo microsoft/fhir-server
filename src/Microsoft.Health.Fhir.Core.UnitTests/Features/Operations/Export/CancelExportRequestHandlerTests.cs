@@ -61,7 +61,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// When the user is not authorized, an UnauthorizedFhirActionException should be thrown.
+        /// Verifies that an <see cref="UnauthorizedFhirActionException"/> is thrown when the user
+        /// does not have the <see cref="DataActions.Export"/> permission. The handler checks
+        /// authorization before performing any cancel work.
         /// </summary>
         [Fact]
         public async Task GivenAFhirMediator_WhenUserIsNotAuthorized_ThenUnauthorizedFhirActionExceptionShouldBeThrown()
@@ -81,12 +83,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// By Orchestrator job Id:
-        ///   If Orchestrator job is in Cancelled status or cancel is requested, GetExportJobByIdAsync throws 404.
-        ///   If Orchestrator job is in CancelledByUser status, GetExportJobByIdAsync throws 404.
-        /// By Processing job Id:
-        ///   If Orchestrator job is in Cancelled status or cancel is requested, GetExportJobByIdAsync throws 404.
-        ///   If Orchestrator job is in CancelledByUser status, GetExportJobByIdAsync throws 404.
+        /// Verifies that a <see cref="JobNotFoundException"/> propagates when
+        /// <see cref="IFhirOperationDataStore.GetExportJobByIdAsync"/> throws it.
+        /// This occurs when a CancelledByUser processing job already exists in the group
+        /// (i.e., cancel was already requested), or when the job Id does not exist.
         /// </summary>
         [Fact]
         public async Task GivenAFhirMediator_WhenGetExportJobByIdThrowsJobNotFoundException_ThenJobNotFoundExceptionShouldBeThrown()
@@ -98,22 +98,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// By Orchestrator job Id:
-        ///   If Orchestrator job is in Completed status:
-        ///     Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        /// By Processing job Id:
-        ///   If Processing job is in Completed status:
-        ///     Processing jobs are running > return Running > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and no failed jobs exists > return Cancelled > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///     Processing jobs are cancelled and failed jobs exists > return Failed > Set Orchestrator job status to Cancel here (SP will set it to CancelByUser)
-        ///   If Processing job is in Failed status > return Failed > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Failed)
-        ///   If Processing job is in Cancelled status > return Cancelled > Set to Cancel here (SP will set the Orchestrator status to CancelByUser, processing job status stays Cancelled)
+        /// Verifies the handler's cancel behavior for any status returned by GetExportJobByIdAsync
+        /// (i.e., any status that does not result in a 404/JobNotFoundException).
         ///
-        /// GetExportJobByIdAsync returns Running/Cancelled/Failed based on group job analysis.
-        /// It return 404 if job's status is cancelled or cancelledByUser or CancelRequested = 1
-        /// The handler always sets status to Canceled, CanceledTime, and FailureDetails, then calls UpdateExportJobAsync.
+        /// For each status the handler:
+        ///   1. Sets the job record's Status to <see cref="OperationStatus.Canceled"/>.
+        ///   2. Sets CanceledTime to the current UTC time.
+        ///   3. Sets FailureDetails with <see cref="HttpStatusCode.NoContent"/> and a user-requested cancellation message.
+        ///   4. Calls <see cref="IFhirOperationDataStore.UpdateExportJobAsync"/> with isCustomerRequested = true,
+        ///      which causes the stored procedure to cancel the job group and enqueue a CancelledByUser processing job
+        ///      per the FHIR Bulk Data IG (https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request).
+        ///   5. Returns <see cref="HttpStatusCode.Accepted"/>.
+        ///
+        /// Note: The in-memory Status/FailureDetails set here are serialized into the CancelledByUser job definition
+        /// by the data store. The actual group-level cancellation (setting Created jobs to Cancelled,
+        /// Running jobs to CancelRequested) is handled by the stored procedure via CancelJobByGroupIdAsync.
         /// </summary>
         [Theory]
         [InlineData(OperationStatus.Queued)]
@@ -144,11 +143,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.NoContent, outcome.JobRecord.FailureDetails.FailureStatusCode);
             Assert.Equal(Core.Resources.UserRequestedCancellation, outcome.JobRecord.FailureDetails.FailureReason);
 
-            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, false, _cancellationToken);
+            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, true, _cancellationToken);
         }
 
         /// <summary>
-        /// When a JobConflictException is encountered, the handler retries up to the configured retry count.
+        /// Verifies that the handler retries when <see cref="IFhirOperationDataStore.UpdateExportJobAsync"/>
+        /// throws a <see cref="JobConflictException"/> due to an optimistic concurrency conflict (ETag mismatch).
+        /// On each retry the handler re-fetches the job to get a fresh ETag, then attempts the update again.
+        /// After the configured number of retries succeeds, the response is <see cref="HttpStatusCode.Accepted"/>.
         /// </summary>
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingExistingExportJobEncountersJobConflictException_ThenItWillBeRetried()
@@ -186,7 +188,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// When the retry count is exceeded, the JobConflictException is thrown to the caller.
+        /// Verifies that when <see cref="IFhirOperationDataStore.UpdateExportJobAsync"/> throws
+        /// <see cref="JobConflictException"/> on every attempt and the configured retry count is
+        /// exceeded, the exception propagates to the caller rather than being silently swallowed.
         /// </summary>
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingExistingExportJobEncountersJobConflictExceptionExceedsMaxRetry_ThenExceptionShouldBeThrown()
@@ -202,8 +206,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         /// <summary>
-        /// When UpdateExportJobAsync throws an unexpected exception (not JobConflictException),
-        /// the handler should not retry and should propagate the exception directly.
+        /// Verifies that when <see cref="IFhirOperationDataStore.UpdateExportJobAsync"/> throws an
+        /// unexpected exception (anything other than <see cref="JobConflictException"/>), the handler
+        /// does not retry and propagates the exception immediately. Only JobConflictException triggers
+        /// the retry policy.
         /// </summary>
         [Fact]
         public async Task GivenAFhirMediator_WhenUpdateExportJobThrowsUnexpectedException_ThenExceptionShouldBeThrown()
@@ -216,6 +222,81 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await Assert.ThrowsAsync<InvalidOperationException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
 
             await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        /// <summary>
+        /// Explicitly verifies that the handler passes isCustomerRequested = true to
+        /// <see cref="IFhirOperationDataStore.UpdateExportJobAsync"/>. This flag is critical because
+        /// it causes the data store to enqueue a CancelledByUser processing job, which is required by
+        /// the FHIR Bulk Data IG for user-initiated export cancellations. Subsequent calls to
+        /// GetExportJobByIdAsync will detect this CancelledByUser job and throw JobNotFoundException (404).
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenCancelingExportJob_ThenIsCustomerRequestedIsSetToTrue()
+        {
+            SetupExportJob(OperationStatus.Running);
+
+            CancelExportResponse response = await _mediator.CancelExportAsync(JobId, _cancellationToken);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(
+                Arg.Any<ExportJobRecord>(),
+                Arg.Any<WeakETag>(),
+                Arg.Is<bool>(val => val == true),
+                Arg.Any<CancellationToken>());
+        }
+
+        /// <summary>
+        /// Verifies that when <see cref="IFhirOperationDataStore.GetExportJobByIdAsync"/> throws an
+        /// unexpected exception (not <see cref="JobNotFoundException"/>), the handler does not retry
+        /// and propagates the exception immediately. The retry policy only handles
+        /// <see cref="JobConflictException"/> from UpdateExportJobAsync.
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGetExportJobByIdThrowsUnexpectedException_ThenExceptionShouldBeThrownWithoutRetry()
+        {
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken)
+                .Returns<ExportJobOutcome>(_ => throw new InvalidOperationException("Unexpected data store error"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
+
+            await _fhirOperationDataStore.Received(1).GetExportJobByIdAsync(JobId, _cancellationToken);
+            await _fhirOperationDataStore.DidNotReceive().UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        /// <summary>
+        /// Verifies the scenario where the first cancel attempt hits a <see cref="JobConflictException"/>
+        /// (triggering a retry), but by the time the handler re-fetches the job on the retry,
+        /// the job has already been cancelled (a CancelledByUser processing job now exists in the group),
+        /// causing <see cref="IFhirOperationDataStore.GetExportJobByIdAsync"/> to throw
+        /// <see cref="JobNotFoundException"/>. The handler should propagate the JobNotFoundException
+        /// since the cancel was already applied.
+        /// </summary>
+        [Fact]
+        public async Task GivenAFhirMediator_WhenRetryEncountersJobNotFoundOnRefetch_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            _retryCount = 3;
+
+            var weakETag = WeakETag.FromVersionId("1");
+            int getCallCount = 0;
+
+            _fhirOperationDataStore.GetExportJobByIdAsync(JobId, _cancellationToken)
+                .Returns(_ =>
+                {
+                    getCallCount++;
+                    if (getCallCount == 1)
+                    {
+                        return CreateExportJobOutcome(CreateExportJobRecord(OperationStatus.Running), weakETag);
+                    }
+
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, JobId));
+                });
+
+            _fhirOperationDataStore.UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), weakETag, Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<ExportJobOutcome>(_ => throw new JobConflictException());
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
         }
 
         private ExportJobOutcome SetupExportJob(OperationStatus operationStatus, WeakETag weakETag = null)

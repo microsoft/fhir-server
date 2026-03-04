@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
-                    // If there exist any processing job with CancelledByUser status, then above will throw JobNotFoundException
+                    // If there exist any processing job with CancelledByUser status, then GetExportJobByIdAsync will throw JobNotFoundException
 
                     // SP is always called by the Orchestrator job Id
                     // All created jobs will be set as Cancel

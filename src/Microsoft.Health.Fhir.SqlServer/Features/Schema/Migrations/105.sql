@@ -2064,7 +2064,7 @@ CREATE PROCEDURE dbo.EnqueueJobs
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'EnqueueJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' D=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                                                                         FROM   @Definitions)) + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' F=' + isnull(CONVERT (VARCHAR, @ForceOneActiveJobGroup), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @Status), 'NULL'), @st AS DATETIME = getUTCdate(), @Lock AS VARCHAR (100) = 'EnqueueJobs_' + CONVERT (VARCHAR, @QueueType), @MaxJobId AS BIGINT, @MaxProcessingJobIdWithinAGroup AS BIGINT, @Rows AS INT, @msg AS VARCHAR (1000), @JobIds AS BigintList, @InputRows AS INT;
+                                                                                                                                                         FROM   @Definitions)) + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' F=' + isnull(CONVERT (VARCHAR, @ForceOneActiveJobGroup), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @Status), 'NULL'), @st AS DATETIME = getUTCdate(), @Lock AS VARCHAR (100) = 'EnqueueJobs_' + CONVERT (VARCHAR, @QueueType), @MaxJobId AS BIGINT, @Rows AS INT, @msg AS VARCHAR (1000), @JobIds AS BigintList, @InputRows AS INT;
 BEGIN TRY
     DECLARE @Input TABLE (
         DefinitionHash VARBINARY (20) PRIMARY KEY,
@@ -2106,19 +2106,11 @@ BEGIN TRY
                                     FROM     dbo.JobQueue
                                     WHERE    QueueType = @QueueType
                                     ORDER BY JobId DESC), 0);
-            IF @Status = 6
-                BEGIN
-                    SET @MaxProcessingJobIdWithinAGroup = isnull((SELECT   TOP 1 JobId + 1
-                                                                  FROM     dbo.JobQueue
-                                                                  WHERE    QueueType = @QueueType
-                                                                           AND GroupId = @GroupId
-                                                                  ORDER BY JobId DESC), 0);
-                END
             INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, Result, StartDate, EndDate)
             OUTPUT inserted.JobId INTO @JobIds
             SELECT @QueueType,
                    isnull(@GroupId, @MaxJobId + 1) AS GroupId,
-                   CASE WHEN @Status = 6 THEN @MaxProcessingJobIdWithinAGroup ELSE JobId END AS JobId,
+                   JobId,
                    Definition,
                    DefinitionHash,
                    isnull(@Status, 0) AS Status,
