@@ -319,56 +319,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 .Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported)
                 .Where(p => !systemDefinedSearchParameterUris.Contains(p.Uri.OriginalString)).ToList();
 
-            // Fetch and add custom search parameters. Wrap in try-catch to ensure
-            // ApplySearchParameterStatus always runs, even if the fetch fails.
-            // This prevents a self-perpetuating failure where a crash during fetch
-            // prevents status updates from being applied (which could fix the root issue).
-            try
+            // Batch fetch all SearchParameter resources in one call
+            var searchParamResources = await GetSearchParametersByUrls(
+                statusesToFetch
+                    .Select(p => p.Uri.OriginalString)
+                    .ToList(),
+                cancellationToken);
+
+            var paramsToAdd = new List<ITypedElement>();
+            foreach (var searchParam in statusesToFetch)
             {
-                // Batch fetch all SearchParameter resources in one call
-                var searchParamResources = await GetSearchParametersByUrls(
-                    statusesToFetch
-                        .Select(p => p.Uri.OriginalString)
-                        .ToList(),
-                    cancellationToken);
-
-                var paramsToAdd = new List<ITypedElement>();
-                foreach (var searchParam in statusesToFetch)
+                if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
                 {
-                    if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
-                    {
-                        _logger.LogInformation(
-                            "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
-                            searchParam.Uri);
-                        continue;
-                    }
-
-                    // check if search param is in cache and add if does not exist
-                    if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
-                    {
-                        // if the previous version of the search parameter exists we should delete the old information currently stored
-                        DeleteSearchParameter(searchParam.Uri.OriginalString);
-                    }
-
-                    paramsToAdd.Add(searchParamResource);
-
-                    // Add parameters incrementally per chunk to reduce peak memory footprint
-                    if (paramsToAdd.Count >= 100)
-                    {
-                        _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-                        paramsToAdd.Clear();
-                    }
+                    _logger.LogInformation(
+                        "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
+                        searchParam.Uri);
+                    continue;
                 }
 
-                // Add any remaining parameters
-                if (paramsToAdd.Any())
+                // check if search param is in cache and add if does not exist
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
+                {
+                    // if the previous version of the search parameter exists we should delete the old information currently stored
+                    DeleteSearchParameter(searchParam.Uri.OriginalString);
+                }
+
+                paramsToAdd.Add(searchParamResource);
+
+                // Add parameters incrementally per chunk to reduce peak memory footprint
+                if (paramsToAdd.Count >= 100)
                 {
                     _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                    paramsToAdd.Clear();
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+
+            // Add any remaining parameters
+            if (paramsToAdd.Any())
             {
-                _logger.LogError(ex, "Error fetching or adding custom search parameters. Continuing to apply status updates.");
+                _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
             }
 
             // Once added to the definition manager we can update their status
