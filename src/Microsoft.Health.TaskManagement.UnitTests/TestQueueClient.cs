@@ -201,7 +201,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult<IReadOnlyList<JobInfo>>(result);
         }
 
-        public Task<IReadOnlyList<JobInfo>> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+        public Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
         {
             var response = new List<JobInfo>();
 
@@ -231,7 +231,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 jobInfos.Add(newJob);
             }
 
-            return Task.FromResult<IReadOnlyList<JobInfo>>(response);
+            return Task.FromResult<JobInfo>(response.FirstOrDefault());
         }
 
         public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)

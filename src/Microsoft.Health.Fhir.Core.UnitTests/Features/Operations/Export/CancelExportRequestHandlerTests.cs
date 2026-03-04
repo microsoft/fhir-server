@@ -297,6 +297,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns<ExportJobOutcome>(_ => throw new JobConflictException());
 
             await Assert.ThrowsAsync<JobNotFoundException>(() => _mediator.CancelExportAsync(JobId, _cancellationToken));
+
+            // First call succeeded, second call (on retry after JobConflictException) threw JobNotFoundException.
+            // No further retries should occur because JobNotFoundException is not in the retry policy.
+            await _fhirOperationDataStore.Received(2).GetExportJobByIdAsync(JobId, _cancellationToken);
+            await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(Arg.Any<ExportJobRecord>(), weakETag, Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
 
         private ExportJobOutcome SetupExportJob(OperationStatus operationStatus, WeakETag weakETag = null)

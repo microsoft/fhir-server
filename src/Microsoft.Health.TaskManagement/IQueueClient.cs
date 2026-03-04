@@ -29,17 +29,16 @@ namespace Microsoft.Health.JobManagement
         public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Enqueue new jobs
+        /// Enqueues a job with a specified status, bypassing the default Created state.
+        /// Used by:
+        /// Export cancellation — enqueues a<see cref="JobStatus.CancelledByUser"/> marker job
+        ///   so that subsequent status lookups return 404, per the FHIR Bulk Data IG
+        ///   (https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request).
+        /// Defrag watchdog — enqueues child jobs directly in <see cref="JobStatus.Running"/>
+        ///   or <see cref="JobStatus.Completed"/> status to track table-level defragmentation
+        ///   progress within a coordinator job group.
         /// </summary>
-        /// <param name="queueType">Queue Type for new jobs</param>
-        /// <param name="groupId">Group id for jobs.</param>
-        /// <param name="definition">Job definition</param>
-        /// <param name="jobStatus">Job status</param>
-        /// <param name="result">Job result</param>
-        /// <param name="startDate">Job start date</param>
-        /// <param name="cancellationToken">Cancellation Token</param>
-        /// <returns>Job ids for all jobs, include existed jobs.</returns>
-        public Task<IReadOnlyList<JobInfo>> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken);
+        public Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken);
 
         /// <summary>
         /// Dequeue multiple jobs
