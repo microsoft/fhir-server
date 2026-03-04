@@ -47,19 +47,11 @@ steps:
     #   /_/src/Microsoft.Health.Fhir.Api/...
     # Codecov needs repo-relative paths like: src/...
     REPORT="$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
-    echo "=== Sample paths before fix ==="
-    grep -oP 'filename="[^"]*"' "$REPORT" | head -5
-
     sed -i 's|/_/||g' "$REPORT"
-
-    echo "=== Sample paths after fix ==="
-    grep -oP 'filename="[^"]*"' "$REPORT" | head -5
 
     # Download Codecov CLI
     curl -Os https://cli.codecov.io/latest/linux/codecov
     chmod +x codecov
-    echo "Codecov CLI version:"
-    ./codecov --version || true
 
     # Resolve commit SHA and branch for the upload.
     # For PR builds, Azure DevOps checks out a merge commit that does NOT exist
@@ -79,11 +71,6 @@ steps:
       BRANCH="$BUILD_SOURCE_BRANCH"
       PR_ARGS=""
     fi
-
-    echo "Build Reason: $BUILD_REASON"
-    echo "Commit SHA: $COMMIT_SHA"
-    echo "Branch: $BRANCH"
-    echo "PR Args: $PR_ARGS"
 
     # Use the documented three-step CLI workflow (create-commit, create-report, do-upload)
     # instead of undocumented upload-process to ensure --commit-sha is respected
