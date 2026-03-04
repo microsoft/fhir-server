@@ -51,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private JobInfo _jobInfo;
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
-        private IReadOnlyCollection<ResourceSearchParameterStatus> _initialSearchParamStatusCollection;
         private static readonly AsyncPolicy _timeoutRetries = Policy
             .Handle<SqlException>(ex => ex.IsExecutionTimeout())
             .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
@@ -214,11 +213,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
-            _initialSearchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            var searchParamStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
             // Get all URIs that have at least one entry with a valid status
             // This handles case-variant duplicates naturally
-            var validUris = _initialSearchParamStatusCollection
+            var validUris = searchParamStatuses
                 .Where(s => validStatus.Contains(s.Status))
                 .Select(s => s.Uri.ToString())
                 .ToHashSet();
