@@ -197,6 +197,44 @@ jobs:
             Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
             Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
         }
-  - template: ./provision-healthcheck.yml
-    parameters:
-      webAppName: ${{ parameters.webAppName }}
+
+        # Health check — inlined so a retryCountOnTaskFailure on this task retries the full
+        # provisioning + health check together, covering race conditions where Cosmos comes up
+        # in a bad state and the app never becomes healthy.
+        $healthCheckUrl = "https://$webAppName.azurewebsites.net/health/check"
+        $timeoutMinutes = 5
+        $consecutiveSuccessRequired = 5
+        $consecutiveSuccessCount = 0
+        $startTime = Get-Date
+        $timeoutTime = $startTime.AddMinutes($timeoutMinutes)
+
+        Write-Host "Starting health check for $healthCheckUrl"
+        Write-Host "Timeout: $timeoutMinutes minutes, consecutive successes required: $consecutiveSuccessRequired"
+
+        Do {
+          Start-Sleep -s 5
+          Write-Host "Checking: $healthCheckUrl (consecutive successes: $consecutiveSuccessCount/$consecutiveSuccessRequired)"
+          try {
+            $response = Invoke-WebRequest -URI $healthCheckUrl
+            if ($response.StatusCode -eq 200) {
+              $consecutiveSuccessCount++
+              Write-Host "Success ($consecutiveSuccessCount/$consecutiveSuccessRequired)"
+            } else {
+              Write-Host "Non-200 response ($($response.StatusCode)), resetting count"
+              $consecutiveSuccessCount = 0
+            }
+          } catch {
+            Write-Host $PSItem.Exception.Message
+            $consecutiveSuccessCount = 0
+          } finally {
+            $Error.Clear()
+          }
+          if ((Get-Date) -gt $timeoutTime) {
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalMinutes, 2)
+            Write-Error "Health check timed out after $elapsed minutes ($consecutiveSuccessCount/$consecutiveSuccessRequired consecutive successes)"
+            throw "Health check timed out"
+          }
+        } While ($consecutiveSuccessCount -lt $consecutiveSuccessRequired)
+
+        $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)
+        Write-Host "Health check passed with $consecutiveSuccessRequired consecutive successes after $elapsed seconds"

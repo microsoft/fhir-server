@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -26,14 +25,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
     {
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SecurityConfiguration> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IOidcDiscoveryService _oidcDiscoveryService;
         private readonly IUrlResolver _urlResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly SmartIdentityProviderConfiguration _smartIdentityProviderConfiguration;
 
         public SecurityProvider(
             IOptions<SecurityConfiguration> securityConfiguration,
-            IHttpClientFactory httpClientFactory,
+            IOidcDiscoveryService oidcDiscoveryService,
             ILogger<SecurityConfiguration> logger,
             IUrlResolver urlResolver,
             IModelInfoProvider modelInfoProvider,
@@ -41,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
             EnsureArg.IsNotNull(securityConfiguration.Value.Authentication.Authority, nameof(securityConfiguration.Value.Authentication.Authority));
-            EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
+            EnsureArg.IsNotNull(oidcDiscoveryService, nameof(oidcDiscoveryService));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -49,29 +48,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
-            _httpClientFactory = httpClientFactory;
+            _oidcDiscoveryService = oidcDiscoveryService;
             _urlResolver = urlResolver;
             _modelInfoProvider = modelInfoProvider;
             _smartIdentityProviderConfiguration = smartIdentityProviderConfiguration.Value;
         }
 
-        public Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
+        public async Task BuildAsync(ICapabilityStatementBuilder builder, CancellationToken cancellationToken)
         {
             if (_securityConfiguration.Enabled)
             {
                 try
                 {
-                    builder.Apply(statement =>
+                    if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {
-                        if (_securityConfiguration.EnableAadSmartOnFhirProxy)
+                        builder.Apply(statement =>
                         {
                             AddProxyOAuthSecurityService(statement, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
-                        }
-                        else
+                        });
+                    }
+                    else
+                    {
+                        var (authorizationEndpoint, tokenEndpoint) = await _oidcDiscoveryService.ResolveEndpointsAsync(
+                            _securityConfiguration.Authentication.Authority,
+                            cancellationToken);
+
+                        builder.Apply(statement =>
                         {
-                            AddOAuthSecurityService(statement);
-                        }
-                    });
+                            AddOAuthSecurityService(statement, authorizationEndpoint.AbsoluteUri, tokenEndpoint.AbsoluteUri);
+                        });
+                    }
                 }
                 catch (Exception e)
                 {
@@ -79,8 +85,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     throw;
                 }
             }
-
-            return Task.CompletedTask;
         }
 
         private void AddProxyOAuthSecurityService(ListedCapabilityStatement statement, string authorizeRouteName, string tokenRouteName)
@@ -111,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             restComponent.Security = security;
         }
 
-        private void AddOAuthSecurityService(ListedCapabilityStatement statement)
+        private void AddOAuthSecurityService(ListedCapabilityStatement statement, string authorizationEndpoint, string tokenEndpoint)
         {
             ListedRestComponent restComponent = statement.Rest.Server();
             SecurityComponent security = restComponent.Security ?? new SecurityComponent();
@@ -123,54 +127,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 ? Constants.RestfulSecurityServiceStu3OAuth
                 : Constants.RestfulSecurityServiceOAuth);
 
-            var openIdConfigurationUrl = $"{_securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
-
-            HttpResponseMessage openIdConfigurationResponse;
-            using (HttpClient httpClient = _httpClientFactory.CreateClient())
+            var smartExtensions = CreateSmartExtensions(authorizationEndpoint, tokenEndpoint);
+            foreach (var extension in smartExtensions)
             {
-                try
-                {
-                    openIdConfigurationResponse = httpClient.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
-                    throw new OpenIdConfigurationException();
-                }
-            }
-
-            if (openIdConfigurationResponse.IsSuccessStatusCode)
-            {
-                JObject openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
-
-                string tokenEndpoint, authorizationEndpoint;
-
-                try
-                {
-                    tokenEndpoint = openIdConfiguration["token_endpoint"].Value<string>();
-                    authorizationEndpoint = openIdConfiguration["authorization_endpoint"].Value<string>();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "There was an exception while attempting to read the endpoints from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
-                    throw new OpenIdConfigurationException();
-                }
-                finally
-                {
-                    openIdConfigurationResponse.Dispose();
-                }
-
-                var smartExtensions = CreateSmartExtensions(authorizationEndpoint, tokenEndpoint);
-                foreach (var extension in smartExtensions)
-                {
-                    security.Extension.Add(extension);
-                }
-            }
-            else
-            {
-                _logger.LogWarning("The OpenId Configuration request from \"{OpenIdConfigurationUrl}\" returned an {StatusCode} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
-                openIdConfigurationResponse.Dispose();
-                throw new OpenIdConfigurationException();
+                security.Extension.Add(extension);
             }
 
             restComponent.Security = security;
