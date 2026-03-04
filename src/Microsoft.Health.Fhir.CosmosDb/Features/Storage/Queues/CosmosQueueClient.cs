@@ -165,10 +165,10 @@ public class CosmosQueueClient : IQueueClient
 
     public async Task<IReadOnlyList<JobInfo>> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
     {
-        // This is a speacial case, we are adding this function to support Handle Bulk data access 2.0
+        // This is a special case, we are adding this function to support Handle Bulk data access 2.0
         // Only limited changes are made in order to get Cosmos working
         var jobInfos = new List<JobInfo>();
-        jobInfos.AddRange(await CreateNewJob(GetLongId(), queueType, new[] { definition }, groupId, JobStatus.CancelledByUser, cancellationToken));
+        jobInfos.AddRange(await CreateNewJob(GetLongId(), queueType, new[] { definition }, groupId, jobStatus, cancellationToken));
         return jobInfos;
     }
 

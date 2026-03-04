@@ -147,7 +147,7 @@ BEGIN TRY
     IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
       RAISERROR('There are other active job groups',18,127)
 
-    IF @GroupId IS NOT NULL AND @Status <> 6 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @GroupId AND CancelRequested = 1)
+    IF @GroupId IS NOT NULL AND isnull(@Status, 0) <> 6 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @GroupId AND CancelRequested = 1)
       RAISERROR('The specified job group is cancelled',18,127)
 
     SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)

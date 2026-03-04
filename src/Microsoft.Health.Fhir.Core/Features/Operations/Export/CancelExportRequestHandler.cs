@@ -7,7 +7,6 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using DotLiquid.Tags;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;

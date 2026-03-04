@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(
                 Arg.Any<ExportJobRecord>(),
                 Arg.Any<WeakETag>(),
-                Arg.Is<bool>(val => val == true),
+                Arg.Is<bool>(val => val),
                 Arg.Any<CancellationToken>());
         }
 

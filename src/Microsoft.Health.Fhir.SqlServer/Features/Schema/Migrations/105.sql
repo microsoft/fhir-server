@@ -2095,7 +2095,7 @@ BEGIN TRY
                                        OR GroupId <> @GroupId))
                 RAISERROR ('There are other active job groups', 18, 127);
             IF @GroupId IS NOT NULL
-               AND @Status <> 6
+               AND isnull(@Status, 0) <> 6
                AND EXISTS (SELECT *
                            FROM   dbo.JobQueue
                            WHERE  QueueType = @QueueType

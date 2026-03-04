@@ -192,10 +192,20 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
             await _queueClient.CancelJobByGroupIdAsync(QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
 
-            // Only for export, we want to add a new job with CancelledByUser status as per this IG - https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+            // Only for export, we want to add a new job with CancelledByUser status as per this IG:
+            // https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+            //
+            // Clone the record and clear volatile fields (CanceledTime, FailureDetails)
+            // so the serialized definition is deterministic across retries. This ensures
+            // the SQL SP's SHA1-based dedup prevents duplicate CancelledByUser markers
+            // when CancelExportRequestHandler retries due to JobConflictException.
             if (isCustomerRequested)
             {
-                await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Export, jobWithGroupId.GroupId, JsonConvert.SerializeObject(jobRecord), JobStatus.CancelledByUser, null, null, cancellationToken);
+                var markerRecord = jobRecord.Clone();
+                markerRecord.CanceledTime = null;
+                markerRecord.FailureDetails = null;
+                string deterministicDefinition = JsonConvert.SerializeObject(markerRecord);
+                await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Export, jobWithGroupId.GroupId, deterministicDefinition, JobStatus.CancelledByUser, null, null, cancellationToken);
             }
         }
         catch (JobNotExistException ex)

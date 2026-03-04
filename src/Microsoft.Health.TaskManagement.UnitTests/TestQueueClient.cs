@@ -211,10 +211,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
             else
             {
+                largestId++;
                 var newJob = new JobInfo()
                 {
                     Definition = definition,
-                    Id = largestId + 1,
+                    Id = largestId,
                     GroupId = groupId,
                     Status = jobStatus,
                     HeartbeatDateTime = DateTime.UtcNow,

@@ -21,7 +21,7 @@ namespace Microsoft.Health.JobManagement
         /// Enqueue new jobs
         /// </summary>
         /// <param name="queueType">Queue Type for new jobs</param>
-        /// <param name="definitions">Job definiation</param>
+        /// <param name="definitions">Job definitions</param>
         /// <param name="groupId">Group id for jobs. Optional</param>
         /// <param name="forceOneActiveJobGroup">Only enqueue job only if there's no active job with same queue type.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
@@ -32,8 +32,8 @@ namespace Microsoft.Health.JobManagement
         /// Enqueue new jobs
         /// </summary>
         /// <param name="queueType">Queue Type for new jobs</param>
-        /// <param name="groupId">Group id for jobs. Optional</param>
-        /// <param name="definition">Job definiation</param>
+        /// <param name="groupId">Group id for jobs.</param>
+        /// <param name="definition">Job definition</param>
         /// <param name="jobStatus">Job status</param>
         /// <param name="result">Job result</param>
         /// <param name="startDate">Job start date</param>
