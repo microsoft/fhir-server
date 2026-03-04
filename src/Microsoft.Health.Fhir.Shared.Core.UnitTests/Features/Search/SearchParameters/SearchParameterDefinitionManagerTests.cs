@@ -363,7 +363,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public async Task GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForExistingResourceType_ThenHashIsReturned()
+        public void GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForExistingResourceType_ThenHashIsReturned()
         {
             // Initialize a search parameter
             var searchParam = new SearchParameter()
@@ -433,11 +433,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test" && p.Component.All(c => c.ResolvedSearchParameter != null)))
                 .Returns((true, false));
 
-            // AddSearchParameterAsync only validates; it no longer updates the definition manager cache.
+            // ValidateSearchParameterAsync only validates; it no longer updates the definition manager cache.
             // Component resolution is verified implicitly: the support resolver mock above returns (true, false)
             // only when all components have ResolvedSearchParameter set, so an unresolved component would cause
-            // AddSearchParameterAsync to throw SearchParameterNotSupportedException.
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            // ValidateSearchParameterAsync to throw SearchParameterNotSupportedException.
+            await _searchParameterOperations.ValidateSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
         }
 
         [Fact]
@@ -458,7 +458,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public async Task GivenASearchParameterDefinitionManager_WhenAddingNewParameter_ThenParameterIsAdded()
+        public void GivenASearchParameterDefinitionManager_WhenAddingNewParameter_ThenParameterIsAdded()
         {
             var patientParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             var patientParamCount = patientParams.Count();

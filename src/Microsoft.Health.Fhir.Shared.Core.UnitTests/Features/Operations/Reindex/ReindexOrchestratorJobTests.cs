@@ -574,7 +574,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 .Returns(paramHashMap);
 
             _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
-            .Returns("hash");
+                .Returns(callInfo => paramHashMap.TryGetValue(callInfo.ArgAt<string>(0), out var h) ? h : null);
 
             // Create a search result with 100 resources
             var searchResult = CreateSearchResult(

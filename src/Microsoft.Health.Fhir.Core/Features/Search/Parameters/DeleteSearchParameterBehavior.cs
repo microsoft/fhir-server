@@ -86,8 +86,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // If the search parameter exists and is not already deleted, delete it
                 if (!searchParamResource.IsDeleted)
                 {
-                    await _searchParameterOperations.DeleteSearchParameterAsync(searchParamResource.RawResource, cancellationToken);
-
                     var typed = _modelInfoProvider.ToTypedElement(searchParamResource.RawResource);
                     var url = typed.GetStringScalar("url");
                     await QueuePendingDeleteStatusAsync(url, cancellationToken);

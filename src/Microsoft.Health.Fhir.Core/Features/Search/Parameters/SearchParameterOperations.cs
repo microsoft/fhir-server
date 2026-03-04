@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
+        public async Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
         {
             var searchParameterWrapper = new SearchParameterWrapper(searchParam);
             var searchParameterUrl = searchParameterWrapper.Url;
@@ -144,7 +144,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <summary>
-        /// Marks the Search Parameter as PendingDelete.
+        /// Marks the Search Parameter as PendingDelete. This is only used by DeletionService.cs and will be removed when refactoring is done 
+        /// to allow deletion service to properly handle Hard deletions for Search Parameters (e.g. allow reindex prior to removing resource from DB).
         /// </summary>
         /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
@@ -166,6 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
                         _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
                     }
                     catch (FhirException fex)
@@ -182,80 +184,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     {
                         _logger.LogError(ex, "Unexpected error deleting search parameter.");
                         var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchDeleteError);
-                        customSearchException.Issues.Add(new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Error,
-                            OperationOutcomeConstants.IssueType.Exception,
-                            ex.Message));
-
-                        throw customSearchException;
-                    }
-                },
-                _logger,
-                cancellationToken);
-        }
-
-        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken)
-        {
-            var prevSearchParam = _modelInfoProvider.ToTypedElement(previousSearchParam);
-            var prevSearchParamUrl = prevSearchParam.GetStringScalar("url");
-
-            await SearchParameterConcurrencyManager.ExecuteWithLockAsync(
-                prevSearchParamUrl,
-                async () =>
-                {
-                    try
-                    {
-                        // We need to make sure we have the latest search parameters before trying to update
-                        // existing search parameter. This is to avoid trying to update a search parameter that
-                        // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
-
-                        var searchParameterWrapper = new SearchParameterWrapper(searchParam);
-                        var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
-                        (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
-
-                        if (!supportedResult.Supported)
-                        {
-                            throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
-                        }
-
-                        // check data store specific support for SearchParameter
-                        if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
-                        {
-                            throw new SearchParameterNotSupportedException(errorMessage);
-                        }
-
-                        // As any part of the SearchParameter may have been changed, including the URL
-                        // the most reliable method of updating the SearchParameter is to delete the previous
-                        // data and insert the updated version
-
-                        if (!searchParameterWrapper.Url.Equals(prevSearchParamUrl, StringComparison.Ordinal))
-                        {
-                            _logger.LogInformation("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
-                            try
-                            {
-                                _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
-                            }
-                            catch (ResourceNotFoundException)
-                            {
-                                // do nothing, there may not be a search parameter to remove
-                            }
-                        }
-                    }
-                    catch (FhirException fex)
-                    {
-                        _logger.LogError(fex, "Error updating search parameter.");
-                        fex.Issues.Add(new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Error,
-                            OperationOutcomeConstants.IssueType.Exception,
-                            Core.Resources.CustomSearchUpdateError));
-
-                        throw;
-                    }
-                    catch (Exception ex) when (!(ex is FhirException))
-                    {
-                        _logger.LogError(ex, "Unexpected error updating search parameter.");
-                        var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchUpdateError);
                         customSearchException.Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
                             OperationOutcomeConstants.IssueType.Exception,
