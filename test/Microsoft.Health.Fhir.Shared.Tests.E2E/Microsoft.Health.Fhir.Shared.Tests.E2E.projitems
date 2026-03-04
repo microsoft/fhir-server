@@ -89,6 +89,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\StartupWithMetricHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\TestHealthCheckMetricPublisher.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\OperationVersionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\JsonPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\FhirPathPatchTests.cs" />
