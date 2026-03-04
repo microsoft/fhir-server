@@ -50,6 +50,8 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderCosmosDbRegistrationExtensions
     {
+        private static readonly string[] CosmosDbHealthCheckTags = { "datastore:cosmosDB" };
+
         /// <summary>
         /// Adds Cosmos Db as the data store for the FHIR server.
         /// </summary>
@@ -316,7 +318,7 @@ namespace Microsoft.Extensions.DependencyInjection
             fhirServerBuilder.Services.AddHealthChecks()
                 .AddCheck<CosmosDbHealthCheck>(
                     name: "DataStoreHealthCheck",
-                    tags: new[] { "datastore:cosmosDB" });
+                    tags: CosmosDbHealthCheckTags);
 
             fhirServerBuilder.Services.Add<CosmosDbStatusReporter>()
                 .Singleton()
