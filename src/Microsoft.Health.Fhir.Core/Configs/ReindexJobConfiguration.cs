@@ -49,6 +49,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int CacheRefreshWaitMultiplier { get; set; } = 3;
 
         /// <summary>
+        /// Controls orchetrator job info polling interval
+        /// </summary>
+        public int JobsPollingIntervalSec { get; set; } = 30;
+
+        /// <summary>
+        /// Controls number of jobs orchestrator pulls from the database in a single call
+        /// </summary>
+        public int JobsBatchSize { get; set; } = 1000;
+
+        /// <summary>
         /// Controls how many surrogate ID ranges are fetched per database call when calculating
         /// job ranges. Uses batched calls to avoid timeout on large tables.
         /// </summary>
