@@ -180,11 +180,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 (KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter),
             };
 
-            // _type is a system-defined parameter like all other spec-defined search parameters.
-            // It must be marked as such so that SearchParameterStatusManager never sets
+            // _type is a system-defined parameter baked into the FHIR specification.
+            // It must always be marked as such so that SearchParameterStatusManager never sets
             // IsSearchable = false on it (which causes SearchParameterNotSupportedException
             // in background tasks that lack an HTTP request context).
-            SearchParameterInfo.ResourceTypeSearchParameter.IsSystemDefined = isSystemDefined;
+            // Note: Build() is called multiple times — once with isSystemDefined=true for the
+            // spec bundle, and again with isSystemDefined=false for custom/user SearchParameters.
+            // We unconditionally set true here because _type is always system-defined regardless
+            // of which call site invokes Build().
+            SearchParameterInfo.ResourceTypeSearchParameter.IsSystemDefined = true;
 
             // Unconditionally register the static ResourceTypeSearchParameter in uriDictionary.
             // The R4B/R5 bundles include a _type entry whose parsed type may differ from the
