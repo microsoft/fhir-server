@@ -2277,7 +2277,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
 
-            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, token is null ? _cancellationToken : token.Value).Returns(x =>
+            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, false, token is null ? _cancellationToken : token.Value).Returns(x =>
             {
                 _lastExportJobOutcome = new ExportJobOutcome(_exportJobRecord, _weakETag);
 
