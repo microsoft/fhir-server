@@ -273,9 +273,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     },
                 },
                 _logger,
-                cancellationToken,
-                null,
-                isReadOnly: true);
+                cancellationToken);
 
             if (resultsList.Count != 6)
             {
