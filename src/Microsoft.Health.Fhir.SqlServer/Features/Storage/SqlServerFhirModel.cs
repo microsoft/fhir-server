@@ -386,7 +386,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _sqlRetryService,
                 (reader) =>
                 {
-                    (var id, var uri, var stringStatus, var lastUpdated, var isPartiallySupported) = reader.ReadRow(
+                    (_, var uri, var stringStatus, var lastUpdated, var isPartiallySupported) = reader.ReadRow(
                             VLatest.SearchParam.SearchParamId,
                             VLatest.SearchParam.Uri,
                             VLatest.SearchParam.Status,
