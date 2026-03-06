@@ -197,6 +197,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Collection(
                 paramList,
+                pType =>
+                {
+                    // _type (ResourceTypeSearchParameter) is always searchable/supported,
+                    // even without a status store entry.
+                    Assert.Equal("_type", pType.Code);
+                    Assert.True(pType.IsSupported);
+                    Assert.True(pType.IsSearchable);
+                },
                 p =>
                 {
                     Assert.True(p.IsSupported);
@@ -238,6 +246,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 {
                     Assert.True(p4.IsSupported);
                     Assert.False(p4.IsSearchable);
+                },
+                pType =>
+                {
+                    // _type (ResourceTypeSearchParameter) is always searchable/supported.
+                    Assert.Equal("_type", pType.Code);
+                    Assert.True(pType.IsSupported);
+                    Assert.True(pType.IsSearchable);
                 });
 
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
@@ -739,6 +754,263 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 null);
             var searchEntry = new SearchResultEntry(wrapper);
             return new SearchResult(Enumerable.Repeat(searchEntry, 1), continuationToken, null, new List<Tuple<string, string>>());
+        }
+
+        /// <summary>
+        /// Reproduces the SearchParameterNotSupportedException bug that occurs in production
+        /// when the _type parameter has no entry in the Cosmos status store and a background task
+        /// (no HTTP request context) accesses SearchOptionsFactory.ResourceTypeSearchParameter.
+        ///
+        /// The bug chain:
+        /// 1. Refactor commit (4493ae1f9) registered ResourceTypeSearchParameter in UrlLookup,
+        ///    making _type visible in AllSearchParameters for the first time.
+        /// 2. EnsureInitializedAsync iterates AllSearchParameters, finds no status store entry
+        ///    for _type, enters the else branch, and calls CheckSearchParameterSupport.
+        /// 3. SearchParameterSupportResolver.IsSearchParameterSupported throws
+        ///    "No target resources defined" because _type has no BaseResourceTypes/TargetResourceTypes.
+        /// 4. The exception is caught → IsSearchable is set to false.
+        /// 5. Background task calls SearchableSearchParameterDefinitionManager.GetSearchParameter("Resource", "_type").
+        /// 6. No HTTP request context → UsePartialSearchParams returns false.
+        /// 7. IsSearchable is false AND UsePartialSearchParams is false → throws SearchParameterNotSupportedException.
+        /// </summary>
+        [Fact]
+        public async Task GivenResourceTypeParamWithNoStatusStoreEntry_WhenBackgroundTaskAccessesSearchableManager_ThenShouldNotThrow()
+        {
+            // Arrange: Create a status store that has NO entry for _type (Resource-type),
+            // matching the actual production condition on failing Cosmos/Gen1 accounts.
+            // Only include entries for other parameters — _type is deliberately absent.
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceLastUpdated),
+                        IsPartiallySupported = true,
+                    },
+
+                    // Note: NO entry for _type (http://hl7.org/fhir/SearchParameter/Resource-type).
+                    // This is the actual production condition — the status store simply doesn't
+                    // have a row for it, so it hits the else branch in EnsureInitializedAsync.
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
+            await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            var statusManager = new SearchParameterStatusManager(
+                statusDataStore,
+                searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
+            await statusManager.EnsureInitializedAsync(CancellationToken.None);
+
+            // Verify the fix: _type.IsSearchable should remain true because it is ResourceTypeSearchParameter,
+            // which is a hardcoded parameter with no status store entry and cannot be
+            // validated by SearchParameterSupportResolver (throws "No target resources defined").
+            // Before the fix, EnsureInitializedAsync set IsSearchable = false for any param
+            // not found in the status store (the else branch), which hit _type when the status
+            // store had no entry for it.
+            var resourceTypeParam = searchParameterDefinitionManager.GetSearchParameter("Resource", SearchParameterNames.ResourceType);
+            Assert.True(resourceTypeParam.IsSearchable, "_type should remain searchable even without a status store entry");
+            Assert.True(resourceTypeParam.IsSupported, "_type should remain supported even without a status store entry");
+
+            // Simulate a background task context: RequestContext is null (no HTTP request)
+            var nullContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+
+            var searchableManager = new SearchableSearchParameterDefinitionManager(
+                searchParameterDefinitionManager, nullContextAccessor);
+
+            // Act & Assert: This is the exact call that crashes in production.
+            // SearchOptionsFactory.ResourceTypeSearchParameter calls this with ("Resource", "_type").
+            // Before the fix, this throws SearchParameterNotSupportedException because:
+            //   1. _type has no status store entry → else branch → IsSearchable = false
+            //   2. Background task has no RequestContext → UsePartialSearchParams = false
+            //   3. Both false → SearchableSearchParameterDefinitionManager throws
+            var exception = Record.Exception(() =>
+                searchableManager.GetSearchParameter("Resource", SearchParameterNames.ResourceType));
+
+            Assert.Null(exception);
+        }
+
+        /// <summary>
+        /// Verifies that _type (ResourceTypeSearchParameter) remains searchable and supported
+        /// after multiple calls to EnsureInitializedAsync (simulating pod restarts or repeated
+        /// initialization), even though _type never gets written to the status store.
+        ///
+        /// _type is a hardcoded parameter with no corresponding FHIR SearchParameter resource.
+        /// The refresh loop in SearchParameterOperations explicitly filters out system-defined
+        /// parameters before fetching, so _type is never persisted to the status store.
+        /// This test ensures the fix is stable across repeated initialization cycles.
+        /// </summary>
+        [Fact]
+        public async Task GivenResourceTypeParamWithNoStatusStoreEntry_WhenMultipleInitializationCyclesOccur_ThenRemainsSearchable()
+        {
+            // Arrange: Status store with NO entry for _type.
+            // This matches existing Cosmos/Gen1 accounts whose status store was seeded
+            // BEFORE the refactor commit added _type to AllSearchParameters.
+            // New instances DO have _type in the store (seeded by CosmosDbSearchParameterStatusInitializer
+            // via FilebasedSearchParameterStatusDataStore which iterates AllSearchParameters).
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceLastUpdated),
+                        IsPartiallySupported = true,
+                    },
+
+                    // _type is deliberately absent from the status store.
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
+            await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            var statusManager = new SearchParameterStatusManager(
+                statusDataStore,
+                searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
+            // Act: Run EnsureInitializedAsync multiple times, simulating repeated refresh
+            // cycles where the status store still has no _type entry.
+            for (int i = 0; i < 3; i++)
+            {
+                await statusManager.EnsureInitializedAsync(CancellationToken.None);
+
+                var resourceTypeParam = searchParameterDefinitionManager.GetSearchParameter(
+                    "Resource", SearchParameterNames.ResourceType);
+                Assert.True(resourceTypeParam.IsSearchable, $"_type should remain searchable after initialization cycle {i + 1}");
+                Assert.True(resourceTypeParam.IsSupported, $"_type should remain supported after initialization cycle {i + 1}");
+            }
+
+            // Also verify that ApplySearchParameterStatus (called during refresh) doesn't
+            // affect _type, since it only processes statuses passed to it and _type has none.
+            await statusManager.ApplySearchParameterStatus(
+                new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                },
+                CancellationToken.None);
+
+            var typeParamAfterApply = searchParameterDefinitionManager.GetSearchParameter(
+                "Resource", SearchParameterNames.ResourceType);
+            Assert.True(typeParamAfterApply.IsSearchable, "_type should remain searchable after ApplySearchParameterStatus");
+            Assert.True(typeParamAfterApply.IsSupported, "_type should remain supported after ApplySearchParameterStatus");
+        }
+
+        /// <summary>
+        /// Validates the new instance path: when the status store DOES contain an Enabled entry
+        /// for _type (as seeded by CosmosDbSearchParameterStatusInitializer on new instances),
+        /// _type should remain searchable and supported through initialization.
+        /// </summary>
+        [Fact]
+        public async Task GivenResourceTypeParamWithEnabledStatusStoreEntry_WhenInitializing_ThenRemainsSearchable()
+        {
+            // Arrange: Status store WITH an Enabled entry for _type, matching new instances
+            // where CosmosDbSearchParameterStatusInitializer seeds all AllSearchParameters.
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceLastUpdated),
+                        IsPartiallySupported = true,
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = SearchParameterNames.ResourceTypeUri,
+                    },
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
+
+            await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            var statusManager = new SearchParameterStatusManager(
+                statusDataStore,
+                searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
+            await statusManager.EnsureInitializedAsync(CancellationToken.None);
+
+            // Verify: _type should be searchable via the normal if-branch (status found, Enabled).
+            var resourceTypeParam = searchParameterDefinitionManager.GetSearchParameter(
+                "Resource", SearchParameterNames.ResourceType);
+            Assert.True(resourceTypeParam.IsSearchable, "_type should be searchable when status store has Enabled entry");
+            Assert.True(resourceTypeParam.IsSupported, "_type should be supported when status store has Enabled entry");
+
+            // Also verify it works from SearchableSearchParameterDefinitionManager in
+            // a background task context (null RequestContext).
+            var nullContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+
+            var searchableManager = new SearchableSearchParameterDefinitionManager(
+                searchParameterDefinitionManager, nullContextAccessor);
+
+            var exception = Record.Exception(() =>
+                searchableManager.GetSearchParameter("Resource", SearchParameterNames.ResourceType));
+
+            Assert.Null(exception);
         }
     }
 }
