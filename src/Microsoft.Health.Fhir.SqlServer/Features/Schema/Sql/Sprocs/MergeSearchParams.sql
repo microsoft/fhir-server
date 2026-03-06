@@ -41,11 +41,14 @@ BEGIN
 END
 
 DECLARE @SummaryOfChanges TABLE (Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL, Operation varchar(20) NOT NULL)
+DECLARE @InitialTranCount int = @@trancount
 
 BEGIN TRY
-  SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-
-  BEGIN TRANSACTION
+  IF @InitialTranCount = 0
+  BEGIN
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+    BEGIN TRANSACTION
+  END
   
   -- Check for concurrency conflicts first using LastUpdated
   SELECT @msg = string_agg(S.Uri, ', ') 
@@ -54,29 +57,9 @@ BEGIN TRY
   IF @msg IS NOT NULL
   BEGIN
     SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
-    ROLLBACK TRANSACTION;
+    IF @InitialTranCount = 0 ROLLBACK TRANSACTION;
     THROW 50001, @msg, 1
   END
-
-  MERGE INTO dbo.SearchParam S
-    USING @SearchParams I ON I.Uri = S.Uri
-    WHEN MATCHED THEN 
-      UPDATE 
-        SET Status = I.Status
-           ,LastUpdated = @LastUpdated
-           ,IsPartiallySupported = I.IsPartiallySupported
-    WHEN NOT MATCHED BY TARGET THEN 
-      INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
-        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported)
-    OUTPUT I.Uri, $action INTO @SummaryOfChanges;
-  SET @Rows = @@rowcount
-
-  SELECT S.SearchParamId
-        ,S.Uri
-        ,S.LastUpdated
-    FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
-    WHERE C.Operation = 'INSERT'
-  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
 
   IF EXISTS (SELECT * FROM @Resources)
   BEGIN
@@ -106,12 +89,32 @@ BEGIN TRY
     SET @Rows = @Rows + @AffectedRows;
   END
 
-  COMMIT TRANSACTION
+  MERGE INTO dbo.SearchParam S
+    USING @SearchParams I ON I.Uri = S.Uri
+    WHEN MATCHED THEN 
+      UPDATE 
+        SET Status = I.Status
+           ,LastUpdated = @LastUpdated
+           ,IsPartiallySupported = I.IsPartiallySupported
+    WHEN NOT MATCHED BY TARGET THEN 
+      INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
+        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported)
+    OUTPUT I.Uri, $action INTO @SummaryOfChanges;
+  SET @Rows = @@rowcount
+
+  SELECT S.SearchParamId
+        ,S.Uri
+        ,S.LastUpdated
+    FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
+    WHERE C.Operation = 'INSERT'
+  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
+
+  IF @InitialTranCount = 0 COMMIT TRANSACTION
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows,@Text=@msg
 END TRY
 BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION;
+  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION;
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
