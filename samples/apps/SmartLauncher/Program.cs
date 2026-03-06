@@ -58,14 +58,30 @@ app.MapPost("/token-proxy", async (HttpRequest request, IConfiguration configura
     {
         if (string.IsNullOrEmpty(cachedTokenEndpoint))
         {
+            // Validate the configured FHIR server URL to prevent SSRF
+            if (!Uri.TryCreate(fhirServerUrl, UriKind.Absolute, out var fhirServerUri)
+                || (fhirServerUri.Scheme != Uri.UriSchemeHttps && fhirServerUri.Scheme != Uri.UriSchemeHttp))
+            {
+                return Results.BadRequest(new { error = "FhirServerUrl is not a valid HTTP(S) URL." });
+            }
+
             using var discoveryClient = httpClientFactory.CreateClient();
-            var smartConfigUrl = fhirServerUrl.TrimEnd('/') + "/.well-known/smart-configuration";
-            var smartResponse = await discoveryClient.GetAsync(new Uri(smartConfigUrl));
+            var smartConfigUrl = new Uri(fhirServerUri, ".well-known/smart-configuration");
+            var smartResponse = await discoveryClient.GetAsync(smartConfigUrl);
             smartResponse.EnsureSuccessStatusCode();
             var smartJson = await smartResponse.Content.ReadAsStringAsync();
             var smartConfig = System.Text.Json.JsonDocument.Parse(smartJson);
-            cachedTokenEndpoint = smartConfig.RootElement.GetProperty("token_endpoint").GetString()
+            var discoveredEndpoint = smartConfig.RootElement.GetProperty("token_endpoint").GetString()
                 ?? throw new InvalidOperationException("token_endpoint not found in SMART configuration.");
+
+            // Validate the discovered token endpoint URL to prevent SSRF
+            if (!Uri.TryCreate(discoveredEndpoint, UriKind.Absolute, out var tokenUri)
+                || (tokenUri.Scheme != Uri.UriSchemeHttps && tokenUri.Scheme != Uri.UriSchemeHttp))
+            {
+                throw new InvalidOperationException("token_endpoint in SMART configuration is not a valid HTTP(S) URL.");
+            }
+
+            cachedTokenEndpoint = discoveredEndpoint;
         }
 
         tokenEndpoint = cachedTokenEndpoint;
