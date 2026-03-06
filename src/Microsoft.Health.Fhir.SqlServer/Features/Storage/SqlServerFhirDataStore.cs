@@ -882,8 +882,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                // For transaction bundles, defer SearchParam status updates to the end of the bundle
-                // to avoid X locks on dbo.SearchParam that would block subsequent entries' behavior pipelines.
+                // For non-transaction operations, extract pending statuses now so they are merged with the resource.
+                // Transaction bundles skip this; statuses are flushed at the end of the bundle by BundleHandler.
                 if (!isBundleTransaction)
                 {
                     TryGetPendingSearchParameterStatusUpdates(out var pendingStatuses);
