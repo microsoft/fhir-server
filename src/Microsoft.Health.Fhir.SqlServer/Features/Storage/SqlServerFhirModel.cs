@@ -243,6 +243,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
             cmd.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
+            // The stored procedure returns 6 result sets, so the reader needs to handle 6 sets of results.
             var resultsList = await cmd.ExecuteMultiResultReaderAsync(
                 _sqlRetryService,
                 new List<Func<SqlDataReader, object>>()
