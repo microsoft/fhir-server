@@ -70,8 +70,8 @@ jobs:
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         # Cosmos DB autoscale is configured in the ARM template (10,000 RU max)
-        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
-        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 1
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 2
+        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 2
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
@@ -80,7 +80,7 @@ jobs:
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
             appServicePlanSku = "P0V3"
-            numberOfInstances = 2
+            numberOfInstances = 3
             serviceName = $webAppName
             keyVaultName = "${{ parameters.keyVaultName }}".ToLower()
             securityAuthenticationAuthority = "https://sts.windows.net/$(tenant-id-guid)"
