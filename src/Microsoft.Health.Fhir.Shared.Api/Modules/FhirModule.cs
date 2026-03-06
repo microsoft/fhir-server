@@ -185,16 +185,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();
 
-            // Registers a health check for improper behavior
-            services.RemoveServiceTypeExact<ImproperBehaviorHealthCheck, INotificationHandler<ImproperBehaviorNotification>>()
-                .Add<ImproperBehaviorHealthCheck>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IHealthCheck>()
-                .AsService<INotificationHandler<ImproperBehaviorNotification>>();
-
-            services.AddHealthChecks().AddCheck<ImproperBehaviorHealthCheck>(name: "BehaviorHealthCheck");
-
             // Registers a health check to ensure storage gets initialized
             services.RemoveServiceTypeExact<StorageInitializedHealthCheck, INotificationHandler<SearchParametersInitializedNotification>>()
                 .Add<StorageInitializedHealthCheck>()
