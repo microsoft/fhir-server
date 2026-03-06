@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -22,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -140,6 +142,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsImplementedInterfaces();
 
             services.AddSingleton<ISearchIndexer, TypedElementSearchIndexer>();
+
+            // Register the default Firely-based FHIRPath provider (can be overridden by Ignixa module)
+            services.TryAddSingleton<IFhirPathProvider, FirelyFhirPathProvider>();
 
             services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
             services.AddSingleton<IExpressionParser, ExpressionParser>();
