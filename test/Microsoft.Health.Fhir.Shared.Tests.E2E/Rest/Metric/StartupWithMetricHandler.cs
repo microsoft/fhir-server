@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
@@ -30,6 +31,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 .AsService<INotificationHandler<ApiResponseNotification>>()
                 .AsService<INotificationHandler<CosmosStorageRequestMetricsNotification>>()
                 .AsService<INotificationHandler<ExportTaskMetricsNotification>>();
+
+            services.Add<TestHealthCheckMetricPublisher>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHealthCheckMetricPublisher>();
         }
     }
 }

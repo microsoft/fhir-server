@@ -5,10 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -73,6 +77,80 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 () => _client.HttpClient.GetAsync("/health/check"),
                 (type: typeof(ApiResponseNotification), count: 0, resourceType: null),
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: null));
+        }
+
+        [Fact]
+        public async Task GivenHealthCheckPathWithAzureTrafficManagerUserAgent_WhenInvoked_ThenHealthMetricIsPublished()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            IHealthCheckMetricPublisher healthCheckMetricPublisher = ResolveHealthCheckMetricPublisher();
+            Assert.NotNull(healthCheckMetricPublisher);
+            ResetHealthCheckMetricPublisher(healthCheckMetricPublisher);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/health/check");
+            request.Headers.TryAddWithoutValidation("User-Agent", "Azure Traffic Manager Endpoint Monitor");
+
+            using HttpResponseMessage response = await _client.HttpClient.SendAsync(request);
+
+            Assert.True(response.IsSuccessStatusCode);
+            Assert.True(GetWasHealthCheckMetricPublished(healthCheckMetricPublisher));
+            Assert.Equal(HealthStatus.Healthy, GetLastPublishedStatus(healthCheckMetricPublisher));
+        }
+
+        [Fact]
+        public async Task GivenHealthCheckPathWithNonMatchingUserAgent_WhenInvoked_ThenHealthMetricIsNotPublished()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            IHealthCheckMetricPublisher healthCheckMetricPublisher = ResolveHealthCheckMetricPublisher();
+            Assert.NotNull(healthCheckMetricPublisher);
+            ResetHealthCheckMetricPublisher(healthCheckMetricPublisher);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/health/check");
+            request.Headers.TryAddWithoutValidation("User-Agent", "Some Other User Agent");
+
+            using HttpResponseMessage response = await _client.HttpClient.SendAsync(request);
+
+            Assert.True(response.IsSuccessStatusCode);
+            Assert.False(GetWasHealthCheckMetricPublished(healthCheckMetricPublisher));
+            Assert.Null(GetLastPublishedStatus(healthCheckMetricPublisher));
+        }
+
+        private IHealthCheckMetricPublisher ResolveHealthCheckMetricPublisher()
+        {
+            var inProcServer = _fixture.TestFhirServer as InProcTestFhirServer;
+            if (inProcServer == null)
+            {
+                return null;
+            }
+
+            return inProcServer.Server.Host.Services
+                .GetServices<IHealthCheckMetricPublisher>()
+                .Single(x => string.Equals(x.GetType().Name, "TestHealthCheckMetricPublisher", StringComparison.Ordinal));
+        }
+
+        private void ResetHealthCheckMetricPublisher(IHealthCheckMetricPublisher healthCheckMetricPublisher)
+        {
+            healthCheckMetricPublisher.GetType().GetMethod("Reset")?.Invoke(healthCheckMetricPublisher, null);
+        }
+
+        private bool GetWasHealthCheckMetricPublished(IHealthCheckMetricPublisher healthCheckMetricPublisher)
+        {
+            object value = healthCheckMetricPublisher.GetType().GetProperty("WasPublished")?.GetValue(healthCheckMetricPublisher);
+            return value is bool wasPublished && wasPublished;
+        }
+
+        private HealthStatus? GetLastPublishedStatus(IHealthCheckMetricPublisher healthCheckMetricPublisher)
+        {
+            object value = healthCheckMetricPublisher.GetType().GetProperty("LastPublishedStatus")?.GetValue(healthCheckMetricPublisher);
+            return value is HealthStatus status ? status : (HealthStatus?)value;
         }
 
         [Trait(Traits.Category, Categories.Bundle)]

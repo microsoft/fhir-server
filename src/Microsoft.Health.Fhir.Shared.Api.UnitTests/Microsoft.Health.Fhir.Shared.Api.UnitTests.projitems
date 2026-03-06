@@ -86,6 +86,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProfileResourcesBehaviourUnitTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProvenanceHeaderBehaviorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerApplicationBuilderExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\CompartmentTypesRouteConstraintTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\ResourceTypesRouteConstraintTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />

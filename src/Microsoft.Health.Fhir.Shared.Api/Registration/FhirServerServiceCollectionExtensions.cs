@@ -18,12 +18,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Metric;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
@@ -149,6 +151,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 }
             }
 
+            // Bind optional ARM dimensions that are emitted as tags on health check metrics.
+            if (configurationRoot != null)
+            {
+                services.Configure<ResourceHealthDimensionOptions>(configurationRoot.GetSection(ResourceHealthDimensionOptions.SectionName));
+            }
+
             AddMetricEmitter(services);
 
             // Register FHIR request context accessor so it is available early in the startup process
@@ -182,6 +190,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<ICrudMetricHandler, DefaultCrudMetricHandler>();
             services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
             services.TryAddSingleton<IFailureMetricHandler, DefaultFailureMetricHandler>();
+            services.TryAddSingleton<IHealthCheckMetricHandler, DefaultHealthCheckMetricHandler>();
+            services.TryAddSingleton<IHealthCheckMetricPublisher, HealthCheckMetricPublisher>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder
