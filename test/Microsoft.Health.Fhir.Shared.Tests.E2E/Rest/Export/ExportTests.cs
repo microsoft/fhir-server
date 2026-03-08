@@ -228,5 +228,44 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             await _client.SendAsync(request);
         }
+
+        /// <summary>
+        /// Verifies the full user-facing export cancellation lifecycle per the FHIR Bulk Data IG
+        /// (https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request):
+        ///   1. Create an export job → 202 Accepted with Content-Location.
+        ///   2. Cancel the job (DELETE Content-Location) → 202 Accepted.
+        ///   3. Get status (GET Content-Location) → 404 Not Found.
+        ///   4. Cancel again (DELETE Content-Location) → 404 Not Found.
+        /// </summary>
+        [Fact]
+        public async Task GivenExportJobExists_WhenCancelledThenStatusCheckedThenCancelledAgain_ThenCancelReturns202AndSubsequentCallsReturn404()
+        {
+            // Step 1 — Create an export job
+            using HttpRequestMessage exportRequest = GenerateExportRequest();
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            // Step 2 — Cancel the job (DELETE) → 202 Accepted
+            using HttpRequestMessage cancelRequest = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            using HttpResponseMessage cancelResponse = await _client.SendAsync(cancelRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
+
+            // Step 3 — Get status (GET) → 404 Not Found
+            using HttpRequestMessage getStatusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            using HttpResponseMessage getStatusResponse = await _client.SendAsync(getStatusRequest);
+
+            Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
+
+            // Step 4 — Cancel again (DELETE) → 404 Not Found
+            using HttpRequestMessage cancelAgainRequest = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            using HttpResponseMessage cancelAgainResponse = await _client.SendAsync(cancelAgainRequest);
+
+            Assert.Equal(HttpStatusCode.NotFound, cancelAgainResponse.StatusCode);
+        }
     }
 }

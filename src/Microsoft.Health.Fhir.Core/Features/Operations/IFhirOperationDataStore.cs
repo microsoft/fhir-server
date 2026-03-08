@@ -37,9 +37,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// </summary>
         /// <param name="jobRecord">The job record.</param>
         /// <param name="eTag">The eTag used for optimistic concurrency.</param>
+        /// <param name="isCustomerRequested">The Flag to suggest if the update was through the customer requested action.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>An instance of the updated export job.</returns>
-        Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
+        Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, bool isCustomerRequested, CancellationToken cancellationToken);
 
         /// <summary>
         /// Acquires export jobs.
