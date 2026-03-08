@@ -529,8 +529,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             async Task WaitForCacheRefreshAsync()
             {
                 // Wait for the search parameter cache to be updated
-                // 3 sec = 1 sec refresh interval * 3
-                await Task.Delay(TimeSpan.FromSeconds(3));
+                // 6 sec = 2 sec refresh interval * 3
+                await Task.Delay(TimeSpan.FromSeconds(6));
             }
 
             async Task CleanupAsync()
