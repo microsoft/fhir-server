@@ -15,8 +15,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -64,6 +66,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ILogger<ReindexProcessingJob> _logger;
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly OperationsConfiguration _operationsConfiguration;
 
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
@@ -87,7 +91,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchParameterOperations searchParameterOperations,
             ISearchParameterStatusManager searchParameterStatusManager,
-            ILogger<ReindexProcessingJob> logger)
+            ILogger<ReindexProcessingJob> logger,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
+            IOptions<OperationsConfiguration> operationsConfiguration)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
@@ -95,6 +101,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
+            EnsureArg.IsNotNull(coreFeatureConfiguration.Value, nameof(coreFeatureConfiguration.Value));
+            EnsureArg.IsNotNull(operationsConfiguration, nameof(operationsConfiguration));
+            EnsureArg.IsNotNull(operationsConfiguration.Value, nameof(operationsConfiguration.Value));
 
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
@@ -102,6 +112,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
             _logger = logger;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
+            _operationsConfiguration = operationsConfiguration.Value;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -145,9 +157,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterHash = searchParameterHash;
 
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
-            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
             isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
+
+            var syncResult = await _searchParameterOperations.WaitForCacheDatabaseSync(
+                TimeSpan.FromSeconds(_coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds),
+                _operationsConfiguration.Reindex.CacheRefreshMaxWaitIntervals,
+                cancellationToken);
+            currentDate = syncResult.CacheLastUpdated;
+
+            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
             msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
             //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
             //// Cannot just refresh here because we might be missing resources updated via API.

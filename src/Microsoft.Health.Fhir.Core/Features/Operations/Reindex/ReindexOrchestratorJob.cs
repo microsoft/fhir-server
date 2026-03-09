@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                await RefreshSearchParameterCache(true);
+                await WaitForCacheSync();
 
                 _reindexJobRecord.Status = OperationStatus.Running;
                 _jobInfo.Status = JobStatus.Running;
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await CheckForCompletionAsync(queryReindexProcessingJobs, cancellationToken);
 
-                await RefreshSearchParameterCache(false);
+                await WaitForRefresh();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -185,23 +185,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task WaitForRefresh()
         {
-            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
+            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshMaxWaitIntervals * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
         }
 
-        private async Task RefreshSearchParameterCache(bool isReindexStart)
+        private async Task WaitForCacheSync()
         {
             // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
-            var suffix = isReindexStart ? "Start" : "End";
-            _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
-            await WaitForRefresh(); // wait for M * cache refresh intervals
+            _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started wait for cache refresh.");
+            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, _cancellationToken);
 
-            // Update the reindex job record with the latest hash map
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
-            _searchParamLastUpdated = currentDate;
+            var syncResult = await _searchParameterOperations.WaitForCacheDatabaseSync(
+                    TimeSpan.FromSeconds(_coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds),
+                    _operationsConfiguration.Reindex.CacheRefreshMaxWaitIntervals,
+                    _cancellationToken);
+            _searchParamLastUpdated = syncResult.CacheLastUpdated;
 
-            _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed cache refresh at the {suffix}: SearchParamLastUpdated {_searchParamLastUpdated}");
-            await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", $"SearchParamLastUpdated={_searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff")}", null, _cancellationToken);
+            var cacheLastUpdatedStr = _searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            if (syncResult.IsInSync)
+            {
+                _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed wait for cache refresh: SearchParamLastUpdated={cacheLastUpdatedStr}");
+                await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, _cancellationToken);
+            }
+            else
+            {
+                _logger.LogJobError(_jobInfo, $"Reindex orchestrator job did not see succesful cache refresh: SearchParamLastUpdated={cacheLastUpdatedStr}");
+                await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Error", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, _cancellationToken);
+            }
         }
 
         private async Task<IReadOnlyList<long>> CreateReindexProcessingJobsAsync(CancellationToken cancellationToken)

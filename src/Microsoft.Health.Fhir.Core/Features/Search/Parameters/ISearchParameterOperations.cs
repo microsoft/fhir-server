@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         DateTimeOffset? SearchParamLastUpdated { get; }
 
+        Task<(DateTimeOffset CacheLastUpdated, TimeSpan WaitTime, bool IsInSync)> WaitForCacheDatabaseSync(TimeSpan waitInterval, int maxWaitIntervals, CancellationToken cancellationToken);
+
         Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
 
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);

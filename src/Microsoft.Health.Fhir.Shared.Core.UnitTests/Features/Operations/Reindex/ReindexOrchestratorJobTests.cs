@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
             var conf = new OperationsConfiguration();
-            conf.Reindex.CacheRefreshWaitMultiplier = waitMultiplier;
+            conf.Reindex.CacheRefreshMaxWaitIntervals = waitMultiplier;
             operationsConfig.Value.Returns(conf);
 
             return new ReindexOrchestratorJob(
