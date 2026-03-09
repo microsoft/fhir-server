@@ -4750,17 +4750,6 @@ BEGIN TRY
                    AND GroupId = @GroupId
                    AND Status = 1;
             SET @Rows += @@rowcount;
-            IF @QueueType = 1
-               AND @RequestCancellationOnFailure = 0
-                BEGIN
-                    UPDATE dbo.JobQueue
-                    SET    status = 6
-                    WHERE  QueueType = @QueueType
-                           AND GroupId = @GroupId
-                           AND JobId = @GroupId
-                           AND Status IN (2, 3);
-                    SET @Rows += @@rowcount;
-        END
         END
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
