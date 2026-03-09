@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
@@ -26,26 +28,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     /// </summary>
     internal sealed class ExpiredResourceCleanupWatchdog : Watchdog<ExpiredResourceCleanupWatchdog>
     {
-        private const int DefaultRetentionPeriodDays = 90;
         private const int DefaultPeriodSec = 2 * 3600; // 2 hours
         private const int DefaultLeasePeriodSec = 3600; // 1 hour
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
         private readonly ILogger<ExpiredResourceCleanupWatchdog> _logger;
+        private readonly ExpiredResourceConfiguration _configuration;
 
         private int _retentionPeriodDays;
-        private DeleteOperation _deleteOperation;
 
         public ExpiredResourceCleanupWatchdog(
             ISqlRetryService sqlRetryService,
             IQueueClient queueClient,
+            IOptions<WatchdogConfiguration> watchdogConfiguration,
             ILogger<ExpiredResourceCleanupWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value?.ExpiredResource, nameof(watchdogConfiguration));
         }
 
         internal ExpiredResourceCleanupWatchdog()
@@ -72,38 +75,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         /// <inheritdoc/>
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
-            if (!await IsEnabledAsync(cancellationToken))
+            if (!_configuration.Enabled)
             {
                 _logger.LogDebug("ExpiredResourceCleanupWatchdog is disabled. Skipping cleanup.");
                 return;
             }
 
-            _retentionPeriodDays = await GetRetentionPeriodDaysAsync(cancellationToken);
-            _deleteOperation = await GetDeleteOperationAsync(cancellationToken);
+            // Use configuration values if enabled via config, otherwise fall back to database parameters
+            if (_configuration.Enabled)
+            {
+                _retentionPeriodDays = _configuration.RetentionPeriodDays;
+            }
 
             await EnqueueBulkDeleteJobAsync(cancellationToken);
         }
 
         /// <inheritdoc/>
-        protected override async Task InitAdditionalParamsAsync()
+        protected override Task InitAdditionalParamsAsync()
         {
-            _logger.LogInformation("ExpiredResourceCleanupWatchdog.InitAdditionalParamsAsync starting...");
-
-            using var cmd = new SqlCommand(@"
-INSERT INTO dbo.Parameters (Id,Number) SELECT @RetentionPeriodDaysId, @DefaultRetentionPeriodDays
-INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0
-INSERT INTO dbo.Parameters (Id,Number) SELECT @DeleteOperationId, 0
-            ");
-            cmd.Parameters.AddWithValue("@RetentionPeriodDaysId", RetentionPeriodDaysId);
-            cmd.Parameters.AddWithValue("@DefaultRetentionPeriodDays", DefaultRetentionPeriodDays);
-            cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
-            cmd.Parameters.AddWithValue("@DeleteOperationId", (int)DeleteOperation.HardDelete);
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
-
-            _retentionPeriodDays = await GetRetentionPeriodDaysAsync(CancellationToken.None);
-            _deleteOperation = await GetDeleteOperationAsync(CancellationToken.None);
-
-            _logger.LogInformation("ExpiredResourceCleanupWatchdog.InitAdditionalParamsAsync completed.");
+            return Task.CompletedTask;
         }
 
         private async Task EnqueueBulkDeleteJobAsync(CancellationToken cancellationToken)
@@ -115,16 +105,16 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @DeleteOperationId, 0
 
                 var searchParameters = new List<Tuple<string, string>>
                 {
-                    Tuple.Create("_lastUpdated", $"lt{cutoffDateString}"),
+                    Tuple.Create("_expiryDate", $"lt{cutoffDateString}"),
                 };
 
                 var definition = new BulkDeleteDefinition(
                     JobType.BulkDeleteOrchestrator,
-                    _deleteOperation,
+                    DeleteOperation.HardDelete,
                     type: null, // null type means all resource types
                     searchParameters,
                     excludedResourceTypes: null,
-                    url: $"ExpiredResourceCleanupWatchdog?_lastUpdated=lt{cutoffDateString}",
+                    url: $"ExpiredResourceCleanupWatchdog?_expiryDate=lt{cutoffDateString}",
                     baseUrl: string.Empty,
                     parentRequestId: Guid.NewGuid().ToString(),
                     versionType: ResourceVersionType.Latest,
@@ -135,11 +125,10 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @DeleteOperationId, 0
                 if (jobs != null && jobs.Count > 0)
                 {
                     _logger.LogInformation(
-                        "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate} (retention period: {RetentionPeriodDays} days, operation: {DeleteOperation}).",
+                        "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate} (retention period: {RetentionPeriodDays} days).",
                         jobs[0].Id,
                         cutoffDateString,
-                        _retentionPeriodDays,
-                        _deleteOperation);
+                        _retentionPeriodDays);
                 }
                 else
                 {
@@ -150,24 +139,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @DeleteOperationId, 0
             {
                 _logger.LogError(ex, "ExpiredResourceCleanupWatchdog: Error while enqueuing bulk delete job.");
             }
-        }
-
-        private async Task<bool> IsEnabledAsync(CancellationToken cancellationToken)
-        {
-            var value = await GetNumberParameterByIdAsync(IsEnabledId, cancellationToken);
-            return value == 1;
-        }
-
-        private async Task<int> GetRetentionPeriodDaysAsync(CancellationToken cancellationToken)
-        {
-            var value = await GetNumberParameterByIdAsync(RetentionPeriodDaysId, cancellationToken);
-            return (int)value;
-        }
-
-        private async Task<DeleteOperation> GetDeleteOperationAsync(CancellationToken cancellationToken)
-        {
-            var value = await GetNumberParameterByIdAsync(DeleteOperationId, cancellationToken);
-            return (DeleteOperation)(int)value;
         }
     }
 }
