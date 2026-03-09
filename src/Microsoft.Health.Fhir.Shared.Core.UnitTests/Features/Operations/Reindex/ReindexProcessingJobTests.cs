@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -47,6 +49,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         {
             Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
             _cancellationToken = _cancellationTokenSource.Token;
+            var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration());
+
+            var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
+            var conf = new OperationsConfiguration();
+            conf.Reindex.CacheRefreshMaxWaitIntervals = 0;
+            operationsConfig.Value.Returns(conf);
+
             _reindexProcessingJobTaskFactory = () =>
                  new ReindexProcessingJob(
                      () => _searchService.CreateMockScope(),
@@ -54,7 +64,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                      _resourceWrapperFactory,
                      _searchParameterOperations,
                      _searchParameterStatusManager,
-                     NullLogger<ReindexProcessingJob>.Instance);
+                     NullLogger<ReindexProcessingJob>.Instance,
+                     coreFeatureConfig,
+                     operationsConfig);
         }
 
         [Fact]
