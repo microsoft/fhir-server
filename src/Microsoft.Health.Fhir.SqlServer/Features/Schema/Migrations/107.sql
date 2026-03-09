@@ -4374,16 +4374,14 @@ BEGIN CATCH
     IF error_number() = 1750
         THROW;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    IF @RaiseExceptionOnConflict = 1
-       AND error_message() LIKE '%''dbo.Resource''%'
+    IF @RaiseExceptionOnConflict = 1 AND error_message() LIKE '%''dbo.Resource''%'
         BEGIN
             IF error_number() = 2601
                 THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates.', 1;
-            ELSE
-                IF error_number() = 2627
+            ELSE IF error_number() = 2627
                     THROW 50424, 'Cannot persit resource due to a conflict with duplicated keys. Check the volume of resource being submited for ingestion.', 1;
-                ELSE
-                    THROW;
+            ELSE
+                THROW;
         END
     ELSE
         THROW;
