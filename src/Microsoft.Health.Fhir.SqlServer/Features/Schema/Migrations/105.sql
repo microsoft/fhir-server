@@ -2706,24 +2706,6 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE PROCEDURE dbo.GetQuantityCodeId
-@stringValue NVARCHAR (255)
-AS
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-BEGIN TRANSACTION;
-DECLARE @id AS INT = (SELECT QuantityCodeId
-                      FROM   dbo.QuantityCode WITH (UPDLOCK)
-                      WHERE  Value = @stringValue);
-IF (@id IS NULL)
-    BEGIN
-        INSERT  INTO dbo.QuantityCode (Value)
-        VALUES                       (@stringValue);
-        SET @id = SCOPE_IDENTITY();
-    END
-COMMIT TRANSACTION;
-SELECT @id;
-
-GO
 CREATE PROCEDURE dbo.GetReindexJobById
 @id VARCHAR (64)
 AS
@@ -3315,24 +3297,6 @@ SELECT 'GetSearchParamStatuses',
        'LogEvent';
 
 GO
-CREATE PROCEDURE dbo.GetSystemId
-@stringValue NVARCHAR (255)
-AS
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-BEGIN TRANSACTION;
-DECLARE @id AS INT = (SELECT SystemId
-                      FROM   dbo.System WITH (UPDLOCK)
-                      WHERE  Value = @stringValue);
-IF (@id IS NULL)
-    BEGIN
-        INSERT  INTO dbo.System (Value)
-        VALUES                 (@stringValue);
-        SET @id = SCOPE_IDENTITY();
-    END
-COMMIT TRANSACTION;
-SELECT @id;
-
-GO
 CREATE PROCEDURE dbo.GetTransactions
 @StartNotInclusiveTranId BIGINT, @EndInclusiveTranId BIGINT, @EndDate DATETIME=NULL
 AS
@@ -3527,63 +3491,6 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     THROW;
 END CATCH
-
-GO
-CREATE PROCEDURE dbo.InitializeBase
-@searchParams NVARCHAR (MAX), @resourceTypes NVARCHAR (3000), @claimTypes VARCHAR (100), @compartmentTypes VARCHAR (100)
-AS
-SET XACT_ABORT ON;
-BEGIN TRANSACTION;
-INSERT INTO dbo.ResourceType (Name)
-SELECT value
-FROM   string_split (@resourceTypes, ',')
-EXCEPT
-SELECT Name
-FROM   dbo.ResourceType WITH (TABLOCKX);
-SELECT ResourceTypeId,
-       Name
-FROM   dbo.ResourceType;
-WITH Input
-AS   (SELECT DISTINCT j.Uri,
-                      CAST (j.IsPartiallySupported AS BIT) AS IsPartiallySupported
-      FROM   OPENJSON (@searchParams) WITH (Uri VARCHAR (128) '$.Uri', IsPartiallySupported BIT '$.IsPartiallySupported') AS j)
-INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
-SELECT i.Uri,
-       'Initialized',
-       SYSDATETIMEOFFSET(),
-       i.IsPartiallySupported
-FROM   Input AS i
-WHERE  NOT EXISTS (SELECT 1
-                   FROM   dbo.SearchParam AS sp
-                   WHERE  sp.Uri = i.Uri);
-SELECT Uri,
-       SearchParamId
-FROM   dbo.SearchParam;
-INSERT INTO dbo.ClaimType (Name)
-SELECT value
-FROM   string_split (@claimTypes, ',')
-EXCEPT
-SELECT Name
-FROM   dbo.ClaimType;
-SELECT ClaimTypeId,
-       Name
-FROM   dbo.ClaimType;
-INSERT INTO dbo.CompartmentType (Name)
-SELECT value
-FROM   string_split (@compartmentTypes, ',')
-EXCEPT
-SELECT Name
-FROM   dbo.CompartmentType;
-SELECT CompartmentTypeId,
-       Name
-FROM   dbo.CompartmentType;
-COMMIT TRANSACTION;
-SELECT Value,
-       SystemId
-FROM   dbo.System;
-SELECT Value,
-       QuantityCodeId
-FROM   dbo.QuantityCode;
 
 GO
 CREATE PROCEDURE dbo.InitializeIndexProperties
@@ -4750,17 +4657,6 @@ BEGIN TRY
                    AND GroupId = @GroupId
                    AND Status = 1;
             SET @Rows += @@rowcount;
-            IF @QueueType = 1
-               AND @RequestCancellationOnFailure = 0
-                BEGIN
-                    UPDATE dbo.JobQueue
-                    SET    status = 6
-                    WHERE  QueueType = @QueueType
-                           AND GroupId = @GroupId
-                           AND JobId = @GroupId
-                           AND Status IN (2, 3);
-                    SET @Rows += @@rowcount;
-        END
         END
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY

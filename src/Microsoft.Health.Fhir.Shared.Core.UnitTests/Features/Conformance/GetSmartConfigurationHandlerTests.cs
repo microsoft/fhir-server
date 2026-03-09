@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     [Trait(Traits.Category, Categories.Conformance)]
     public class GetSmartConfigurationHandlerTests
     {
+        private static readonly List<string> ExpectedBaseCapabilities = new List<string>(
+            Constants.SmartCapabilityClients
+                .Concat(Constants.SmartCapabilityAdditional)
+                .Concat(Constants.SmartCapabilityLaunches)
+                .Concat(Constants.SmartCapabilityPermissions)
+                .Concat(Constants.SmartCapabilitySSOs));
+
+        private static readonly List<string> ExpectedThirdPartyCapabilities = new List<string>(
+            ExpectedBaseCapabilities.Concat(Constants.SmartCapabilityThirdPartyContexts));
+
         private static GetSmartConfigurationHandler CreateHandler(
             SecurityConfiguration securityConfiguration,
             SmartIdentityProviderConfiguration smartIdpConfig = null,
@@ -80,13 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/token", response.TokenEndpoint.ToString());
-            Assert.Equal(response.Capabilities, new List<string>
-                    {
-                        "sso-openid-connect",
-                        "permission-offline",
-                        "permission-patient",
-                        "permission-user",
-                    });
+            Assert.Equal(ExpectedBaseCapabilities, response.Capabilities);
 
             // Verify SMART v2 scopes are included
             Assert.NotNull(response.ScopesSupported);
@@ -172,13 +177,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             Assert.Equal("https://fhir.example.com/AadSmartOnFhirProxy/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal("https://fhir.example.com/AadSmartOnFhirProxy/token", response.TokenEndpoint.ToString());
-            Assert.Equal(response.Capabilities, new List<string>
-                    {
-                        "sso-openid-connect",
-                        "permission-offline",
-                        "permission-patient",
-                        "permission-user",
-                    });
+            Assert.Equal(ExpectedBaseCapabilities, response.Capabilities);
 
             // Verify SMART v2 scopes are included
             Assert.NotNull(response.ScopesSupported);
@@ -206,13 +205,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             Assert.Equal(authority + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(authority + "/oauth2/v2.0/token", response.TokenEndpoint.ToString());
-            Assert.Equal(response.Capabilities, new List<string>
-                    {
-                        "sso-openid-connect",
-                        "permission-offline",
-                        "permission-patient",
-                        "permission-user",
-                    });
+            Assert.Equal(ExpectedBaseCapabilities, response.Capabilities);
 
             // Verify SMART v2 scopes are included
             Assert.NotNull(response.ScopesSupported);
@@ -245,6 +238,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var expectedAuthority = !string.IsNullOrEmpty(authority) ? authority.TrimEnd('/') : baseUri;
             Assert.Equal(expectedAuthority + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(expectedAuthority + "/oauth2/v2.0/token", response.TokenEndpoint.ToString());
+
+            if (!string.IsNullOrEmpty(authority))
+            {
+                Assert.Equal(ExpectedThirdPartyCapabilities, response.Capabilities);
+            }
+            else
+            {
+                Assert.Equal(ExpectedBaseCapabilities, response.Capabilities);
+            }
         }
     }
 }
