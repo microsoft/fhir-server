@@ -68,6 +68,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Ignixa\IgnixaFhirJsonInputFormatterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Ignixa\IgnixaFhirJsonOutputFormatterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Ignixa\IgnixaSerializationRoundTripTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\BundleResourceContextComparerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
