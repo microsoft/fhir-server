@@ -1,4 +1,4 @@
-﻿CREATE OR ALTER PROCEDURE dbo.GetSystemId
+CREATE OR ALTER PROCEDURE dbo.GetSystemId
     @stringValue nvarchar(255)
 AS
 
