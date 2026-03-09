@@ -64,13 +64,13 @@ public class SerializationBenchmarks
     public Patient Firely_ParsePatient() => _firelyParser.Parse<Patient>(_patientJson);
 
     [Benchmark(Description = "Ignixa: Parse Patient JSON")]
-    public Ignixa.Serialization.SourceNodes.ResourceJsonNode Ignixa_ParsePatient() => _ignixaSerializer.Parse(_patientJson);
+    public global::Ignixa.Serialization.SourceNodes.ResourceJsonNode Ignixa_ParsePatient() => _ignixaSerializer.Parse(_patientJson);
 
     [Benchmark(Description = "Firely: Parse Observation JSON")]
     public Observation Firely_ParseObservation() => _firelyParser.Parse<Observation>(_observationJson);
 
     [Benchmark(Description = "Ignixa: Parse Observation JSON")]
-    public Ignixa.Serialization.SourceNodes.ResourceJsonNode Ignixa_ParseObservation() => _ignixaSerializer.Parse(_observationJson);
+    public global::Ignixa.Serialization.SourceNodes.ResourceJsonNode Ignixa_ParseObservation() => _ignixaSerializer.Parse(_observationJson);
 
     // ------------------------------------------------------------------
     // Serialize benchmarks

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31919.166
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11512.155 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8AD2A324-DAB5-4380-94A5-31F7D817C384}"
 EndProject
@@ -1185,12 +1185,13 @@ Global
 		{0D1CBA8C-D510-43CB-8B5D-25287B20D693} = {BA0D5243-CFC7-4DEB-9836-657C50195DD1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems*{070759a9-51d9-4967-8651-39cca8288c93}*SharedItemsImports = 5
+		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{0d1cba8c-d510-43cb-8b5d-25287b20d693}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{1495bba7-07b8-47ca-b2ed-511003b57667}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Core.UnitTests\Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems*{1b944b8a-54f2-4af3-a38a-ca7f1ab5c618}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{1b944b8a-54f2-4af3-a38a-ca7f1ab5c618}*SharedItemsImports = 5

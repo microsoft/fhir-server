@@ -34,8 +34,9 @@ public class InputFormatterBenchmarks
 {
     private byte[] _patientJsonBytes;
     private byte[] _observationJsonBytes;
+    private string _patientJson;
     private IgnixaFhirJsonInputFormatter _ignixaFormatter;
-    private FhirJsonInputFormatter _firelyFormatter;
+    private FhirJsonParser _firelyParser;
     private ModelMetadata _resourceElementMetadata;
     private ModelMetadata _resourceMetadata;
 
@@ -44,32 +45,30 @@ public class InputFormatterBenchmarks
     {
         ModelExtensions.SetModelInfoProvider();
 
-        _patientJsonBytes = Encoding.UTF8.GetBytes(Samples.GetJson("Patient"));
+        _patientJson = Samples.GetJson("Patient");
+        _patientJsonBytes = Encoding.UTF8.GetBytes(_patientJson);
         _observationJsonBytes = Encoding.UTF8.GetBytes(Samples.GetJson("Weight"));
 
         // Set up Ignixa formatter
         var ignixaSerializer = new IgnixaJsonSerializer();
 #pragma warning disable CS0618
-        var firelyParser = new FhirJsonParser(new ParserSettings { PermissiveParsing = true, TruncateDateTimeToDate = true });
+        _firelyParser = new FhirJsonParser(new ParserSettings { PermissiveParsing = true, TruncateDateTimeToDate = true });
 #pragma warning restore CS0618
         var services = new ServiceCollection();
         services.AddSingleton<IModelInfoProvider>(ModelInfoProvider.Instance);
         services.AddSingleton<IIgnixaSchemaContext>(new IgnixaSchemaContext(ModelInfoProvider.Instance));
         var sp = services.BuildServiceProvider();
-        _ignixaFormatter = new IgnixaFhirJsonInputFormatter(ignixaSerializer, firelyParser, sp);
-
-        // Set up Firely formatter
-        _firelyFormatter = new FhirJsonInputFormatter(firelyParser, System.Buffers.ArrayPool<char>.Shared);
+        _ignixaFormatter = new IgnixaFhirJsonInputFormatter(ignixaSerializer, _firelyParser, sp);
 
         // Metadata
         _resourceElementMetadata = new EmptyModelMetadataProvider().GetMetadataForType(typeof(ResourceElement));
         _resourceMetadata = new EmptyModelMetadataProvider().GetMetadataForType(typeof(Resource));
     }
 
-    [Benchmark(Baseline = true, Description = "Firely formatter: Parse Patient → Resource")]
-    public async Task<InputFormatterResult> Firely_ParsePatient_AsResource()
+    [Benchmark(Baseline = true, Description = "Firely: Parse Patient JSON → Resource")]
+    public Resource Firely_ParsePatient_AsResource()
     {
-        return await ReadWith(_firelyFormatter, _patientJsonBytes, _resourceMetadata);
+        return _firelyParser.Parse<Resource>(_patientJson);
     }
 
     [Benchmark(Description = "Ignixa formatter: Parse Patient → ResourceElement")]
@@ -91,7 +90,7 @@ public class InputFormatterBenchmarks
     }
 
     private static async Task<InputFormatterResult> ReadWith(
-        TextInputFormatter formatter,
+        IgnixaFhirJsonInputFormatter formatter,
         byte[] jsonBytes,
         ModelMetadata metadata)
     {

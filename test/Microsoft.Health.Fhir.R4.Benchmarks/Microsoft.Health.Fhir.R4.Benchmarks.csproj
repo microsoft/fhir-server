@@ -4,6 +4,9 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>false</IsTestProject>
     <DefineConstants>R4</DefineConstants>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
   </PropertyGroup>
 
   <ItemGroup>
