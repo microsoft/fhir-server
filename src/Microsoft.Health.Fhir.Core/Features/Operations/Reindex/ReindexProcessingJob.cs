@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _jobInfo = jobInfo;
             _reindexProcessingJobDefinition = DeserializeJobDefinition(_jobInfo);
 
-            await CheckDiscrepancies(cancellationToken);
+            await CheckSync(cancellationToken);
 
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
@@ -135,34 +135,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
 
-        private async Task CheckDiscrepancies(CancellationToken cancellationToken)
+        private async Task CheckSync(CancellationToken cancellationToken)
         {
-            var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
-            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
+            var cacheLastUpdated = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+            var cacheLastUpdatedStr = cacheLastUpdated.ToString(ReindexOrchestratorJob.LogDateTimeFormat);
+            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString(ReindexOrchestratorJob.LogDateTimeFormat);
+            var isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > cacheLastUpdated;
+            var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={cacheLastUpdatedStr}";
+            _logger.LogJobInformation(_jobInfo, msg);
+            await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.CheckDiscrepancies", "Warn", msg, null, cancellationToken);
+
             if (isBad) // try to wait for sync only if bad
             {
                 var syncResult = await _searchParameterOperations.WaitForCacheDatabaseSync(
                     TimeSpan.FromSeconds(_coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds),
                     _operationsConfiguration.Reindex.CacheRefreshMaxWaitIntervals,
                     cancellationToken);
-                currentDate = syncResult.CacheLastUpdated;
-                isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
-            }
+                cacheLastUpdated = syncResult.CacheLastUpdated;
+                isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > cacheLastUpdated;
 
-            var current = currentDate.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var requested = _reindexProcessingJobDefinition.SearchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            var msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
-            //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
-            //// Cannot just refresh here because we might be missing resources updated via API.
-            if (isBad)
-            {
-                _logger.LogJobWarning(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
-            }
-            else // normal
-            {
-                _logger.LogJobInformation(_jobInfo, msg);
-                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Warn", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+                cacheLastUpdatedStr = cacheLastUpdated.ToString(ReindexOrchestratorJob.LogDateTimeFormat);
+                if (syncResult.IsInSync)
+                {
+                    _logger.LogJobInformation(_jobInfo, $"Reindex processing job completed wait for cache sync: SearchParamLastUpdated={cacheLastUpdatedStr}");
+                    await TryLogEvent($"ReindexProcressingJob={_jobInfo.Id}.CheckDiscrepancies", "Warn", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, cancellationToken);
+                }
+                else
+                {
+                    _logger.LogJobError(_jobInfo, $"Reindex processing job did not register cache sync: SearchParamLastUpdated={cacheLastUpdatedStr}");
+                    await TryLogEvent($"ReindexProcressingJob={_jobInfo.Id}.CheckDiscrepancies", "Error", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, cancellationToken);
+                    throw new JobExecutionException(ReindexOrchestratorJob.CacheSyncError, false);
+                }
             }
 
             var resourceType = _reindexProcessingJobDefinition.ResourceType;

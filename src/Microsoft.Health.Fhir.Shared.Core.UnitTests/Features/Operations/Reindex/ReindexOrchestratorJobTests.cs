@@ -88,6 +88,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             conf.Reindex.CacheRefreshMaxWaitIntervals = waitMultiplier;
             operationsConfig.Value.Returns(conf);
 
+            _searchParameterOperations.WaitForCacheDatabaseSync(Arg.Any<TimeSpan>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns((DateTimeOffset.UtcNow, TimeSpan.FromSeconds(0), true));
+
             return new ReindexOrchestratorJob(
                 _queueClient,
                 () => _searchService.CreateMockScope(),

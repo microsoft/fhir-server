@@ -81,6 +81,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private HashSet<string> _processedSearchParameters = new HashSet<string>();
         private List<JobInfo> _jobsToProcess;
         private DateTimeOffset _searchParamLastUpdated;
+        public const string CacheSyncError = "Unable to sync search parameter cache. If issue persists, please contact Customer Support.";
+        public const string LogDateTimeFormat = "yyyy-MM-dd HH:mm:ss.fff";
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -200,16 +202,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _cancellationToken);
             _searchParamLastUpdated = syncResult.CacheLastUpdated;
 
-            var cacheLastUpdatedStr = _searchParamLastUpdated.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            var cacheLastUpdatedStr = _searchParamLastUpdated.ToString(LogDateTimeFormat);
             if (syncResult.IsInSync)
             {
-                _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed wait for cache refresh: SearchParamLastUpdated={cacheLastUpdatedStr}");
+                _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed wait for cache sync: SearchParamLastUpdated={cacheLastUpdatedStr}");
                 await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, _cancellationToken);
             }
             else
             {
-                _logger.LogJobError(_jobInfo, $"Reindex orchestrator job did not see succesful cache refresh: SearchParamLastUpdated={cacheLastUpdatedStr}");
+                _logger.LogJobError(_jobInfo, $"Reindex orchestrator job did not register cache sync: SearchParamLastUpdated={cacheLastUpdatedStr}");
                 await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Error", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, _cancellationToken);
+                throw new JobExecutionException(CacheSyncError, false);
             }
         }
 

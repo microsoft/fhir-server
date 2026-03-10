@@ -1113,6 +1113,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     _coreFeatureConfig,
                     operationsConfig);
 
+                // make sure that cache is refreshed
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 // Execute the orchestrator - it will load all processing jobs and extract errors
                 var orchestratorResult = await orchestrator.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
                 Assert.NotEmpty(orchestratorResult);
