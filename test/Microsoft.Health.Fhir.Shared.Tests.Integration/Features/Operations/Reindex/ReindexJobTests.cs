@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
         private readonly IOptions<ReindexJobConfiguration> _optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+        private readonly IOptions<OperationsConfiguration> _operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
@@ -109,6 +110,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _fhirStorageTestHelper = _fixture.TestHelper;
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
             _searchService = _fixture.SearchService.CreateMockScope();
+
+            _operationsConfig.Value.Returns(new OperationsConfiguration());
 
             // Now we can safely delete leftover resources from previous test runs
             var cleanupCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -228,12 +231,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                         SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
                     });
 
+                    // Create a mock OperationsConfiguration for the test
                     if (typeId == (int)JobType.ReindexOrchestrator)
                     {
-                        // Create a mock OperationsConfiguration for the test
-                        var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-                        operationsConfig.Value.Returns(new OperationsConfiguration());
-
                         job = new ReindexOrchestratorJob(
                             _queueClient,
                             () => _searchService,
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _fixture.FhirRuntimeConfiguration,
                             NullLoggerFactory.Instance,
                             _coreFeatureConfig,
-                            operationsConfig);
+                            _operationsConfig);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
@@ -255,7 +255,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _resourceWrapperFactory,
                             _searchParameterOperations,
                             _searchParameterStatusManager,
-                            NullLogger<ReindexProcessingJob>.Instance);
+                            NullLogger<ReindexProcessingJob>.Instance,
+                            _coreFeatureConfig,
+                            _operationsConfig);
                     }
                     else
                     {
@@ -1255,7 +1257,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _resourceWrapperFactory,
                 _searchParameterOperations,
                 _searchParameterStatusManager,
-                NullLogger<ReindexProcessingJob>.Instance);
+                NullLogger<ReindexProcessingJob>.Instance,
+                _coreFeatureConfig,
+                _operationsConfig);
 
             string resultJson = await processingJob.ExecuteAsync(jobInfo, CancellationToken.None);
             var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(resultJson);
