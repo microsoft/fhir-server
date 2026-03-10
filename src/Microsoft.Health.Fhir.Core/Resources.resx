@@ -870,4 +870,8 @@
   <data name="ReindexingNoSearchParameterstoReindex" xml:space="preserve">
     <value>There are no search parameters to reindex for job Id: {0}.</value>
   </data>
+  <data name="JobStatusNotSupportedForCosmosDb" xml:space="preserve">
+    <value>The job status endpoint is not supported for Cosmos DB deployments.</value>
+    <comment>Error message when job status endpoint is called on a Cosmos DB deployment</comment>
+  </data>
 </root>

@@ -100,5 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         internal const string ExpandById = nameof(ExpandById);
 
         internal const string ExpandDefinition = nameof(ExpandDefinition);
+
+        internal const string GetAllJobStatus = nameof(GetAllJobStatus);
     }
 }
