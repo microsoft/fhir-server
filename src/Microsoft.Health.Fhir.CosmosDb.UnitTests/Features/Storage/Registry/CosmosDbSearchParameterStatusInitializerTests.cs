@@ -64,9 +64,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
             _cosmosDocumentQueryFactory.Create<dynamic>(Arg.Any<Container>(), Arg.Any<CosmosQueryContext>())
                 .Returns(cosmosQuery);
 
+            var response = Substitute.ForPartsOf<FeedResponse<dynamic>>();
+            response.ContinuationToken.Returns((string)null);
+
             cosmosQuery
                 .ExecuteNextAsync()
-                .Returns(Substitute.ForPartsOf<FeedResponse<dynamic>>());
+                .Returns(response);
 
             var feedResponse = Substitute.For<FeedResponse<CollectionVersion>>();
 
@@ -88,7 +91,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
         }
 
         [Fact]
-        public async Task GivenARegistryInitializer_WhenDatabaseIsExisting_NothingNeedsToBeDone()
+        public async Task GivenARegistryInitializer_WhenDatabaseIsExistingWithAllParametersLoaded_NothingNeedsToBeDone()
         {
             ICosmosQuery<dynamic> documentQuery = Substitute.For<ICosmosQuery<dynamic>>();
 
@@ -98,7 +101,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
             var response = Substitute.ForPartsOf<FeedResponse<dynamic>>();
 
             response.GetEnumerator()
-                .Returns(new List<dynamic> { new SearchParameterStatusWrapper() }.GetEnumerator());
+                .Returns(new List<dynamic> { _testParameterUri.OriginalString }.GetEnumerator());
+            response.ContinuationToken.Returns((string)null);
 
             documentQuery
                 .ExecuteNextAsync()
@@ -121,6 +125,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
             await _initializer.ExecuteAsync(container, CancellationToken.None);
 
             container.DidNotReceive().CreateTransactionalBatch(Arg.Any<PartitionKey>());
+        }
+
+        [Fact]
+        public async Task GivenARegistryInitializer_WhenDatabaseIsExistingWithMissingParameters_ThenTheMissingParametersAreLoaded()
+        {
+            ICosmosQuery<dynamic> documentQuery = Substitute.For<ICosmosQuery<dynamic>>();
+
+            _cosmosDocumentQueryFactory.Create<dynamic>(Arg.Any<Container>(), Arg.Any<CosmosQueryContext>())
+                .Returns(documentQuery);
+
+            var response = Substitute.ForPartsOf<FeedResponse<dynamic>>();
+
+            response.GetEnumerator()
+                .Returns(new List<dynamic> { "/missing" }.GetEnumerator());
+            response.ContinuationToken.Returns((string)null);
+
+            documentQuery
+                .ExecuteNextAsync()
+                .Returns(info => response);
+
+            var feedResponse = Substitute.For<FeedResponse<CollectionVersion>>();
+
+            var feedIterator = Substitute.For<FeedIterator<CollectionVersion>>();
+            feedIterator.ReadNextAsync(Arg.Any<CancellationToken>())
+                .Returns(feedResponse);
+
+            Container container = Substitute.For<Container>();
+            container
+                .GetItemQueryIterator<CollectionVersion>(
+                    queryDefinition: Arg.Any<QueryDefinition>(),
+                    continuationToken: Arg.Any<string>(),
+                    requestOptions: Arg.Any<QueryRequestOptions>())
+                .Returns(feedIterator);
+
+            await _initializer.ExecuteAsync(container, CancellationToken.None);
+
+            container.Received().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }
     }
 }

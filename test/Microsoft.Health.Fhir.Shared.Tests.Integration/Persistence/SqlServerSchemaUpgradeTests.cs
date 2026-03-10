@@ -155,6 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlTransactionHandler = new SqlTransactionHandler();
             var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
+            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
@@ -163,6 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Options.Create(securityConfiguration),
                 defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
+                sqlRetryService,
                 NullLogger<SqlServerFhirModel>.Instance);
 
             var testHelper = new SqlServerFhirStorageTestHelper(
