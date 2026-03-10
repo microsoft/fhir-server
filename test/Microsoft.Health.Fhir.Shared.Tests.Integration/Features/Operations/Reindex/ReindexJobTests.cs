@@ -111,7 +111,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
             _searchService = _fixture.SearchService.CreateMockScope();
 
-            _operationsConfig.Value.Returns(new OperationsConfiguration());
+            var coreConfig = new CoreFeatureConfiguration();
+            coreConfig.SearchParameterCacheRefreshIntervalSeconds = 1;
+            _coreFeatureConfig.Value.Returns(coreConfig);
+            var operConfig = new OperationsConfiguration();
+            operConfig.Reindex.CacheRefreshMaxWaitIntervals = 1;
+            _operationsConfig.Value.Returns(operConfig);
 
             // Now we can safely delete leftover resources from previous test runs
             var cleanupCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
