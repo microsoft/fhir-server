@@ -161,14 +161,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     try
                     {
-                        // We need to make sure we have the latest search parameters before trying to delete
-                        // existing search parameter. This is to avoid trying to update a search parameter that
-                        // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
-
                         _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
                         await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
-                        _searchParameterDefinitionManager.UpdateSearchParameterStatus(searchParameterUrl, SearchParameterStatus.PendingDelete);
                     }
                     catch (FhirException fex)
                     {
