@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,13 +63,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         (authorizationEndpoint, tokenEndpoint) = await _oidcDiscoveryService.ResolveEndpointsAsync(baseEndpoint, cancellationToken);
                     }
 
-                    ICollection<string> capabilities = new List<string>
+                    ICollection<string> capabilities = new List<string>(
+                        Constants.SmartCapabilityClients
+                            .Concat(Constants.SmartCapabilityAdditional)
+                            .Concat(Constants.SmartCapabilityLaunches)
+                            .Concat(Constants.SmartCapabilityPermissions)
+                            .Concat(Constants.SmartCapabilitySSOs));
+
+                    if (!string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority))
                     {
-                        "sso-openid-connect",
-                        "permission-offline",
-                        "permission-patient",
-                        "permission-user",
-                    };
+                        ((List<string>)capabilities).AddRange(Constants.SmartCapabilityThirdPartyContexts);
+                    }
 
                     // Add SMART v2 scope support - these are the core scopes supported natively by the FHIR service
                     ICollection<string> scopesSupported = new List<string>
