@@ -61,6 +61,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public DateTimeOffset? SearchParamLastUpdated => _searchParamLastUpdated;
 
+        public async Task<bool> WaitForCacheDatabaseSync(TimeSpan waitInterval, int maxWaitIntervals, CancellationToken cancellationToken)
+        {
+            var maxWaitTime = TimeSpan.FromSeconds(maxWaitIntervals * waitInterval.TotalSeconds);
+            var startTime = DateTimeOffset.UtcNow;
+            var isInSync = false;
+            while (DateTimeOffset.UtcNow - startTime < maxWaitTime)
+            {
+                var searchParamCount = (await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, _searchParamLastUpdated)).Statuses.Count;
+                if (searchParamCount == 0) // if count == 0 cache is synchronized
+                {
+                    isInSync = true;
+                    break;
+                }
+
+                await Task.Delay(waitInterval, cancellationToken);
+            }
+
+            return isInSync;
+        }
+
         public string GetSearchParameterHash(string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
