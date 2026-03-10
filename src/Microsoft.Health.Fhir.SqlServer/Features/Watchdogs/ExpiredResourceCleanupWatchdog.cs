@@ -28,8 +28,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     /// </summary>
     internal sealed class ExpiredResourceCleanupWatchdog : Watchdog<ExpiredResourceCleanupWatchdog>
     {
-        private const int DefaultPeriodSec = 2 * 3600; // 2 hours
-        private const int DefaultLeasePeriodSec = 3600; // 1 hour
+        private const int DefaultPeriodSec = 120; // 2 hours
+        private const int DefaultLeasePeriodSec = 60; // 1 hour
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
@@ -81,11 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            // Use configuration values if enabled via config, otherwise fall back to database parameters
-            if (_configuration.Enabled)
-            {
-                _retentionPeriodDays = _configuration.RetentionPeriodDays;
-            }
+            _retentionPeriodDays = _configuration.RetentionPeriodDays;
 
             await EnqueueBulkDeleteJobAsync(cancellationToken);
         }
@@ -114,8 +110,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     type: null, // null type means all resource types
                     searchParameters,
                     excludedResourceTypes: null,
-                    url: $"ExpiredResourceCleanupWatchdog?_expiryDate=lt{cutoffDateString}",
-                    baseUrl: string.Empty,
+                    url: $"./ExpiredResourceCleanupWatchdog",
+                    baseUrl: $"./ExpiredResourceCleanupWatchdog",
                     parentRequestId: Guid.NewGuid().ToString(),
                     versionType: ResourceVersionType.Latest,
                     removeReferences: false);

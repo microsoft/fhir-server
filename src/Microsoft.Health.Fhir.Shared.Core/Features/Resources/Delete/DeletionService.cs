@@ -516,11 +516,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         return aggregate;
                     });
 
+                Uri uri = null;
+
+                try
+                {
+                    uri = context.Uri;
+                }
+                catch
+                {
+                }
+
                 _auditLogger.LogAudit(
                     auditAction: action,
                     operation: operation.ToString(),
                     resourceType: primaryResourceType,
-                    requestUri: context.Uri,
+                    requestUri: uri,
                     statusCode: statusCode,
                     correlationId: context.CorrelationId,
                     callerIpAddress: string.Empty,
