@@ -2095,6 +2095,7 @@ BEGIN TRY
                                        OR GroupId <> @GroupId))
                 RAISERROR ('There are other active job groups', 18, 127);
             IF @GroupId IS NOT NULL
+               AND isnull(@Status, 0) <> 6
                AND EXISTS (SELECT *
                            FROM   dbo.JobQueue
                            WHERE  QueueType = @QueueType
@@ -2705,6 +2706,24 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.GetQuantityCodeId
+@stringValue NVARCHAR (255)
+AS
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN TRANSACTION;
+DECLARE @id AS INT = (SELECT QuantityCodeId
+                      FROM   dbo.QuantityCode WITH (UPDLOCK)
+                      WHERE  Value = @stringValue);
+IF (@id IS NULL)
+    BEGIN
+        INSERT  INTO dbo.QuantityCode (Value)
+        VALUES                       (@stringValue);
+        SET @id = SCOPE_IDENTITY();
+    END
+COMMIT TRANSACTION;
+SELECT @id;
+
+GO
 CREATE PROCEDURE dbo.GetReindexJobById
 @id VARCHAR (64)
 AS
@@ -3296,6 +3315,24 @@ SELECT 'GetSearchParamStatuses',
        'LogEvent';
 
 GO
+CREATE PROCEDURE dbo.GetSystemId
+@stringValue NVARCHAR (255)
+AS
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN TRANSACTION;
+DECLARE @id AS INT = (SELECT SystemId
+                      FROM   dbo.System WITH (UPDLOCK)
+                      WHERE  Value = @stringValue);
+IF (@id IS NULL)
+    BEGIN
+        INSERT  INTO dbo.System (Value)
+        VALUES                 (@stringValue);
+        SET @id = SCOPE_IDENTITY();
+    END
+COMMIT TRANSACTION;
+SELECT @id;
+
+GO
 CREATE PROCEDURE dbo.GetTransactions
 @StartNotInclusiveTranId BIGINT, @EndInclusiveTranId BIGINT, @EndDate DATETIME=NULL
 AS
@@ -3490,6 +3527,63 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     THROW;
 END CATCH
+
+GO
+CREATE PROCEDURE dbo.InitializeBase
+@searchParams NVARCHAR (MAX), @resourceTypes NVARCHAR (3000), @claimTypes VARCHAR (100), @compartmentTypes VARCHAR (100)
+AS
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+INSERT INTO dbo.ResourceType (Name)
+SELECT value
+FROM   string_split (@resourceTypes, ',')
+EXCEPT
+SELECT Name
+FROM   dbo.ResourceType WITH (TABLOCKX);
+SELECT ResourceTypeId,
+       Name
+FROM   dbo.ResourceType;
+WITH Input
+AS   (SELECT DISTINCT j.Uri,
+                      CAST (j.IsPartiallySupported AS BIT) AS IsPartiallySupported
+      FROM   OPENJSON (@searchParams) WITH (Uri VARCHAR (128) '$.Uri', IsPartiallySupported BIT '$.IsPartiallySupported') AS j)
+INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
+SELECT i.Uri,
+       'Initialized',
+       SYSDATETIMEOFFSET(),
+       i.IsPartiallySupported
+FROM   Input AS i
+WHERE  NOT EXISTS (SELECT 1
+                   FROM   dbo.SearchParam AS sp
+                   WHERE  sp.Uri = i.Uri);
+SELECT Uri,
+       SearchParamId
+FROM   dbo.SearchParam;
+INSERT INTO dbo.ClaimType (Name)
+SELECT value
+FROM   string_split (@claimTypes, ',')
+EXCEPT
+SELECT Name
+FROM   dbo.ClaimType;
+SELECT ClaimTypeId,
+       Name
+FROM   dbo.ClaimType;
+INSERT INTO dbo.CompartmentType (Name)
+SELECT value
+FROM   string_split (@compartmentTypes, ',')
+EXCEPT
+SELECT Name
+FROM   dbo.CompartmentType;
+SELECT CompartmentTypeId,
+       Name
+FROM   dbo.CompartmentType;
+COMMIT TRANSACTION;
+SELECT Value,
+       SystemId
+FROM   dbo.System;
+SELECT Value,
+       QuantityCodeId
+FROM   dbo.QuantityCode;
 
 GO
 CREATE PROCEDURE dbo.InitializeIndexProperties
@@ -4623,7 +4717,7 @@ SELECT 'MergeSearchParams',
 
 GO
 CREATE PROCEDURE dbo.PutJobCancelation
-@QueueType TINYINT, @GroupId BIGINT=NULL, @JobId BIGINT=NULL, @RequestCancellationOnFailure BIT=0
+@QueueType TINYINT, @GroupId BIGINT=NULL, @JobId BIGINT=NULL
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'PutJobCancelation', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' J=' + isnull(CONVERT (VARCHAR, @JobId), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT, @PartitionId AS TINYINT = @JobId % 16;
@@ -4669,17 +4763,6 @@ BEGIN TRY
                    AND GroupId = @GroupId
                    AND Status = 1;
             SET @Rows += @@rowcount;
-            IF @QueueType = 1
-               AND @RequestCancellationOnFailure = 0
-                BEGIN
-                    UPDATE dbo.JobQueue
-                    SET    status = 6
-                    WHERE  QueueType = @QueueType
-                           AND GroupId = @GroupId
-                           AND JobId = @GroupId
-                           AND Status IN (2, 3);
-                    SET @Rows += @@rowcount;
-                END
         END
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
@@ -4775,7 +4858,7 @@ BEGIN TRY
         END
     IF @Failed = 1
        AND @RequestCancellationOnFailure = 1
-        EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId, @RequestCancellationOnFailure = @RequestCancellationOnFailure;
+        EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
