@@ -1,4 +1,4 @@
-CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
+CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
            ,@IsResourceChangeCaptureEnabled bit = 0
            ,@TransactionId bigint = NULL
            ,@SingleTransaction bit = 1
