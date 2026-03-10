@@ -196,14 +196,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started wait for cache refresh.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", "Started", null, _cancellationToken);
 
-            var syncResult = await _searchParameterOperations.WaitForCacheDatabaseSync(
+            var isInSync = await _searchParameterOperations.WaitForCacheDatabaseSync(
                     TimeSpan.FromSeconds(_coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds),
                     _operationsConfiguration.Reindex.CacheRefreshMaxWaitIntervals,
                     _cancellationToken);
-            _searchParamLastUpdated = syncResult.CacheLastUpdated;
+            _searchParamLastUpdated = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
 
             var cacheLastUpdatedStr = _searchParamLastUpdated.ToString(LogDateTimeFormat);
-            if (syncResult.IsInSync)
+            if (isInSync)
             {
                 _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job completed wait for cache sync: SearchParamLastUpdated={cacheLastUpdatedStr}");
                 await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync", "Warn", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, _cancellationToken);

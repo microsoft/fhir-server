@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public DateTimeOffset? SearchParamLastUpdated => _searchParamLastUpdated;
 
-        public async Task<(DateTimeOffset CacheLastUpdated, TimeSpan WaitTime, bool IsInSync)> WaitForCacheDatabaseSync(TimeSpan waitInterval, int maxWaitIntervals, CancellationToken cancellationToken)
+        public async Task<bool> WaitForCacheDatabaseSync(TimeSpan waitInterval, int maxWaitIntervals, CancellationToken cancellationToken)
         {
             var maxWaitTime = TimeSpan.FromSeconds(maxWaitIntervals * waitInterval.TotalSeconds);
             var startTime = DateTimeOffset.UtcNow;
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 await Task.Delay(waitInterval, cancellationToken);
             }
 
-            return (_searchParamLastUpdated.HasValue ? _searchParamLastUpdated.Value : DateTimeOffset.MinValue, DateTimeOffset.UtcNow - startTime, isInSync);
+            return isInSync;
         }
 
         public string GetSearchParameterHash(string resourceType)

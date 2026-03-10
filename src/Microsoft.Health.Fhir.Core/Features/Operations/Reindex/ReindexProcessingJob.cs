@@ -147,15 +147,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (isBad) // try to wait for sync only if bad
             {
-                var syncResult = await _searchParameterOperations.WaitForCacheDatabaseSync(
+                var isInSync = await _searchParameterOperations.WaitForCacheDatabaseSync(
                     TimeSpan.FromSeconds(_coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds),
                     _operationsConfiguration.Reindex.CacheRefreshMaxWaitIntervals,
                     cancellationToken);
-                cacheLastUpdated = syncResult.CacheLastUpdated;
+                cacheLastUpdated = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
                 isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > cacheLastUpdated;
 
                 cacheLastUpdatedStr = cacheLastUpdated.ToString(ReindexOrchestratorJob.LogDateTimeFormat);
-                if (syncResult.IsInSync)
+                if (isInSync)
                 {
                     _logger.LogJobInformation(_jobInfo, $"Reindex processing job completed wait for cache sync: SearchParamLastUpdated={cacheLastUpdatedStr}");
                     await TryLogEvent($"ReindexProcressingJob={_jobInfo.Id}.CheckDiscrepancies", "Warn", $"SearchParamLastUpdated={cacheLastUpdatedStr}", null, cancellationToken);
