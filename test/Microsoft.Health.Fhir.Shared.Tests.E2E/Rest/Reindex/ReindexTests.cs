@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Extensions.Xunit;
@@ -36,6 +37,56 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             _fixture = fixture;
             _isSql = _fixture.DataStore == DataStore.SqlServer;
+        }
+
+        [Fact]
+        public async Task Given1000SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+            const int numberOfSearchParams = 1000;
+
+            var searchParams = new List<SearchParameter>();
+            try
+            {
+                // this takes 8 minutes locally
+                await Parallel.ForAsync(0, numberOfSearchParams, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (i, cancel) =>
+                {
+                    var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+                    var searchParam = await CreateCustomSearchParameterAsync($"custom-person-name-{randomSuffix}", ["Person"], "Person.name.given", SearchParamType.String);
+                    Assert.NotNull(searchParam);
+                    lock (searchParam)
+                    {
+                        searchParams.Add(searchParam);
+                    }
+                });
+
+                var parameters = new Parameters
+                {
+                    Parameter =
+                    [
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
+                    ],
+                };
+
+                var value = ((FhirResponse<Parameters> response, Uri jobUri))await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+
+                await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+
+                await Task.Delay(TimeSpan.FromSeconds(10));
+
+                // this takes minutes locally
+                await Parallel.ForEachAsync(searchParams, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (param, cancel) =>
+                {
+                    await VerifySearchParameterIsEnabledAsync($"Person?{param.Code}=Test", param.Code);
+                });
+            }
+            finally
+            {
+                await CleanupSearchParametersAsync(searchParams.ToArray());
+            }
         }
 
         [Fact]
@@ -919,6 +970,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return searchResponse?.Entry?.Any(e =>
                 e.Resource is OperationOutcome oo &&
                 oo.Issue?.Any(i => i.Code?.ToString() == "NotSupported") == true) ?? false;
+        }
+
+        private async Task VerifySearchParameterIsEnabledAsync(string searchQuery, string searchParameterCode)
+        {
+            var response = await _fixture.TestFhirClient.SearchAsync(searchQuery);
+            Assert.NotNull(response);
+            var error = HasNotSupportedError(response.Resource);
+            Assert.False(error, $"Search param {searchParameterCode} is NOT supported after reindex.");
+            return;
         }
 
         /// <summary>
