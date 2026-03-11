@@ -238,7 +238,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             sqlRetryService
                 .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-                .Returns(async callInfo => { cts.Cancel(); });
+                .Returns(async callInfo =>
+                {
+                    cts.Cancel();
+                    await Task.CompletedTask;
+                });
 
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
             var resources = CreateResourceWrapperOperations();
@@ -270,7 +274,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             sqlRetryService
                 .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-                .Returns(async callInfo => { cts.Cancel(); });
+                .Returns(async callInfo =>
+                {
+                    cts.Cancel();
+                    await Task.CompletedTask;
+                });
 
             var dataStore = CreateSqlServerFhirDataStore(sqlRetryService);
             var resources = CreateResourceWrapperOperations();
