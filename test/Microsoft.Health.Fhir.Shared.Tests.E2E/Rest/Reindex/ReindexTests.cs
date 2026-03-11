@@ -77,7 +77,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 await Task.Delay(TimeSpan.FromSeconds(10));
 
-                // this takes minutes locally
                 await Parallel.ForEachAsync(searchParams, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (param, cancel) =>
                 {
                     await VerifySearchParameterIsEnabledAsync($"Person?{param.Code}=Test", param.Code);
@@ -85,7 +84,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                await CleanupSearchParametersAsync(searchParams.ToArray());
+                await Parallel.ForEachAsync(searchParams, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (param, cancel) =>
+                {
+                    await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{param.Id}");
+                });
             }
         }
 
