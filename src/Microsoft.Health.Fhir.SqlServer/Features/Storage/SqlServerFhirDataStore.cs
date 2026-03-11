@@ -146,8 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
         {
-            const int maxFailedDependencyRetries = 30;
-            const int maxConflictRetries = 30; // Still to be defined based on production logs.
+            const int maxRetries = 30;
 
             var retries = 0;
             while (true)
@@ -178,22 +177,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (sqlEx.Number == SqlErrorCodes.Conflict)
                         {
-                            _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (Conflict)", retries);
-                            await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
-
-                            retries++;
-                            if (retries >= maxConflictRetries)
+                            if (retries++ >= maxRetries)
                             {
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
                                 throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflict);
                             }
-                            else if (retries < maxConflictRetries)
+                            else
                             {
+                                _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (Conflict)", retries);
+                                await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
+
                                 await Task.Delay(500, cancellationToken);
                                 continue;
                             }
                         }
-                        else if (sqlEx.Number == FhirSqlErrorCodes.FailedDependency && retries++ < maxFailedDependencyRetries) // retries on conflict should never be more than 1, so it is OK to hardcode.)
+                        else if (sqlEx.Number == FhirSqlErrorCodes.FailedDependency && retries++ < maxRetries) // retries on conflict should never be more than 1, so it is OK to hardcode.)
                         {
                             _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (FailedDependency)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);

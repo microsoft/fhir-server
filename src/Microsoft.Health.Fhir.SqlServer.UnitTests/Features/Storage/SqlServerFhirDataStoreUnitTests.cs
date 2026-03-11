@@ -236,6 +236,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Arg.Any<bool>())
             .Throws(sqlException);
 
+            // When trying to log events, a TaskCanceledException will be thrown.
             sqlRetryService
                 .TryLogEvent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
                 .Returns(async callInfo =>
