@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
@@ -15,11 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         DateTimeOffset? SearchParamLastUpdated { get; }
 
-        Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
-
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
-        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
+        Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
 
         /// <summary>
         /// This method should be called periodically to get any updates to SearchParameters
