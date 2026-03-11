@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
 
                             retries++;
-                            if (retries >= maxConflictRetries || (mergeOptions.EnlistInTransaction && mergeOptions.EnsureAtomicOperations))
+                            if (retries >= maxConflictRetries)
                             {
                                 _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
                                 throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflict);
