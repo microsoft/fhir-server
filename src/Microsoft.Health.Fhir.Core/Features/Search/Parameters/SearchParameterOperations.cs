@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to add
                         // a search parameter. This is to avoid creating a duplicate search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        ////await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         // verify the parameter is supported before continuing
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to delete
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        ////await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         // First we delete the status metadata from the data store as this function depends on
                         // the in memory definition manager.  Once complete we remove the SearchParameter from
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to update
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        ////await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -292,6 +292,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <returns>A task.</returns>
         public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool forceFullRefresh = false)
         {
+            var st = DateTime.UtcNow;
             var results = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, forceFullRefresh ? null : _searchParamLastUpdated);
             var statuses = results.Statuses;
 
@@ -327,6 +328,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 cancellationToken);
 
             var paramsToAdd = new List<ITypedElement>();
+            var hasAllResources = true;
             foreach (var searchParam in statusesToFetch)
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
@@ -334,6 +336,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     _logger.LogInformation(
                         "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
+                    hasAllResources = false;
                     continue;
                 }
 
@@ -365,10 +368,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
 
-            if (results.LastUpdated.HasValue && inCache) // this should be the ony place in the code to assign last updated
+            if (results.LastUpdated.HasValue && hasAllResources && inCache) // this should be the ony place in the code to assign last updated
             {
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
+
+            ////using var search = _searchServiceFactory.Invoke();
+            ////await search.Value.TryLogEvent("GetAndApplySearchParameterUpdates", "Warn", $"HasResources={hasResources} SearchParamLastUpdated={_searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fff")}", st, cancellationToken);
         }
 
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
@@ -380,7 +386,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             foreach (var status in statuses)
             {
                 _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
-                if (existingSearchParam == null)
+                if (existingSearchParam == null || existingSearchParam.Description == null)
                 {
                     var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
                     _logger.LogInformation(msg);
