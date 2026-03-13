@@ -379,8 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
 
-            ////using var search = _searchServiceFactory.Invoke();
-            ////await search.Value.TryLogEvent("GetAndApplySearchParameterUpdates", "Warn", $"HasResources={hasResources} SearchParamLastUpdated={_searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fff")}", st, cancellationToken);
+            await _searchParameterStatusManager.TryLogEvent("GetAndApplySearchParameterUpdates", "Warn", $"Cache advanced={inCache && allHaveResources} SearchParamLastUpdated={_searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fff")}", st, cancellationToken);
         }
 
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
