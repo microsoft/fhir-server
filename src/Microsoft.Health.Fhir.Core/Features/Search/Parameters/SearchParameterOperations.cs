@@ -391,7 +391,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             foreach (var status in statuses)
             {
                 _searchParameterDefinitionManager.TryGetSearchParameter(status.Uri.OriginalString, out var existingSearchParam);
-                if (existingSearchParam == null || existingSearchParam.Description == null)
+                if (existingSearchParam == null)
                 {
                     var msg = $"Did not find in cache uri={status.Uri.OriginalString} status={status.Status}";
                     _logger.LogInformation(msg);
