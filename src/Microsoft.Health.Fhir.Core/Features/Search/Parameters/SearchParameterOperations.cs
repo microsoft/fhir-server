@@ -327,6 +327,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 cancellationToken);
 
             var paramsToAdd = new List<ITypedElement>();
+            var allHaveResources = true;
             foreach (var searchParam in statusesToFetch)
             {
                 if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
@@ -334,6 +335,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     _logger.LogInformation(
                         "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
+                    allHaveResources = false;
                     continue;
                 }
 
@@ -365,7 +367,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
 
-            if (results.LastUpdated.HasValue && inCache) // this should be the ony place in the code to assign last updated
+            // if cache is updated directly and not from the database not all will have corresponding resources. Do not advance timestamp as results are not conclusive.
+            if (results.LastUpdated.HasValue && inCache && allHaveResources) // this should be the ony place in the code to assign last updated
             {
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
