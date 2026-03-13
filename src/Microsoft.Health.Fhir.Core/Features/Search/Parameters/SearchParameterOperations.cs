@@ -335,7 +335,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     _logger.LogInformation(
                         "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
-                    allHaveResources = false;
+
+                    if (searchParam.LastUpdated > DateTimeOffset.UtcNow.AddMinutes(-10)) // same as for in cache
+                    {
+                        allHaveResources = false;
+                    }
+
                     continue;
                 }
 
