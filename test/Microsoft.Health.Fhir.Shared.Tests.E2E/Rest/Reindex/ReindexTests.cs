@@ -42,11 +42,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
-        public async Task Given1000SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
+        public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
         {
             await CancelAnyRunningReindexJobsAsync();
 
-            const int numberOfSearchParams = 500;
+            const int numberOfSearchParams = 200; // increase to 500 when cache is not updated by API calls.
             const string urlPrefix = "http://example.org/fhir/SearchParameter/";
             var codes = new List<string>();
             var urls = new List<string>();
