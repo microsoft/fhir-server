@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to add
                         // a search parameter. This is to avoid creating a duplicate search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        ////await GetAndApplySearchParameterUpdates(cancellationToken);
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         // verify the parameter is supported before continuing
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to delete
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        ////await GetAndApplySearchParameterUpdates(cancellationToken);
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         // First we delete the status metadata from the data store as this function depends on
                         // the in memory definition manager.  Once complete we remove the SearchParameter from
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to update
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        ////await GetAndApplySearchParameterUpdates(cancellationToken);
+                        await GetAndApplySearchParameterUpdates(cancellationToken);
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
