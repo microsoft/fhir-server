@@ -37,6 +37,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public delegate ISearchParameterStatusDataStore Resolver();
 
+        public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            throw new NotFiniteNumberException();
+        }
+
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             if (_statusResults == null)

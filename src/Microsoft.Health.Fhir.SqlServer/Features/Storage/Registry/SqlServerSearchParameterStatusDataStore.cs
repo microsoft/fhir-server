@@ -6,10 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -31,117 +34,100 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
     internal class SqlServerSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
-        private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
+        private readonly ISqlRetryService _sqlRetryService;
         private readonly SchemaInformation _schemaInformation;
-        private readonly SqlServerSortingValidator _sortingValidator;
         private readonly ISqlServerFhirModel _fhirModel;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger<SqlServerSearchParameterStatusDataStore> _logger;
 
         public SqlServerSearchParameterStatusDataStore(
-            IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
+            ISqlRetryService sqlRetryService,
             SchemaInformation schemaInformation,
-            SqlServerSortingValidator sortingValidator,
             ISqlServerFhirModel fhirModel,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ILogger<SqlServerSearchParameterStatusDataStore> logger)
         {
-            EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
+            _sqlRetryService = sqlRetryService;
             _schemaInformation = schemaInformation;
-            _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper cmd = sqlConnectionWrapper.CreateRetrySqlCommand())
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetSearchParamStatuses";
+            if (startLastUpdated.HasValue)
             {
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = "dbo.GetSearchParamStatuses";
-                if (_schemaInformation.Current.Value >= 103 && startLastUpdated.HasValue)
-                {
-                    cmd.Parameters.AddWithValue("@StartLastUpdated", startLastUpdated.Value);
-                }
-
-                var parameterStatuses = new List<ResourceSearchParameterStatus>();
-
-                // TODO: Bad reader. Use SQL retry
-                using (SqlDataReader sqlDataReader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
-                {
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
-                    {
-                        short id;
-                        string uri;
-                        string stringStatus;
-                        DateTimeOffset? lastUpdated;
-                        bool? isPartiallySupported;
-
-                        ResourceSearchParameterStatus resourceSearchParameterStatus;
-
-                        (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
-                            VLatest.SearchParam.SearchParamId,
-                            VLatest.SearchParam.Uri,
-                            VLatest.SearchParam.Status,
-                            VLatest.SearchParam.LastUpdated,
-                            VLatest.SearchParam.IsPartiallySupported);
-
-                        var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
-
-                        resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
-                        {
-                            Id = id,
-                            Uri = new Uri(uri),
-                            Status = status,
-                            IsPartiallySupported = (bool)isPartiallySupported,
-                            LastUpdated = (DateTimeOffset)lastUpdated,
-                        };
-
-                        // Check whether the corresponding type of the search parameter is supported.
-                        SearchParameterInfo paramInfo = null;
-                        try
-                        {
-                            paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri.OriginalString);
-                        }
-                        catch (SearchParameterNotSupportedException)
-                        {
-                        }
-
-                        if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
-                        {
-                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
-                        }
-                        else
-                        {
-                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
-                        }
-
-                        if (_schemaInformation.Current.Value < 103 && startLastUpdated.HasValue)
-                        {
-                            if (resourceSearchParameterStatus.LastUpdated > startLastUpdated.Value) // this is temporary as old stored proc does not have start last updated parameter
-                            {
-                                parameterStatuses.Add(resourceSearchParameterStatus);
-                            }
-                        }
-                        else
-                        {
-                            parameterStatuses.Add(resourceSearchParameterStatus);
-                        }
-                    }
-                }
-
-                return parameterStatuses;
+                cmd.Parameters.AddWithValue("@StartLastUpdated", startLastUpdated.Value);
             }
+
+            var results = await cmd.ExecuteReaderAsync(
+                _sqlRetryService,
+                (reader) =>
+                {
+                    (short id, string uri, string stringStatus, DateTimeOffset lastUpdated, bool isPartiallySupported) = reader.ReadRow(
+                        VLatest.SearchParam.SearchParamId,
+                        VLatest.SearchParam.Uri,
+                        VLatest.SearchParam.Status,
+                        VLatest.SearchParam.LastUpdated,
+                        VLatest.SearchParam.IsPartiallySupported);
+
+                    return (id, uri, stringStatus, lastUpdated, isPartiallySupported);
+                },
+                _logger,
+                cancellationToken);
+
+            var parameterStatuses = new List<ResourceSearchParameterStatus>();
+            foreach (var result in results)
+            {
+                var status = Enum.Parse<SearchParameterStatus>(result.stringStatus, true);
+
+                var resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
+                {
+                    Id = result.id,
+                    Uri = new Uri(result.uri),
+                    Status = status,
+                    IsPartiallySupported = result.isPartiallySupported,
+                    LastUpdated = result.lastUpdated,
+                };
+
+                // Check whether the corresponding type of the search parameter is supported.
+                SearchParameterInfo paramInfo = null;
+                try
+                {
+                    paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri.OriginalString);
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                }
+
+                if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
+                {
+                    resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                }
+                else
+                {
+                    resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
+                }
+
+                parameterStatuses.Add(resourceSearchParameterStatus);
+            }
+
+            return parameterStatuses;
         }
 
         public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
@@ -200,40 +186,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
         private async Task UpsertStatusesInternal(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper cmd = sqlConnectionWrapper.CreateRetrySqlCommand())
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.MergeSearchParams";
+            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
+
+            var results = await cmd.ExecuteReaderAsync(
+                _sqlRetryService,
+                (reader) => { return reader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri, VLatest.SearchParam.LastUpdated); },
+                _logger,
+                cancellationToken);
+
+            foreach (var result in results)
             {
-                cmd.CommandType = CommandType.StoredProcedure;
-                if (_schemaInformation.Current >= 103)
+                (short searchParamId, string searchParamUri, DateTimeOffset lastUpdated) = result;
+
+                // Add the new search parameters to the FHIR model dictionary.
+                _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+
+                // Update the LastUpdated in our original collection for future operations
+                var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
+                if (matchingStatus != null)
                 {
-                    cmd.CommandText = "dbo.MergeSearchParams";
-                }
-                else
-                {
-                    cmd.CommandText = "dbo.UpsertSearchParamsWithOptimisticConcurrency";
-                }
-
-                new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
-
-                // TODO: Reader is not propagating all failures to the code
-                using (SqlDataReader sqlDataReader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
-                {
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
-                    {
-                        // The procedure returns new search parameters.
-                        (short searchParamId, string searchParamUri, DateTimeOffset lastUpdated) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri, VLatest.SearchParam.LastUpdated);
-
-                        // Add the new search parameters to the FHIR model dictionary.
-                        _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
-
-                        // Update the LastUpdated in our original collection for future operations
-                        var matchingStatus = statuses.FirstOrDefault(s => s.Uri.OriginalString == searchParamUri);
-                        if (matchingStatus != null)
-                        {
-                            matchingStatus.LastUpdated = lastUpdated;
-                        }
-                    }
+                    matchingStatus.LastUpdated = lastUpdated;
                 }
             }
         }
