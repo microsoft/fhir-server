@@ -61,6 +61,8 @@ namespace Microsoft.Health.Fhir.Client
         {
             EnsureArg.IsNotNull(httpClient, nameof(httpClient));
 
+            httpClient.Timeout = TimeSpan.FromSeconds(600);
+
             if (httpClient.BaseAddress == null)
             {
                 throw new ArgumentException(Resources.BaseAddressMustBeSpecified);

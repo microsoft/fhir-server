@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Extensions.Xunit;
@@ -18,7 +19,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
@@ -36,6 +39,120 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             _fixture = fixture;
             _isSql = _fixture.DataStore == DataStore.SqlServer;
+        }
+
+        [Fact]
+        public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+            const int numberOfSearchParams = 50; // increase to 500 when cache is not updated by API calls.
+            const string urlPrefix = "http://example.org/";
+            var codes = new List<string>();
+            var urls = new List<string>();
+            try
+            {
+                for (var i = 0; i < numberOfSearchParams; i++)
+                {
+                    var code = $"c-id-{i}";
+                    codes.Add(code);
+                    urls.Add($"{urlPrefix}{code}");
+                }
+
+                var bundle = await CreatePersonSearchParamsAsync();
+                Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
+                foreach (var entry in bundle.Entry)
+                {
+                    Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
+                }
+
+                // check by urls
+                var response = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", urls)}");
+                Assert.True(response.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={response.Resource.Total}");
+
+                var parameters = new Parameters
+                {
+                    Parameter =
+                    [
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
+                    ],
+                };
+
+                var value = ((FhirResponse<Parameters> Response, Uri JobUri))await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
+
+                await WaitForJobCompletionAsync(value.JobUri, TimeSpan.FromSeconds(300));
+
+                await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
+                {
+                    await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
+                });
+            }
+            finally
+            {
+                await DeletePersonSearchParamsAsync();
+            }
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                #if R5
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
+                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+                #else
+                var resourceTypes = new List<ResourceType?>();
+                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+                #endif
+
+                foreach (var code in codes)
+                {
+                    var searchParam = new SearchParameter
+                    {
+                        Id = code,
+                        Url = $"{urlPrefix}{code}",
+                        Name = code,
+                        Code = code,
+                        Status = PublicationStatus.Active,
+                        Type = SearchParamType.Token,
+                        Expression = "Person.id",
+                        Description = "any",
+                        Base = resourceTypes,
+                    };
+
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                return result;
+            }
+
+            async Task VerifySearchParameterIsEnabledAsync(string searchQuery, string searchParameterCode)
+            {
+                var response = await _fixture.TestFhirClient.SearchAsync(searchQuery);
+                Assert.NotNull(response);
+                var error = HasNotSupportedError(response.Resource);
+                Assert.False(error, $"Search param {searchParameterCode} is NOT supported after reindex.");
+                return;
+            }
+
+            async Task<Bundle> DeletePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                foreach (var code in codes)
+                {
+                    bundle.Entry.Add(
+                        new EntryComponent
+                        {
+                            Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" },
+                        });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                return result;
+            }
         }
 
         [Fact]
@@ -642,27 +759,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
                 return (false, null, id);
-            }
-        }
-
-        /// <summary>
-        /// Helper method to create and post a resource in a single operation
-        /// </summary>
-        private async Task<T> CreateAndPostResourceAsync<T>(string id, string name, Func<string, string, Task<T>> createResourceFunc)
-            where T : Resource
-        {
-            var resource = await createResourceFunc(id, name);
-
-            try
-            {
-                // Post the resource using the client's CreateAsync method
-                var response = await _fixture.TestFhirClient.CreateAsync(resource);
-                return response;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
-                return resource; // Return the original resource even on failure so ID can be tracked
             }
         }
 

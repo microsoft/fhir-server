@@ -17,5 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken);
 
         void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);
+
+        Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
     }
 }
