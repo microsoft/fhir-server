@@ -46,15 +46,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             await CancelAnyRunningReindexJobsAsync();
 
-            const int numberOfSearchParams = 100; // increase to 500 when cache is not updated by API calls.
-            const string urlPrefix = "http://example.org/fhir/SearchParameter/";
+            const int numberOfSearchParams = 50; // increase to 500 when cache is not updated by API calls.
+            const string urlPrefix = "http://example.org/";
             var codes = new List<string>();
             var urls = new List<string>();
             try
             {
                 for (var i = 0; i < numberOfSearchParams; i++)
                 {
-                    var code = $"c-p-n-{i}";
+                    var code = $"c-id-{i}";
                     codes.Add(code);
                     urls.Add($"{urlPrefix}{code}");
                 }
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
                 {
-                    await VerifySearchParameterIsEnabledAsync($"Person?{code}=Test", code);
+                    await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
                 });
             }
             finally
@@ -115,8 +115,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                         Name = code,
                         Code = code,
                         Status = PublicationStatus.Active,
-                        Type = SearchParamType.String,
-                        Expression = "Person.name.given",
+                        Type = SearchParamType.Token,
+                        Expression = "Person.id",
                         Description = "any",
                         Base = resourceTypes,
                     };
