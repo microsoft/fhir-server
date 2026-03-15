@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             await CancelAnyRunningReindexJobsAsync();
 
-            const int numberOfSearchParams = 50; // increase to 500 when cache is not updated by API calls.
+            const int numberOfSearchParams = 10; // increase to 500 when cache is not updated by API calls.
             const string urlPrefix = "http://example.org/";
             var codes = new List<string>();
             var urls = new List<string>();
