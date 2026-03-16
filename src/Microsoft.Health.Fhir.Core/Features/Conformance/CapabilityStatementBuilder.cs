@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Data;
@@ -39,29 +38,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly CoreFeatureConfiguration _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
-        private readonly ILogger<CapabilityStatementBuilder> _logger;
 
         private CapabilityStatementBuilder(
             ListedCapabilityStatement statement,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<CoreFeatureConfiguration> configuration,
-            ISupportedProfilesStore supportedProfiles,
-            ILogger<CapabilityStatementBuilder> logger)
+            ISupportedProfilesStore supportedProfiles)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
-            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _statement = statement;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _configuration = configuration.Value;
             _supportedProfiles = supportedProfiles;
-            _logger = logger;
         }
 
         public static ICapabilityStatementBuilder Create(
@@ -70,8 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
             Uri metadataUrl,
-            SearchParameterStatusManager searchParameterStatusManager,
-            ILogger<CapabilityStatementBuilder> logger)
+            SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -101,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             statement.Date = ProductVersionInfo.CreationTime.ToString("O");
             statement.Url = metadataUrl;
 
-            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles, logger);
+            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
         }
 
         public ICapabilityStatementBuilder Apply(Action<ListedCapabilityStatement> action)
@@ -151,18 +145,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
                     },
                 };
-                string defaultVersioningPolicy;
-                if (_configuration.Versioning.ResourceTypeOverrides.TryGetValue(resourceType, out string overrideValue))
-                {
-                    defaultVersioningPolicy = overrideValue?.ToLowerInvariant();
-                }
-                else
-                {
-                    defaultVersioningPolicy = _configuration.Versioning.Default;
-                    _logger.LogInformation("Using default versioning policy '{DefaultVersioningPolicy}' for resource type '{ResourceType}'. No override configured.", _configuration.Versioning.Default, resourceType);
-                }
-
-                ((DefaultOptionHashSet<string>)resourceComponent.Versioning).DefaultOption = defaultVersioningPolicy;
+                ((DefaultOptionHashSet<string>)resourceComponent.Versioning).DefaultOption = _configuration.Versioning.ResourceTypeOverrides.TryGetValue(resourceType, out string overrideValue) ? overrideValue : _configuration.Versioning.Default;
                 listedRestComponent.Resource.Add(resourceComponent);
             }
 
