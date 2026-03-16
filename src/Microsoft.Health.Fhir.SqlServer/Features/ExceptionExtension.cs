@@ -6,9 +6,9 @@ using System;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
-    internal static class ExceptionExtension
+    public static class ExceptionExtension
     {
-        internal static bool IsRetriable(this Exception e)
+        public static bool IsRetriable(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();
             return HasNetworkErrorPattern(str)
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                    || HasIncorrectAsyncCallPattern(str);
         }
 
-        internal static bool IsExecutionTimeout(this Exception e)
+        public static bool IsExecutionTimeout(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();
             return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
@@ -43,6 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("existing connection was forcibly closed by the remote host", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection was recovered and rowcount in the first query is not available", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection was successfully established with the server, but then an error occurred during the login process", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("connection was successfully established with the server, but then an error occurred during the pre-login", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("server provided routing information, but timeout already expired", StringComparison.OrdinalIgnoreCase);
 
             ////A severe error occurred on the current command.  The results, if any, should be discarded.

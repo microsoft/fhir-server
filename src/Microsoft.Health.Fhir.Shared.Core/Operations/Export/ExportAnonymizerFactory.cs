@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation, nameof(exportJobRecord.AnonymizationConfigurationLocation));
 
-            using (Stream stream = new MemoryStream())
+            using (var stream = new MemoryStream())
             {
                 try
                 {

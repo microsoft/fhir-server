@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -16,11 +17,11 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -129,6 +130,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static SearchParameterStateUpdateRequest ParseUpdateRequestBody(Parameters inputParams)
         {
+            if (inputParams?.Parameter == null || !inputParams.Parameter.Any())
+            {
+                throw new RequestNotValidException(Core.Resources.SearchParameterRequestNotValid);
+            }
+
             List<Tuple<Uri, SearchParameterStatus>> paramsToUpdate = new List<Tuple<Uri, SearchParameterStatus>>();
 
             foreach (var parameter in inputParams.Parameter)

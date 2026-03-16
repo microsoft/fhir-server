@@ -107,9 +107,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 return false;
             }
 
-            return string.Equals(System, tokenSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(Code, tokenSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(Text, tokenSearchValueOther.Text, StringComparison.OrdinalIgnoreCase);
+            // Using case sensitive comparison to match DB colation.
+            // This allows the indexing of token values that only differ by case.
+            // As the token search is case sensitive this is needed to ensure tokens can be searched by all included values.
+            return string.Equals(System, tokenSearchValueOther.System, StringComparison.Ordinal) &&
+                string.Equals(Code, tokenSearchValueOther.Code, StringComparison.Ordinal) &&
+                string.Equals(Text, tokenSearchValueOther.Text, StringComparison.Ordinal);
         }
 
         /// <inheritdoc />
@@ -126,9 +129,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public override int GetHashCode()
         {
             return HashCode.Combine(
-                System != null ? System.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
-                Code != null ? Code.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
-                Text != null ? Text.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0);
+                System != null ? System.GetHashCode(StringComparison.Ordinal) : 0,
+                Code != null ? Code.GetHashCode(StringComparison.Ordinal) : 0,
+                Text != null ? Text.GetHashCode(StringComparison.Ordinal) : 0);
         }
     }
 }

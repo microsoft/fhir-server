@@ -21,7 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
             ImportMode importMode,
-            bool allowNegativeVersions = false)
+            bool allowNegativeVersions,
+            string errorContainerName,
+            bool eventualConsistency,
+            int processingUnitBytesToRead)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -32,6 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             StorageDetail = storageDetail;
             ImportMode = importMode;
             AllowNegativeVersions = allowNegativeVersions;
+            ErrorContainerName = errorContainerName;
+            EventualConsistency = eventualConsistency;
+            ProcessingUnitBytesToRead = processingUnitBytesToRead;
         }
 
         /// <summary>
@@ -71,5 +77,21 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// With this flag set to true, it can be ingested with negative version value.
         /// </summary>
         public bool AllowNegativeVersions { get; set; }
+
+        /// <summary>
+        /// Custom container name for error logs. If not specified, the default container will be used.
+        /// </summary>
+        public string ErrorContainerName { get; }
+
+        /// <summary>
+        /// Flag indicating whether FHIR index updates are handled in the same SQL transaction with Resource inserts.
+        /// Flag is relevant only for resource creates. Default value is false.
+        /// </summary>
+        public bool EventualConsistency { get; set; }
+
+        /// <summary>
+        /// Number of bytes to be read by processing job.
+        /// </summary>
+        public int ProcessingUnitBytesToRead { get; set; }
     }
 }

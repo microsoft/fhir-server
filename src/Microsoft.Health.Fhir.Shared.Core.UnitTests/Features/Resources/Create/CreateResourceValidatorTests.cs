@@ -67,9 +67,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
             Assert.True(result.Errors.Count >= 3);
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null")));
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element")));
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters")));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null"));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element"));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters"));
         }
 
         [InlineData(true, null, true)]
@@ -84,7 +84,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnCreate = configValue });
+            var coreConfig = new CoreFeatureConfiguration { ProfileValidationOnCreate = configValue };
+            config.Value.Returns(coreConfig);
             var headers = new Dictionary<string, StringValues>();
             if (headerValue != null)
             {

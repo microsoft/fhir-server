@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -48,6 +49,7 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
         IConfiguration genericConfiguration,
         IEnumerable<IStoredProcedureMetadata> storedProcedures,
         TokenCredential tokenCredential,
+        Func<TokenCredential, ArmClient> armClientFactory,
         ILogger<ResourceManagerCollectionSetup> logger)
     {
         EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
@@ -57,13 +59,14 @@ public class ResourceManagerCollectionSetup : ICollectionSetup
         _storeProceduresMetadata = EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
         _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         EnsureArg.IsNotNull(tokenCredential, nameof(tokenCredential));
+        EnsureArg.IsNotNull(armClientFactory, nameof(armClientFactory));
 
         var dataStoreResourceId = EnsureArg.IsNotNullOrWhiteSpace(
                 genericConfiguration.GetValue(FhirServerResourceManagerDataStoreResourceId, string.Empty),
                 nameof(genericConfiguration),
                 fn => fn.WithMessage($"{FhirServerResourceManagerDataStoreResourceId} must be set."));
 
-        _armClient = new ArmClient(tokenCredential);
+        _armClient = armClientFactory(tokenCredential);
         _resourceIdentifier = ResourceIdentifier.Parse(dataStoreResourceId);
         _account = _armClient.GetCosmosDBAccountResource(_resourceIdentifier);
     }

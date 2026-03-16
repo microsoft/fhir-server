@@ -12,8 +12,6 @@
     CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
 
-ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CONSTRAINT CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256 OR CodeOverflow2 IS NULL)
-
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam

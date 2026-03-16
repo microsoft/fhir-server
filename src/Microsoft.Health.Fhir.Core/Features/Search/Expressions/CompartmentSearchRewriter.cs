@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
@@ -15,128 +17,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Rewrites CompartmentSearchExpression to use main search index.
     /// </summary>
-    public class CompartmentSearchRewriter : ExpressionRewriterWithInitialContext<object>
+    public abstract class CompartmentSearchRewriter : ExpressionRewriterWithInitialContext<object>
     {
         private readonly Lazy<ICompartmentDefinitionManager> _compartmentDefinitionManager;
         private readonly Lazy<ISearchParameterDefinitionManager> _searchParameterDefinitionManager;
 
-        public CompartmentSearchRewriter(Lazy<ICompartmentDefinitionManager> compartmentDefinitionManager, Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager)
+        protected CompartmentSearchRewriter(Lazy<ICompartmentDefinitionManager> compartmentDefinitionManager, Lazy<ISearchParameterDefinitionManager> searchParameterDefinitionManager)
         {
             _compartmentDefinitionManager = EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
         }
 
+        // Add protected properties for derived class access
+        protected Lazy<ICompartmentDefinitionManager> CompartmentDefinitionManager => _compartmentDefinitionManager;
+
+        protected Lazy<ISearchParameterDefinitionManager> SearchParameterDefinitionManager => _searchParameterDefinitionManager;
+
         public override Expression VisitCompartment(CompartmentSearchExpression expression, object context)
         {
-            var compartmentSearchExpressionsGrouped = BuildCompartmentSearchExpressionsGroup(expression);
+            var expressions = BuildCompartmentSearchExpressionsGroup(expression);
 
-            Expression compartmentExpression = null;
-
-            if (compartmentSearchExpressionsGrouped.Count > 1)
-            {
-                compartmentExpression = Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
-            }
-            else if (compartmentSearchExpressionsGrouped.Count == 1)
-            {
-                compartmentExpression = compartmentSearchExpressionsGrouped[0];
-            }
-
-            return compartmentExpression;
+            // During SQL query generation, UnionExpressions are pulled at the top so always create union expression here.
+            return Expression.Union(UnionOperator.All, expressions.ToList());
         }
 
-        internal List<Expression> BuildCompartmentSearchExpressionsGroup(CompartmentSearchExpression expression)
-        {
-            SearchParameterInfo resourceTypeSearchParameter = _searchParameterDefinitionManager.Value.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
-
-            var compartmentType = expression.CompartmentType;
-            var compartmentId = expression.CompartmentId;
-
-            if (Enum.TryParse(compartmentType, out ValueSets.CompartmentType parsedCompartmentType))
-            {
-                if (string.IsNullOrWhiteSpace(compartmentId))
-                {
-                    throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
-                }
-
-                var compartmentResourceTypesToSearch = new HashSet<string>();
-                var compartmentSearchExpressions = new Dictionary<string, (SearchParameterExpression Expression, HashSet<string> ResourceTypes)>();
-
-                if (_compartmentDefinitionManager.Value.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
-                {
-                    if (expression.FilteredResourceTypes.Any(resourceType => !string.Equals(resourceType, KnownResourceTypes.DomainResource, StringComparison.Ordinal)))
-                    {
-                        resourceTypes = resourceTypes.Where(x => expression.FilteredResourceTypes.Contains(x)).ToHashSet();
-                    }
-
-                    foreach (var resourceFilter in resourceTypes)
-                    {
-                        compartmentResourceTypesToSearch.Add(resourceFilter);
-                    }
-                }
-
-                foreach (var compartmentResourceType in compartmentResourceTypesToSearch)
-                {
-                    var searchParamExpressionsForResourceType = new List<SearchParameterExpression>();
-                    if (_compartmentDefinitionManager.Value.TryGetSearchParams(compartmentResourceType, parsedCompartmentType, out HashSet<string> compartmentSearchParameters))
-                    {
-                        foreach (var compartmentSearchParameter in compartmentSearchParameters)
-                        {
-                            if (_searchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
-                            {
-                                searchParamExpressionsForResourceType.Add(
-                                    Expression.SearchParameter(sp, Expression.And(Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false), Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false))));
-                            }
-                        }
-                    }
-
-                    foreach (var expr in searchParamExpressionsForResourceType)
-                    {
-                        string searchParamUrl = expr.Parameter.Url.ToString();
-                        if (compartmentSearchExpressions.TryGetValue(searchParamUrl, out var resourceTypeList))
-                        {
-                            resourceTypeList.ResourceTypes.Add(compartmentResourceType);
-                        }
-                        else
-                        {
-                            compartmentSearchExpressions[searchParamUrl] = (expr, new HashSet<string> { compartmentResourceType });
-                        }
-                    }
-                }
-
-                var compartmentSearchExpressionsGrouped = new List<Expression>();
-
-                if (compartmentSearchExpressions.Any())
-                {
-                    foreach (var grouping in compartmentSearchExpressions)
-                    {
-                        // When we're searching more than 1 compartment resource type (i.e. Patient/abc/*) the search parameters need to list the applicable resource types
-                        if (compartmentResourceTypesToSearch.Count > 1)
-                        {
-                            var inExpression = Expression.In(FieldName.TokenCode, null, grouping.Value.ResourceTypes);
-
-                            SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
-                                resourceTypeSearchParameter,
-                                inExpression);
-
-                            compartmentSearchExpressionsGrouped.Add(Expression.And(grouping.Value.Expression, resourceTypesExpression));
-                        }
-                        else
-                        {
-                            compartmentSearchExpressionsGrouped.Add(grouping.Value.Expression);
-                        }
-                    }
-                }
-                else
-                {
-                    compartmentSearchExpressionsGrouped.Add(expression);
-                }
-
-                return compartmentSearchExpressionsGrouped;
-            }
-            else
-            {
-                throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
-            }
-        }
+        // Abstract method - must be implemented by SQL/Cosmos versions
+        public abstract IReadOnlyCollection<Expression> BuildCompartmentSearchExpressionsGroup(
+            CompartmentSearchExpression expression);
     }
 }

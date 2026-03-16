@@ -51,10 +51,6 @@ namespace Microsoft.Health.Fhir.Azure
                 fhirServerBuilder.Services.Add<AzureAccessTokenClientInitializer>()
                     .Transient()
                     .AsService<IExportClientInitializer<BlobServiceClient>>();
-
-                fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
-                    .Transient()
-                    .AsService<IAccessTokenProvider>();
             }
             else
             {

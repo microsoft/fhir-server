@@ -35,29 +35,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
+        [InlineData("binary-example", "Binary")]
+        [InlineData("Weight", "Observation")]
+        [InlineData("DocumentReference-example-with-base64", "DocumentReference")]
+        [InlineData("CommunicationAttachment", "Communication")]
+        public async Task GivenAResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully(string resourceFileName, string resourceType)
         {
-            using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            using FhirResponse<Resource> response = await _client.CreateAsync(Samples.GetJsonSample<Resource>(resourceFileName));
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.ETag);
             Assert.NotNull(response.Headers.Location);
             Assert.NotNull(response.Content.Headers.LastModified);
 
-            Observation observation = response.Resource;
+            Resource resource = response.Resource;
 
-            Assert.NotNull(observation.Id);
-            Assert.NotNull(observation.Meta.VersionId);
-            Assert.NotNull(observation.Meta.LastUpdated);
+            Assert.NotNull(resource.Id);
+            Assert.NotNull(resource.Meta.VersionId);
+            Assert.NotNull(resource.Meta.LastUpdated);
 
-            Assert.Equal($@"W/""{observation.Meta.VersionId}""", response.Headers.ETag.ToString());
+            Assert.Equal($@"W/""{resource.Meta.VersionId}""", response.Headers.ETag.ToString());
 
-            TestHelper.AssertLocationHeaderIsCorrect(_client, observation, response.Headers.Location);
-            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(observation.Meta.LastUpdated, response.Content.Headers.LastModified);
+            TestHelper.AssertLocationHeaderIsCorrect(_client, resource, response.Headers.Location, resourceType);
+            TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(resource.Meta.LastUpdated, response.Content.Headers.LastModified);
 
-            DotNetAttributeValidation.Validate(observation, true);
+            DotNetAttributeValidation.Validate(resource, true);
         }
 
         [Fact]

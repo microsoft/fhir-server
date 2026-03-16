@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -135,6 +135,66 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(parameters, observation.Id);
 
             Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GivenAnObservationAction_WhenActionIdIsMissing_ThenAResourceNotValidExceptionShouldBeThrown()
+        {
+            var filter = new ValidateResourceIdFilterAttribute();
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString(),
+            };
+
+            var parameters = new Parameters();
+            parameters.Add("resource", observation);
+
+            var context = new ActionExecutingContext(
+                new ActionContext(
+                    new DefaultHttpContext(),
+                    new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Observation" } },
+                    new ActionDescriptor()),
+                new List<IFilterMetadata>(),
+                new Dictionary<string, object> { { "resource", parameters } },
+                FilterTestsHelper.CreateMockFhirController());
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GivenAnObservationAction_WhenActionIdIsMissingAndRoutingFeatureIsPresent_ThenAnActionShouldBeExecutedSuccessfully()
+        {
+            var filter = new ValidateResourceIdFilterAttribute(true);
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString(),
+            };
+
+            var parameters = new Parameters();
+            parameters.Add("resource", observation);
+
+            var context = new ActionExecutingContext(
+                new ActionContext(
+                    new DefaultHttpContext()
+                    {
+                        Features =
+                        {
+                            [typeof(IRoutingFeature)] = new RoutingFeature
+                            {
+                                RouteData = new RouteData()
+                                {
+                                    Values = { [KnownActionParameterNames.Id] = observation.Id },
+                                },
+                            },
+                        },
+                    },
+                    new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Observation" } },
+                    new ActionDescriptor()),
+                new List<IFilterMetadata>(),
+                new Dictionary<string, object> { { "resource", parameters } },
+                FilterTestsHelper.CreateMockFhirController());
+
+            filter.OnActionExecuting(context);
         }
 
         private static ActionExecutingContext CreateContext(Resource type, string id)

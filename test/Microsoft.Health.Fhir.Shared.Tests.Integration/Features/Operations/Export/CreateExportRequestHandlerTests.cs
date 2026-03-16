@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                                 }
                             },
                         },
-                        string.Empty,
+                        SearchParameterHandling.Lenient.ToString(),
                     },
                     new object[]
                     {
@@ -458,7 +458,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         [Theory]
         [MemberData(nameof(ValidateTypeFilters))]
-        public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithStrictHandlingEnabled_ThenABadRequestIsReturned(
+        public async Task GivenARequestWithFilters_WhenInvalidParameterFound_ThenABadRequestIsReturned(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,
             IDictionary<string, ISet<string>> invalidParameters,
 #pragma warning disable xUnit1026 // Theory methods should use all of their parameters
@@ -472,14 +472,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                     actualRecord = record;
                 }),
                 Arg.Any<CancellationToken>());
-
-            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
-            fhirRequestContext.RequestHeaders.Returns(
-                new Dictionary<string, StringValues>
-                {
-                    { KnownHeaders.Prefer, new StringValues($"handling={SearchParameterHandling.Strict}") },
-                });
-            _requestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
             var filterString = new StringBuilder();
             foreach (var kv in filters)
@@ -543,7 +535,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         [Theory]
         [MemberData(nameof(ValidateTypeFilters))]
-        public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithStrictHandlingDisabled_ThenValidateTypeFiltersShouldBeSkipped(
+        public async Task GivenARequestWithFilters_WhenInvalidParameterFoundWithLenientHandlingSpecified_ThenValidateTypeFiltersShouldBeSkipped(
             IDictionary<string, IList<KeyValuePair<string, string>>> filters,
             IDictionary<string, ISet<string>> invalidParameters,
             string searchParameterHandling)

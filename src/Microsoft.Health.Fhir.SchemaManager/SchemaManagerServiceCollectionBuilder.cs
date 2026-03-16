@@ -40,6 +40,12 @@ public static class SchemaManagerServiceCollectionBuilder
 
         services.AddSqlServerManagement<SchemaVersion>();
 
+        // Optionally add support for Workload Identity
+        if (bool.TryParse(config[OptionAliases.EnableWorkloadIdentity], out bool enableWorkloadIdentity) && enableWorkloadIdentity)
+        {
+            services.EnableWorkloadManagedIdentity();
+        }
+
         services.AddSingleton<BaseSchemaRunner>();
         services.AddSingleton<IBaseSchemaRunner, FhirBaseSchemaRunner>();
 

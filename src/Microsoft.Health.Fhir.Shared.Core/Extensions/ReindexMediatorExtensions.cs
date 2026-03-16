@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static async Task<ResourceElement> CreateReindexJobAsync(
             this IMediator mediator,
-            ushort? maximumConcurrency,
             uint? maxResourcesPerQuery,
+            uint? maxResourcesPerWrite,
             int? queryDelay,
             ushort? targetDataStoreResourcePercentage,
             string targetResourceTypesString,
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 throw new RequestNotValidException(Resources.ReindexMultipleTargetsNotSupported);
             }
 
-            var request = new CreateReindexRequest(targetResourceTypes, targetSearchParamTypes, maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
+            var request = new CreateReindexRequest(targetResourceTypes, targetSearchParamTypes, maxResourcesPerQuery, maxResourcesPerWrite, queryDelay, targetDataStoreResourcePercentage);
 
             CreateReindexResponse response = await mediator.Send(request, cancellationToken);
             return response.Job.ToParametersResourceElement();

@@ -1,0 +1,32 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "includes",
+    "url": "[base]/OperationDefinition/includes",
+    "version": "1.0.0",
+    "name": "Includes",
+    "status": "active",
+    "kind": "operation",
+    "description": "Search and retrieve 'include' resources with support of pagination.",
+    "code": "search",
+    "system": false,
+    "type": true,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "includesCt",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "The continuation token for retrieving the next batch of 'include' resources.",
+            "type": "string"
+        },
+        {
+            "name": "_includesCount",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The number of 'include' resources to retrieve.",
+            "type": "integer"
+        }
+    ]
+}

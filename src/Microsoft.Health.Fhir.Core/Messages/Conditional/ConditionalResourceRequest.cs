@@ -8,27 +8,26 @@ using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages
 {
-    public abstract class ConditionalResourceRequest<TResponse> : IRequireCapability, IRequest<TResponse>
+    public abstract class ConditionalResourceRequest<TResponse> : BaseBundleInnerRequest, IRequireCapability, IRequest<TResponse>
     {
         protected ConditionalResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext)
+            : base(bundleResourceContext)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
-            BundleResourceContext = bundleResourceContext;
         }
 
         public string ResourceType { get; }
 
-        public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
-
-        public BundleResourceContext BundleResourceContext { get; }
+        public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; set; }
 
         protected abstract IEnumerable<string> GetCapabilities();
 

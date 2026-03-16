@@ -17,6 +17,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly CosmosResponseProcessor _cosmosResponseProcessor;
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
         public CosmosResponseProcessorTests()
         {
@@ -44,10 +46,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Returns(_responseHeaders);
             _fhirRequestContextAccessor.RequestContext.ResourceType.Returns("resource");
             _fhirRequestContextAccessor.RequestContext.AuditEventType.Returns("operation");
+            _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration();
 
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
-            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), nullLogger);
+            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, _cosmosDataStoreConfiguration, Substitute.For<ICosmosQueryLogger>(), nullLogger);
         }
 
         [Fact]
@@ -144,6 +147,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(HttpStatusCode.TooManyRequests, new Headers(), "too many requests", CancellationToken.None));
             Assert.Null(exception.RetryAfter);
+        }
+
+        [Fact]
+        public async Task GivenAnExceptionWithRequestTimeoutStatusCode_WhenProcessing_ThenCosmosDbRequestTimeoutExceptionShouldThrow()
+        {
+            // Arrange
+            var errorMessage = "Request timed out. More info: https://aka.ms/cosmosdb-tsg-request-timeout";
+            ResponseMessage response = CreateResponseException(errorMessage, HttpStatusCode.RequestTimeout);
+
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<Microsoft.Health.Fhir.Core.Exceptions.CosmosDbRequestTimeoutException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None));
+
+            // Verify the exception message comes from the resource string
+            Assert.Contains("Cosmos DB request timed out due to insufficient provisioned throughput (RUs) or high load", ex.Message);
+
+            // Verify that RetryAfter is null since we're not providing a retry time for 408 timeouts
+            Assert.Null(ex.RetryAfter);
         }
 
         private static ResponseMessage CreateResponseException(string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)

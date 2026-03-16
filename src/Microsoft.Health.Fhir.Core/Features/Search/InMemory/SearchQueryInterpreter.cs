@@ -230,6 +230,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.InMemory
             throw new NotImplementedException();
         }
 
+        public SearchPredicate VisitNotReferenced(NotReferencedExpression expression, Context context)
+        {
+            EnsureArg.IsNotNull(expression, nameof(expression));
+            EnsureArg.IsNotNull<Context>(context, nameof(context));
+
+            throw new NotImplementedException();
+        }
+
         public SearchPredicate VisitIn<T>(InExpression<T> expression, Context context)
         {
             EnsureArg.IsNotNull(expression, nameof(expression));

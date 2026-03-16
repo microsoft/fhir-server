@@ -17,7 +17,7 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
         [JsonPropertyName("output")]
         public List<Json> Output { get; set; } = new();
 
-        public sealed class Json
+        internal sealed class Json
         {
             [JsonPropertyName("type")]
             public string Type { get; set; } = string.Empty;

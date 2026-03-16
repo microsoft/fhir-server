@@ -5,6 +5,7 @@
 
 using System;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -16,9 +17,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -34,6 +38,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Compare;
+using Microsoft.SqlServer.TransactSql.ScriptDom;
 using NSubstitute;
 using Xunit;
 
@@ -44,16 +49,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.Schema)]
     public class SqlServerSchemaUpgradeTests
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         public SqlServerSchemaUpgradeTests()
         {
         }
 
-        [Fact(Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")]
+        [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
+            // previously test was skipped with (Skip = "Issue connecting with SQL workload identity & custom auth provider. AB#122858")
+            if (!EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString).Contains("(local)", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
             var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
@@ -83,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [RetryFact]
         public void GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
         {
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
@@ -117,10 +127,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
         {
-            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
+            var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var searchService = Substitute.For<ISearchService>();
-            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                Substitute.For<IMediator>(),
+                searchService.CreateMockScopeProvider(),
+                searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.MinForUpgrade, maxSchemaVersion);
@@ -136,6 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlTransactionHandler = new SqlTransactionHandler();
             var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
+            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
@@ -144,6 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Options.Create(securityConfiguration),
                 defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
+                sqlRetryService,
                 NullLogger<SqlServerFhirModel>.Instance);
 
             var testHelper = new SqlServerFhirStorageTestHelper(
@@ -196,8 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task<string> CompareDatabaseSchemas(string databaseName1, string databaseName2)
         {
-            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
+            var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var testConnectionString1 = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName1 }.ToString();
             var testConnectionString2 = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName2 }.ToString();
 
@@ -215,44 +235,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Exclude them from the schema comparison differences.
             (string type, string name)[] deprecatedObjectToIgnore =
             {
-                ("Procedure", "[dbo].[RebuildIndex]"),
-                ("Procedure", "[dbo].[UpsertResource]"),
-                ("Procedure", "[dbo].[UpsertResource_2]"),
-                ("Procedure", "[dbo].[UpsertResource_3]"),
-                ("Procedure", "[dbo].[UpsertResource_4]"),
-                ("Procedure", "[dbo].[UpsertResource_5]"),
-                ("Procedure", "[dbo].[UpsertResource_6]"),
-                ("Procedure", "[dbo].[ReindexResource]"),
-                ("Procedure", "[dbo].[BulkReindexResources]"),
-                ("Procedure", "[dbo].[CreateTask]"),
-                ("Procedure", "[dbo].[CreateTask_2]"),
-                ("Procedure", "[dbo].[GetNextTask]"),
-                ("Procedure", "[dbo].[GetNextTask_2]"),
-                ("Procedure", "[dbo].[ResetTask]"),
-                ("Procedure", "[dbo].[HardDeleteResource_2]"),
-                ("Procedure", "[dbo].[FetchResourceChanges]"),
-                ("Procedure", "[dbo].[FetchResourceChanges_2]"),
-                ("Procedure", "[dbo].[RemovePartitionFromResourceChanges]"),
-                ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
-                ("TableType", "[dbo].[CompartmentAssignmentTableType_1]"),
-                ("TableType", "[dbo].[ReferenceSearchParamTableType_2]"),
-                ("TableType", "[dbo].[TokenSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenTextTableType_1]"),
-                ("TableType", "[dbo].[StringSearchParamTableType_1]"),
-                ("TableType", "[dbo].[UriSearchParamTableType_1]"),
-                ("TableType", "[dbo].[NumberSearchParamTableType_1]"),
-                ("TableType", "[dbo].[QuantitySearchParamTableType_1]"),
-                ("TableType", "[dbo].[DateTimeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_2]"),
-                ("TableType", "[dbo].[TokenTokenCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenDateTimeCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
@@ -265,45 +247,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var unexpectedDifference = new StringBuilder();
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
-                if (schemaDifference.Name == "SqlTable" &&
-                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
-                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
+                var objectsToSkip = new[] { "PartitionFunction_ResourceChangeData_Timestamp" }; // definition is not predictable as it has start time component
+                ////var objectsToSkip = new[] { "GetResourceSearchParamStats", "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
+                if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                 {
-                    foreach (SchemaDifference child in schemaDifference.Children)
-                    {
-                        if (child.TargetObject == null && child.SourceObject == null && (child.Name == "PartitionColumn" || child.Name == "PartitionScheme"))
-                        {
-                            // The ParitionColumn and the PartitionScheme come up in the differences list even though
-                            // when digging into the "difference" object the values being compared are equal.
-                            continue;
-                        }
-                        else
-                        {
-                            unexpectedDifference.AppendLine($"source={child.SourceObject?.Name} target={child.TargetObject?.Name}");
-                        }
-                    }
+                    continue;
                 }
-                else
+
+                if (schemaDifference.SourceObject != null
+                    && schemaDifference.TargetObject != null
+                    && schemaDifference.SourceObject.ObjectType.Name == "Procedure"
+                    && await IsObjectTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
                 {
-                    //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
-                    //// Skipping some objects
-                    var objectsToSkip = new[] { "GetResourceSearchParamStats", "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
-                    objectsToSkip.Add("PartitionFunction_ResourceChangeData_Timestamp"); // definition is not predictable as it has start time component
-                    if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
-                    {
-                        continue;
-                    }
-
-                    if (schemaDifference.SourceObject != null
-                        && schemaDifference.TargetObject != null
-                        && schemaDifference.SourceObject.ObjectType.Name == "Procedure"
-                        && await IsStoredProcedureTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
-                    {
-                        continue;
-                    }
-
-                    unexpectedDifference.AppendLine($"source={schemaDifference.SourceObject?.Name} target={schemaDifference.TargetObject?.Name}");
+                    continue;
                 }
+
+                unexpectedDifference.AppendLine($"source={schemaDifference.SourceObject?.Name} target={schemaDifference.TargetObject?.Name}");
             }
 
             // if TransactionCheckWithInitialiScript(which has current version as x-1) is not updated with the new x version then x.sql will have a wrong version inserted into SchemaVersion table
@@ -318,65 +277,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return unexpectedDifference.ToString();
         }
 
-        private async Task<bool> IsStoredProcedureTextEqual(string connStr1, string connStr2, string storedProcedureName)
+        private async Task<bool> IsObjectTextEqual(string connStr1, string connStr2, string objectName)
         {
-            var text1 = await GetStoredProcedureText(connStr1, storedProcedureName);
-            var text2 = await GetStoredProcedureText(connStr2, storedProcedureName);
+            var text1 = await GetObjectText(connStr1, objectName);
+            var text2 = await GetObjectText(connStr2, objectName);
 
             text1 = Normalize(text1);
             text2 = Normalize(text2);
 
-            Assert.Equal(text1, text2);
+            try
+            {
+                Assert.Equal(text1, text2);
+            }
+            catch (Xunit.Sdk.EqualException e)
+            {
+                throw new Exception($"object={objectName} message={e.Message}");
+            }
 
             return true;
         }
 
         private string Normalize(string text)
         {
-            // normalize newlines
-            text = text.Replace("\r\n", "\n").Replace("\r", "\n");
-
-            // remove inline comments
-            while (text.Contains("--"))
-            {
-                var indexStart = text.IndexOf("--");
-                var indexEnd = text.IndexOf("\n", indexStart);
-
-                if (indexEnd == -1)
-                {
-                    text = text.Substring(0, indexStart);
-                }
-                else
-                {
-                    text = text.Substring(0, indexStart) + text.Substring(indexEnd + 1);
-                }
-            }
-
-            return text.ToLowerInvariant()
-                       .Replace("\n", string.Empty)
-                       .Replace("\r", string.Empty)
-                       .Replace("\t", string.Empty)
-                       .Replace(";", string.Empty)
-                       .Replace(" output,", " out,")
-                       .Replace(" output ", " out ")
-                       .Replace(" inner join ", " join ")
-                       .Replace(" delete from ", " delete ")
-                       .Replace(" insert into ", " insert ")
-                       .Replace(" rollback transaction ", " rollback ")
-                       .Replace(" as ", string.Empty)
-                       .Replace(" ", string.Empty)
-                       .Replace("(index(", "(index=")
-                       .Replace("),", ",")
-                       .Replace("))on", ")on");
+            using var inputStream = new MemoryStream(Encoding.UTF8.GetBytes(text));
+            using var reader = new StreamReader(inputStream);
+            using var outputStream = new MemoryStream();
+            using var writer = new StreamWriter(outputStream);
+            new Sql150ScriptGenerator().GenerateScript(new TSql150Parser(true).Parse(reader, out var _), writer);
+            writer.Flush();
+            text = Encoding.UTF8.GetString(outputStream.ToArray());
+            return text;
         }
 
-        private async Task<string> GetStoredProcedureText(string connStr, string storedProcedureName)
+        private async Task<string> GetObjectText(string connStr, string objectName)
         {
             using var conn = new SqlConnection(connStr);
             await conn.OpenAsync();
             using var cmd = new SqlCommand("dbo.sp_helptext", conn);
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.Parameters.AddWithValue("@objname", storedProcedureName);
+            cmd.Parameters.AddWithValue("@objname", objectName);
             using var reader = cmd.ExecuteReader();
             var text = string.Empty;
             while (reader.Read())

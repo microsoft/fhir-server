@@ -45,6 +45,14 @@ namespace Microsoft.Health.Fhir.Tests.Common
             provider.GetResourceTypeNames().Returns(_ => seenTypes.Where(x => !string.IsNullOrEmpty(x)).ToArray());
             provider.IsKnownResource(Arg.Any<string>()).Returns(x => provider.GetResourceTypeNames().Contains(x[0]));
 
+            // Compartment types (FHIR standard set)
+            var compartmentTypes = new HashSet<string>
+            {
+                "Patient", "Practitioner",
+            };
+            provider.GetCompartmentTypeNames().Returns(_ => compartmentTypes.ToArray());
+            provider.IsKnownCompartmentType(Arg.Any<string>()).Returns(x => compartmentTypes.Contains((string)x[0]));
+
             // Simulate inherited behavior
             // Some code depends on "InheritedResource".BaseType
             // This adds the ability to resolve "Resource" as the base type

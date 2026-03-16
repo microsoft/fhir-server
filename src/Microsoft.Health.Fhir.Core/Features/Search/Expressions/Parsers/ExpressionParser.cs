@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     /// </summary>
     public class ExpressionParser : IExpressionParser
     {
-        private static readonly Dictionary<string, SearchModifierCode> SearchParamModifierMapping = Enum.GetNames(typeof(SearchModifierCode))
-            .Select(e => (SearchModifierCode)Enum.Parse(typeof(SearchModifierCode), e))
+        private static readonly Dictionary<string, SearchModifierCode> SearchParamModifierMapping = Enum.GetNames<SearchModifierCode>()
+            .Select(e => Enum.Parse<SearchModifierCode>(e))
             .ToDictionary(
                 e => e.GetLiteral(),
                 e => e,
@@ -65,6 +65,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceTypes, key.AsSpan(), value);
         }
 
+        /// <summary>
+        /// Checks if the given key contains either the reverse chain parameter or a chain parameter.
+        /// </summary>
+        /// <param name="key">The key to check.</param>
+        /// <returns>True if the key contains either parameter; otherwise, false.</returns>
+        public static bool ContainsChainOrReverseParameter(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            ReadOnlySpan<char> keySpan = key.AsSpan();
+
+            // If the key starts with the reverse chain parameter, return true.
+            if (TryConsume(ReverseChainParameter.AsSpan(), ref keySpan))
+            {
+                return true;
+            }
+
+            // If a chain parameter ('.') is found, return true.
+            if (TrySplit(ChainParameter, ref keySpan, out _))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate, IReadOnlyCollection<string> allowedResourceTypesByScope)
         {
             var valueSpan = includeValue.AsSpan();
@@ -77,6 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
                 wildCard = true;
+                originalType = isReversed ? "*" : originalType;
             }
             else if (TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> type))
             {
@@ -96,6 +126,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
+            }
+
+            if (isReversed && string.IsNullOrWhiteSpace(originalType))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.RevIncludeMissingType);
             }
 
             allowedResourceTypesByScope = allowedResourceTypesByScope?.ToList();
@@ -144,6 +179,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             return new IncludeExpression(resourceTypes, refSearchParameter, originalType, targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
+        }
+
+        public NotReferencedExpression ParseNotReferenced(string notReferencedValue)
+        {
+            if (!notReferencedValue.Contains(SearchSplitChar, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterNoSeparator);
+            }
+
+            if (notReferencedValue.Equals("*:*", StringComparison.OrdinalIgnoreCase))
+            {
+                return new NotReferencedExpression(null, null, true);
+            }
+
+            var parts = notReferencedValue.Split(SearchSplitChar);
+            if (parts.Length != 2)
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterMultipleSeperators);
+            }
+
+            var type = parts[0];
+            var searchParameter = parts[1];
+
+            if (type.Equals("*", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidSearchOperationException(Core.Resources.NotReferencedParameterWildcardType);
+            }
+
+            // Checking if the resource type is valid. If the type isn't a recognized FHIR resource type this will throw an exception.
+            _searchParameterDefinitionManager.GetSearchParameters(type);
+
+            if (searchParameter.Equals("*", StringComparison.OrdinalIgnoreCase))
+            {
+                return new NotReferencedExpression(null, type, true);
+            }
+
+            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(type, searchParameter);
+
+            return new NotReferencedExpression(refSearchParameter, type, false);
         }
 
         private Expression ParseImpl(string[] resourceTypes, ReadOnlySpan<char> key, string value)

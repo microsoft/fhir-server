@@ -1,0 +1,473 @@
+# SMART v2 Scopes Example
+# This file demonstrates the new SMART v2 granular permission model
+# Please note that to use this file for local testing
+# you must make an update in the appsettings.json
+# FhirServer:Security:Authorization:ScopesClaim = "scope"
+# Due to the in-memory Identity Provider using "scope"
+# as the claim name for scopes, which is not the default
+
+@hostname = localhost:44348
+
+### Test rest client - verify server is running
+https://{{hostname}}/metadata
+
+### Get the globalAdminServicePrincipal to verify scopes not enforced, and to be able to POST test data
+# @name adminBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### POST test data for SMART v2 testing
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{adminBearer.response.body.access_token}}
+
+< ./Data/SmartCompartmentResources.json
+
+##################################################################
+### SMART v2 SEARCH Permission Tests
+##################################################################
+
+### Get token with SMART v2 Search permission
+# @name searchBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.s patient/Observation.s
+
+### Test Search permission - should succeed
+GET https://{{hostname}}/Patient?name=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Test Search permission - allowed but doesn't find patient
+GET https://{{hostname}}/Patient?name=smart-patient-C
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Test Search permission with chained search - should succeed
+GET https://{{hostname}}/Observation?subject:Patient.name=smartUserClient
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+### Test direct read with Search permission only - should fail (403)
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{searchBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 READ Permission Tests
+##################################################################
+
+### Get token with SMART v2 Read permission
+# @name readBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
+&scope=patient/Patient.r fhir-api
+
+### Test Read permission - should succeed
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{readBearer.response.body.access_token}}
+
+### Test Read permission - allowed but won't find Patient
+GET https://{{hostname}}/Patient/smart-patient-B
+Authorization: Bearer {{readBearer.response.body.access_token}}
+
+### Test search with Read permission only - should fail (403)
+GET https://{{hostname}}/Patient?name=smart-patient-A
+Authorization: Bearer {{readBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 CREATE Permission Tests
+##################################################################
+
+### Get token with SMART v2 Create permission
+# @name createBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.c
+
+### Test Create permission - should succeed
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{createBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "name": [
+    {
+      "given": ["SMART", "v2"],
+      "family": "TestPatient"
+    }
+  ]
+}
+
+### Test read with Create permission only - should fail (403)
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{createBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 UPDATE Permission Tests
+##################################################################
+
+### Get token with SMART v2 Update permission
+# @name updateBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.u
+
+### Test Update permission - should succeed
+PUT https://{{hostname}}/Patient/smart-patient-A
+content-type: application/json
+Authorization: Bearer {{updateBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "smart-patient-A",
+  "name": [
+    {
+      "given": ["SMART", "Updated"],
+      "family": "TestPatient"
+    }
+  ]
+}
+
+### Test read with Update permission only - should fail (403)
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{updateBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 DELETE Permission Tests
+##################################################################
+
+### Get token with SMART v2 Delete permission
+# @name deleteBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.d
+
+### Test Delete permission (soft delete) - should succeed
+DELETE https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{deleteBearer.response.body.access_token}}
+
+### Test Hard Delete permission - should fail
+DELETE https://{{hostname}}/Patient/smart-patient-A?hardDelete=true
+Authorization: Bearer {{deleteBearer.response.body.access_token}}
+
+### Test read with Delete permission only - should fail (403)
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{deleteBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 Combined Permissions Tests
+##################################################################
+
+### Get token with SMART v2 Search + Read permissions
+# @name searchReadBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.rs
+
+### Test Search + Read - both should succeed
+GET https://{{hostname}}/Patient?name=SMARTGivenName1
+Authorization: Bearer {{searchReadBearer.response.body.access_token}}
+
+### Test direct read with Search + Read
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{searchReadBearer.response.body.access_token}}
+
+### Get token with SMART v2 CRUD permissions
+# @name crudBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
+&scope=patient/Patient.cruds
+
+### Test full CRUDS operations
+# Create
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "name": [
+    {
+      "given": ["SMART", "v2", "CRUD"],
+      "family": "TestPatient"
+    }
+  ]
+}
+
+# Read - should succeed with cruds scope
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+# Search - should succeed with cruds scope
+GET https://{{hostname}}/Patient?name=SMARTGivenName1
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+# Update - should succeed with cruds scope
+PUT https://{{hostname}}/Patient/smart-patient-A
+content-type: application/json
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "smart-patient-A",
+  "name": [
+    {
+      "given": ["SMART", "v2", "CRUD", "Updated"],
+      "family": "TestPatient"
+    }
+  ]
+}
+
+# Delete - should succeed with cruds scope
+DELETE https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{crudBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 Cross-Resource Type Tests
+##################################################################
+
+### Get token with mixed resource permissions
+# @name mixedBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
+&scope=patient/Patient.read patient/Observation.search patient/Encounter.create
+
+### Test Patient read - should succeed
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{mixedBearer.response.body.access_token}}
+
+### Test Observation search - should succeed
+GET https://{{hostname}}/Observation?subject=smart-patient-A
+Authorization: Bearer {{mixedBearer.response.body.access_token}}
+
+### Test Encounter create - should succeed
+POST https://{{hostname}}/Encounter
+content-type: application/json
+Authorization: Bearer {{mixedBearer.response.body.access_token}}
+
+{
+  "resourceType": "Encounter",
+  "status": "finished",
+  "class": {
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "code": "AMB"
+  },
+  "subject": {
+    "reference": "Patient/smart-patient-A"
+  }
+}
+
+### Test Patient search - should fail (403, no search permission)
+GET https://{{hostname}}/Patient?name=SMARTGivenName1
+Authorization: Bearer {{mixedBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 Conditional Operations Tests
+##################################################################
+
+### Get token with Search + Update for conditional operations
+# @name conditionalBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.search patient/Patient.update
+
+### Test conditional update - should succeed (requires both search and update)
+PUT https://{{hostname}}/Patient?name=SMARTGivenName1
+content-type: application/json
+Authorization: Bearer {{conditionalBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "name": [
+    {
+      "given": ["SMART", "Conditional"],
+      "family": "Updated"
+    }
+  ]
+}
+
+### Get token with Search + Delete for conditional delete
+# @name conditionalDeleteBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.search patient/Patient.delete
+
+### Test conditional delete - should succeed (requires both search and delete)
+DELETE https://{{hostname}}/Patient?name=SMARTConditional
+Authorization: Bearer {{conditionalDeleteBearer.response.body.access_token}}
+
+##################################################################
+### SMART v2 Bundle Operations Tests
+##################################################################
+
+### Get token with mixed permissions for bundle testing
+# @name bundleBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.read patient/Patient.create patient/Observation.read
+
+### Test bundle with mixed permissions - expect partial success/failure
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bundleBearer.response.body.access_token}}
+
+{
+  "resourceType": "Bundle",
+  "type": "batch",
+  "entry": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "Patient/smart-patient-A"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "Patient"
+      },
+      "resource": {
+        "resourceType": "Patient",
+        "name": [
+          {
+            "given": ["Bundle"],
+            "family": "Test"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "Observation?subject=smart-patient-A"
+      }
+    }
+  ]
+}
+
+##################################################################
+### SMART v2 Wildcard vs Granular Permission Comparison
+##################################################################
+
+### Get token with wildcard permission (legacy style)
+# @name wildcardBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.*
+
+### Test wildcard access - should succeed for all operations
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{wildcardBearer.response.body.access_token}}
+
+### Search with wildcard
+GET https://{{hostname}}/Patient?name=SMARTGivenName1
+Authorization: Bearer {{wildcardBearer.response.body.access_token}}
+
+### Create with wildcard
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{wildcardBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "name": [
+    {
+      "given": ["Wildcard"],
+      "family": "Test"
+    }
+  ]
+}
+
+##################################################################
+### SMART v2 Error Scenarios
+##################################################################
+
+### Get token with no permissions
+# @name noPermBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=fhirUser
+
+### Test with no resource permissions - should fail (403)
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{noPermBearer.response.body.access_token}}
+
+### Test with insufficient permissions for conditional operations
+# @name insufficientBearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.update
+
+### Test conditional update without search permission - should fail (403)
+PUT https://{{hostname}}/Patient?name=SMARTGivenName1
+content-type: application/json
+Authorization: Bearer {{insufficientBearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "name": [
+    {
+      "given": ["Should"],
+      "family": "Fail"
+    }
+  ]
+}

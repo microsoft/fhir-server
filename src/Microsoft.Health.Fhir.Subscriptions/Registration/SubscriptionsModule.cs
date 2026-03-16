@@ -99,8 +99,10 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
                .AsSelf()
                .AsImplementedInterfaces();
 
+#pragma warning disable CA2263 // Prefer generic overload - open generic types require non-generic registration
             services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<CreateResourceRequest, UpsertResourceResponse>));
             services.AddTransient(typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSubscriptionBehavior<UpsertResourceRequest, UpsertResourceResponse>));
+#pragma warning restore CA2263
         }
     }
 }

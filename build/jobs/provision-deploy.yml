@@ -1,4 +1,3 @@
-
 parameters:
 - name: version
   type: string
@@ -25,9 +24,15 @@ parameters:
 - name: sqlServerName
   type: string
   default: ''
+- name: sqlComputeTier
+  type: string
+  default: 'Standard'
 - name: reindexEnabled
   type: boolean
   default: true
+- name: keyVaultName
+  type: string
+  default: ''
 
 jobs:
 - job: provisionEnvironment
@@ -43,25 +48,30 @@ jobs:
 
   - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
+    retryCountOnTaskFailure: 1
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
-     
+
+        # Import retry helper for transient error handling
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
         $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
-     
+
         $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
         $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
-     
+
         $additionalProperties = $flattenedTestConfig
-     
+
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
-        $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
-        $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
-        $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
+        # Cosmos DB autoscale is configured in the ARM template (10,000 RU max)
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 2
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
@@ -69,41 +79,44 @@ jobs:
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "B3"
-            numberOfInstances = 2
+            appServicePlanSku = "P0V3"
+            numberOfInstances = 3
             serviceName = $webAppName
-            securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
+            keyVaultName = "${{ parameters.keyVaultName }}".ToLower()
+            securityAuthenticationAuthority = "https://sts.windows.net/$(tenant-id-guid)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
-            additionalFhirServerConfigProperties = $additionalProperties 
+            additionalFhirServerConfigProperties = $additionalProperties
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
             enableConvertData = $true
             enableImport = $true
-            backgroundTaskCount = 5
+            backgroundTaskCount = 2
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
+            registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'
+            acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
+            acrPullUserAssignedManagedIdentityClientId = 'e4acf07d-0124-4373-9ea4-bf5c53af647d'
+            isNspExisting = $true
         }
-     
+
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
             $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
+            $templateParameters["sqlDatabaseComputeTier"] = "${{parameters.sqlComputeTier}}"
         }
 
         $deploymentName = $webAppName
         $resourceGroupName = "${{ parameters.resourceGroup }}"
 
-        Write-Host "Check for keyvaults in removed state..."
-        if (Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState)
-        {
-            Undo-AzKeyVaultRemoval -VaultName $webAppName -ResourceGroupName $resourceGroupName -Location $(ResourceGroupRegion)
-            Write-Host "KeyVault $webAppName is restored"
-        }
-
         Write-Host "Provisioning Resource Group"
         Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
+
+        # Set NSP name to match ARM template convention
+        $nspName = "nsp-$resourceGroupName"
+        $templateParameters["networkSecurityPerimeterName"] = $nspName
 
         # Check if a deployment with the specified name already exists
         $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
@@ -133,16 +146,94 @@ jobs:
             Write-Host "Add DevOps MI permission to Cosmos database"
 
             $account = Get-AzContext
-            $principalId = (Get-AzADServicePrincipal -ApplicationId $account.Account.Id).Id
 
-            New-AzCosmosDBSqlRoleAssignment `
-              -AccountName $webAppName `
-              -ResourceGroupName $resourceGroupName `
-              -Scope "/" `
-              -PrincipalId $principalId `
-              -RoleDefinitionId "00000000-0000-0000-0000-000000000002"
+            # Retry Get-AzADServicePrincipal for AAD replication delays
+            $principalId = Invoke-WithRetry -OperationName "Get Service Principal" -ScriptBlock {
+                (Get-AzADServicePrincipal -ApplicationId $account.Account.Id -ErrorAction Stop).Id
+            }
+
+            # Retry CosmosDB role assignment for resource propagation delays
+            Invoke-WithRetry -OperationName "CosmosDB Role Assignment" -ScriptBlock {
+                New-AzCosmosDBSqlRoleAssignment `
+                  -AccountName $webAppName `
+                  -ResourceGroupName $resourceGroupName `
+                  -Scope "/" `
+                  -PrincipalId $principalId `
+                  -RoleDefinitionId "00000000-0000-0000-0000-000000000002" `
+                  -ErrorAction Stop
+            }
+
+            # Associate CosmosDB with Network Security Perimeter using external template
+            Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
+            
+            $associationName = "cosmosdb-$webAppName-association"
+                
+            Write-Host "Creating NSP association using external ARM template..."
+            Write-Host "NSP Name: $nspName"
+            Write-Host "CosmosDB Account: $webAppName"
+            Write-Host "Association Name: $associationName"
+                
+            $nspTemplateParameters = @{
+                'nspName' = $nspName
+                'resourceName' = $webAppName
+                'resourceType' = 'Microsoft.DocumentDB/databaseAccounts'
+                'associationName' = $associationName
+                'accessMode' = 'Learning'
+                'nspProfile' = 'default'
+            }
+                
+            # Retry NSP association deployment for resource propagation delays
+            $nspDeploymentResult = Invoke-WithRetry -OperationName "NSP Association Deployment" -ScriptBlock {
+                New-AzResourceGroupDeployment `
+                  -ResourceGroupName $resourceGroupName `
+                  -Name "$webAppName-cosmosdb-nsp-association" `
+                  -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
+                  -TemplateParameterObject $nspTemplateParameters `
+                  -Verbose `
+                  -ErrorAction Stop
+            }
+                
+            Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
+            Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
         }
 
-  - template: ./provision-healthcheck.yml
-    parameters: 
-      webAppName: ${{ parameters.webAppName }}
+        # Health check — inlined so a retryCountOnTaskFailure on this task retries the full
+        # provisioning + health check together, covering race conditions where Cosmos comes up
+        # in a bad state and the app never becomes healthy.
+        $healthCheckUrl = "https://$webAppName.azurewebsites.net/health/check"
+        $timeoutMinutes = 5
+        $consecutiveSuccessRequired = 5
+        $consecutiveSuccessCount = 0
+        $startTime = Get-Date
+        $timeoutTime = $startTime.AddMinutes($timeoutMinutes)
+
+        Write-Host "Starting health check for $healthCheckUrl"
+        Write-Host "Timeout: $timeoutMinutes minutes, consecutive successes required: $consecutiveSuccessRequired"
+
+        Do {
+          Start-Sleep -s 5
+          Write-Host "Checking: $healthCheckUrl (consecutive successes: $consecutiveSuccessCount/$consecutiveSuccessRequired)"
+          try {
+            $response = Invoke-WebRequest -URI $healthCheckUrl
+            if ($response.StatusCode -eq 200) {
+              $consecutiveSuccessCount++
+              Write-Host "Success ($consecutiveSuccessCount/$consecutiveSuccessRequired)"
+            } else {
+              Write-Host "Non-200 response ($($response.StatusCode)), resetting count"
+              $consecutiveSuccessCount = 0
+            }
+          } catch {
+            Write-Host $PSItem.Exception.Message
+            $consecutiveSuccessCount = 0
+          } finally {
+            $Error.Clear()
+          }
+          if ((Get-Date) -gt $timeoutTime) {
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalMinutes, 2)
+            Write-Error "Health check timed out after $elapsed minutes ($consecutiveSuccessCount/$consecutiveSuccessRequired consecutive successes)"
+            throw "Health check timed out"
+          }
+        } While ($consecutiveSuccessCount -lt $consecutiveSuccessRequired)
+
+        $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)
+        Write-Host "Health check passed with $consecutiveSuccessRequired consecutive successes after $elapsed seconds"

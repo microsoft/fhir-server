@@ -150,6 +150,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Bundle;
         }
 
+        public static async Task<ResourceElement> SearchIncludeResourceAsync(this IMediator mediator, string type, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var result = await mediator.Send(new SearchResourceRequest(type, queries, true), cancellationToken);
+
+            return result.Bundle;
+        }
+
         public static async Task<ResourceElement> GetCapabilitiesAsync(this IMediator mediator, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -158,13 +167,24 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response.CapabilityStatement;
         }
 
-        public static async Task<SmartConfigurationResult> GetSmartConfigurationAsync(this IMediator mediator, CancellationToken cancellationToken = default)
+        public static async Task<SmartConfigurationResult> GetSmartConfigurationAsync(this IMediator mediator, Uri baseUri, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var response = await mediator.Send(new GetSmartConfigurationRequest(), cancellationToken);
+            var response = await mediator.Send(new GetSmartConfigurationRequest(baseUri), cancellationToken);
 
-            return new SmartConfigurationResult(response.AuthorizationEndpoint, response.TokenEndpoint, response.Capabilities);
+            return new SmartConfigurationResult(
+                response.AuthorizationEndpoint,
+                response.TokenEndpoint,
+                response.Capabilities,
+                response.ScopesSupported,
+                response.CodeChallengeMethodsSupported,
+                response.GrantTypesSupported,
+                response.TokenEndpointAuthMethodsSupported,
+                response.ResponseTypesSupported,
+                response.IntrospectionEndpoint,
+                response.ManagementEndpoint,
+                response.RevocationEndpoint);
         }
 
         public static async Task<VersionsResult> GetOperationVersionsAsync(this IMediator mediator, CancellationToken cancellationToken = default)

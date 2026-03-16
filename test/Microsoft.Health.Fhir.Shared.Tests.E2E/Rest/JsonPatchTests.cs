@@ -5,6 +5,7 @@
 
 using System;
 using System.Net;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -65,16 +66,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [SkippableFact]
+        [SkippableTheory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAPatchDocument_WhenSubmittingABundleWithBinaryPatch_ThenServerShouldPatchCorrectly()
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        public async Task GivenAPatchDocument_WhenSubmittingABundleWithBinaryPatch_ThenServerShouldPatchCorrectly(FhirBundleProcessingLogic processingLogic)
         {
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
             var bundleWithPatch = Samples.GetJsonSample("Bundle-BinaryPatch").ToPoco<Bundle>();
 
-            // This test required sequential bundle processing.
-            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
 
@@ -389,6 +391,71 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // DateTime with offset
             await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(response.Resource, patchDocument));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAResource_WhenJsonPatchingConditionallyWithMetaHistoryFlag_TheServerShouldRespectTheFlag(bool metaHistory)
+        {
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            string adJson = "{\"resourceType\":\"ActivityDefinition\",\"status\":\"active\"}";
+            var poco = parser.
+                Parse<Resource>(adJson).
+                ToTypedElement().
+                ToResourceElement().
+                ToPoco<ActivityDefinition>();
+            FhirResponse<ActivityDefinition> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/meta/tag\",\"value\":{\"system\":\"http://example.org/fhir/tags\",\"code\":\"example-tag\"}}]";
+            FhirResponse<ActivityDefinition> patchResponse = await _client.JsonPatchAsync(
+                response.Resource,
+                patchDocument,
+                metaHistory: metaHistory);
+
+            ActivityDefinition ad = patchResponse.Resource;
+            Assert.Contains(
+                ad.Meta.Tag,
+                tag => tag.System == "http://example.org/fhir/tags" && tag.Code == "example-tag");
+
+            FhirResponse<ActivityDefinition> getResponse = await _client.ReadAsync<ActivityDefinition>(
+                ResourceType.ActivityDefinition,
+                ad.Id);
+            ActivityDefinition adFromGet = getResponse.Resource;
+            Assert.Contains(
+                adFromGet.Meta.Tag,
+                tag => tag.System == "http://example.org/fhir/tags" && tag.Code == "example-tag");
+
+            FhirResponse<Bundle> historyResponse = await _client.ReadHistoryAsync(
+                ResourceType.ActivityDefinition,
+                ad.Id);
+            if (metaHistory)
+            {
+                // There should be two entries in the history: one for the create, one for the patch
+                Assert.Equal(2, historyResponse.Resource.Entry.Count);
+            }
+            else
+            {
+                // There should be only one entry in the history: the create
+                Assert.Single(historyResponse.Resource.Entry);
+            }
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData(" ")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnEmptyJsonPatchBody_WhenPatchJsonEndpointIsCalled_ThenServerShouldReturnBadRequest(string emptyBody)
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            // Empty body should trigger EmptyBodyBehavior.Disallow and return BadRequest
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(response.Resource, emptyBody));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
     }
 }

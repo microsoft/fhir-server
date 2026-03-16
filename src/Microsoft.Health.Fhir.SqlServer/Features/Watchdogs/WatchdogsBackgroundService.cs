@@ -15,19 +15,21 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal class WatchdogsBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
+    internal class WatchdogsBackgroundService : BackgroundService, INotificationHandler<SearchParametersInitializedNotification>
     {
-        private readonly CoreFeatureConfiguration _featureConfig;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private bool _storageReady = false;
         private readonly DefragWatchdog _defragWatchdog;
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
         private readonly IScopeProvider<TransactionWatchdog> _transactionWatchdogProvider;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
         private readonly Lazy<SubscriptionProcessorWatchdog> _subscriptionProcessorWatchdog;
+        private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
@@ -35,14 +37,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             Lazy<SubscriptionProcessorWatchdog> subscriptionProcessorWatchdog,
-            IOptions<CoreFeatureConfiguration> featureConfig)
+            GeoReplicationLagWatchdog geoReplicationLagWatchdog,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
             _transactionWatchdogProvider = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog));
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
             _subscriptionProcessorWatchdog = EnsureArg.IsNotNull(subscriptionProcessorWatchdog, nameof(subscriptionProcessorWatchdog));
-            _featureConfig = EnsureArg.IsNotNull(featureConfig?.Value, nameof(featureConfig));
+            _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
+            _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -64,9 +68,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
-            if (_featureConfig.SupportsSubscriptions)
+            if (_coreFeatureConfiguration.SupportsSubscriptions)
             {
                 tasks.Add(_subscriptionProcessorWatchdog.Value.ExecuteAsync(continuationTokenSource.Token));
+            }
+
+            // Only add GeoReplicationLagWatchdog if the feature is enabled
+            if (_coreFeatureConfiguration.EnableGeoRedundancy)
+            {
+                tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(continuationTokenSource.Token));
             }
 
             await Task.WhenAny(tasks);
@@ -80,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await Task.WhenAll(tasks);
         }
 
-        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;

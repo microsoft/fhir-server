@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 options.ModelBinderProviders.Insert(0, new PartialDateTimeBinderProvider());
 
                 // This filter should run first because it populates data for FhirRequestContext.
-                options.Filters.Add(typeof(FhirRequestContextRouteDataPopulatingFilterAttribute), 0);
+                options.Filters.Add<FhirRequestContextRouteDataPopulatingFilterAttribute>(0);
             });
 
             services.AddHttpContextAccessor();

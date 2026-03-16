@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
@@ -69,7 +70,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 #if Stu3
                 // STU3 doesn't have PATCH verb, so let's map it to PUT.
-                if (!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
+                if ((!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
+                    || httpVerb == Bundle.HTTPVerb.PATCH)
                 {
                     hasVerb = true;
                     httpVerb = Bundle.HTTPVerb.PUT;
@@ -120,52 +122,76 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             });
         }
 
-        public Resource CreateDeletedResourcesBundle(string bundleId, DateTimeOffset lastUpdated, params ResourceReference[] resourceReferences)
-        {
-            EnsureArg.IsNotNull(bundleId);
-            EnsureArg.HasItems(resourceReferences, nameof(resourceReferences));
-
-            var bundle = new Bundle
-            {
-                Id = bundleId,
-                Meta = new Meta
-                {
-                    LastUpdated = lastUpdated,
-                },
-                Type = Bundle.BundleType.Transaction,
-            };
-
-            foreach (var resource in resourceReferences)
-            {
-                bundle.Entry.Add(new Bundle.EntryComponent
-                {
-                    Request = new Bundle.RequestComponent
-                    {
-                        Method = Bundle.HTTPVerb.DELETE,
-                        Url = resource.Url.ToString(),
-                    },
-                });
-            }
-
-            return bundle;
-        }
-
         private void CreateLinks(SearchResult result, Bundle bundle)
         {
             bool problemWithLinks = false;
-            if (result.ContinuationToken != null)
+            if (!_fhirRequestContextAccessor.RequestContext?.RouteName?.Equals(RouteNames.Includes, StringComparison.OrdinalIgnoreCase) ?? true)
             {
-                try
+                if (result.ContinuationToken != null)
                 {
-                    bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        result.UnsupportedSearchParameters,
-                        result.SortOrder,
-                        ContinuationTokenConverter.Encode(result.ContinuationToken),
-                        true);
+                    try
+                    {
+                        bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                            result.UnsupportedSearchParameters,
+                            result.SortOrder,
+                            ContinuationTokenEncoder.Encode(result.ContinuationToken),
+                            true);
+                    }
+                    catch (UriFormatException)
+                    {
+                        problemWithLinks = true;
+                    }
                 }
-                catch (UriFormatException)
+
+                if (result.IncludesContinuationToken != null)
                 {
-                    problemWithLinks = true;
+                    try
+                    {
+                        var ambientRouteValuesOverride = new Dictionary<string, object>
+                        {
+                            { KnownHttpRequestProperties.RouteValueAction, "Search" },
+                            { KnownHttpRequestProperties.RouteValueController, RouteNames.Includes },
+                            { KnownActionParameterNames.ResourceType, _fhirRequestContextAccessor.RequestContext.ResourceType },
+                        };
+
+                        Uri url = _urlResolver.ResolveRouteUrl(
+                            result.UnsupportedSearchParameters,
+                            result.SortOrder,
+                            null,
+                            true,
+                            ContinuationTokenEncoder.Encode(result.IncludesContinuationToken),
+                            RouteNames.Includes,
+                            ambientRouteValuesOverride);
+                        bundle.Link.Add(
+                            new Bundle.LinkComponent()
+                            {
+                                Relation = "related",
+                                Url = url?.AbsoluteUri,
+                            });
+                    }
+                    catch (UriFormatException)
+                    {
+                        problemWithLinks = true;
+                    }
+                }
+            }
+            else
+            {
+                if (result.IncludesContinuationToken != null)
+                {
+                    try
+                    {
+                        bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                            result.UnsupportedSearchParameters,
+                            result.SortOrder,
+                            null,
+                            true,
+                            ContinuationTokenEncoder.Encode(result.IncludesContinuationToken));
+                    }
+                    catch (UriFormatException)
+                    {
+                        problemWithLinks = true;
+                    }
                 }
             }
 
@@ -245,6 +271,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             };
 
             return bundle.ToResourceElement();
+        }
+
+        public Resource CreateDeletedResourcesBundle(string bundleId, DateTimeOffset lastUpdated, params ResourceReference[] resourceReferences)
+        {
+            EnsureArg.IsNotNull(bundleId);
+            EnsureArg.HasItems(resourceReferences, nameof(resourceReferences));
+
+            var bundle = new Bundle
+            {
+                Id = bundleId,
+                Meta = new Meta
+                {
+                    LastUpdated = lastUpdated,
+                },
+                Type = Bundle.BundleType.Transaction,
+            };
+
+            foreach (var resource in resourceReferences)
+            {
+                bundle.Entry.Add(new Bundle.EntryComponent
+                {
+                    Request = new Bundle.RequestComponent
+                    {
+                        Method = Bundle.HTTPVerb.DELETE,
+                        Url = resource.Url.ToString(),
+                    },
+                });
+            }
+
+            return bundle;
         }
 
         public async System.Threading.Tasks.Task<string> CreateSubscriptionBundleAsync(params ResourceWrapper[] resources)

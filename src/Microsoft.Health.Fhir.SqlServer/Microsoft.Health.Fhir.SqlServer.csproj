@@ -1,8 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>83</LatestSchemaVersion>
+    <LatestSchemaVersion>106</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
+    <PackageTags>LatestSchemaVersion-$(LatestSchemaVersion)</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -43,6 +44,7 @@
   <!-- If this sql needs to be in a transaction, tag it TSqlScript otherwise use SqlScript -->
   <ItemGroup>
     <SqlScript Include="Features\Schema\Sql\Sprocs\*.sql" />
+    <SqlScript Include="Features\Schema\Sql\Views\*.sql" />
   </ItemGroup>
 
   <ItemGroup>
@@ -52,7 +54,8 @@
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
   </ItemGroup>
 
- <ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Subscriptions\Microsoft.Health.Fhir.Subscriptions.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
@@ -73,7 +76,12 @@
   <ItemGroup>
     <Compile Remove="**\*.generated.cs" />
     <Compile Remove="**\*.generated.*.cs" />
+    <Compile Remove="Features\Operations\Reindex\**" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="Features\Operations\Reindex\**" />
+    <None Remove="Features\Operations\Reindex\**" />
   </ItemGroup>
 
   <ItemGroup>

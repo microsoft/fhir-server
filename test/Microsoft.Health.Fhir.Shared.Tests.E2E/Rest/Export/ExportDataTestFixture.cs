@@ -27,15 +27,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public ExportDataTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
-            DataStore = dataStore;
         }
 
         public MetricHandler MetricHandler
         {
             get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ExportTaskMetricsNotification>>());
         }
-
-        internal DataStore DataStore { get; private set; }
 
         // ALL versions of generated tests resources by this fixture (including soft deleted ones). Resource generation methods below add to this dictionary.
         internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistoryAndDeletes { get; } = new();
@@ -236,11 +233,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                     {
                         Id = Guid.NewGuid().ToString("N"),
                         Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) } },
+#if Stu3 || R4 || R4B
                         Status = Encounter.EncounterStatus.Planned,
-                        Type = new() { new CodeableConcept("http://e2e-test", $"Test{i}") },
                         Class = new Coding("http://e2e-test", $"Test{i}"),
+#else
+                        Status = EncounterStatus.Planned,
+                        Class = new List<CodeableConcept>() { new() { Coding = new List<Coding>() { new("http://e2e-test", $"Test{i}") } } },
+#endif
+                        Type = new() { new CodeableConcept("http://e2e-test", $"Test{i}") },
                         Subject = new ResourceReference($"Patient/{patient.Id}"),
                     };
+
                     resources.Add(encounter);
 
                     for (int k = 0; k < numberOfObservationsPerEncounter; k++)

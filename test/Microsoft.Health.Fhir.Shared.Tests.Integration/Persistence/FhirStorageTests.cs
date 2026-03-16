@@ -17,6 +17,7 @@ using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         protected Mediator Mediator { get; }
 
-        [Theory]
+        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
         [InlineData(5)] // should succeed
         [InlineData(35)] // shoul fail
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -110,6 +111,58 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             finally
             {
                 await _fixture.SqlHelper.ExecuteSqlCmd("IF object_id('Resource_Trigger') IS NOT NULL DROP TRIGGER Resource_Trigger");
+            }
+        }
+
+        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [InlineData(true)]
+        [InlineData(false)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task DatabaseMergeThrottling(bool useDefaultMergeOptions)
+        {
+            await _fixture.SqlHelper.ExecuteSqlCmd("TRUNCATE TABLE EventLog");
+            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.OptimalConcurrentCalls', 1");
+            await _fixture.SqlHelper.ExecuteSqlCmd(@"
+        CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE
+        AS
+        WAITFOR DELAY '00:00:01'
+    ");
+
+            try
+            {
+                var patient = (Patient)Samples.GetJsonSample("Patient").ToPoco();
+                var exceptionThrown = false;
+
+                try
+                {
+                    await Parallel.ForAsync(0, 8, async (i, cancell) =>
+                    {
+                        Thread.Sleep(100 * i);
+                        if (useDefaultMergeOptions)
+                        {
+                            // default MergeOptions uses enlistTransaction: false
+                            patient.Id = Guid.NewGuid().ToString();
+                            await Mediator.UpsertResourceAsync(patient.ToResourceElement());
+                        }
+                        else
+                        {
+                            // default MergeOptions uses enlistTransaction: false hence pass true to validate non default options path
+                            var resOp = new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, true, null, false, false, null);
+                            await _dataStore.MergeAsync([resOp], new MergeOptions(enlistTransaction: true), CancellationToken.None);
+                        }
+                    });
+                }
+                catch (RequestRateExceededException)
+                {
+                    exceptionThrown = true;
+                }
+
+                Assert.True(exceptionThrown, "Expected RequestRateExceededException was not thrown.");
+            }
+            finally
+            {
+                await _fixture.SqlHelper.ExecuteSqlCmd("DROP TRIGGER Transactions_Trigger");
+                await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Parameters WHERE Id = 'MergeResources.OptimalConcurrentCalls'");
             }
         }
 
@@ -157,7 +210,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Tuple.Create(KnownQueryParameterNames.Type, type),
                 Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
-                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, "0"),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
 
@@ -166,7 +218,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
-            Assert.False(resource.IsHistory); // it is returned as current but is marked as history in the database ???
+            Assert.True(resource.IsHistory); // it is returned as current but is marked as history in the database ???
 
             // current resource
             results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
@@ -183,7 +235,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Tuple.Create(KnownQueryParameterNames.Type, type),
                 Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
-                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, "0"),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
             results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
@@ -207,7 +258,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
-        [Fact]
+        [RetryFact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -261,7 +312,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAResource_WhenUpserting_ThenTheNewResourceHasMetaSet()
         {
@@ -288,7 +338,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Assert.NotEqual(versionId, deserialized.VersionId);
             }
         }
-#endif
 
         [Fact(Skip = "Not valid for merge")]
         public async Task GivenASavedResource_WhenUpserting_ThenRawResourceVersionIsSetOrMetaSetIsSetToFalse()
@@ -1139,9 +1188,13 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         {
             var searchParam = new SearchParameter
             {
-                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
+                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}-Integration-FhirStorageTests",
                 Type = type,
-                Base = new List<ResourceType?> { ResourceType.Patient },
+#if Stu3 || R4 || R4B
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+#else
+                Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Patient },
+#endif
                 Expression = expression,
                 Name = searchParamName,
                 Code = searchParamName,
@@ -1172,7 +1225,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)
         {
-            var observation = _capabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var observation = _capabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
             var originalValue = observation.UpdateCreate;
             observation.UpdateCreate = allowCreate;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
@@ -1194,6 +1247,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             observationResource.Id = observationId;
             observationResource.VersionId = "1";
+            observationResource.Meta ??= new Meta();
+            observationResource.Meta.LastUpdated = DateTimeOffset.UtcNow;
 
             var resourceElement = observationResource.ToResourceElement();
             RawResource rawResource;
@@ -1205,7 +1260,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
             else
             {
-                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             }
 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);

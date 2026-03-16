@@ -49,7 +49,6 @@
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems" Label="Shared" />
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems" Label="Shared" />
-  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems" Label="Shared" />
   <Target Name="VerifyExactSdkVersion" BeforeTargets="Build">
     <!--
       Verify that the we are compiling with the exact version of the SDK that is specified in the global.json file.

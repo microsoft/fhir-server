@@ -13,7 +13,7 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@PreviousGroupId bigint
        ,@IndexId int
 
-DECLARE @Mode varchar(200) = 'T='+@TableName+' I='+isnull(@IndexName,'NULL')+' P='+convert(varchar,@PartitionNumber)+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
+DECLARE @Mode varchar(200) = 'T='+@TableName+' I='+isnull(@IndexName,'NULL')+' P='+isnull(convert(varchar,@PartitionNumber),'NULL')+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
 
 BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'

@@ -205,11 +205,29 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Partition reached maximum size..
+        /// </summary>
+        internal static string MaxPartitionSizeErrorMessage {
+            get {
+                return ResourceManager.GetString("MaxPartitionSizeErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Not able to execute a query. Retry the operation..
         /// </summary>
         internal static string NotAbleToExecuteQuery {
             get {
                 return ResourceManager.GetString("NotAbleToExecuteQuery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not Referenced is not supported.
+        /// </summary>
+        internal static string NotReferecedNotImplemented {
+            get {
+                return ResourceManager.GetString("NotReferecedNotImplemented", resourceCulture);
             }
         }
         

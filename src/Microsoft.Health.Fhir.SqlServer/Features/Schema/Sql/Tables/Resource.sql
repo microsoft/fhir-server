@@ -1,4 +1,25 @@
-﻿CREATE TABLE dbo.Resource
+﻿-- Our code generator, that creates class wrappers on database objects, is not able to deal with views, but we stil want to refer to view objects in the code.
+-- Workaround is to create table that looks like view, so code generator picks it up, and immediately drop it.
+-- This would not be needed at all, if we followed different class generation strategy.
+CREATE TABLE dbo.CurrentResource -- This is replaced by view CurrentResource
+(
+    ResourceTypeId              smallint                NOT NULL,
+    ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Version                     int                     NOT NULL,
+    IsHistory                   bit                     NOT NULL,
+    ResourceSurrogateId         bigint                  NOT NULL,
+    IsDeleted                   bit                     NOT NULL,
+    RequestMethod               varchar(10)             NULL,
+    RawResource                 varbinary(max)          NOT NULL,
+    IsRawResourceMetaSet        bit                     NOT NULL,
+    SearchParamHash             varchar(64)             NULL,
+    TransactionId               bigint                  NULL,
+    HistoryTransactionId        bigint                  NULL
+)
+GO
+DROP TABLE dbo.CurrentResource
+GO
+CREATE TABLE dbo.Resource
 (
     ResourceTypeId              smallint                NOT NULL,
     ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -50,3 +71,4 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO

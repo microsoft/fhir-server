@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
             }
 
             // Allow the resource to be updated with the normal handler
-            return await next();
+            return await next(cancellationToken);
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
             }
 
             // Now allow the resource to updated per the normal behavior
-            return await next();
+            return await next(cancellationToken);
         }
     }
 }

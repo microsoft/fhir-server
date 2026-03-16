@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Cosmos;
+using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -19,6 +20,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 
@@ -27,20 +29,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class CosmosResponseProcessor : ICosmosResponseProcessor
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly IMediator _mediator;
         private readonly ICosmosQueryLogger _queryLogger;
         private readonly ILogger<CosmosResponseProcessor> _logger;
 
-        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
+        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
+            EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
             _queryLogger = queryLogger;
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _logger = logger;
         }
 
@@ -68,6 +73,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 string retryHeader = headers["x-ms-retry-after-ms"];
                 exception = new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
             }
+            else if (statusCode == HttpStatusCode.RequestTimeout)
+            {
+                // Cosmos DB returned 408 due to insufficient RUs or other timeout. Provide actionable message.
+                _logger.LogWarning("Cosmos DB request timeout detected. This typically indicates insufficient provisioned throughput (RUs) or high load. Status: {StatusCode}, Error: {ErrorMessage}", statusCode, errorMessage);
+                exception = new Microsoft.Health.Fhir.Core.Exceptions.CosmosDbRequestTimeoutException();
+            }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
                 exception = new Microsoft.Health.Fhir.Core.Exceptions.RequestNotValidException(Microsoft.Health.Fhir.Core.Resources.InvalidContinuationToken);
@@ -85,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 int? subStatusValue = headers.GetSubStatusValue();
                 if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                 {
-                    exception = new Microsoft.Health.Fhir.Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
+                    exception = new Fhir.Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
                 }
             }
 
@@ -113,6 +124,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
                 responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
 
+            if (_cosmosDataStoreConfiguration.LogSdkDiagnostics)
+            {
+                _queryLogger.LogQueryDiagnostics(responseMessage.Headers.ActivityId, responseMessage.Diagnostics);
+            }
+
+            if (_cosmosDataStoreConfiguration.LogSdkClientElapsedTime && responseMessage.Diagnostics != null)
+            {
+                _queryLogger.LogQueryClientElapsedTime(responseMessage.Headers.ActivityId, responseMessage.Diagnostics.GetClientElapsedTime().ToString());
+            }
+
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             if (fhirRequestContext == null)
             {
@@ -123,7 +144,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (!string.IsNullOrEmpty(sessionToken))
             {
-                fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
+                try
+                {
+                    fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
+                }
+                catch (InvalidOperationException e)
+                {
+                    // InvalidOperationException can be thrown if the headers collection is read-only.
+                    // Adding this catch to avoid potential crashes in such scenarios and track how often this occurs.
+                    _logger.LogError(e, "Error setting session token in response headers.");
+                }
             }
 
             if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessagesProperty, out object propertyValue))

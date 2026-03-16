@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -77,6 +78,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 throw new BadRequestException(string.Format(Core.Resources.ConditionalUpdateMismatchedIds, resourceWrapper.ResourceId, resource.Id));
             }
+        }
+
+        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
+        {
+            return AuthorizationService.CheckConditionalUpdateAccess(cancellationToken);
         }
     }
 }

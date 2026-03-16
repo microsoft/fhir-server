@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal readonly struct SearchParameterQueryGeneratorContext
     {
-        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, HashingSqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, string tableAlias = null)
+        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, HashingSqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, bool isAsyncOperation, string tableAlias = null)
         {
             EnsureArg.IsNotNull(stringBuilder, nameof(stringBuilder));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Model = model;
             SchemaInformation = schemaInformation;
             TableAlias = tableAlias;
+            IsAsyncOperation = isAsyncOperation;
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -33,6 +34,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         public ISqlServerFhirModel Model { get; }
 
         public SchemaInformation SchemaInformation { get; }
+
+        /// <summary>
+        /// Flag for async operations.
+        /// </summary>
+        public bool IsAsyncOperation { get; }
 
         public string TableAlias { get; }
     }

@@ -8,8 +8,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Modules;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -28,15 +28,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             Assert.Equal(KnownRoutes.ResourceTypeById, data.Routers.OfType<Route>().First().RouteTemplate);
             Assert.True(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
             Assert.Equal("Observation", data.Values[KnownActionParameterNames.ResourceType]);
-        }
-
-        [Fact]
-        public async Task GivenAValidModelGetRequestWithLowerCase_WhenRouting_ThenConstraintDoesNotAcceptLower()
-        {
-            var data = await GetRouteData(HttpMethods.Get, "/observation/123");
-
-            Assert.Empty(data.Routers);
-            Assert.False(data.Values.ContainsKey(KnownActionParameterNames.ResourceType));
         }
 
         [Fact]

@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             return await GetSearchParameterStateAsync(searchParameterResult.ToList(), cancellationToken);
         }
 
-        private async Task<SearchParameterStateResponse> GetSearchParameterStateAsync(ICollection<SearchParameterInfo> searchParameterResult, CancellationToken cancellationToken = default)
+        private async Task<SearchParameterStateResponse> GetSearchParameterStateAsync(List<SearchParameterInfo> searchParameterResult, CancellationToken cancellationToken = default)
         {
             if (searchParameterResult.Count == 0)
             {

@@ -7,11 +7,9 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Extensions;
 
-#if NET8_0_OR_GREATER
-
 /// <summary>
 /// Clock has been removed in Shared Components in favor of .NET8 TimeProvider.
-/// This class provides a wrapper to the TimeProvider to maintain the same interface while we continue to support .net6
+/// This class provides a wrapper to the TimeProvider to maintain the same interface.
 /// </summary>
 public static class Clock
 {
@@ -23,5 +21,3 @@ public static class Clock
         }
     }
 }
-
-#endif

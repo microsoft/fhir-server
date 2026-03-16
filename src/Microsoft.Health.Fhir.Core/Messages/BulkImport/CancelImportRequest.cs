@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         }
 
         /// <summary>
-        /// Import orchestrator job id
+        /// Import orchestrator/coordinator job id this is also known as Group Id
         /// </summary>
         public long JobId { get; }
     }

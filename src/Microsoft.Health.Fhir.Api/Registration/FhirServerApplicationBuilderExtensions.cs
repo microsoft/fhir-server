@@ -14,10 +14,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Api.Registration;
 using Microsoft.Health.Fhir.Api.Configs;
-using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Cors;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.Builder
@@ -75,7 +73,7 @@ namespace Microsoft.AspNetCore.Builder
                                         details = healthReport.Entries.Select(entry => new
                                         {
                                             name = entry.Key,
-                                            status = Enum.GetName(typeof(HealthStatus), entry.Value.Status),
+                                            status = Enum.GetName<HealthStatus>(entry.Value.Status),
                                             description = entry.Value.Description,
                                             data = entry.Value.Data,
                                         }),

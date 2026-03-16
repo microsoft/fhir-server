@@ -11,14 +11,17 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
     public class SearchResourceRequest : IRequest<SearchResourceResponse>
     {
-        public SearchResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> queries)
+        public SearchResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> queries, bool isIncludesRequest = false)
         {
             ResourceType = resourceType;
             Queries = queries;
+            IsIncludesRequest = isIncludesRequest;
         }
 
         public string ResourceType { get; }
 
         public IReadOnlyList<Tuple<string, string>> Queries { get; set; }
+
+        public bool IsIncludesRequest { get; } = false;
     }
 }

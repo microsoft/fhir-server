@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 using System;
 using System.Linq;
+using Azure.Core;
+using Azure.ResourceManager;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -28,6 +30,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Registration
                     .AsSelf()
                     .AsService<IStoredProcedureMetadata>();
             }
+
+            // Register the ArmClient factory delegate for ResourceManager collection setup
+            services.AddSingleton<Func<TokenCredential, ArmClient>>(sp => tokenCredential => new ArmClient(tokenCredential));
         }
     }
 }

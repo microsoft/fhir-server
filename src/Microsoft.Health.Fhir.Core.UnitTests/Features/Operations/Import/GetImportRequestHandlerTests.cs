@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
@@ -65,12 +66,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             var coord = new JobInfo() { Status = JobStatus.Completed };
             var workerResult = new ImportJobErrorResult() { ErrorMessage = "Error", HttpStatusCode = statusCode };
-            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult) };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+            var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
+            var resourceLocation = new Uri(definition.ResourceLocation);
 
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
 
             Assert.Equal(statusCode == 0 ? HttpStatusCode.InternalServerError : statusCode, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, ofe.ResponseStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError : "Error"), ofe.Message);
+            Assert.Equal(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, ofe.ResponseStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError : "Error", resourceLocation.OriginalString), ofe.Message);
         }
 
         [Fact]
@@ -78,12 +81,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             var coord = new JobInfo() { Status = JobStatus.Completed };
             object workerResult = new { message = "Error", stackTrace = "Trace" };
-            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult) };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+            var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
+            var resourceLocation = new Uri(definition.ResourceLocation);
 
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
 
             Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
+            Assert.Equal(string.Format(Core.Resources.OperationFailedWithErrorFile, OperationsConstants.Import, HttpStatusCode.InternalServerError, resourceLocation.OriginalString), ofe.Message);
         }
 
         [Fact]

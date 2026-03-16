@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;
 
         /// <summary>
-        /// Gets or sets the default value for maximum value for _count in search.
+        /// Gets or sets the maximum value for _count in search.
         /// </summary>
         public int MaxItemCountPerSearch { get; set; } = 1000;
 
@@ -43,9 +43,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int DefaultItemCountPerSearch { get; set; } = 10;
 
         /// <summary>
+        /// Gets or sets the max value for included search results.
+        /// </summary>
+        public int MaxIncludeCountPerSearch { get; set; } = 1000;
+
+        /// <summary>
         /// Gets or sets the default value for included search results.
         /// </summary>
-        public int DefaultIncludeCountPerSearch { get; set; } = 100;
+        public int DefaultIncludeCountPerSearch { get; set; } = 1000;
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
@@ -91,5 +96,42 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Whether the service supports SQL read only replicas.
         /// </summary>
         public bool SupportsSqlReplicas { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server supports the includes.
+        /// </summary>
+        public bool SupportsIncludes { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether geo-redundancy monitoring is enabled.
+        /// When enabled, the system will monitor geo-replication lag and status through
+        /// the GeoReplicationLagWatchdog. This feature is only applicable when using
+        /// Azure SQL Database with geo-replication configured.
+        /// </summary>
+        public bool EnableGeoRedundancy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the refresh interval in seconds for the SearchParameter cache background service.
+        /// The background service will call EnsureCacheFreshnessAsync at this interval to keep
+        /// SearchParameter cache synchronized across instances. Default is 60 seconds if not specified.
+        /// </summary>
+        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 20;
+
+        /// <summary>
+        /// Gets or sets the maximum initial delay in seconds for the SearchParameter cache background service timer.
+        /// This random delay (0 to this value) staggers timer startup across instances to prevent thundering herd.
+        /// Default is 15 seconds. Set to 0 to disable the delay (useful for testing).
+        /// </summary>
+        public int SearchParameterCacheRefreshMaxInitialDelaySeconds { get; set; } = 15;
+
+        /// <summary>
+        /// Gets or sets the refresh interval in seconds for the SystemConformanceProvider cache background service.
+        /// </summary>
+        public int SystemConformanceProviderRefreshIntervalSeconds { get; set; } = 60;
+
+        /// <summary>
+        /// Gets or sets the rebuild interval in seconds for the SystemConformanceProvider background service.
+        /// </summary>
+        public int SystemConformanceProviderRebuildIntervalSeconds { get; set; } = 14400; // 4 hours.
     }
 }

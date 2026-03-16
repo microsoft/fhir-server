@@ -34,5 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         // #conditionalQueryParallelism - Header used to activate parallel conditional-query processing.
         public const string ConditionalQueryProcessingLogic = "x-conditionalquery-processing-logic";
+
+        public const string QueryCacheSetting = "x-ms-query-cache";
     }
 }

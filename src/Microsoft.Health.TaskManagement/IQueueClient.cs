@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,12 +21,24 @@ namespace Microsoft.Health.JobManagement
         /// Enqueue new jobs
         /// </summary>
         /// <param name="queueType">Queue Type for new jobs</param>
-        /// <param name="definitions">Job definiation</param>
+        /// <param name="definitions">Job definitions</param>
         /// <param name="groupId">Group id for jobs. Optional</param>
         /// <param name="forceOneActiveJobGroup">Only enqueue job only if there's no active job with same queue type.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Job ids for all jobs, include existed jobs.</returns>
         public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Enqueues a job with a specified status, bypassing the default Created state.
+        /// Used by:
+        /// Export cancellation — enqueues a<see cref="JobStatus.CancelledByUser"/> marker job
+        ///   so that subsequent status lookups return 404, per the FHIR Bulk Data IG
+        ///   (https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request).
+        /// Defrag watchdog — enqueues child jobs directly in <see cref="JobStatus.Running"/>
+        ///   or <see cref="JobStatus.Completed"/> status to track table-level defragmentation
+        ///   progress within a coordinator job group.
+        /// </summary>
+        public Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken);
 
         /// <summary>
         /// Dequeue multiple jobs
@@ -106,5 +119,13 @@ namespace Microsoft.Health.JobManagement
         /// <param name="requestCancellationOnFailure">Cancel other jobs with same group id if this job failed.</param>
         /// <param name="cancellationToken">Cancellation token</param>
         public Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// GetActiveJobsByQueueTypeAsync
+        /// </summary>
+        /// <param name="queueType">They QueueType for the jobs to retrieve</param>
+        /// <param name="returnParentOnly">Flag to indicate if we should only return the parent job vs all jobs.</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        public Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken);
     }
 }

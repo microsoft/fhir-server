@@ -28,11 +28,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public bool IsRunning { get; private set; }
 
+        public string Name { get; private set; }
+
         /// <summary>
         /// Runs the execution of the timer until the <see cref="CancellationToken"/> is cancelled.
         /// </summary>
-        public async Task ExecuteAsync(double periodSec, Func<CancellationToken, Task> onNextTick, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(string name, double periodSec, Func<CancellationToken, Task> onNextTick, CancellationToken cancellationToken)
         {
+            Name = EnsureArg.IsNotNull(name, nameof(name));
             EnsureArg.IsNotNull(onNextTick, nameof(onNextTick));
             PeriodSec = periodSec;
 
@@ -67,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     }
                     catch (Exception e)
                     {
-                        logger?.LogWarning(e, "Error executing timer");
+                        logger?.LogWarning($"{Name}: error={e}");
                         _isFailing = true;
                     }
                 }

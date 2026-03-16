@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private static readonly string ResourceProfile = "http://hl7.org/fhir/SearchParameter/Resource-profile";
         private static readonly string ResourceSecurity = "http://hl7.org/fhir/SearchParameter/Resource-security";
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
+        private static readonly string ResourceSource = "http://hl7.org/fhir/SearchParameter/Resource-source";
 
         private readonly SearchParameterStatusManager _manager;
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
@@ -85,6 +86,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                         Uri = new Uri(ResourceSecurity),
                         LastUpdated = Clock.UtcNow,
                     },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Disabled,
+                        Uri = new Uri(ResourceSource),
+                        LastUpdated = Clock.UtcNow,
+                    },
                 };
 
             _searchParameterStatusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>()).Returns(_resourceSearchParameterStatuses);
@@ -99,6 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 new SearchParameterInfo("_profile", "_profile", SearchParamType.Token, new Uri(ResourceProfile), targetResourceTypes: targetResourceTypes),
                 new SearchParameterInfo("_security", "_security", SearchParamType.Token, new Uri(ResourceSecurity), targetResourceTypes: targetResourceTypes),
                 _queryParameter,
+                new SearchParameterInfo("_source", "_source", SearchParamType.Uri, new Uri(ResourceSource), targetResourceTypes: targetResourceTypes),
             };
 
             _searchParameterDefinitionManager.GetSearchParameters("Account")
@@ -116,6 +124,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
+                .Returns((true, false));
+
+            _searchParameterSupportResolver
+                .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[5]))
                 .Returns((true, false));
         }
 
@@ -145,6 +157,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.False(list[4].IsSearchable);
             Assert.True(list[4].IsSupported);
             Assert.False(list[4].IsPartiallySupported);
+
+            Assert.False(list[5].IsSearchable);
+            Assert.False(list[5].IsSupported);  // Disabled Search Params show as unsupported
+            Assert.False(list[5].IsPartiallySupported);
+            Assert.Equal(SearchParameterStatus.Disabled, list[5].SearchParameterStatus);
         }
 
         [Fact]

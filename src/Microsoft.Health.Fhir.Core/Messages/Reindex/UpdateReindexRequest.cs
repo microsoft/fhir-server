@@ -11,15 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
     public class UpdateReindexRequest : IRequest<UpdateReindexResponse>
     {
-        public UpdateReindexRequest(string jobId, OperationStatus status, int? maximumConcurrency = null)
+        public UpdateReindexRequest(string jobId, OperationStatus status)
         {
             EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
-            MaximumConcurrency = maximumConcurrency;
             Status = status;
         }
-
-        public int? MaximumConcurrency { get; }
 
         public OperationStatus Status { get; }
     }

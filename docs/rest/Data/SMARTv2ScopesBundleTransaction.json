@@ -1,0 +1,196 @@
+{
+  "resourceType": "Bundle",
+  "id": "smartv2-scopes-test-bundle",
+  "meta": {
+    "lastUpdated": "2024-10-08T01:43:30Z"
+  },
+  "type": "transaction",
+  "entry": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "/?_count=100"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?code=http://loinc.org|4548-4&status=final"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Practitioner"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/DiagnosticReport"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/?_type=Observation,Patient,Practitioner"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Patient"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?code=http://loinc.org|55233-1&status=final"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?code=http://loinc.org|55233-1"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?subject:Patient.name=smartUserClient"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?subject:Patient.name=smartUserClient&code=http://loinc.org|55233-1"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Patient?_revinclude=*:*&_id=smartUserClient"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Patient?_revinclude=Encounter:patient&_id=smartUserClient"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Patient?_revinclude=Encounter:patient&_revinclude=Observation:patient&_id=smartUserClient"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/MedicationRequest?_revinclude=MedicationDispense:prescription:MedicationRequest&_id=smart-medicationrequest-smartUserClien"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/MedicationRequest?_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/MedicationRequest?_include=MedicationRequest:patient&_revinclude=MedicationDispense:prescription:MedicationRequest&_id=12345"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?_include=*:*"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?_include=Observation:subject"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?_include=Observation:performer:Practitioner"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?_include=Observation:performer:Practitioner&_include=Observation:subject"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?_include=Encounter:subject&_include=Observation:subject"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Group?_include=*:*"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Observation?_include=*:*&_id=smart-observation-smartUserClient"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/?_type=Observation,Encounter"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/?_type=Observation,DiagnosticReport&tag=8d245743-e7ff-425d-b065-33e8886c60e8"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/?_type=Specimen,Observation"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/?_type=Patient,Practitioner,Observation,Encounter"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Encounter"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/Specimen"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "/?_type=Observation,Patient,Practitioner&_count=100"
+      }
+    }
+  ]
+}

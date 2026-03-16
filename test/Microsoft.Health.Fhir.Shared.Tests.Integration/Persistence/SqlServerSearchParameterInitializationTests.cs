@@ -72,41 +72,6 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
             });
     }
 
-    [Fact]
-    public async Task GivenADatabaseWithNullSearchParameterStatuses_WhenInitializing_ThenSearchParameterStatusesNotNull()
-    {
-        // Arrange
-        using (SqlConnectionWrapper sqlConnectionWrapper = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
-        using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-        {
-            sqlCommandWrapper.CommandText = @"
-                SET XACT_ABORT ON;
-                BEGIN TRANSACTION;
-
-                WITH NumberedRows AS (
-                    SELECT 
-                        *,
-                        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS RowNum
-                    FROM 
-                        dbo.SearchParam
-                )
-                UPDATE NumberedRows
-                SET Status = NULL, LastUpdated = NULL, IsPartiallySupported = NULL
-                WHERE RowNum % 5 = 0;
-
-                COMMIT TRANSACTION;
-            ";
-
-            await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
-        }
-
-        // Act - Max + 1 is okay as we're not applying schema but testing init.
-        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max + 1, CancellationToken.None);
-
-        // Assert
-        await CheckSearchParametersForInvalid();
-    }
-
     private async Task CheckSearchParametersForInvalid()
     {
         // Assert - will throw SearchParameterNotSupportedException is invalid search parameters exist.

@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             var result = validator.Validate(createMemberMatchRequest);
             Assert.False(result.IsValid);
             Assert.True(result.Errors.Count >= 1);
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null")));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null"));
         }
 #endif
 
@@ -94,8 +94,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
             Assert.True(result.Errors.Count >= 2);
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element")));
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters")));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element"));
+            Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters"));
         }
 
         [InlineData(true, null, true)]

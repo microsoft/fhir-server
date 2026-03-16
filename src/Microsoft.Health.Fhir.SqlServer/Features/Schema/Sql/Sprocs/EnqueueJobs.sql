@@ -1,7 +1,6 @@
 ﻿--DROP PROCEDURE dbo.EnqueueJobs
 GO
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @Status tinyint = NULL, @Result varchar(max) = NULL, @StartDate datetime = NULL, @ReturnJobs bit = 1
--- TODO: Remove after deployment @IsCompleted
+CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @Status tinyint = NULL, @Result varchar(max) = NULL, @StartDate datetime = NULL, @ReturnJobs bit = 1
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
@@ -37,8 +36,12 @@ BEGIN TRY
     IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
       RAISERROR('There are other active job groups',18,127)
 
+    -- 6 = CancelledByUser
+    IF @GroupId IS NOT NULL AND isnull(@Status, 0) <> 6 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @GroupId AND CancelRequested = 1)
+      RAISERROR('The specified job group is cancelled',18,127)
+
     SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
-  
+ 
     INSERT INTO dbo.JobQueue
         (
              QueueType
@@ -49,6 +52,7 @@ BEGIN TRY
             ,Status
             ,Result
             ,StartDate
+            ,EndDate
         )
       OUTPUT inserted.JobId INTO @JobIds
       SELECT @QueueType
@@ -59,6 +63,7 @@ BEGIN TRY
             ,Status = isnull(@Status,0)
             ,Result = CASE WHEN @Status = 2 THEN @Result ELSE NULL END
             ,StartDate = CASE WHEN @Status = 1 THEN getUTCdate() ELSE @StartDate END
+            ,EndDate = CASE WHEN @Status = 2 THEN getUTCdate() ELSE NULL END
         FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY Dummy), * FROM (SELECT *, Dummy = 0 FROM @Input) A) A -- preserve input order
         WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WITH (INDEX = IX_QueueType_DefinitionHash) WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
     SET @Rows = @@rowcount
@@ -77,6 +82,8 @@ BEGIN CATCH
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
   THROW
 END CATCH
+GO
+INSERT INTO Parameters (Id,Char) SELECT 'EnqueueJobs','LogEvent'
 GO
 --DECLARE @Definitions StringList
 --INSERT INTO @Definitions SELECT 'Test'

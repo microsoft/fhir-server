@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -50,32 +49,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            // Get the required permissions for this specific conditional operation
+            await CheckAccess(cancellationToken);
 
-            var matchedResults = await _searchService.ConditionalSearchAsync(
+            var results = await _searchService.ConditionalSearchAsync(
                 request.ResourceType,
                 request.ConditionalParameters,
                 cancellationToken,
                 logger: _logger);
 
-            int count = matchedResults.Results.Count;
-            if (count == 0)
+            var matches = results.Results.Where(result => result.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
+            int matchCount = matches.Count;
+            if (matchCount == 0)
             {
                 _logger.LogInformation("Conditional handler: Not Match. ResourceType={ResourceType}", request.ResourceType);
                 return await HandleNoMatch(request, cancellationToken);
             }
-            else if (count == 1)
+            else if (matchCount == 1)
             {
                 _logger.LogInformation("Conditional handler: One Match Found. ResourceType={ResourceType}", request.ResourceType);
-                return await HandleSingleMatch(request, matchedResults.Results.First(), cancellationToken);
+                return await HandleSingleMatch(request, matches.First(), cancellationToken);
             }
             else
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                _logger.LogInformation("PreconditionFailed - Conditional handler: Multiple Matches Found. ResourceType={ResourceType}, NumberOfMatches={NumberOfMatches}", request.ResourceType, count);
+                _logger.LogInformation("PreconditionFailed: Conditional handler: Multiple Matches Found. ResourceType={ResourceType}, NumberOfMatches={NumberOfMatches}", request.ResourceType, matchCount);
                 throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, request.ResourceType));
             }
         }
@@ -83,5 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         public abstract Task<TResponse> HandleSingleMatch(TRequest request, SearchResultEntry match, CancellationToken cancellationToken);
 
         public abstract Task<TResponse> HandleNoMatch(TRequest request, CancellationToken cancellationToken);
+
+        public abstract Task<DataActions> CheckAccess(CancellationToken cancellationToken);
     }
 }

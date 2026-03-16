@@ -200,6 +200,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         /// <summary>
+        /// Test to make sure we return Bad Request when customer sends too many parameters
+        /// </summary>
+        /// <returns>Task</returns>
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenTooManyParametersInAPostRequest_WhenSearching_ThenBadRequestIsReturned()
+        {
+            var sb = new StringBuilder();
+
+            // Create 2097 parameters
+            for (int i = 1; i <= 2097; i++)
+            {
+                sb.Append(i);
+                sb.Append(",");
+            }
+
+            // Add the last one, 2098 parameters
+            sb.Append("2098");
+
+            string ids = sb.ToString();
+            using var response = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchPostAsync("ChargeItem", null, default, ("_id", ids)));
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(Core.Resources.TooManyParameters, response.Message);
+        }
+
+        /// <summary>
         /// This test is based on the details of user story #101268
         /// </summary>
         /// <returns>task</returns>
@@ -992,9 +1020,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenAnOperationOutcomeWarningIsReturnedInTheBundle()
         {
             Bundle bundle = await Client.SearchAsync("?_count=" + int.MaxValue);
+            Assert.NotEmpty(bundle.Entry);
 
-            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
-            Assert.Contains("exceeds limit", (string)bundle.Scalar("entry.resource.issue.diagnostics"));
+            var operationOutcome = bundle.Entry.First().Resource as OperationOutcome;
+            Assert.NotNull(operationOutcome);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Contains("exceeds limit", operationOutcome.Issue.First().Diagnostics);
         }
 
         [Fact]
@@ -1238,6 +1269,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenAnIdLookupSearchRequestWithDuplicateIds_WhenHandled_ThenDeduppedResultsAreReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // Create the resources
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
+            string ids = string.Join(",", patients.Select(p => p.Id).Concat(new[] { patients[0].Id, patients[1].Id }));
+
+            // The tag filter can't be used since it triggers a different code path than just using _id.
+            Bundle bundle = await Client.SearchAsync($"Patient?_id={ids}");
+            Assert.NotNull(bundle);
+            Assert.Equal(3, bundle.Entry.Count);
+        }
+
         private async Task<Observation[]> CreateObservationWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;
@@ -1249,6 +1295,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Observation patient = Samples.GetDefaultObservation().ToPoco<Observation>();
             var patients = new Observation[numberOfResources];
+            var systems = new string[]
+            {
+                "http://hl7.org/fhir/v3/ObservationValue",
+                "http://terminology.hl7.org/CodeSystem/v3-ObservationValue",
+            };
 
             for (int i = 0; i < numberOfResources; i++)
             {
@@ -1259,9 +1310,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patients[i] = MaskingNode.ForElements(new ScopedNode(createdObservation.Resource.ToTypedElement()), elements)
                     .ToPoco<Observation>();
 
-                var system = ModelInfoProvider.Version == FhirSpecification.Stu3 ? "http://hl7.org/fhir/v3/ObservationValue" : "http://terminology.hl7.org/CodeSystem/v3-ObservationValue";
-                var subsettedTag = new Coding(system, "SUBSETTED");
-                patients[i].Meta.Tag.Add(subsettedTag);
+                foreach (var system in systems)
+                {
+                    var subsettedTag = new Coding(system, "SUBSETTED");
+                    patients[i].Meta.Tag.Add(subsettedTag);
+                }
             }
 
             return patients;

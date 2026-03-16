@@ -10,14 +10,126 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: InlineScript
       Inline: |
-        Get-AzResourceGroup -Name $(ResourceGroupName) -ErrorVariable notPresent -ErrorAction SilentlyContinue 
+        $deploymentEnvName = "$(DeploymentEnvironmentName)"
+        $keyVaultBaseName = "$(KeyVaultBaseName)"
+        $resourceGroupName = "$(UniqueResourceGroupName)"
+        
+        # Function to clean up Network Security Perimeter resources
+        # NSP associations block resource group deletion if not removed first
+        function Remove-NspResources {
+          param([string]$RgName)
+          
+          Write-Host "Cleaning up Network Security Perimeters in $RgName"
+          try {
+            $nsps = Get-AzResource -ResourceGroupName $RgName -ResourceType "Microsoft.Network/networkSecurityPerimeters" -ErrorAction SilentlyContinue
+            
+            if ($nsps) {
+              foreach ($nsp in $nsps) {
+                Write-Host "  Found NSP: $($nsp.Name)"
+                $nspResourceId = $nsp.ResourceId
+                
+                # Remove associations first
+                $associations = Get-AzResource -ResourceId "$nspResourceId/resourceAssociations" -ApiVersion "2023-08-01-preview" -ErrorAction SilentlyContinue
+                if ($associations) {
+                  foreach ($assoc in $associations) {
+                    Write-Host "    Removing association: $($assoc.Name)"
+                    Remove-AzResource -ResourceId $assoc.ResourceId -ApiVersion "2023-08-01-preview" -Force -ErrorAction SilentlyContinue
+                  }
+                }
+                
+                # Delete the NSP itself
+                Write-Host "  Deleting NSP: $($nsp.Name)"
+                Remove-AzResource -ResourceId $nspResourceId -ApiVersion "2023-08-01-preview" -Force -ErrorAction SilentlyContinue
+              }
+              return $true
+            }
+          }
+          catch {
+            Write-Warning "Error cleaning up NSPs: $($_.Exception.Message)"
+          }
+          return $false
+        }
+        
+        Get-AzResourceGroup -Name $resourceGroupName -ErrorVariable notPresent -ErrorAction SilentlyContinue 
         if ($notPresent) {
-          Write-Host "Resource group $(ResourceGroupName) not found"
+          Write-Host "Resource group $resourceGroupName not found"
         } else {
-          Write-Host "Deleting resource group $(ResourceGroupName)"
-          Remove-AzResourceGroup -Name $(ResourceGroupName) -Force -Verbose
+          Write-Host "Deleting resource group $resourceGroupName"
+          $maxRetries = 3
+          $retryCount = 0
+          $deleted = $false
+          $nspCleanupAttempted = $false
+          
+          while (-not $deleted -and $retryCount -lt $maxRetries) {
+            try {
+              Remove-AzResourceGroup -Name $resourceGroupName -Force -Verbose -ErrorAction Stop
+              $deleted = $true
+              Write-Host "Successfully deleted resource group $resourceGroupName"
+            }
+            catch {
+              $errorMessage = $_.Exception.Message
+              
+              # Check if failure is due to Network Security Perimeter
+              if ((-not $nspCleanupAttempted) -and ($errorMessage -match "networkSecurityPerimeter" -or $errorMessage -match "ResourceGroupDeletionBlocked")) {
+                Write-Warning "Resource group deletion blocked, likely due to NSP. Attempting NSP cleanup..."
+                $nspCleanupAttempted = $true
+                $nspFound = Remove-NspResources -RgName $resourceGroupName
+                if ($nspFound) {
+                  Write-Host "NSP cleanup completed. Retrying resource group deletion..."
+                  # Don't increment retry count for NSP cleanup retry
+                  continue
+                }
+              }
+              
+              $retryCount++
+              if ($retryCount -lt $maxRetries) {
+                Write-Warning "Failed to delete resource group (attempt $retryCount of $maxRetries). Retrying in 30 seconds... Error: $errorMessage"
+                Start-Sleep -Seconds 30
+              } else {
+                Write-Warning "Failed to delete resource group after $maxRetries attempts. Error: $errorMessage"
+              }
+            }
+          }
+        }
+        
+        # Purge any soft-deleted Key Vaults from this build
+        # Vault names use KeyVaultBaseName (e.g., f20585pr5240-ts, f20585pr5240-r4, etc.)
+        $vaultPattern = "$keyVaultBaseName*"
+        Write-Host "Checking for soft-deleted Key Vaults matching pattern: $vaultPattern"
+        $softDeletedVaults = Get-AzKeyVault -InRemovedState -ErrorAction SilentlyContinue | Where-Object {
+          $_.VaultName -like $vaultPattern
+        }
+        
+        if ($softDeletedVaults.Count -eq 0) {
+          Write-Host "No soft-deleted vaults found to purge"
+        } else {
+          Write-Host "Found $($softDeletedVaults.Count) soft-deleted vault(s) to purge"
+          
+          $results = $softDeletedVaults | ForEach-Object -Parallel {
+            $vaultName = $_.VaultName
+            $vaultLocation = $_.Location
+            try {
+              Remove-AzKeyVault -VaultName $vaultName -Location $vaultLocation -InRemovedState -Force -ErrorAction Stop
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Success" }
+            }
+            catch {
+              [PSCustomObject]@{ Vault = $vaultName; Status = "Failed: $($_.Exception.Message)" }
+            }
+          } -ThrottleLimit 10
+          
+          $results | ForEach-Object {
+            if ($_.Status -eq "Success") {
+              Write-Host "Successfully purged vault: $($_.Vault)"
+            } else {
+              Write-Warning "Failed to purge vault $($_.Vault). $($_.Status)"
+            }
+          }
+          
+          $successCount = ($results | Where-Object { $_.Status -eq "Success" }).Count
+          Write-Host "Completed purging: $successCount of $($softDeletedVaults.Count) vaults"
         }
       
 

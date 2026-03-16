@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         [Theory]
         [InlineData(JobStatus.Completed)]
-        [InlineData(JobStatus.Cancelled)]
         [InlineData(JobStatus.Failed)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(JobStatus taskStatus)
         {
@@ -67,13 +67,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Theory]
+        [InlineData(JobStatus.Cancelled)]
+        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasAlreadyBeenCanceled_ThenAcceptedStatusCodeShouldBeReturned(JobStatus taskStatus)
+        {
+            SetupBulkImportJob(taskStatus, true);
+            CancelImportResponse response = await _mediator.CancelImportAsync(JobId, _cancellationToken);
+
+            Assert.NotNull(response);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        }
+
+        [Theory]
         [InlineData(JobStatus.Created)]
         [InlineData(JobStatus.Running)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(JobStatus jobStatus)
         {
-            JobInfo jobInfo = await SetupAndExecuteCancelImportAsync(jobStatus, HttpStatusCode.Accepted);
+            List<JobInfo> jobs = await SetupAndExecuteCancelImportAsync(jobStatus, HttpStatusCode.Accepted);
 
-            await _queueClient.Received(1).CancelJobByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, jobInfo.GroupId, _cancellationToken);
+            var groupJobId = jobs[0].GroupId;
+            await _queueClient.Received(1).CancelJobByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, groupJobId, _cancellationToken);
         }
 
         [Fact]
@@ -83,32 +95,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(JobId, _cancellationToken));
         }
 
-        private async Task<JobInfo> SetupAndExecuteCancelImportAsync(JobStatus jobStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
+        private async Task<List<JobInfo>> SetupAndExecuteCancelImportAsync(JobStatus jobStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
         {
-            JobInfo jobInfo = SetupBulkImportJob(jobStatus, isCanceled);
+            List<JobInfo> jobs = SetupBulkImportJob(jobStatus, isCanceled);
 
             CancelImportResponse response = await _mediator.CancelImportAsync(JobId, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(expectedStatusCode, response.StatusCode);
 
-            return jobInfo;
+            return jobs;
         }
 
-        private JobInfo SetupBulkImportJob(JobStatus jobStatus, bool isCanceled)
+        private List<JobInfo> SetupBulkImportJob(JobStatus jobStatus, bool isCanceled)
         {
-            var jobInfo = new JobInfo
+            var jobs = new List<JobInfo>()
             {
-                Id = JobId,
-                GroupId = JobId,
-                Status = jobStatus,
-                Definition = string.Empty,
-                CancelRequested = isCanceled,
+                new JobInfo
+                {
+                    Id = JobId,
+                    GroupId = JobId,
+                    Status = jobStatus,
+                    Definition = string.Empty,
+                    CancelRequested = isCanceled,
+                },
             };
 
-            _queueClient.GetJobByIdAsync(Arg.Any<byte>(), JobId, Arg.Any<bool>(), _cancellationToken).Returns(jobInfo);
+            _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), JobId, Arg.Any<bool>(), _cancellationToken).Returns(jobs);
 
-            return jobInfo;
+            return jobs;
         }
     }
 }

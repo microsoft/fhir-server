@@ -11,24 +11,27 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
-using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -45,17 +48,20 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="services">The services collection.</param>
         /// <param name="configurationRoot">An optional configuration root object. This method uses "FhirServer" section.</param>
         /// <param name="configureAction">An optional delegate to set <see cref="FhirServerConfiguration"/> properties after values have been loaded from configuration</param>
+        /// <param name="mvcBuilderAction">Mvc builder actions</param>
         /// <returns>A <see cref="IFhirServerBuilder"/> object.</returns>
         public static IFhirServerBuilder AddFhirServer(
             this IServiceCollection services,
             IConfiguration configurationRoot = null,
-            Action<FhirServerConfiguration> configureAction = null)
+            Action<FhirServerConfiguration> configureAction = null,
+            Action<IMvcBuilder> mvcBuilderAction = null)
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
 
-            services.AddControllers(options =>
+            var builder = services
+                .AddControllers(options =>
                 {
                     options.EnableEndpointRouting = true;
                     options.RespectBrowserAcceptHeader = true;
@@ -64,6 +70,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
                 });
+
+            mvcBuilderAction?.Invoke(builder);
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -78,12 +86,16 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Validate));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Reindex));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.ConvertData));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.IntegrationDataStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Import));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Terminology));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
+            services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {
                 var throttlingOptions = Options.Options.Create(fhirServerConfiguration.Throttling);
@@ -91,9 +103,29 @@ namespace Microsoft.Extensions.DependencyInjection
                 return throttlingOptions;
             });
 
+            if (string.Equals(configurationRoot?["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+            {
+                services.Configure<ForwardedHeadersOptions>(options =>
+                {
+                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
+                    options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedPrefix;
+
+                    // Only loopback proxies are allowed by default.
+                    // Clear that restriction because forwarders are enabled by explicit
+                    // configuration.
+                    options.KnownNetworks.Clear();
+                    options.KnownProxies.Clear();
+                });
+            }
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
+
+            // Register global instance configuration for storing base URI and instance ID
+            // This is available to all services including background tasks that don't have access to HttpContext
+            services.AddSingleton<IFhirServerInstanceConfiguration, FhirServerInstanceConfiguration>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
 
@@ -119,30 +151,13 @@ namespace Microsoft.Extensions.DependencyInjection
 
             AddMetricEmitter(services);
 
+            // Register FHIR request context accessor so it is available early in the startup process
+            services.Add<FhirRequestContextAccessor>()
+                .Singleton()
+                .AsSelf()
+                .AsService<RequestContextAccessor<IFhirRequestContext>>();
+
             return new FhirServerBuilder(services);
-        }
-
-        /// <summary>
-        /// Adds background worker services.
-        /// </summary>
-        /// <param name="fhirServerBuilder">FHIR server builder.</param>
-        /// <param name="runtimeConfiguration">FHIR Runtime Configuration</param>
-        /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddBackgroundWorkers(
-            this IFhirServerBuilder fhirServerBuilder,
-            IFhirRuntimeConfiguration runtimeConfiguration)
-        {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-            EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
-
-            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-
-            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
-            {
-                fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
-            }
-
-            return fhirServerBuilder;
         }
 
         public static IFhirServerBuilder AddBundleOrchestrator(
@@ -190,11 +205,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 return app =>
                 {
                     IWebHostEnvironment env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
-
-                    // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
-                    app.UseBaseHeaders();
+                    IConfiguration config = app.ApplicationServices.GetRequiredService<IConfiguration>();
 
                     app.UseCors(Constants.DefaultCorsPolicy);
+
+                    if (string.Equals(config["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+                    {
+                        app.UseForwardedHeaders();
+                    }
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.

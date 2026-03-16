@@ -186,7 +186,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ### Conditional Patch
-PATCH {{fhirurl}}/Patient?identifier=1032704
+PATCH {{hostname}}/Patient?identifier=1032704
 content-type: application/json-patch+json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
@@ -201,4 +201,41 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                 ]
         }
     }
+]
+
+### Add a security tag. Replaces entire array if it exists
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+  {
+    "op": "add",
+    "path": "/meta/security",
+    "value": [
+      {
+        "system": "http://example.org/security-system",
+        "code": "SECURITY_TAG_CODE",
+        "display": "Security Tag Display"
+      }
+    ]
+  }
+]
+
+### Add a security tag. Array must already exist. 
+# You cannot use JSON patch to add when you don't know if the array exists. Use FHIR Patch in this scenario.
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+  {
+    "op": "add",
+    "path": "/meta/security/-",
+    "value": {
+      "system": "http://example.org/security-system",
+      "code": "NEW_SECURITY_TAG_CODE",
+      "display": "New Security Tag Display"
+    }
+  }
 ]

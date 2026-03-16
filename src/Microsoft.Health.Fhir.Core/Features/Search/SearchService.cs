@@ -46,16 +46,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger = logger;
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _fhirDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
         /// <inheritdoc />
-        public async Task<SearchResult> SearchAsync(
+        public virtual async Task<SearchResult> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
-            bool onlyIds = false)
+            bool onlyIds = false,
+            bool isIncludesOperation = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds, isIncludesOperation);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -226,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (countOnly)
             {
-                searchOptions.CountOnly = true;
+                 searchOptions.CountOnly = true;
             }
 
             var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
@@ -234,14 +240,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        public virtual Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
+        public virtual Task<IReadOnlyList<(long StartId, long EndId, int Count)>> GetSurrogateIdRanges(
             string resourceType,
             long startId,
             long endId,
             int rangeSize,
             int numberOfRanges,
             bool up,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool activeOnly = false)
         {
             throw new NotImplementedException();
         }

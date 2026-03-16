@@ -29,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string CanceledTime = "canceledTime";
 
+        public const string CancelRequested = "CancelRequested";
+
         public const string RequestUri = "requestUri";
 
         public const string RequestorClaims = "requestorClaims";
@@ -79,9 +81,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string StorageAccountUri = "storageAccountUri";
 
-        public const string MaximumConcurrency = "maximumConcurrency";
-
         public const string MaximumNumberOfResourcesPerQuery = "maximumNumberOfResourcesPerQuery";
+
+        public const string MaximumNumberOfResourcesPerWrite = "maximumNumberOfResourcesPerWrite";
 
         public const string NumberOfPagesPerCommit = "numberOfPagesPerCommit";
 
@@ -175,8 +177,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ParentRequestId = "parentRequestId";
 
+        public const string ResourcesUpdated = "resourcesUpdated";
+
+        public const string ResourcesPatchFailed = "resourcesPatchFailed";
+
+        public const string ResourcesIgnored = "resourcesIgnored";
+
         public const string ExpectedResourceCount = "expectedResourceCount";
 
         public const string VersionType = "versionType";
+
+        public const string ExcludedResourceTypes = "excludedResourceTypes";
+
+        public const string Parameters = "parameters";
+
+        public const string RemoveReferences = "removeReferences";
+
+        public const string ReadNextPage = "readNextPage";
+
+        public const string MetaHistory = "metaHistory";
     }
 }

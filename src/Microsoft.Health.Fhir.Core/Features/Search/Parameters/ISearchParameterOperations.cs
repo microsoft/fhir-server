@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
@@ -12,9 +13,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public interface ISearchParameterOperations
     {
+        DateTimeOffset? SearchParamLastUpdated { get; }
+
         Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
 
-        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken);
+        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
         Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
 
@@ -24,7 +27,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// It should also be called when a user starts a reindex job
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
+        /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
         /// <returns>A task.</returns>
-        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken);
+        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
+
+        string GetSearchParameterHash(string resourceType);
     }
 }

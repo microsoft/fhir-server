@@ -1,0 +1,87 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "nspName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Network Security Perimeter"
+            }
+        },
+        "resourceName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the resource to associate with NSP (CosmosDB account, SQL Server, KeyVault, etc.)"
+            }
+        },
+        "resourceType": {
+            "type": "string",
+            "allowedValues": [
+                "Microsoft.DocumentDB/databaseAccounts",
+                "Microsoft.Sql/servers",
+                "Microsoft.KeyVault/vaults"
+            ],
+            "metadata": {
+                "description": "Type of the resource to associate with NSP"
+            }
+        },
+        "associationName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name for the NSP resource association"
+            }
+        },
+        "accessMode": {
+            "type": "string",
+            "defaultValue": "Learning",
+            "allowedValues": [
+                "Learning",
+                "Enforced"
+            ],
+            "metadata": {
+                "description": "Access mode for the NSP association"
+            }
+        },
+        "nspProfile": {
+            "type": "string",
+            "defaultValue": "default",
+            "metadata": {
+                "description": "Profile name for the Network Security Perimeter"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
+            "apiVersion": "2023-07-01-preview",
+            "name": "[concat(parameters('nspName'), '/', parameters('associationName'))]",
+            "properties": {
+                "privateLinkResource": {
+                    "id": "[resourceId(parameters('resourceType'), parameters('resourceName'))]"
+                },
+                "profile": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityPerimeters/profiles', parameters('nspName'), parameters('nspProfile'))]"
+                },
+                "accessMode": "[parameters('accessMode')]"
+            }
+        }
+    ],
+    "outputs": {
+        "associationResourceId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Network/networkSecurityPerimeters/resourceAssociations', parameters('nspName'), parameters('associationName'))]"
+        },
+        "associationName": {
+            "type": "string",
+            "value": "[parameters('associationName')]"
+        },
+        "resourceType": {
+            "type": "string",
+            "value": "[parameters('resourceType')]"
+        },
+        "resourceName": {
+            "type": "string",
+            "value": "[parameters('resourceName')]"
+        }
+    }
+}

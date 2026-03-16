@@ -61,9 +61,17 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Container = "_container";
 
         /// <summary>
-        /// Originally for CosmosDB workloads to hint that this request should run with a max parallel setting.
+        /// This setting is currently set by:
+        ///     x-ms-query-latency-over-efficiency
+        ///     x-conditionalquery-processing-logic
+        /// It is used to hint that the request should run with a max parallel setting.
         /// </summary>
         public const string OptimizeConcurrency = "_optimizeConcurrency";
+
+        /// <summary>
+        /// This setting is controlled by the x-ms-query-cache-enabled header. It controls whether to use the query cache or not.
+        /// </summary>
+        public const string QueryCaching = "_queryCaching";
 
         /// <summary>
         /// The anonymization configuration
@@ -89,8 +97,6 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string EndSurrogateId = "_endSurrogateId";
 
-        public const string GlobalStartSurrogateId = "_globalStartSurrogateId";
-
         public const string GlobalEndSurrogateId = "_globalEndSurrogateId";
 
         public const string IgnoreSearchParamHash = "_ignoreSearchParamHash";
@@ -114,8 +120,33 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string IncludeAssociatedData = "includeAssociatedData";
 
         /// <summary>
-        /// Used by export to specify the number of resources to be processed by the search engine.
+        /// Used by export and bulk-update to specify the number of resources to be processed by the search engine.
         /// </summary>
         public const string MaxCount = "_maxCount";
+
+        public const string NotReferenced = "_not-referenced";
+
+        public const string RemoveReferences = "_remove-references";
+
+        /// <summary>
+        /// The $includes continuation token parameter.
+        /// </summary>
+        public const string IncludesContinuationToken = "includesCt";
+
+        /// <summary>
+        /// The $includes count parameter.
+        /// </summary>
+        public const string IncludesCount = "_includesCount";
+
+        /// <summary>
+        /// The excluded resource types parameter representing a comma separated list of resource types.
+        /// </summary>
+        public const string ExcludedResourceTypes = "excludedResourceTypes";
+
+        public const string ReverseInclude = "_revinclude";
+
+        public const string ReturnDetails = "_details";
+
+        public const string MetaHistory = "_meta-history";
     }
 }

@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private const string _consistencyLevelHeaderName = "x-ms-consistency-level";
         private const string _sessionTokenHeaderName = "x-ms-session-token";
 
-        private static readonly string _validConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
+        private static readonly string _validConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames<ConsistencyLevel>().Select(v => $"'{v}'"));
         private readonly Func<IScoped<Container>> _client;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;

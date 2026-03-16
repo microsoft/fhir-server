@@ -129,6 +129,9 @@
   <data name="ConnectionStringRequiredValidation" xml:space="preserve">
     <value>You must include a connection string.</value>
   </data>
+  <data name="EnableWorkloadIdentityDescription" xml:space="preserve">
+    <value>Enables the use of workload identity over managed identity.</value>
+  </data>
   <data name="ForceOptionDescription" xml:space="preserve">
     <value>The schema migration is run without validating the specified schema version.</value>
   </data>

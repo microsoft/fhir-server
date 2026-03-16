@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetParamsResourceWithMissingParams(),
                 GetParamsResourceWithWrongNameParam(),
                 GetParamsResourceWithWrongContent(),
+                GetParamsResourceWithMissingPatientParams(),
             };
 
         public static TheoryData<Parameters> ValidBody =>
@@ -71,6 +72,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(System.Net.HttpStatusCode.OK, result.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenAMemberMatchDataRequest_WhenInvalidParametersSent_ThenRequestNotValidThrown()
+        {
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _memberMatchController.MemberMatch(null));
+        }
+
         private static MemberMatchResponse GetMemberMatchResponse() => new MemberMatchResponse(Samples.GetDefaultPatient());
 
         private static Parameters GetParamsResourceWithWrongNameParam()
@@ -90,6 +97,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
             AddParamComponent(parametersResource, MemberMatchController.Coverage, string.Empty);
+
+            return parametersResource;
+        }
+
+        private static Parameters GetParamsResourceWithMissingPatientParams()
+        {
+            var parametersResource = new Parameters();
+            parametersResource.Parameter = new List<Parameters.ParameterComponent>
+            {
+                new Parameters.ParameterComponent()
+                {
+                    Name = MemberMatchController.Coverage,
+                    Resource = new Coverage(),
+                },
+            };
 
             return parametersResource;
         }

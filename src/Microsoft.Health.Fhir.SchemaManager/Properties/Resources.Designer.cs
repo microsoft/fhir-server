@@ -95,7 +95,16 @@ namespace Microsoft.Health.Fhir.SchemaManager.Properties {
                 return ResourceManager.GetString("ConnectionStringRequiredValidation", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Enables the use of workload identity over managed identity..
+        /// </summary>
+        internal static string EnableWorkloadIdentityDescription {
+            get {
+                return ResourceManager.GetString("EnableWorkloadIdentityDescription", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The schema migration is run without validating the specified schema version..
         /// </summary>

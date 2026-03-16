@@ -9,14 +9,18 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Task = System.Threading.Tasks.Task;
 
@@ -29,12 +33,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger _logger;
+        private readonly SchemaInformation _schemaInformation;
         private const string _invisibleResource = " ";
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _schemaInformation = schemaInformation;
         }
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
@@ -224,9 +230,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.Add(transactionIdParam);
             var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(sequenceParam);
+            SqlParameter enableThrottling = null;
             if (heartbeatDate.HasValue)
             {
                 cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
+            }
+
+            if (_schemaInformation != null && _schemaInformation.Current.HasValue && _schemaInformation.Current.Value >= SchemaVersionConstants.MergeThrottling)
+            {
+                enableThrottling = cmd.Parameters.AddWithValue("@EnableThrottling", true);
             }
 
             // Code below has retries on execution timeouts.
@@ -243,9 +255,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
+                    var sqlEx = e as SqlException;
+                    if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
+                    {
+                        throw new RequestRateExceededException(null); // Let the retryAfter header be set to default
+                    }
+
                     if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)}: timeoutRetries={{TimeoutRetries}}", timeoutRetries);
                         await TryLogEvent(nameof(MergeResourcesBeginTransactionAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
                         await Task.Delay(5000, cancellationToken);
                         continue;
@@ -260,7 +278,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesDeleteInvisibleHistory", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            var affectedRowsParam = new SqlParameter("@affectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            var affectedRowsParam = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(affectedRowsParam);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             return (int)affectedRowsParam.Value;

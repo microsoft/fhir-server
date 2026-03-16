@@ -26,25 +26,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     {
         private readonly SqlServerFhirDataStore _store;
         private readonly SqlServerFhirModel _model;
-        private readonly IImportErrorSerializer _importErrorSerializer;
-        private readonly ImportTaskConfiguration _importTaskConfiguration;
+        private readonly ImportJobConfiguration _importTaskConfiguration;
         private readonly ILogger<SqlImporter> _logger;
 
         public SqlImporter(
             SqlServerFhirDataStore store,
             SqlServerFhirModel model,
-            IImportErrorSerializer importErrorSerializer,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlImporter> logger)
         {
             _store = EnsureArg.IsNotNull(store, nameof(store));
             _model = EnsureArg.IsNotNull(model, nameof(model));
-            _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
             _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, ImportMode importMode, bool allowNegativeVersions, CancellationToken cancellationToken)
+        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             try
             {
@@ -69,12 +66,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         continue;
                     }
 
-                    var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, cancellationToken);
+                    var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                     succeededCount += resultInt.LoadedCount;
                     processedBytes += resultInt.ProcessedBytes;
                 }
 
-                var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, cancellationToken);
+                var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
                 succeededCount += result.LoadedCount;
                 processedBytes += result.ProcessedBytes;
 
@@ -86,12 +83,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<(long LoadedCount, long ProcessedBytes)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, CancellationToken cancellationToken)
+        private async Task<(long LoadedCount, long ProcessedBytes)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
             //// exclude resources with parsing error (ImportError != null)
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var newErrors = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, cancellationToken);
+            var newErrors = await _store.ImportResourcesAsync(validResources, importMode, allowNegativeVersions, eventualConsistency, cancellationToken);
             errors.AddRange(newErrors);
             var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();

@@ -18,5 +18,13 @@ namespace Microsoft.Health.Fhir.Tests.Common.Extensions
 
             return element.Predicate($"CapabilityStatement.rest.resource.where(type = '{resource}').searchParam.where(name = '{parameterName}').exists()");
         }
+
+        public static bool SupportsOperation(this ResourceElement element, string operationName)
+        {
+            EnsureArg.IsNotNull(element, nameof(element));
+            EnsureArg.IsNotNullOrEmpty(operationName, nameof(operationName));
+
+            return element.Predicate($"CapabilityStatement.rest.operation.where(name='{operationName}').exists()");
+        }
     }
 }

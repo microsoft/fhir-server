@@ -14,6 +14,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -114,6 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
             await InitWatchdogsParameters(databaseName);
             await EnableDatabaseLogging(databaseName);
+            await InitSystem(databaseName);
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, cancellationToken);
         }
 
@@ -131,6 +133,14 @@ INSERT INTO Parameters (Id,Char) SELECT 'Search','LogEvent'
                 await sqlCommand.ExecuteNonQueryAsync(CancellationToken.None);
                 await connection.CloseAsync();
             });
+        }
+
+        public async Task InitSystem(string databaseName)
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken: CancellationToken.None);
+            await conn.OpenAsync(CancellationToken.None);
+            using var cmd = new SqlCommand("INSERT INTO dbo.System (Value) SELECT 'TestSystem' WHERE NOT EXISTS (SELECT * FROM dbo.System WHERE Value = 'TestSystem')", conn);
+            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
         }
 
         public async Task InitWatchdogsParameters(string databaseName)
@@ -163,7 +173,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5
 INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 2
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.DeleteBatchSize', 1000
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.AllowedRows', 1000
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.AllowedRows', 2000
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.RetentionPeriodDay', 1.0/24/3600
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
                 ",
@@ -262,7 +272,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
             await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.ReindexJob", connection);
+            var command = new SqlCommand(string.Format("DELETE FROM dbo.JobQueue where QueueType = {0}", (int)QueueType.Reindex), connection);
 
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -272,7 +282,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
         public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
             await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.ReindexJob WHERE Id = @id", connection);
+            var command = new SqlCommand(string.Format("DELETE FROM dbo.JobQueue WHERE GroupId = @id and QueueType = {0}", (int)QueueType.Reindex), connection);
 
             var parameter = new SqlParameter { ParameterName = "@id", Value = id };
             command.Parameters.Add(parameter);

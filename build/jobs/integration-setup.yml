@@ -1,0 +1,11 @@
+steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true

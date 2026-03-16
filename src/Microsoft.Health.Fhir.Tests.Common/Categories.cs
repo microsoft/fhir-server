@@ -17,7 +17,11 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string BulkDelete = nameof(BulkDelete);
 
+        public const string BulkUpdate = nameof(BulkUpdate);
+
         public const string Bundle = nameof(Bundle);
+
+        public const string BundleTransaction = nameof(BundleTransaction);
 
         public const string BundleOrchestrator = nameof(BundleOrchestrator);
 
@@ -34,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Cors = nameof(Cors);
 
-        public const string Crucible = nameof(Crucible);
+        public const string Create = nameof(Create);
 
         public const string CustomConvertData = nameof(CustomConvertData);
 
@@ -59,6 +63,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string ExportData = nameof(ExportData);
 
+        public const string Get = nameof(Get);
+
         public const string History = nameof(History);
 
         public const string Import = nameof(Import);
@@ -72,6 +78,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Patch = nameof(Patch);
 
         public const string PatientEverything = nameof(PatientEverything);
+
+        public const string Profiles = nameof(Profiles);
 
         public const string Schema = nameof(Schema);
 

@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 // If the job is already completed for any reason, return conflict status.
                 if (conflict || allComplete)
                 {
-                    return new CancelBulkDeleteResponse(HttpStatusCode.Conflict);
+                    throw new OperationFailedException(Core.Resources.BulkDeleteOperationCompleted, HttpStatusCode.Conflict);
                 }
 
                 // Try to cancel the job.

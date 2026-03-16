@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -10,49 +11,129 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Web;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
     public class SearchPostReroutingMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly ILogger<SearchPostReroutingMiddleware> _logger;
 
-        public SearchPostReroutingMiddleware(RequestDelegate next)
+        public SearchPostReroutingMiddleware(RequestDelegate next, ILogger<SearchPostReroutingMiddleware> logger)
         {
             EnsureArg.IsNotNull(next);
             _next = next;
+            _logger = logger;
         }
 
         public async Task Invoke(HttpContext context)
         {
             var request = context.Request;
 
-            if (request != null
-                && request.Method == "POST"
-                && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase))
+            try
             {
-                if (request.ContentType is null || request.ContentType == "application/x-www-form-urlencoded")
+                if (request != null
+                    && request.Method == "POST"
+                    && request.Path.HasValue
+                    && request.Path.Value.EndsWith(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (request.HasFormContentType)
+                    if (request.ContentType is null || request.HasFormContentType)
                     {
-                        var mergedPairs = GetUniqueFormAndQueryStringKeyValues(HttpUtility.ParseQueryString(request.QueryString.ToString()), request.Form);
-                        request.Query = mergedPairs;
-                    }
+                        _logger.LogInformation("Rerouting POST to GET with query parameters from form body.");
 
-                    request.ContentType = null;
-                    request.Form = null;
-                    request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
-                    request.Method = "GET";
+                        if (request.HasFormContentType)
+                        {
+                            _logger.LogInformation("Merging form content into query string.");
+                            var queryString = request.QueryString.ToString();
+                            var queryCollection = HttpUtility.ParseQueryString(queryString);
+                            var mergedPairs = GetUniqueFormAndQueryStringKeyValues(queryCollection, request.Form);
+                            request.Query = mergedPairs;
+                        }
+
+                        // Safely trim the trailing search route from the path.
+                        var pathValue = request.Path.Value ?? string.Empty;
+                        if (pathValue.Length >= KnownRoutes.Search.Length)
+                        {
+                            _logger.LogInformation("Trimming search route from request path.");
+                            var newPath = pathValue.Substring(0, pathValue.Length - KnownRoutes.Search.Length);
+                            request.Path = new PathString(newPath);
+                        }
+                        else
+                        {
+                            _logger.LogError("Unexpected path length when attempting to trim search route: {PathLength}", pathValue.Length);
+                            throw new ArgumentException("Cannot trim search route from request path due to unexpected length.");
+                        }
+
+                        request.ContentType = null;
+                        request.Form = new FormCollection(new Dictionary<string, StringValues>());
+                        request.Method = "GET";
+                        _logger.LogInformation("Rerouting complete.");
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Rejecting POST with invalid Content-Type.");
+
+                        context.Response.Clear();
+                        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+
+                        var operationOutcome = new OperationOutcome
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Issue = new List<OperationOutcome.IssueComponent>()
+                        {
+                            new OperationOutcome.IssueComponent()
+                            {
+                                Severity = OperationOutcome.IssueSeverity.Error,
+                                Code = OperationOutcome.IssueType.Invalid,
+                                Diagnostics = Api.Resources.ContentTypeFormUrlEncodedExpected,
+                            },
+                        },
+                            Meta = new Meta()
+                            {
+                                LastUpdated = Clock.UtcNow,
+                            },
+                        };
+
+                        await context.Response.WriteAsJsonAsync(operationOutcome);
+                        return;
+                    }
                 }
-                else
+            }
+            catch (Exception ex)
+            {
+                // Throwing an exception continues into the pipeline and results in a 415 when the route fails to match.
+                // However, we want to return a 500 here since this is an unexpected failure during the rerouting process.
+                _logger.LogError(ex, "Error occurred while rerouting POST search to GET.");
+                context.Response.Clear();
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+                var operationOutcome = new OperationOutcome
                 {
-                    context.Response.Clear();
-                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    await context.Response.WriteAsync(Resources.ContentTypeFormUrlEncodedExpected);
-                    return;
-                }
+                    Id = Guid.NewGuid().ToString(),
+                    Issue = new List<OperationOutcome.IssueComponent>()
+                {
+                    new OperationOutcome.IssueComponent()
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Error,
+                        Code = OperationOutcome.IssueType.Unknown,
+                        Diagnostics = string.Empty,
+                    },
+                },
+                    Meta = new Meta()
+                    {
+                        LastUpdated = Clock.UtcNow,
+                    },
+                };
+
+                await context.Response.WriteAsJsonAsync(operationOutcome);
+                return;
             }
 
             await _next.Invoke(context);

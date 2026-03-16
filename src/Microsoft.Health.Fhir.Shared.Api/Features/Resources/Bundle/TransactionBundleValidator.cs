@@ -9,12 +9,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
@@ -23,6 +23,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public class TransactionBundleValidator
     {
+        private static readonly string[] NonConditionalQueryParameters = new string[]
+        {
+            KnownQueryParameterNames.MetaHistory,
+        };
+
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly ILogger<TransactionBundleValidator> _logger;
 
@@ -79,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task<string> GetResourceId(EntryComponent entry, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             // If there is no search or conditional operations, then use the FullUrl for posts and the request url otherwise
-            if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains('?', StringComparison.Ordinal))
+            if (!IsConditionalRequest(entry.Request))
             {
                 return entry.Request.Method == HTTPVerb.POST ? entry.FullUrl : entry.Request.Url;
             }
@@ -90,6 +95,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (entry.Request.Method == HTTPVerb.PUT)
             {
                 string[] conditionalUpdate = entry.Request.Url.Split('?');
+                if (conditionalUpdate.Length <= 1)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, entry.Request.Method));
+                }
+
                 resourceType = conditionalUpdate[0];
                 conditionalQueries = conditionalUpdate[1];
             }
@@ -124,12 +134,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
             string requestUrl = entry.Request?.Url;
-            HTTPVerb? requestMethod = entry.Request?.Method;
-
             if (string.IsNullOrWhiteSpace(requestUrl))
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequestUrl));
             }
+
+            var requestVerb = entry.Request?.MethodElement?.ObjectValue as string;
+            if (string.IsNullOrWhiteSpace(requestVerb) || !Enum.IsDefined(typeof(HTTPVerb), requestVerb))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequest, entry.Request.Url, requestVerb));
+            }
+
+            HTTPVerb? requestMethod = entry.Request?.Method;
 
             // Search operations using _search and POST endpoint is not supported for bundle.
             // Conditional Delete operation is also not currently not supported.
@@ -139,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
             }
 
-            // Resource type bundle is not supported.within a bundle.
+            // Resource type bundle is not supported within a bundle.
             if (entry.Resource?.TypeName == KnownResourceTypes.Bundle)
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedResourceType, KnownResourceTypes.Bundle));
@@ -148,6 +164,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Check for duplicate resources within a bundle entry is skipped if the request within a entry is not modifying the resource.
             return !(requestMethod == HTTPVerb.GET
                     || requestUrl.Contains('$', StringComparison.InvariantCulture));
+        }
+
+        private static bool IsConditionalRequest(RequestComponent request)
+        {
+            var conditionalRequest = !string.IsNullOrWhiteSpace(request.IfNoneExist);
+
+            if (request.Url.Contains('?', StringComparison.Ordinal))
+            {
+                var queryString = request.Url.Split('?').Last();
+                var queryParameters = queryString.Split('&', StringSplitOptions.RemoveEmptyEntries).Select((string parameter) => parameter.Split('=', 2)[0]);
+
+                if (queryParameters.Any(param => !NonConditionalQueryParameters.Contains(param)))
+                {
+                    conditionalRequest = true;
+                }
+            }
+
+            return conditionalRequest;
         }
     }
 }

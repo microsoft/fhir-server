@@ -145,9 +145,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 Request?.Host.Value);
         }
 
-        public Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
+        public Uri ResolveRouteUrl(IReadOnlyCollection<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false, string includesContinuationToken = null, string routeNameOverride = null, IDictionary<string, object> ambientRouteValuesOverride = null)
         {
-            string routeName = _fhirRequestContextAccessor.RequestContext.RouteName;
+            string routeName = routeNameOverride ?? _fhirRequestContextAccessor.RequestContext.RouteName;
 
             Debug.Assert(!string.IsNullOrWhiteSpace(routeName), "The routeName should not be null or empty.");
 
@@ -215,12 +215,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
 
+            if (includesContinuationToken != null)
+            {
+                routeValues[KnownQueryParameterNames.IncludesContinuationToken] = includesContinuationToken;
+            }
+
+            RouteValuesAddress routeValuesAddress = null;
+            if (ambientRouteValuesOverride != null)
+            {
+                routeValuesAddress = new RouteValuesAddress()
+                {
+                    AmbientValues = new RouteValueDictionary(ambientRouteValuesOverride),
+                    ExplicitValues = routeValues ?? new(),
+                    RouteName = routeName,
+                };
+            }
+
             return GetRouteUri(
                 ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
-                Request.Host.Value);
+                Request.Host.Value,
+                routeValuesAddress);
         }
 
         public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
@@ -259,8 +276,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.BulkDelete:
                     routeName = RouteNames.GetBulkDeleteStatusById;
                     break;
+                case OperationsConstants.BulkUpdate:
+                    routeName = RouteNames.GetBulkUpdateStatusById;
+                    break;
+                case OperationsConstants.DocRef:
+                    routeName = RouteNames.DocRef;
+                    break;
+                case OperationsConstants.ValueSetExpand:
+                    routeName = RouteNames.Expand;
+                    break;
                 default:
-                    throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+                    throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
 
             var routeValues = new RouteValueDictionary()
@@ -296,7 +322,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeName = RouteNames.AnonymizedExportOperationDefinition;
                     break;
                 case OperationsConstants.Reindex:
-                    routeName = RouteNames.ReindexOperationDefintion;
+                    routeName = RouteNames.ReindexOperationDefinition;
                     break;
                 case OperationsConstants.ResourceReindex:
                     routeName = RouteNames.ResourceReindexOperationDefinition;
@@ -313,11 +339,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.BulkDelete:
                     routeName = RouteNames.BulkDeleteDefinition;
                     break;
+                case OperationsConstants.BulkUpdate:
+                    routeName = RouteNames.BulkUpdateDefinition;
+                    break;
                 case OperationsConstants.SearchParameterStatus:
                     routeName = RouteNames.SearchParameterStatusOperationDefinition;
                     break;
+                case OperationsConstants.Includes:
+                    routeName = RouteNames.IncludesOperationDefinition;
+                    break;
+                case OperationsConstants.DocRef:
+                    routeName = RouteNames.DocRefOperationDefinition;
+                    break;
+                case OperationsConstants.ValueSetExpand:
+                    routeName = RouteNames.ExpandDefinition;
+                    break;
                 default:
-                    throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+                    throw new OperationNotImplementedException(string.Format(Api.Resources.OperationNotImplemented, operationName));
             }
 
             return GetRouteUri(
@@ -328,7 +366,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 Request?.Host.Value);
         }
 
-        private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
+        private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host, RouteValuesAddress address = null)
         {
             var uriString = string.Empty;
 
@@ -351,13 +389,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     pathBase += "/";
                 }
 
-                uriString = _linkGenerator.GetUriByRouteValues(
-                    httpContext,
-                    routeName,
-                    routeValues,
-                    scheme,
-                    new HostString(host),
-                    pathBase);
+                uriString = address == null ?
+                    _linkGenerator.GetUriByRouteValues(
+                        httpContext,
+                        routeName,
+                        routeValues,
+                        scheme,
+                        new HostString(host),
+                        pathBase) :
+                    _linkGenerator.GetUriByAddress<RouteValuesAddress>(
+                        httpContext,
+                        address,
+                        address.ExplicitValues,
+                        address.AmbientValues,
+                        scheme,
+                        new HostString(host),
+                        pathBase);
             }
 
             return new Uri(uriString);

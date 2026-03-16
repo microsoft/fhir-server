@@ -13,12 +13,18 @@
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\AzureStorageBlobHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BulkUpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleTestsUtil.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BulkDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleEdgeCaseTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleTransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\DocRefOperationTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\DocRefOperationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\ExpandOperationTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\ExpandOperationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\InstantiatesCapabilityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
@@ -87,7 +93,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\JsonPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\FhirPathPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Reindex\ReindexTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\MsSearchParameterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\TokenIntrospectionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchProxyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingAndSortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSortAndSearchValidationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />
@@ -104,7 +114,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IdSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludesOperationTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludesOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotExpressionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotReferencedSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotReferencedSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTestFixture.cs" />
@@ -121,6 +135,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\StartupForExportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\SuppressExecutionContextHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\AuthenticationWarmupException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\RetryableCredentialProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\RetryAuthenticationHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
@@ -133,6 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)Rest\Directory.Build.props" />
+    <None Include="$(MSBuildThisFileDirectory)Rest\Reindex\README.md" />
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
     <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

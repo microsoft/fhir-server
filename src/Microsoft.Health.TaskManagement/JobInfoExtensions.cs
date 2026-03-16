@@ -18,7 +18,7 @@ public static class JobInfoExtensions
 
         try
         {
-            IJobData jobDataDefinition = JsonConvert.DeserializeObject<JobDataDefinition>(jobInfo.Definition);
+            JobDataDefinition jobDataDefinition = JsonConvert.DeserializeObject<JobDataDefinition>(jobInfo.Definition);
 
             return jobDataDefinition?.TypeId;
         }

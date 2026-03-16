@@ -10,6 +10,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -35,13 +36,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Theory]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
-        [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
-        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", null)]
+        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
+#if Stu3 || R4 || R4B
+        [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Organization/$validate", "Profile-Organization-uscore", null)]
         [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", null)]
-        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
+#endif
         public async Task GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
@@ -69,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
-            Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.Contains(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
 
             Parameters parameters = new Parameters();
             if (!string.IsNullOrEmpty(profile))
@@ -82,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             outcome = await _client.ValidateAsync(path, parameters.ToJson());
 
-            Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.Contains(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
         [Theory]
@@ -115,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(
             "Observation/$validate",
             "{\"resourceType\":\"Observation\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}",
-            "Element with minimum cardinality 1 cannot be null. At Observation.StatusElement.",
+            "Element 'StatusElement' with minimum cardinality 1 cannot be null. At Observation.StatusElement, line , position",
             "Observation.StatusElement")]
         [InlineData(
             "Observation/$validate",
@@ -162,7 +165,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Patient createdResource = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
-            Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.Contains(outcome.Issue, x => x.Severity == OperationOutcome.IssueSeverity.Error);
+        }
+
+        [Fact]
+        public void GivenACoreFeatureConfiguration_ThenEnsureThatIntervalsAreUsingSafeValues()
+        {
+            CoreFeatureConfiguration configuration = new CoreFeatureConfiguration();
+
+            Assert.Equal(14400, configuration.SystemConformanceProviderRebuildIntervalSeconds);
+            Assert.Equal(60, configuration.SystemConformanceProviderRefreshIntervalSeconds);
         }
 
         [Fact]
@@ -219,22 +231,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
+            System.Collections.Generic.List<string> supportedProfiles = null;
+            string[] expectedProfiles = null;
+
+            // Give the server time to refresh its profile cache.
+            await Task.Delay(TimeSpan.FromSeconds(15));
+
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
+
 #if !Stu3
-            var supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
+            supportedProfiles = response.Resource.Rest.Where(r => r.Mode.ToString().Equals("server", StringComparison.OrdinalIgnoreCase)).
                 SelectMany(x => x.Resource.Where(x => x.SupportedProfile.Any()).Select(x => x.SupportedProfile)).
                 SelectMany(x => x).OrderBy(x => x).ToList();
+
+            expectedProfiles = new[]
+            {
+                "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan|3.0.0",
+                "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization|3.0.0",
+                "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient|3.0.0",
+            };
 #else
-            var supportedProfiles = response.Resource.Profile.Select(x => x.Url.ToString()).OrderBy(x => x).ToList();
+            supportedProfiles = response.Resource.Profile.Select(x => x.Url.ToString()).OrderBy(x => x).ToList();
+
+            expectedProfiles = new[]
+            {
+                "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan|2.0.0",
+                "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization|2.0.0",
+                "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient|2.0.0",
+            };
 #endif
-            Assert.Equal(
-                new[]
-                {
-                    "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan",
-                    "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization",
-                    "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
-                },
-                supportedProfiles);
+
+            if (supportedProfiles.Count < expectedProfiles.Length)
+            {
+                Assert.Fail($"This test failed because the number of supported profiles is less than expected. Expected: {expectedProfiles.Length}. Current: {supportedProfiles.Count}.");
+            }
+
+            // Add this to see what profiles are actually returned
+            var actualProfilesString = string.Join(", ", supportedProfiles);
+            System.Diagnostics.Debug.WriteLine($"Actual profiles returned: {actualProfilesString}");
+
+            // Check each expected profile individually to see which one is missing
+            foreach (var expectedProfile in expectedProfiles)
+            {
+                var found = supportedProfiles.Any(y => string.Equals(expectedProfile, y, StringComparison.OrdinalIgnoreCase));
+                System.Diagnostics.Debug.WriteLine($"Profile '{expectedProfile}' found: {found}");
+                Assert.Contains(supportedProfiles, y => string.Equals(expectedProfile, y, StringComparison.OrdinalIgnoreCase));
+            }
         }
 
         private void CheckOperationOutcomeIssue(

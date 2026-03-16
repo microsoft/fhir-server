@@ -8,19 +8,24 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
 using Polly;
+using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 
@@ -29,20 +34,24 @@ public class CosmosQueueClient : IQueueClient
     private readonly Func<IScoped<Container>> _containerFactory;
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
-    private static readonly AsyncPolicy _retryPolicy = Policy
-        .Handle<CosmosException>(ex => ex.StatusCode == HttpStatusCode.PreconditionFailed)
-        .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
-        .Or<RequestRateExceededException>()
-        .WaitAndRetryAsync(5, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
+    private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
+    private readonly AsyncPolicy _retryPolicy;
+    private readonly ILogger<CosmosQueueClient> _logger;
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
         ICosmosQueryFactory queryFactory,
-        ICosmosDbDistributedLockFactory distributedLockFactory)
+        ICosmosDbDistributedLockFactory distributedLockFactory,
+        RetryExceptionPolicyFactory retryExceptionPolicyFactory,
+        ILogger<CosmosQueueClient> logger)
     {
         _containerFactory = EnsureArg.IsNotNull(containerFactory, nameof(containerFactory));
         _queryFactory = EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
         _distributedLockFactory = EnsureArg.IsNotNull(distributedLockFactory, nameof(distributedLockFactory));
+        _retryExceptionPolicyFactory = EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
+        _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+
+        _retryPolicy = _retryExceptionPolicyFactory.BackgroundWorkerRetryPolicy;
     }
 
     public bool IsInitialized() => true;
@@ -56,6 +65,29 @@ public class CosmosQueueClient : IQueueClient
         CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(definitions, nameof(definitions));
+
+        // Check if the orchestrator job (where JobId == GroupId) has been cancelled
+        if (groupId.HasValue)
+        {
+            QueryDefinition orchestratorJobSpec = new QueryDefinition(@"SELECT VALUE c FROM root c
+             JOIN d in c.definitions
+             WHERE c.queueType = @queueType 
+              AND c.groupId = @groupId
+              AND d.jobId = @groupId
+              AND d.cancelRequested = true")
+                .WithParameter("@queueType", queueType)
+                .WithParameter("@groupId", groupId.Value.ToString());
+
+            IReadOnlyList<JobGroupWrapper> cancelledOrchestratorJobs = await ExecuteQueryAsync(orchestratorJobSpec, 1, queueType, cancellationToken);
+
+            if (cancelledOrchestratorJobs.Any())
+            {
+                _logger.LogWarning(
+                    "Attempting to enqueue jobs for group {GroupId} but orchestrator job has been cancelled.",
+                    groupId.Value);
+                throw new OperationCanceledException($"Job group {groupId.Value} has been cancelled.");
+            }
+        }
 
         var id = GetLongId();
         var jobInfos = new List<JobInfo>();
@@ -120,18 +152,27 @@ public class CosmosQueueClient : IQueueClient
                     throw new JobConflictException("Failed to enqueue job.");
                 }
 
-                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, null, cancellationToken));
             }
         }
         else
         {
-            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, null, cancellationToken));
         }
 
         return jobInfos;
     }
 
-    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, CancellationToken cancellationToken)
+    public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+    {
+        // This is a special case, we are adding this function to support Handle Bulk data access 2.0
+        // Only limited changes are made in order to get Cosmos working
+        var jobInfos = new List<JobInfo>();
+        jobInfos.AddRange(await CreateNewJob(GetLongId(), queueType, new[] { definition }, groupId, jobStatus, cancellationToken));
+        return jobInfos.FirstOrDefault();
+    }
+
+    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, JobStatus? jobStatus, CancellationToken cancellationToken)
     {
         var jobInfo = new JobGroupWrapper
         {
@@ -150,7 +191,7 @@ public class CosmosQueueClient : IQueueClient
             var definitionInfo = new JobDefinitionWrapper
             {
                 JobId = (jobId++).ToString(),
-                Status = (byte)JobStatus.Created,
+                Status = jobStatus.HasValue ? (byte)jobStatus.Value : (byte)JobStatus.Created,
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
             };
@@ -254,9 +295,17 @@ public class CosmosQueueClient : IQueueClient
             }
         }
 
-        await SaveJobGroupAsync(item, cancellationToken);
-
-        return item.ToJobInfo(toReturn).ToList();
+        try
+        {
+            await SaveJobGroupAsync(item, cancellationToken);
+            return item.ToJobInfo(toReturn).ToList();
+        }
+        catch (JobConflictException)
+        {
+            // If another worker has modified this job group while we were processing it,
+            // return an empty result. The job will be re-evaluated on the next dequeue attempt.
+            return Array.Empty<JobInfo>();
+        }
     }
 
     /// <inheritdoc />
@@ -464,6 +513,51 @@ public class CosmosQueueClient : IQueueClient
         });
     }
 
+    public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
+    {
+        return await GetActiveJobsByQueueTypeInternalAsync(queueType, returnParentOnly, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeInternalAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
+    {
+        QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c
+           JOIN d in c.definitions
+           WHERE c.queueType = @queueType 
+           AND ARRAY_CONTAINS([0, 1], d.status)")
+        .WithParameter("@queueType", queueType);
+
+        var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
+
+        if (response.Count == 0)
+        {
+            return Array.Empty<JobInfo>();
+        }
+
+        var jobInfos = new List<JobInfo>();
+
+        foreach (var jobGroup in response)
+        {
+            if (returnParentOnly)
+            {
+                // Parent job is the one where JobId equals the JobGroupWrapper.Id
+                var parentJob = jobGroup.Definitions.FirstOrDefault(d => d.JobId == jobGroup.Id);
+                if (parentJob != null && (parentJob.Status == (byte)JobStatus.Created || parentJob.Status == (byte)JobStatus.Running))
+                {
+                    jobInfos.AddRange(jobGroup.ToJobInfo(new[] { parentJob }));
+                }
+            }
+            else
+            {
+                // Return all active jobs in the group
+                var activeJobs = jobGroup.Definitions.Where(d =>
+                    d.Status == (byte)JobStatus.Created || d.Status == (byte)JobStatus.Running);
+                jobInfos.AddRange(jobGroup.ToJobInfo(activeJobs));
+            }
+        }
+
+        return jobInfos;
+    }
+
     private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(
         byte queueType,
         long groupId,
@@ -571,7 +665,19 @@ public class CosmosQueueClient : IQueueClient
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.RequestEntityTooLarge)
         {
-            throw new JobExecutionException("Job data too large.", ex);
+            throw new JobExecutionException("Job data too large.", ex, false);
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed && !ignoreEtag)
+        {
+            // This occurs when multiple workers are attempting to dequeue the same job
+            // Instead of failing, we will just log this and return. This is handled at the caller level.
+            _logger.LogWarning(
+                ex,
+                "Job conflict detected. Another worker has modified the job group while we were processing it. Job ID: {JobId}, Group ID: {GroupId}, Queue Type: {QueueType}",
+                definition.Id,
+                definition.GroupId,
+                definition.QueueType);
+            throw new JobConflictException("Job was modified by another worker.", ex);
         }
     }
 

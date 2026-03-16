@@ -8,7 +8,7 @@ using Microsoft.Health.SqlServer;
 
 namespace Microsoft.Health.Internal.Fhir.Sql
 {
-    public class SqlConnectionBuilder : ISqlConnectionBuilder
+    internal class SqlConnectionBuilder : ISqlConnectionBuilder
     {
         private readonly string _connectionString;
 
@@ -34,6 +34,32 @@ namespace Microsoft.Health.Internal.Fhir.Sql
             var builder = new SqlConnectionStringBuilder(_connectionString);
             builder.ApplicationIntent = ApplicationIntent.ReadOnly;
             return await Task.FromResult(new SqlConnection(builder.ToString()));
+        }
+
+        public async Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+        {
+            var builder = new SqlConnectionStringBuilder(_connectionString);
+            if (isReadOnly)
+            {
+                builder.ApplicationIntent = ApplicationIntent.ReadOnly;
+            }
+
+            if (applicationName != null)
+            {
+                builder.ApplicationName = applicationName;
+            }
+
+            return await Task.FromResult(new SqlConnection(builder.ToString()));
+        }
+
+        public SqlConnection CreateConnection(Action<SqlConnectionStringBuilder> configure = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask<SqlConnection> CreateConnectionAsync(Action<SqlConnectionStringBuilder> configure = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

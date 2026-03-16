@@ -338,3 +338,64 @@ Authorization: Bearer {{bearer.response.body.access_token}}
         }
     ]
 }
+
+### Add a security tag. This will always add the elements to the end of the array if the array exists or not.
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "operation",
+      "part": [
+        {
+          "name": "type",
+          "valueCode": "add"
+        },
+        {
+          "name": "path",
+          "valueString": "Patient.meta"
+        },
+        {
+          "name": "name",
+          "valueString": "security"
+        },
+        {
+          "name": "value",
+          "valueCoding": {
+            "system": "http://example.org/security-system",
+            "code": "SECURITY_TAG_CODE",
+            "display": "New Security Tag Display"
+          }
+        }
+      ]
+    },
+    {
+      "name": "operation",
+      "part": [
+        {
+          "name": "type",
+          "valueCode": "add"
+        },
+        {
+          "name": "path",
+          "valueString": "Patient.meta"
+        },
+        {
+          "name": "name",
+          "valueString": "security"
+        },
+        {
+          "name": "value",
+          "valueCoding": {
+            "system": "http://example.org/security-system",
+            "code": "NEW_SECURITY_TAG_CODE",
+            "display": "New Security Tag Display"
+          }
+        }
+      ]
+    }
+  ]
+}

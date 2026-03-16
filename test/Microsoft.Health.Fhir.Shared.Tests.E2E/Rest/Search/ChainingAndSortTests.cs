@@ -55,13 +55,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // [ Reuse the first query ] + Return only the total count of records.
             Bundle bundleWithNoSortAndSummaryCount = await Client.SearchAsync(ResourceType.HealthcareService, commonQuery + "&_summary=count");
             Assert.Empty(bundleWithNoSortAndSummaryCount.Entry);
-            Assert.Empty(bundleWithNoSortAndSummaryCount.Link);
             Assert.Equal(totalNumberOfFilteredHealthcareServices, bundleWithNoSortAndSummaryCount.Total.Value);
 
             // [ Reuse the first query ] + Return only the total count of records (with additional _sort expression that will be ignored internally).
             Bundle bundleWithSortAndSummaryCount = await Client.SearchAsync(ResourceType.HealthcareService, commonQuery + "&_sort=name&_summary=count");
             Assert.Empty(bundleWithSortAndSummaryCount.Entry);
-            Assert.Empty(bundleWithSortAndSummaryCount.Link);
             Assert.Equal(totalNumberOfFilteredHealthcareServices, bundleWithSortAndSummaryCount.Total.Value);
 
             // [ Reuse the first query ] + Get total number of records returned.

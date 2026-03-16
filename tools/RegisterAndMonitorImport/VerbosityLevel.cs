@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
 {
-    public enum VerbosityLevel
+    internal enum VerbosityLevel
     {
         Full = 5,
         FullOnComplete = 4,

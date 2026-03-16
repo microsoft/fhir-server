@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -46,13 +47,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string hash3 = new List<SearchParameterInfo> { paramDisabled }.CalculateSearchParameterHash();
 
             Assert.Equal(hash1, hash2);
-            Assert.NotEqual(hash1, hash3);
+            Assert.Equal(hash1, hash3);
         }
 
         [Fact]
         public void GivenTwoSameListsOfResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenHashIsSame()
         {
-            DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
             var param1 = GenerateSearchParameterInfo(_paramUri1, "patient");
             var param2 = GenerateSearchParameterInfo(_paramUri2, "observation");
 
@@ -65,7 +65,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenTwoDifferentListsOfResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenHashIsDifferent()
         {
-            DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
             var param1 = GenerateSearchParameterInfo(_paramUri1, "patient");
             var param2 = GenerateSearchParameterInfo(_paramUri2, "observation");
 
@@ -78,7 +77,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenTwoSameListsDifferentOrderOfResourceSearchParameterStatus_WhenCalculateSearchParameterHash_ThenHashIsSame()
         {
-            DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
             var param1 = GenerateSearchParameterInfo(_paramUri1, "patient");
             var param2 = GenerateSearchParameterInfo(_paramUri2, "observation");
             var param3 = GenerateSearchParameterInfo(_paramUri3, "medication");
@@ -89,7 +87,43 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(hash1, hash2);
         }
 
-        private SearchParameterInfo GenerateSearchParameterInfo(Uri uri, string resourceType, SortParameterStatus sortParameterStatus = SortParameterStatus.Disabled)
+        [Fact]
+        public void GivenSearchParamWithStatusEnabledOrSupported_WhenCalculateSearchParameterHash_ThenHashIsSame()
+        {
+            var param1 = GenerateSearchParameterInfo(_paramUri1, "patient", searchParameterStatus: SearchParameterStatus.Supported);
+            var param2 = GenerateSearchParameterInfo(_paramUri1, "patient", searchParameterStatus: SearchParameterStatus.Enabled);
+
+            string hash1 = new List<SearchParameterInfo>() { param1 }.CalculateSearchParameterHash();
+            string hash2 = new List<SearchParameterInfo>() { param2 }.CalculateSearchParameterHash();
+
+            Assert.Equal(hash1, hash2);
+        }
+
+        [Fact]
+        public void GivenSearchParamWithStatusEnabledOrDeleted_WhenCalculateSearchParameterHash_ThenHashIsDifferent()
+        {
+            var param1 = GenerateSearchParameterInfo(_paramUri1, "patient", searchParameterStatus: SearchParameterStatus.Deleted);
+            var param2 = GenerateSearchParameterInfo(_paramUri1, "patient", searchParameterStatus: SearchParameterStatus.Enabled);
+
+            string hash1 = new List<SearchParameterInfo>() { param1 }.CalculateSearchParameterHash();
+            string hash2 = new List<SearchParameterInfo>() { param2 }.CalculateSearchParameterHash();
+
+            Assert.NotEqual(hash1, hash2);
+        }
+
+        [Fact]
+        public void GivenSearchParamsWithStatusEnabledOrDeleted_WhenCalculateSearchParameterHash_ThenNotEnabledAreSkipped()
+        {
+            var param1 = GenerateSearchParameterInfo(_paramUri1, "patient", searchParameterStatus: SearchParameterStatus.Deleted);
+            var param2 = GenerateSearchParameterInfo(_paramUri2, "observation", searchParameterStatus: SearchParameterStatus.Enabled);
+
+            string hash1 = new List<SearchParameterInfo>() { param1, param2 }.CalculateSearchParameterHash();
+            string hash2 = new List<SearchParameterInfo>() { param2 }.CalculateSearchParameterHash();
+
+            Assert.Equal(hash1, hash2);
+        }
+
+        private SearchParameterInfo GenerateSearchParameterInfo(Uri uri, string resourceType, SortParameterStatus sortParameterStatus = SortParameterStatus.Disabled, SearchParameterStatus searchParameterStatus = SearchParameterStatus.Enabled)
         {
             return new SearchParameterInfo(
                 name: uri.Segments.LastOrDefault(),
@@ -101,6 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 targetResourceTypes: null,
                 baseResourceTypes: new List<string> { resourceType })
             {
+                SearchParameterStatus = searchParameterStatus,
                 SortStatus = sortParameterStatus,
             };
         }

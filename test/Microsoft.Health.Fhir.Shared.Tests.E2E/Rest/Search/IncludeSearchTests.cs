@@ -303,8 +303,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnRevIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedResources()
         {
+#if Stu3 || R4 || R4B
             string query = $"_tag={Fixture.Tag}&_revinclude=Device:patient";
-
+#else
+            string query = $"_tag={Fixture.Tag}&_revinclude=DeviceAssociation:patient";
+#endif
             await SearchAndValidateBundleAsync(
                 ResourceType.Patient,
                 query,
@@ -671,7 +674,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
-            string query = $"_include=CareTeam:participant:Patient&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+            string query = $"_include=CareTeam:participant&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
             await SearchAndValidateBundleAsync(
                 ResourceType.CareTeam,
@@ -682,7 +685,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
-                Fixture.TaylorPractitioner);
+                Fixture.TaylorPractitioner,
+                Fixture.Organization,
+                Fixture.Practitioner);
         }
 
         [Fact]
@@ -759,7 +764,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationRequest,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 Fixture.PercocetMedication,
 #endif
                 Fixture.AdamsMedicationRequest,
@@ -779,7 +784,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationRequest,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 Fixture.PercocetMedication,
 #endif
                 Fixture.AdamsMedicationRequest,
@@ -818,7 +823,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.MedicationDispense,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.TramadolMedication,
 #endif
@@ -1076,7 +1081,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.Medication,
                 query,
-#if R5
+#if !Stu3 && !R4 && !R4B
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
@@ -1278,6 +1283,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanMedicationDispenseWithoutRequest,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest);
+        }
+
+        /// <summary>
+        /// Regression test for SQL UNION column count mismatch when combining _include and _revinclude.
+        /// Before the fix, this would throw SqlException: "All queries combined using a UNION, INTERSECT
+        /// or EXCEPT operator must have an equal number of expressions in their target lists."
+        /// </summary>
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenIncludeAndRevIncludeTogether_WhenSearched_ThenNoSqlUnionColumnMismatchError()
+        {
+            // This query combines _include and _revinclude which exercises multiple UNION branches
+            // in the SQL query generator. The bug was that include queries projected 3 columns
+            // (T1, Sid1, IsMatch) while other branches projected 4 columns (T1, Sid1, IsMatch, IsPartial).
+            string query = $"_include=Patient:organization&_revinclude=Observation:patient&_tag={Fixture.Tag}";
+
+            // The search should succeed without SqlException
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+
+            // Validate that we got both matched patients and included/revincluded resources
+            Assert.Contains(bundle.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Match);
         }
 
         // This will not work for circular reference

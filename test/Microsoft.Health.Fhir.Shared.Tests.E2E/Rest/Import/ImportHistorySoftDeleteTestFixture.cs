@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1)),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(8)),
                 });
         }
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1), versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(8), versionId: "1"),
                 });
         }
 
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 new()
                 {
                     CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1), versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(8), versionId: "1"),
                 });
         }
 

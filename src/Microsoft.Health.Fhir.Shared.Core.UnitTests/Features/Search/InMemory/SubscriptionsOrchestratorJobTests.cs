@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.InMemory
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(manager, fhirRequestContextAccessor);
             var typedElementToSearchValueConverterManager = GetTypeConverterAsync().Result;
 
-            var referenceParser = new ReferenceSearchValueParser(fhirRequestContextAccessor);
+            var referenceParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, Substitute.For<IFhirServerInstanceConfiguration>());
             var referenceToElementResolver = new LightweightReferenceToElementResolver(referenceParser, ModelInfoProvider.Instance);
             var modelInfoProvider = ModelInfoProvider.Instance;
             var logger = Substitute.For<ILogger<TypedElementSearchIndexer>>();

@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.ObjectModel;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public static class OperationsConstants
@@ -48,5 +50,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string BulkDeleteSoftDeleted = "bulk-delete-soft-deleted";
 
         public const string Subscription = "subscription";
+
+        public const string Includes = "includes";
+
+        public const string BulkUpdate = "bulk-update";
+
+        public const string ResourceTypeBulkUpdate = "resource-type-bulk-update";
+
+        public const string DocRef = "docref";
+
+        public const string ValueSetExpand = $"valueset-expand";
+
+        public static readonly ReadOnlyCollection<string> ExcludedResourceTypesForBulkUpdate = new ReadOnlyCollection<string>(new[] { "SearchParameter", "StructureDefinition" });
     }
 }

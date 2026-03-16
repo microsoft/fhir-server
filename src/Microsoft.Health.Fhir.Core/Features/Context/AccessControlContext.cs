@@ -16,6 +16,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public bool ApplyFineGrainedAccessControl { get; set; } = false;
 
         /// <summary>
+        /// Value indicates whether or not fine grained access control with Search Parameters policies should be applied
+        /// </summary>
+        public bool ApplyFineGrainedAccessControlWithSearchParameters { get; set; } = false;
+
+        /// <summary>
         /// the string values that were passed in as scopes
         /// </summary>
         public ICollection<string> ClinicalScopes { get; } = new List<string>();
@@ -46,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             AccessControlContext clone = new AccessControlContext()
             {
                 ApplyFineGrainedAccessControl = ApplyFineGrainedAccessControl,
+                ApplyFineGrainedAccessControlWithSearchParameters = ApplyFineGrainedAccessControlWithSearchParameters,
                 FhirUserClaim = FhirUserClaim,
                 CompartmentResourceType = CompartmentResourceType,
                 CompartmentId = CompartmentId,

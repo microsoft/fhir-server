@@ -20,14 +20,13 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class SearchParameterStatusManager : INotificationHandler<SearchParameterDefinitionManagerInitialized>
+    public class SearchParameterStatusManager : INotificationHandler<SearchParameterDefinitionManagerInitialized>, ISearchParameterStatusManager
     {
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
         private readonly ILogger<SearchParameterStatusManager> _logger;
-        private DateTimeOffset _latestSearchParams;
         private readonly List<string> enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
 
         public SearchParameterStatusManager(
@@ -48,16 +47,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
             _logger = logger;
-
-            _latestSearchParams = DateTimeOffset.MinValue;
         }
 
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
             var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
-            _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
+            var parameters = searchParamResourceStatus
+                .ToDictionary(x => x.Uri?.OriginalString, StringComparer.Ordinal);
 
             EnsureArg.IsNotNull(_searchParameterDefinitionManager.AllSearchParameters);
             EnsureArg.IsTrue(_searchParameterDefinitionManager.AllSearchParameters.Any());
@@ -66,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Set states of known parameters
             foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
             {
-                if (parameters.TryGetValue(p.Url, out ResourceSearchParameterStatus result))
+                if (parameters.TryGetValue(p.Url?.OriginalString, out ResourceSearchParameterStatus result))
                 {
                     var tempStatus = EvaluateSearchParamStatus(result);
 
@@ -81,18 +78,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (p.IsSearchable != tempStatus.IsSearchable ||
                         p.IsSupported != tempStatus.IsSupported ||
                         p.IsPartiallySupported != tempStatus.IsPartiallySupported ||
-                        p.SortStatus != result.SortStatus)
+                        p.SortStatus != result.SortStatus ||
+                        p.SearchParameterStatus != result.Status)
                     {
                         p.IsSearchable = tempStatus.IsSearchable;
                         p.IsSupported = tempStatus.IsSupported;
                         p.IsPartiallySupported = tempStatus.IsPartiallySupported;
                         p.SortStatus = result.SortStatus;
+                        p.SearchParameterStatus = result.Status;
 
                         updated.Add(p);
                     }
                 }
                 else
                 {
+                    // ResourceTypeSearchParameter is a special hardcoded parameter added to
+                    // AllSearchParameters by the UrlLookup registration. It has no entry in the
+                    // status store and SearchParameterSupportResolver.IsSearchParameterSupported
+                    // throws "No target resources defined" for it because it has no BaseResourceTypes
+                    // or TargetResourceTypes. Force it to searchable/supported so background tasks
+                    // (which use SearchableSearchParameterDefinitionManager with UsePartialSearchParams=false)
+                    // don't throw SearchParameterNotSupportedException.
+                    if (p.Url == SearchParameterNames.ResourceTypeUri)
+                    {
+                        p.IsSearchable = true;
+                        p.IsSupported = true;
+                        updated.Add(p);
+                        continue;
+                    }
+
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.
@@ -120,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
@@ -132,38 +146,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
-                .ToDictionary(x => x.Uri.OriginalString);
+                .ToDictionary(x => x.Uri.OriginalString, StringComparer.Ordinal);
 
             foreach (string uri in searchParameterUris)
             {
-                _logger.LogTrace("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
+                _logger.LogInformation("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
-                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
-                updated.Add(paramInfo);
-                paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
-                paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
-
-                if (parameters.TryGetValue(uri, out var existingStatus))
+                try
                 {
-                    existingStatus.LastUpdated = Clock.UtcNow;
-                    existingStatus.Status = status;
+                    SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
+                    updated.Add(paramInfo);
+                    paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
+                    paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
 
-                    if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
+                    if (parameters.TryGetValue(uri, out var existingStatus))
                     {
-                        existingStatus.SortStatus = SortParameterStatus.Enabled;
-                        paramInfo.SortStatus = SortParameterStatus.Enabled;
+                        existingStatus.Status = status;
+
+                        if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
+                        {
+                            existingStatus.SortStatus = SortParameterStatus.Enabled;
+                            paramInfo.SortStatus = SortParameterStatus.Enabled;
+                        }
+
+                        searchParameterStatusList.Add(existingStatus);
                     }
-
-                    searchParameterStatusList.Add(existingStatus);
-                }
-                else
-                {
-                    searchParameterStatusList.Add(new ResourceSearchParameterStatus
+                    else
                     {
-                        LastUpdated = Clock.UtcNow,
-                        Status = status,
-                        Uri = new Uri(uri),
-                    });
+                        searchParameterStatusList.Add(new ResourceSearchParameterStatus
+                        {
+                            Status = status,
+                            Uri = new Uri(uri),
+                        });
+                    }
+                }
+                catch (SearchParameterNotSupportedException ex)
+                {
+                    _logger.LogError(ex, "The search parameter '{Uri}' not supported.", uri);
+
+                    // Note: SearchParameterNotSupportedException can be thrown by SearchParameterDefinitionManager.GetSearchParameter
+                    // when the given url is not found in its cache that can happen when the cache becomes out of sync with the store.
+                    // Use this flag to ignore the exception and continue the update process for the rest of search parameters.
+                    // (e.g. $bulk-delete ensuring deletion of as many search parameters as possible.)
+                    if (!ignoreSearchParameterNotSupportedException)
+                    {
+                        throw;
+                    }
                 }
             }
 
@@ -172,28 +200,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
-        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
+        public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
         {
             // new search parameters are added as supported, until reindexing occurs, when
             // they will be fully enabled
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, cancellationToken);
         }
 
-        internal async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
+        public async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
         {
             var searchParamUris = new List<string>() { url };
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
         }
 
-        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
+        public async Task<(IReadOnlyCollection<ResourceSearchParameterStatus> Statuses, DateTimeOffset? LastUpdated)> GetSearchParameterStatusUpdates(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
-            var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
-            return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
+            var searchParamStatuses = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken, startLastUpdated);
+            var lastUpdated = searchParamStatuses.Any() ? searchParamStatuses.Max(_ => _.LastUpdated) : (DateTimeOffset?)null;
+            return (searchParamStatuses, lastUpdated);
         }
 
-        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
+        // This is just a conveniance wrapper method that should not be going to store directly
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
         {
-            return await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
+            return (await GetSearchParameterStatusUpdates(cancellationToken)).Statuses;
         }
 
         /// <summary>
@@ -201,10 +231,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
             if (!updatedSearchParameterStatus.Any())
             {
+                _logger.LogDebug("ApplySearchParameterStatus: No search parameter status updates to apply.");
                 return;
             }
 
@@ -235,11 +266,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
-            if (updatedSearchParameterStatus.Any())
-            {
-                _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
-            }
-
+            _logger.LogDebug("ApplySearchParameterStatus: Synced params. Updated cache timestamp.");
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 

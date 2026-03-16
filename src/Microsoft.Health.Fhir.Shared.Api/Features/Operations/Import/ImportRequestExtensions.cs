@@ -25,6 +25,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         public const string ModeParameterName = "mode";
         public const string ForceParameterName = "force";
         public const string AllowNegativeVersionsParameterName = "allowNegativeVersions";
+        public const string EventualConsistencyParameterName = "eventualConsistency";
+        public const string ProcessingUnitBytesToReadParameterName = "processingUnitBytesToRead";
+        public const string ErrorContainerNameParameterName = "errorContainerName";
         public const string DefaultStorageDetailType = "azure-blob";
 
         public static Parameters ToParameters(this ImportRequest importRequest)
@@ -90,6 +93,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (importRequest.AllowNegativeVersions)
             {
                 parameters.Add(AllowNegativeVersionsParameterName, new FhirBoolean(true));
+            }
+
+            if (importRequest.EventualConsistency)
+            {
+                parameters.Add(EventualConsistencyParameterName, new FhirBoolean(true));
+            }
+
+            if (!string.IsNullOrEmpty(importRequest.ErrorContainerName))
+            {
+                parameters.Add(ErrorContainerNameParameterName, new FhirString(importRequest.ErrorContainerName));
+            }
+
+            if (importRequest.ProcessingUnitBytesToRead > 0)
+            {
+                parameters.Add(ProcessingUnitBytesToReadParameterName, new Integer(importRequest.ProcessingUnitBytesToRead));
             }
 
             return parameters;
@@ -163,6 +181,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (parameters.TryGetBooleanValue(AllowNegativeVersionsParameterName, out bool allow))
             {
                 importRequest.AllowNegativeVersions = allow;
+            }
+
+            if (parameters.TryGetBooleanValue(EventualConsistencyParameterName, out bool eventualConsistency))
+            {
+                importRequest.EventualConsistency = eventualConsistency;
+            }
+
+            if (parameters.TryGetStringValue(ErrorContainerNameParameterName, out string errorContainerName))
+            {
+                importRequest.ErrorContainerName = errorContainerName;
+            }
+
+            if (parameters.TryGetIntValue(ProcessingUnitBytesToReadParameterName, out int bytesToRead))
+            {
+                importRequest.ProcessingUnitBytesToRead = bytesToRead;
             }
 
             return importRequest;

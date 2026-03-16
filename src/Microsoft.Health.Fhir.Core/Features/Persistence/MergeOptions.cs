@@ -7,13 +7,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public sealed class MergeOptions
     {
-        public MergeOptions(bool enlistTransaction = true)
+        /// <summary>
+        /// C# transactions are not desired for majority of workloads and, if required, should be set explicitly
+        /// </summary>
+        public MergeOptions(bool enlistTransaction = false, bool ensureAtomicOperations = false)
         {
             EnlistInTransaction = enlistTransaction;
+            EnsureAtomicOperations = ensureAtomicOperations;
         }
 
         public static MergeOptions Default { get; private set; } = new MergeOptions();
 
         public bool EnlistInTransaction { get; private set; }
+
+        public bool EnsureAtomicOperations { get; private set;  }
     }
 }

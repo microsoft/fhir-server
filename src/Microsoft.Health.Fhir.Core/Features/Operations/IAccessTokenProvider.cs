@@ -6,11 +6,14 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public interface IAccessTokenProvider
     {
+        TokenCredential TokenCredential { get; }
+
         /// <summary>
         /// Gets the access token for the resource.
         /// </summary>

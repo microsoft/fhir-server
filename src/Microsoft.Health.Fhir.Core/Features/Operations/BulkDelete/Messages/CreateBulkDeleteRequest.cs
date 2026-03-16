@@ -16,12 +16,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages
             DeleteOperation deleteOperation,
             string resourceType,
             IList<Tuple<string, string>> conditionalParameters,
-            bool includeSoftDeleted)
+            bool includeSoftDeleted,
+            IList<string> excludedResourceTypes,
+            bool removeReferences)
         {
             DeleteOperation = deleteOperation;
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
             IncludeSoftDeleted = includeSoftDeleted;
+            ExcludedResourceTypes = excludedResourceTypes;
+            RemoveReferences = removeReferences;
         }
 
         public DeleteOperation DeleteOperation { get; }
@@ -31,5 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages
         public IList<Tuple<string, string>> ConditionalParameters { get; }
 
         public bool IncludeSoftDeleted { get; }
+
+        public IList<string> ExcludedResourceTypes { get; }
+
+        public bool RemoveReferences { get; }
     }
 }

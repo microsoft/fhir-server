@@ -9,7 +9,7 @@ using System.Collections.Specialized;
 using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Extensions
 {

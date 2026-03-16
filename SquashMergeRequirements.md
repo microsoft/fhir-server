@@ -9,6 +9,7 @@ When commiting your PR, please make sure to do these steps at Squash/Merge to as
 1. Tag the PR with **Schema Version backward compatible** or  **Schema Version backward incompatible** or **Schema Version unchanged** if this adds/updates Sql script which is/is not backward compatible with the code.
 1. Include a user friendly, 1-2 sentence in the Squash/Merge **description** wrapped at 72 characters
 1. Note if it **addresses a GitHub issue and/or a VSTS item** in the Squash/Merge description (i.e. #1234 or AB#12345)
+1. Tag the PR with **ADR-Included** or **No-ADR**, indicating whether documentation for the change is provided or not.
 
 Sometimes our changes will create breaking changes or may need a warning associated with them. If this is the case, take these additional steps:
 

@@ -34,7 +34,7 @@
     "name": [
         {
             "productName": "Equilidem 2.5 mg film-coated tablets",
-            "namePart": [
+            "part": [
                 {
                     "part": "Equilidem",
                     "type": {
@@ -66,7 +66,7 @@
                     }
                 }
             ],
-            "countryLanguage": [
+            "usage": [
                 {
                     "country": {
                         "coding": [

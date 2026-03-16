@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         {
             var resource = fhirResult.Result;
 
-            if (!string.IsNullOrEmpty(resource.Id) && !string.IsNullOrWhiteSpace(resource.VersionId))
+            if (!string.IsNullOrEmpty(resource?.Id) && !string.IsNullOrWhiteSpace(resource?.VersionId) && urlResolver != null)
             {
                 var url = urlResolver.ResolveResourceUrl(fhirResult.Result, true);
 

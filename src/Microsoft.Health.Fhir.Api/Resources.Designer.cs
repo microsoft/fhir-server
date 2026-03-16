@@ -115,6 +115,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource already exists..
+        /// </summary>
+        public static string ConditionalCreateResourceAlreadyExists {
+            get {
+                return ResourceManager.GetString("ConditionalCreateResourceAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A new resource was created..
+        /// </summary>
+        public static string ConditionalCreateResourceCreated {
+            get {
+                return ResourceManager.GetString("ConditionalCreateResourceCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough for query parameter &apos;{0}&apos;..
         /// </summary>
         public static string ConditionalOperationInBundleNotSelectiveEnough {
@@ -201,6 +219,42 @@ namespace Microsoft.Health.Fhir.Api {
         public static string CustomAuditHeaderTooLarge {
             get {
                 return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One or more invalid parameters are found: {0}.
+        /// </summary>
+        public static string ExpandInvalidParameter {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The number of the parameter must not be more than one: {0}.
+        /// </summary>
+        public static string ExpandInvalidParameterCount {
+            get {
+                return ResourceManager.GetString("ExpandInvalidParameterCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The resource id must not be null or empty..
+        /// </summary>
+        public static string ExpandInvalidResourceId {
+            get {
+                return ResourceManager.GetString("ExpandInvalidResourceId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;url&apos; or &apos;valueSet&apos; parameter must be provided.
+        /// </summary>
+        public static string ExpandMissingRequiredParameter {
+            get {
+                return ResourceManager.GetString("ExpandMissingRequiredParameter", resourceCulture);
             }
         }
         
@@ -336,6 +390,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidBundleEntry {
             get {
                 return ResourceManager.GetString("InvalidBundleEntry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is invalid using the request method {1}..
+        /// </summary>
+        public static string InvalidBundleEntryRequest {
+            get {
+                return ResourceManager.GetString("InvalidBundleEntryRequest", resourceCulture);
             }
         }
         
@@ -529,11 +592,29 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. .
+        /// </summary>
+        public static string MixedSMARTV1AndV2ScopesAreNotAllowed {
+            get {
+                return ResourceManager.GetString("MixedSMARTV1AndV2ScopesAreNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
             get {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The request host cannot be used as it is not routable..
+        /// </summary>
+        public static string NonroutableHost {
+            get {
+                return ResourceManager.GetString("NonroutableHost", resourceCulture);
             }
         }
         
@@ -552,6 +633,24 @@ namespace Microsoft.Health.Fhir.Api {
         public static string NotAbleToCreateTheFinalResultsOfAnOperation {
             get {
                 return ResourceManager.GetString("NotAbleToCreateTheFinalResultsOfAnOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Content-Type must be application/x-www-form-urlencoded..
+        /// </summary>
+        public static string OAuth2ContentTypeMustBeFormUrlEncoded {
+            get {
+                return ResourceManager.GetString("OAuth2ContentTypeMustBeFormUrlEncoded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to token parameter is required..
+        /// </summary>
+        public static string OAuth2TokenParameterRequired {
+            get {
+                return ResourceManager.GetString("OAuth2TokenParameterRequired", resourceCulture);
             }
         }
         

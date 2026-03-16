@@ -7,8 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Security.Policy;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Utility;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -25,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    [Trait(Traits.Category, Categories.Transaction)]
+    [Trait(Traits.Category, Categories.BundleTransaction)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
     public class BundleTransactionTests : IClassFixture<HttpIntegrationTestFixture>
     {
@@ -101,9 +104,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [Fact]
+        [RetryTheory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAProperTransactionBundle_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndProperOperationOutComeIsReturned()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenAProperTransactionBundle_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndProperOperationOutComeIsReturned(FhirBundleProcessingLogic processingLogic)
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack").ToPoco<Bundle>();
 
@@ -113,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(
                 requestBundle,
-                new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential }));
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/" + requestBundle.Entry[1].Request.Url + "'.", "Resource type 'Patient' with id '12345" + getIdGuid + "' couldn't be found." };
@@ -123,6 +128,112 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Validate that transaction has rolledback
             Bundle bundle = await _client.SearchAsync(ResourceType.Patient, "family=TransactionRollback");
             Assert.Empty(bundle.Entry);
+        }
+
+        [RetryTheory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenATransactionBundleWithDelete_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndNoOperationCompletes(FhirBundleProcessingLogic processingLogic)
+        {
+            CancellationToken cancellationToken = CancellationToken.None;
+
+            // 1 - Load information from sample.
+            var bundleJson = Samples.GetJsonSample("Bundle-TransactionForRollBackWithDelete");
+            Bundle bundle = bundleJson.ToPoco<Bundle>();
+
+            string patientId0 = bundle.Entry[0].Request.Url.Split("/")[1];
+            string patientId1 = bundle.Entry[1].Resource.Id;
+            string observationId0 = bundle.Entry[2].Resource.Id;
+
+            // 2 - Create resource that will be attempted to be deleted in the transaction.
+            Patient patient = new Patient
+            {
+                Id = patientId0,
+                Active = true,
+                Name = new List<HumanName>
+                {
+                    new HumanName
+                    {
+                        Family = "Doe",
+                        Given = new[] { "John" },
+                    },
+                },
+                Identifier = new List<Identifier>
+                {
+                    new Identifier
+                    {
+                        System = "http://example.org/fhir/ids",
+                        Value = patientId0,
+                    },
+                },
+            };
+
+            FhirResponse<Patient> putPatientResponse = await _client.UpdateAsync($"Patient/{patientId0}", patient, cancellationToken: cancellationToken);
+            DateTimeOffset? creationTime = putPatientResponse.Resource.Meta.LastUpdated;
+            Assert.True(putPatientResponse.Response.IsSuccessStatusCode, "The creation of the Patient is expected, as this patient is used as part of the validations.");
+            Assert.True(patientId0 == putPatientResponse.Resource.Id, $"Patient ID is expected to be created as '{patientId0}'.");
+
+            // 3 - Execute transaction that is expected to fail.
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () => await _client.PostBundleAsync(
+                    bundle,
+                    new FhirBundleOptions() { BundleProcessingLogic = processingLogic },
+                    cancellationToken));
+
+            // Bug 182314: Standardize status code returned when a bundle fails.
+            if (processingLogic == FhirBundleProcessingLogic.Sequential)
+            {
+                Assert.Equal(HttpStatusCode.NotFound, fhirException.Response.StatusCode);
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, fhirException.Response.StatusCode);
+            }
+
+            // 4 - Validate if Patient still exists.
+            FhirResponse<Patient> getPatient0Response = null;
+            try
+            {
+                getPatient0Response = await _client.ReadAsync<Patient>($"Patient/{patientId0}", cancellationToken: cancellationToken);
+            }
+            catch (FhirClientException e)
+            {
+                Assert.Fail($"The Patient is expected to still exist, as the transaction is expected to be rolled back. Exception: {e.Message}");
+            }
+
+            if (getPatient0Response == null)
+            {
+                Assert.Fail($"The response of '{nameof(getPatient0Response)}' is null.");
+            }
+            else
+            {
+                Assert.True(getPatient0Response.Response.IsSuccessStatusCode, "The Patient is expected to still exist, as the transaction is expected to be rolled back.");
+                DateTimeOffset? lastUpdated = getPatient0Response.Resource.Meta.LastUpdated;
+                Assert.True(patientId0 == putPatientResponse.Resource.Id, $"Patient ID is expected to be created as '{patientId0}'.");
+                Assert.True(creationTime == lastUpdated, $"Meta.LastUpdate is expected to be the same. Left: '{creationTime?.ToString("o")}'. Right: '{creationTime?.ToString("o")}'");
+            }
+
+            // 5 - Validate if other resources do not exist.
+            try
+            {
+                FhirResponse<Patient> getPatient1Response = await _client.ReadAsync<Patient>($"Patient/{patientId1}", cancellationToken: cancellationToken);
+                Assert.Fail($"The Patient '{patientId1}' is not expected to exist, as the transaction is expected to be rolled back.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.True(e.StatusCode == HttpStatusCode.NotFound, $"The Patient is not expected to exist, as the transaction is expected to be rolled back.");
+            }
+
+            try
+            {
+                FhirResponse<Observation> getObservation0Response = await _client.ReadAsync<Observation>($"Observation/{observationId0}", cancellationToken: cancellationToken);
+                Assert.Fail($"The Observation '{observationId0}' is not expected to exist, as the transaction is expected to be rolled back.");
+            }
+            catch (FhirClientException e)
+            {
+                Assert.True(e.StatusCode == HttpStatusCode.NotFound, $"The Observation is not expected to exist, as the transaction is expected to be rolled back.");
+            }
         }
 
         [Fact]
@@ -184,6 +295,367 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string[] expectedDiagnostics = { "Transaction failed on 'POST' for the requested url '/Patient'.", "Authorization failed." };
             IssueType[] expectedCodeType = { OperationOutcome.IssueType.Processing, OperationOutcome.IssueType.Forbidden };
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
+        }
+
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenABundleWithSingleGeneratedId_WhenSubmittingATransaction_ThenTheSingleGeneratedIDIsResolvedProperly(FhirBundleProcessingLogic processingLogic)
+        {
+            // In this test, we create a bundle with multiple resources referencing to a single generated ID.
+            // The bundle includes a Patient, Consent and Observation.
+            // Each resource is created with a POST request, and the bundle is processed as a transaction (sequential or parallel).
+            // The test verifies that all resources are created successfully, and their references are resolved correctly.
+
+            var bundle = new Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new()
+                    {
+                        FullUrl = "urn:uuid:patient",
+                        Resource = new Patient
+                        {
+                            Id = string.Empty,
+                            Active = true,
+                            Name = new List<HumanName>
+                            {
+                                new HumanName
+                                {
+                                    Family = "Doe",
+                                    Given = new[] { "John" },
+                                },
+                            },
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier
+                                {
+                                    System = "http://example.org/fhir/ids",
+                                    Value = "12345",
+                                },
+                            },
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                    },
+                    new()
+                    {
+                        Resource = new Observation
+                        {
+                            Status = ObservationStatus.Final,
+                            Code = new CodeableConcept("http://loinc.org", "1234-5", "Blood Pressure"),
+                            Subject = new ResourceReference
+                            {
+#if !Stu3
+                                Type = "Patient",
+#endif
+                                Reference = "urn:uuid:patient",
+                            },
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Observation",
+                        },
+                    },
+                    new()
+                    {
+                        Resource = new Consent
+                        {
+                            Status = Consent.ConsentState.Active,
+                            Category = new List<CodeableConcept>
+                            {
+                                new CodeableConcept("http://terminology.hl7.org/CodeSystem/consentcategorycodes", "admission"),
+                            },
+#if !R5
+                            Patient = new ResourceReference
+                            {
+#if !Stu3
+                                Type = "Patient",
+#endif
+                                Reference = "urn:uuid:patient",
+                            },
+#else
+                            Subject = new ResourceReference
+                            {
+                                Reference = "urn:uuid:patient",
+                            },
+#endif
+#if !Stu3 && !R5
+                            Scope = new CodeableConcept("http://terminology.hl7.org/CodeSystem/consentscope", "adr"),
+#endif
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Consent",
+                        },
+                    },
+                },
+            };
+
+            FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(bundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
+
+            Assert.True(bundleResponse.Resource.Entry[0].Resource.TypeName == ResourceType.Patient.GetLiteral(), "First entry should be a Patient resource.");
+            Assert.True(bundleResponse.Resource.Entry[1].Resource.TypeName == ResourceType.Observation.GetLiteral(), "Second entry should be an Observation resource.");
+            Assert.True(bundleResponse.Resource.Entry[2].Resource.TypeName == ResourceType.Consent.GetLiteral(), "Fourth entry should be an Consent resource.");
+
+            string patientId = bundleResponse.Resource.Entry[0].Resource.Id;
+            string observationId = bundleResponse.Resource.Entry[1].Resource.Id;
+            string consentId = bundleResponse.Resource.Entry[2].Resource.Id;
+
+            Assert.True(Guid.TryParse(patientId, out _), "Patient ID should be a valid GUID.");
+            Assert.True(Guid.TryParse(observationId, out _), "Observation ID should be a valid GUID.");
+            Assert.True(Guid.TryParse(consentId, out _), "Consent ID should be a valid GUID.");
+
+            // Observation references.
+            string observationPatientReference = bundleResponse.Resource.Entry[1].Resource.GetAllChildren<ResourceReference>().ToArray()[0].Reference;
+            Assert.Equal($"Patient/{patientId}", observationPatientReference);
+
+            // Consent refereces.
+            string consentPatientReference = bundleResponse.Resource.Entry[2].Resource.GetAllChildren<ResourceReference>().FirstOrDefault()?.Reference;
+            Assert.Equal($"Patient/{patientId}", consentPatientReference);
+        }
+
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenABundleWithMultipleDynamicReferences_WhenSubmittingATransaction_ThenAllReferencesAreResolvedProperly(FhirBundleProcessingLogic processingLogic)
+        {
+            // In this test, we create a bundle with multiple resources that reference each other, forcing the generation of multiple IDs.
+            // The bundle includes a Patient, Consent, Observation, Device, Practitioner, and Organization.
+            // Each resource is created with a POST request, and the bundle is processed as a transaction (sequential or parallel).
+            // The test verifies that all resources are created successfully, and their references are resolved correctly.
+
+            // A transaction may include references from one resource to another in the bundle, including circular references where resources refer to each other.
+            // UUID should be used (urn:uuid:...) as a reference to a resource in the Bundle. The server will process all urn:uuid and generate a new ID for each resource,
+            // which will be used in the references. UUID will only be created if the resource is submitted with a POST method (check BundleHandler logic).
+
+            var bundle = new Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new()
+                    {
+                        FullUrl = "urn:uuid:patient",
+                        Resource = new Patient
+                        {
+                            Id = string.Empty,
+                            Active = true,
+                            Name = new List<HumanName>
+                            {
+                                new HumanName
+                                {
+                                    Family = "Doe",
+                                    Given = new[] { "John" },
+                                },
+                            },
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier
+                                {
+                                    System = "http://example.org/fhir/ids",
+                                    Value = "12345",
+                                },
+                            },
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                    },
+                    new()
+                    {
+                        FullUrl = "urn:uuid:consent",
+                        Resource = new Consent
+                        {
+                            Status = Consent.ConsentState.Active,
+                            Category = new List<CodeableConcept>
+                            {
+                                new CodeableConcept("http://terminology.hl7.org/CodeSystem/consentcategorycodes", "admission"),
+                            },
+#if !R5
+                            Patient = new ResourceReference
+                            {
+#if !Stu3
+                                Type = "Patient",
+#endif
+                                Reference = "urn:uuid:patient",
+                            },
+#else
+                            Subject = new ResourceReference
+                            {
+                                Reference = "urn:uuid:patient",
+                            },
+#endif
+#if !Stu3 && !R5
+                            Scope = new CodeableConcept("http://terminology.hl7.org/CodeSystem/consentscope", "adr"),
+#endif
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Consent",
+                        },
+                    },
+                    new()
+                    {
+                        FullUrl = "urn:uuid:observation",
+                        Resource = new Observation
+                        {
+                            Status = ObservationStatus.Final,
+                            Code = new CodeableConcept("http://loinc.org", "1234-5", "Blood Pressure"),
+                            Subject = new ResourceReference
+                            {
+#if !Stu3
+                                Type = "Patient",
+#endif
+                                Reference = "urn:uuid:patient",
+                            },
+                            Performer = new List<ResourceReference>
+                            {
+                                new ResourceReference
+                                {
+#if !Stu3
+                                    Type = "Practitioner",
+#endif
+                                    Reference = "urn:uuid:performer",
+                                },
+                                new ResourceReference
+                                {
+#if !Stu3
+                                    Type = "Organization",
+#endif
+                                    Reference = "urn:uuid:organization",
+                                },
+                            },
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Observation",
+                        },
+                    },
+                    new()
+                    {
+                        FullUrl = "urn:uuid:device",
+                        Resource = new Device
+                        {
+                            Status = Device.FHIRDeviceStatus.Active,
+#if !R5
+                            Patient = new ResourceReference
+                            {
+#if !Stu3
+                                Type = "Patient",
+#endif
+                                Reference = "urn:uuid:patient",
+                            },
+#else
+                            Parent = new ResourceReference
+                            {
+                                Type = "Patient",
+                                Reference = "urn:uuid:patient",
+                            },
+#endif
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Device",
+                        },
+                    },
+                    new()
+                    {
+                        FullUrl = "urn:uuid:performer",
+                        Resource = new Practitioner
+                        {
+                            Name = new List<HumanName>
+                            {
+                                new HumanName
+                                {
+                                    Family = "Doe",
+                                    Given = new[] { "Jane" },
+                                },
+                            },
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Practitioner",
+                        },
+                    },
+                    new()
+                    {
+                        FullUrl = "urn:uuid:organization",
+                        Resource = new Organization
+                        {
+                            Name = "Test Organization",
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier
+                                {
+                                    System = "http://example.org/fhir/ids",
+                                    Value = "org-12345",
+                                },
+                            },
+                        },
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Organization",
+                        },
+                    },
+                },
+            };
+
+            FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(bundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
+
+            Assert.True(bundleResponse.Resource.Entry[0].Resource.TypeName == ResourceType.Patient.GetLiteral(), "First entry should be a Patient resource.");
+            Assert.True(bundleResponse.Resource.Entry[1].Resource.TypeName == ResourceType.Consent.GetLiteral(), "Second entry should be a Consent resource.");
+            Assert.True(bundleResponse.Resource.Entry[2].Resource.TypeName == ResourceType.Observation.GetLiteral(), "Third entry should be an Observation resource.");
+            Assert.True(bundleResponse.Resource.Entry[3].Resource.TypeName == ResourceType.Device.GetLiteral(), "Fourth entry should be a Device resource.");
+            Assert.True(bundleResponse.Resource.Entry[4].Resource.TypeName == ResourceType.Practitioner.GetLiteral(), "Fifth entry should be a Practitioner resource.");
+            Assert.True(bundleResponse.Resource.Entry[5].Resource.TypeName == ResourceType.Organization.GetLiteral(), "Sixth entry should be an Organization resource.");
+
+            string patientId = bundleResponse.Resource.Entry[0].Resource.Id;
+            string consentId = bundleResponse.Resource.Entry[1].Resource.Id;
+            string observationId = bundleResponse.Resource.Entry[2].Resource.Id;
+            string deviceId = bundleResponse.Resource.Entry[3].Resource.Id;
+            string practitionerId = bundleResponse.Resource.Entry[4].Resource.Id;
+            string organizationId = bundleResponse.Resource.Entry[5].Resource.Id;
+
+            Assert.True(Guid.TryParse(patientId, out _), "Patient ID should be a valid GUID.");
+            Assert.True(Guid.TryParse(consentId, out _), "Consent ID should be a valid GUID.");
+            Assert.True(Guid.TryParse(observationId, out _), "Observation ID should be a valid GUID.");
+            Assert.True(Guid.TryParse(deviceId, out _), "Device ID should be a valid GUID.");
+            Assert.True(Guid.TryParse(practitionerId, out _), "Practitioner ID should be a valid GUID.");
+            Assert.True(Guid.TryParse(organizationId, out _), "Organization ID should be a valid GUID.");
+
+            // Consent refereces.
+            string consentPatientReference = bundleResponse.Resource.Entry[1].Resource.GetAllChildren<ResourceReference>().FirstOrDefault()?.Reference;
+            Assert.Equal($"Patient/{patientId}", consentPatientReference);
+
+            // Observation references.
+            string observationPatientReference = bundleResponse.Resource.Entry[2].Resource.GetAllChildren<ResourceReference>().ToArray()[0].Reference;
+            Assert.Equal($"Patient/{patientId}", observationPatientReference);
+
+            string observationPractitionerReference = bundleResponse.Resource.Entry[2].Resource.GetAllChildren<ResourceReference>().ToArray()[1].Reference;
+            Assert.Equal($"Practitioner/{practitionerId}", observationPractitionerReference);
+
+            string observationOrganizationReference = bundleResponse.Resource.Entry[2].Resource.GetAllChildren<ResourceReference>().ToArray()[2].Reference;
+            Assert.Equal($"Organization/{organizationId}", observationOrganizationReference);
+
+            // Device references.
+            string devicePatientReference = bundleResponse.Resource.Entry[3].Resource.GetAllChildren<ResourceReference>().FirstOrDefault()?.Reference;
+            Assert.Equal($"Patient/{patientId}", devicePatientReference);
         }
 
         [Fact]
@@ -300,13 +772,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenATransactionWithConditionalCreateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenATransactionWithConditionalCreateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync(FhirBundleProcessingLogic processingLogic)
         {
-            // This test requires operations to be executed sequentially, as there is a dependecy between resources.
-            FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Sequential;
-
             var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithConditionalCreateAndReference");
 
             var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
@@ -354,6 +825,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(patientId, bundleResponse2.Resource.Entry[0].Resource.Id);
             Assert.Equal("2", bundleResponse2.Resource.Entry[0].Resource.Meta.VersionId);
             ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionWithAllowedParameter_WhenExecuted_ThenNoExceptionsAreThrown()
+        {
+            // Create resource
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var bundleAsString = Samples.GetJson("Bundle-TransactionWithMetaHistory");
+            var requestBundle = parser.Parse<Bundle>(bundleAsString);
+
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+            // Status could be 201 (Created) or 200 (OK) based on whether the resource is created or updated.
+            var status = int.Parse(fhirResponse.Resource.Entry[0].Response.Status);
+            Assert.True(status == 201 || status == 200, "Create");
+
+            // Update resource
+            bundleAsString = bundleAsString.Replace("\"metaHistoryTestTag\"", "\"metaHistoryTestTag2\"");
+
+            requestBundle = parser.Parse<Bundle>(bundleAsString);
+
+            using FhirResponse<Bundle> fhirResponse2 = await _client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse2);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse2.StatusCode);
+            Assert.True("200".Equals(fhirResponse2.Resource.Entry[0].Response.Status), "Update");
+
+            // Check history
+            var historyBundle = await _client.ReadHistoryAsync(ResourceType.MedicationRequest, fhirResponse.Resource.Entry[0].Resource.Id);
+            Assert.True(historyBundle.Resource.Entry.Count == 1, "History count");
         }
 
         private static void ValidateReferenceToPatient(

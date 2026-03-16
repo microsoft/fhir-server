@@ -33,7 +33,9 @@
         "reference": "Location/1"
     },
     "manufacturer": {
-        "reference": "Organization/hl7"
+        "reference": {
+            "reference": "Organization/hl7"
+        }
     },
     "lotNumber": "AAJN11K",
     "expirationDate": "2015-02-15",
@@ -94,21 +96,16 @@
         }
     ],
     "isSubpotent": true,
-    "education": [
-        {
-            "documentType": "253088698300010311120702",
-            "publicationDate": "2012-07-02",
-            "presentationDate": "2013-01-10"
-        }
-    ],
     "programEligibility": [
         {
-            "coding": [
-                {
-                    "system": "http://terminology.hl7.org/CodeSystem/immunization-program-eligibility",
-                    "code": "ineligible"
-                }
-            ]
+            "programStatus": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/immunization-program-eligibility",
+                        "code": "ineligible"
+                    }
+                ]
+            }
         }
     ],
     "fundingSource": {

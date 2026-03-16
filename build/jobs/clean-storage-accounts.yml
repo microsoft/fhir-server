@@ -13,6 +13,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         $currentUtcTime = [DateTime]::UtcNow

@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -131,6 +132,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
                     case CustomerManagedKeyException _:
+                    case ServerSideRequestForgeryException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:
@@ -150,6 +152,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case FhirTransactionFailedException fhirTransactionFailedException:
                         operationOutcomeResult.StatusCode = fhirTransactionFailedException.ResponseStatusCode;
+                        break;
+                    case FhirTransactionCancelledException fhirTransactionCancelledException:
+                        operationOutcomeResult.StatusCode = fhirTransactionCancelledException.ResponseStatusCode;
                         break;
                     case AzureContainerRegistryTokenException azureContainerRegistryTokenException:
                         operationOutcomeResult.StatusCode = azureContainerRegistryTokenException.StatusCode;

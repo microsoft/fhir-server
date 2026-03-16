@@ -38,6 +38,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             HttpContext httpContext = context.HttpContext;
 
+            // Skip FHIR format validation for non-FHIR endpoints (e.g., CustomError, OAuth endpoints)
+            // These endpoints may use different content types like application/x-www-form-urlencoded
+            if (ShouldSkipValidation(httpContext))
+            {
+                await base.OnActionExecutionAsync(context, next);
+                return;
+            }
+
             _parametersValidator.CheckPrettyParameter(httpContext);
             _parametersValidator.CheckSummaryParameter(httpContext);
             _parametersValidator.CheckElementsParameter(httpContext);
@@ -51,13 +59,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
                     }
                 }
                 else
                 {
                     // If no content type is supplied, then the server should respond with an unsupported media type exception.
-                    throw new UnsupportedMediaTypeException(Resources.ContentTypeHeaderRequired);
+                    throw new UnsupportedMediaTypeException(Api.Resources.ContentTypeHeaderRequired);
                 }
             }
             else if (httpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.OrdinalIgnoreCase))
@@ -66,12 +74,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
+                        throw new UnsupportedMediaTypeException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue.FirstOrDefault(), HeaderNames.ContentType));
                     }
                 }
             }
 
             await base.OnActionExecutionAsync(context, next);
+        }
+
+        private static bool ShouldSkipValidation(HttpContext httpContext)
+        {
+            // Errored requests from token introspection endpoint (e.g. 401) will get resouted here and must allow an alternate content type.
+            if (httpContext.Request.Path.StartsWithSegments("/CustomError", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

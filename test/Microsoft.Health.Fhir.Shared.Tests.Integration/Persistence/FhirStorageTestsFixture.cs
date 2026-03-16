@@ -19,10 +19,12 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -37,6 +39,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -46,7 +49,7 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Core.UnitTests;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -65,6 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IServiceProvider _fixture;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly DataResourceFilter _dataResourceFilter;
+        private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
 
         public FhirStorageTestsFixture(DataStore dataStore)
             : this(dataStore switch
@@ -85,6 +89,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _resourceIdProvider = new ResourceIdProvider();
 
             _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
+
+            switch (fixture)
+            {
+                case CosmosDbFhirStorageTestsFixture _:
+                    _fhirRuntimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+                    break;
+                case SqlServerFhirStorageTestsFixture _:
+                    _fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null);
+            }
         }
 
         public Mediator Mediator { get; private set; }
@@ -96,6 +112,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public FhirJsonParser JsonParser { get; } = new FhirJsonParser();
 
         public ResourceDeserializer Deserializer { get; private set; }
+
+        public IFhirRuntimeConfiguration FhirRuntimeConfiguration => _fhirRuntimeConfiguration;
 
         public IFhirDataStore DataStore => _fixture.GetRequiredService<IFhirDataStore>();
 
@@ -145,18 +163,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 
+            IDeletionServiceDataStoreFactory deletionServiceDataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
+            deletionServiceDataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(DataStore));
+
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
-            var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Observation.EqualsString(r.Type.ToString()));
             observationResource.UpdateCreate = true;
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Organization, null);
-            var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Organization);
+            var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Organization.EqualsString(r.Type.ToString()));
             organizationResource.UpdateCreate = true;
             organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
 
             CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Medication, null);
-            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Medication);
+            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => ResourceType.Medication.EqualsString(r.Type.ToString()));
             medicationResource.UpdateCreate = true;
             medicationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
@@ -188,15 +209,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             GetResourceHandler = new GetResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, DisabledFhirAuthorizationService.Instance, FhirRequestContextAccessor, SearchService);
 
+            var coreFeatureConfiguration = new CoreFeatureConfiguration();
+
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeProvider(), SearchService.CreateMockScopeProvider(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
+            Deserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
+
+            var deleter = new DeletionService(
+                resourceWrapperFactory,
+                new Lazy<IConformanceProvider>(() => ConformanceProvider),
+                deletionServiceDataStoreFactory,
+                SearchService.CreateMockScopeProvider(),
+                _resourceIdProvider,
+                new FhirRequestContextAccessor(),
+                auditLogger,
+                new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration),
+                _fhirRuntimeConfiguration,
+                Substitute.For<ISearchParameterOperations>(),
+                Deserializer,
+                logger);
 
             var collection = new ServiceCollection();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), FhirRequestContextAccessor, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), GetResourceHandler);
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, deleter));
             collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, new DataResourceFilter(MissingDataFilterCriteria.Default)));
@@ -205,9 +243,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider services = collection.BuildServiceProvider();
 
             Mediator = new Mediator(services);
-
-            Deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
         }
 
         public async Task DisposeAsync()

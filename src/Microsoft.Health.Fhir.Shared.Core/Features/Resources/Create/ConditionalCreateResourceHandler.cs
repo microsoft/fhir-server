@@ -15,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -48,7 +48,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
         public override Task<UpsertResourceResponse> HandleSingleMatch(ConditionalCreateResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
         {
-            return Task.FromResult<UpsertResourceResponse>(null);
+            var saveOutcome = new SaveOutcome(new Models.RawResourceElement(match.Resource), SaveOutcomeType.MatchFound);
+            return Task.FromResult<UpsertResourceResponse>(new UpsertResourceResponse(saveOutcome));
+        }
+
+        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
+        {
+            return AuthorizationService.CheckConditionalCreateAccess(cancellationToken);
         }
     }
 }

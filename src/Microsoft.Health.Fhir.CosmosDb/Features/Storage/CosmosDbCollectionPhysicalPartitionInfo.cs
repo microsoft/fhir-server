@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosDataStoreConfiguration dataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             IHttpClientFactory httpClientFactory,
-            IAccessTokenProvider accessTokenProvider,
+            CosmosAccessTokenProviderFactory accessTokenProviderFactory,
             ILogger<CosmosDbCollectionPhysicalPartitionInfo> logger)
         {
             EnsureArg.IsNotNull(dataStoreConfiguration, nameof(dataStoreConfiguration));
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _dataStoreConfiguration = dataStoreConfiguration;
             _collectionConfiguration = collectionConfiguration.Get(Constants.CollectionConfigurationName);
             _httpClientFactory = httpClientFactory;
-            _accessTokenProvider = accessTokenProvider;
+            _accessTokenProvider = accessTokenProviderFactory.Invoke();
             _logger = logger;
         }
 
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return 0; // will not reach this
         }
 
-        private static bool IsResourceToken(string key) => key.StartsWith("type=resource&", StringComparison.InvariantCulture);
+        public static bool IsResourceToken(string key) => !string.IsNullOrEmpty(key) && key.StartsWith("type=resource&", StringComparison.InvariantCulture);
 
         public async ValueTask DisposeAsync()
         {

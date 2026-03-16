@@ -57,6 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Subscription = "Subscription";
 
+        public const string StructureDefinition = "StructureDefinition";
+
         public const string Patient = "Patient";
 
         public const string ValueSet = "ValueSet";
@@ -66,6 +68,10 @@ namespace Microsoft.Health.Fhir.Core.Models
         public const string QuestionnaireResponse = "QuestionnaireResponse";
 
         public const string CareTeam = "CareTeam";
+
+        public const string MedicationDispense = "MedicationDispense";
+
+        public const string MedicationRequest = "MedicationRequest";
 
         public const string All = "all";
     }

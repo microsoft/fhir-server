@@ -53,6 +53,20 @@ public static class CommandOptions
         return authenticationTypeOption;
     }
 
+    public static Option<string> EnableWorkloadIdentityOptions()
+    {
+        var enableWorkloadIdentityOptions = new Option<string>(
+            name: OptionAliases.EnableWorkloadIdentity,
+            description: Resources.EnableWorkloadIdentityDescription)
+        {
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+
+        enableWorkloadIdentityOptions.AddAlias(OptionAliases.EnableWorkloadIdentityShort);
+
+        return enableWorkloadIdentityOptions;
+    }
+
     public static Option VersionOption()
     {
         var versionOption = new Option<int>(

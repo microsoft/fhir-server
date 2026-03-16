@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Crucible.Client;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
@@ -24,11 +25,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             TestRun = new Lazy<Task>(TestRunAsync);
         }
 
-        public static string CrucibleEnvironmentUrl => Environment.GetEnvironmentVariable("CrucibleEnvironmentUrl");
+        public static string CrucibleEnvironmentUrl => EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.CrucibleEnvironmentUrl);
 
-        public static string TestEnvironmentUrl => _dataStore.Equals(DataStore.SqlServer) ? Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSqlSuffix}") : Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
+        public static string TestEnvironmentUrl => _dataStore.Equals(DataStore.SqlServer) ? EnvironmentVariables.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSqlSuffix}") : EnvironmentVariables.GetEnvironmentVariable($"{KnownEnvironmentVariableNames.TestEnvironmentUrl}{Constants.TestEnvironmentVariableVersionSuffix}");
 
-        public static string TestEnvironmentName => _dataStore.Equals(DataStore.SqlServer) ? Environment.GetEnvironmentVariable("TestEnvironmentName") + Constants.TestEnvironmentVariableVersionSqlSuffix : Environment.GetEnvironmentVariable("TestEnvironmentName") + Constants.TestEnvironmentVariableVersionSuffix;
+        public static string TestEnvironmentName => _dataStore.Equals(DataStore.SqlServer) ? EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestEnvironmentName) + Constants.TestEnvironmentVariableVersionSqlSuffix : EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestEnvironmentName) + Constants.TestEnvironmentVariableVersionSuffix;
 
         public Lazy<Task> TestRun { get; }
 
