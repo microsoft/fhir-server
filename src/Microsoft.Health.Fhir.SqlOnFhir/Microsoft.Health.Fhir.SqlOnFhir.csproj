@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net9.0 only: Ignixa packages target net9.0 exclusively -->
+    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks></TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!--
+    Ignixa packages for SQL on FHIR v2 ViewDefinition evaluation.
+    These are isolated in this project to avoid polluting core FHIR server assemblies.
+    Ignixa uses its own IElement abstraction, NOT Firely's model classes.
+    The FirelySdk5 extension package provides bidirectional adapters.
+    Ignixa targets net9.0 only.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Ignixa.SqlOnFhir" />
+    <PackageReference Include="Ignixa.SqlOnFhir.Writers" />
+    <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+
+</Project>
