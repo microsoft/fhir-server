@@ -188,6 +188,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
         }
 
+        /// <summary>
+        /// Ensure correct case versioning policy is used in conformance builder when default values are suppiled in proper case.
+        /// </summary>
+        /// <param name="defaultVersioningPolicy">The default versioning policy to apply, specified as a string.</param>
+        /// <param name="expectedVersioningPolicy">The expected versioning policy.</param>
         [Theory]
         [InlineData("Versioned", CapabilityStatement.ResourceVersionPolicy.Versioned)]
         [InlineData("No-Version", CapabilityStatement.ResourceVersionPolicy.NoVersion)]
@@ -226,6 +231,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.True(patientResource.Versioning == expectedVersioningPolicy);
         }
 
+        /// <summary>
+        /// Ensure correct case versioning policy is used in conformance builder when override values are suppiled in proper case.
+        /// </summary>
+        /// <param name="overrideVersioningPolicy">The override versioning policy to apply, specified as a string.</param>
+        /// <param name="expectedVersioningPolicy">The expected versioning policy.</param>
         [Theory]
         [InlineData("Versioned", CapabilityStatement.ResourceVersionPolicy.Versioned)]
         [InlineData("No-Version", CapabilityStatement.ResourceVersionPolicy.NoVersion)]

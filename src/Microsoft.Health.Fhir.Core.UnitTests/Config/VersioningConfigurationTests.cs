@@ -15,6 +15,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class VersioningConfigurationTests
     {
+        /// <summary>
+        /// Verifies that mixed-case versioning policy values are normalized to the expected lowercase policy constants,
+        /// and that already normalized lowercase values are preserved.
+        /// </summary>
+        /// <param name="input">The configured default versioning policy value.</param>
+        /// <param name="expected">The normalized versioning policy value that should be stored.</param>
         [Theory]
         [InlineData("Versioned", ResourceVersionPolicy.Versioned)]
         [InlineData("No-Version", ResourceVersionPolicy.NoVersion)]
@@ -32,6 +38,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Equal(expected, configuration.Default);
         }
 
+        /// <summary>
+        /// Verifies that a new versioning configuration defaults to the versioned policy.
+        /// </summary>
         [Fact]
         public void GivenAVersioningConfiguration_WhenCreated_ThenDefaultValueIsVersioned()
         {
@@ -40,6 +49,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Equal(ResourceVersionPolicy.Versioned, configuration.Default);
         }
 
+        /// <summary>
+        /// Ensures null versioning policy values are handled gracefully by falling back to the default versioned policy, rather than throwing an exception.
+        /// If we start throwing an exception for null default value, this test will need to change.
+        /// </summary>
         [Fact]
         public void GivenAVersioningConfiguration_WhenDefaultIsSetToNull_ThenDefaultFallsBackToVersioned()
         {
