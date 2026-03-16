@@ -159,14 +159,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             bundle = await Client.SearchAsync(ResourceType.Patient, $"identifier={system}|{identifier}");
             cnt = bundle.Resource.Entry.Count;
             Assert.True(cnt == 1, $"total count: expected=1 actual={cnt}");
-            cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == "system.only.id");
+            cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == id);
             Assert.True(cnt == 1, $"count with specific id: expected=1 actual={cnt}");
 
             // search by code only
             bundle = await Client.SearchAsync(ResourceType.Patient, $"identifier={identifier}");
             cnt = bundle.Resource.Entry.Count;
             Assert.True(cnt == 1, $"total count: expected=1 actual={cnt}");
-            cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == "system.only.id");
+            cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == id);
             Assert.True(cnt == 1, $"count with specific id: expected=1 actual={cnt}");
         }
     }
