@@ -11,7 +11,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class VersioningConfiguration
     {
-        public string Default { get; set; } = ResourceVersionPolicy.Versioned;
+        private string _default = ResourceVersionPolicy.Versioned;
+
+        public string Default
+        {
+            get => _default;
+
+            // If null is provided, use "versioned" as the default value.
+            // #TODO in main - Consider whether we want to throw an exception instead of silently defaulting to "versioned" if null is provided.
+            set => _default = (value ?? ResourceVersionPolicy.Versioned).ToLowerInvariant();
+        }
 
         public Dictionary<string, string> ResourceTypeOverrides { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
