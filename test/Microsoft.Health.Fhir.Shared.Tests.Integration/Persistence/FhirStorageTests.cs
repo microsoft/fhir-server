@@ -100,7 +100,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 {
                     if (requestedExceptions > 30)
                     {
-                        Assert.Contains("Resource has been recently updated or added", e.Message);
+                        Assert.Contains("Cannot persit resource due to a conflict with duplicated keys. Check the volume of resource being submited for ingestion.", e.Message);
                     }
                     else
                     {
