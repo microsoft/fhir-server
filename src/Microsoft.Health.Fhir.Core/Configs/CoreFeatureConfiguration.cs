@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Gets or sets the resource versioning policy.
-        /// Setting this normalizes override values to lowercase to match FHIRPath query constants.
+        /// When binding from config, will normalized.
         /// </summary>
         public VersioningConfiguration Versioning
         {
