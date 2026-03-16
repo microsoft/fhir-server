@@ -51,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
 
         /// <summary>
         /// Ensures null versioning policy values are handled gracefully by falling back to the default versioned policy, rather than throwing an exception.
-        /// If we start throwing an exception for null default value, this test will need to change.
         /// </summary>
         [Fact]
         public void GivenAVersioningConfiguration_WhenDefaultIsSetToNull_ThenDefaultFallsBackToVersioned()
