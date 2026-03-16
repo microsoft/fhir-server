@@ -19,7 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
             get => _default;
 
             // If null is provided, use "versioned" as the default value.
-            // #TODO in main - Consider whether we want to throw an exception instead of silently defaulting to "versioned" if null is provided.
             set => _default = (value ?? ResourceVersionPolicy.Versioned).ToLowerInvariant();
         }
 
