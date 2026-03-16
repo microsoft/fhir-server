@@ -27,8 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Normalizes all <see cref="ResourceTypeOverrides"/> values to lowercase.
-        /// Call after configuration binding to ensure values match the lowercase
-        /// constants used in FHIRPath capability queries.
         /// </summary>
         public void NormalizeOverrideValues()
         {
