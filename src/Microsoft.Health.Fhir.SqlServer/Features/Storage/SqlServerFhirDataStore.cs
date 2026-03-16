@@ -147,6 +147,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
         {
             const int maxRetries = 30;
+            const int defaultRetryDelayInMilliseconds = 1000;
 
             var retries = 0;
             while (true)
@@ -187,15 +188,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (Conflict)", retries);
                                 await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
 
-                                await Task.Delay(500, cancellationToken);
+                                await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
                                 continue;
                             }
                         }
-                        else if (sqlEx.Number == FhirSqlErrorCodes.FailedDependency && retries++ < maxRetries) // retries on conflict should never be more than 1, so it is OK to hardcode.)
+                        else if (sqlEx.Number == FhirSqlErrorCodes.FailedDependency && retries++ < maxRetries)
                         {
                             _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (FailedDependency)", retries);
                             await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
-                            await Task.Delay(1000, cancellationToken);
+                            await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
                             continue;
                         }
                     }
@@ -483,7 +484,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
-                    if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
+                    if (sqlEx != null && sqlEx.Number == FhirSqlErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
                         var delayMs = RandomNumberGenerator.GetInt32(1000, 5000);
                         _logger.LogWarning(e, $"Throttling detected on {nameof(ImportResourcesInternalAsync)}, backing off for {{DelayMs}}ms resources={{Resources}}", delayMs, resources.Count);
