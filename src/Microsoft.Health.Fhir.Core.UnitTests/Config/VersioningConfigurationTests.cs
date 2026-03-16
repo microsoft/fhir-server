@@ -63,5 +63,56 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
 
             Assert.Equal(ResourceVersionPolicy.Versioned, configuration.Default);
         }
+
+        /// <summary>
+        /// Verifies that NormalizeOverrideValues normalizes mixed-case ResourceTypeOverrides values to lowercase.
+        /// </summary>
+        [Theory]
+        [InlineData("Versioned", ResourceVersionPolicy.Versioned)]
+        [InlineData("No-Version", ResourceVersionPolicy.NoVersion)]
+        [InlineData("Versioned-Update", ResourceVersionPolicy.VersionedUpdate)]
+        [InlineData(ResourceVersionPolicy.Versioned, ResourceVersionPolicy.Versioned)]
+        [InlineData(ResourceVersionPolicy.NoVersion, ResourceVersionPolicy.NoVersion)]
+        [InlineData(ResourceVersionPolicy.VersionedUpdate, ResourceVersionPolicy.VersionedUpdate)]
+        public void GivenAVersioningConfiguration_WhenNormalizingOverrides_ThenValuesAreLowercase(string input, string expected)
+        {
+            VersioningConfiguration configuration = new();
+            configuration.ResourceTypeOverrides.Add("Patient", input);
+
+            configuration.NormalizeOverrideValues();
+
+            Assert.Equal(expected, configuration.ResourceTypeOverrides["Patient"]);
+        }
+
+        /// <summary>
+        /// Verifies that NormalizeOverrideValues normalizes multiple overrides at once.
+        /// </summary>
+        [Fact]
+        public void GivenAVersioningConfiguration_WhenNormalizingMultipleOverrides_ThenAllValuesAreLowercase()
+        {
+            VersioningConfiguration configuration = new();
+            configuration.ResourceTypeOverrides.Add("Patient", "Versioned");
+            configuration.ResourceTypeOverrides.Add("Observation", "No-Version");
+            configuration.ResourceTypeOverrides.Add("Encounter", "Versioned-Update");
+
+            configuration.NormalizeOverrideValues();
+
+            Assert.Equal(ResourceVersionPolicy.Versioned, configuration.ResourceTypeOverrides["Patient"]);
+            Assert.Equal(ResourceVersionPolicy.NoVersion, configuration.ResourceTypeOverrides["Observation"]);
+            Assert.Equal(ResourceVersionPolicy.VersionedUpdate, configuration.ResourceTypeOverrides["Encounter"]);
+        }
+
+        /// <summary>
+        /// Verifies that ResourceTypeOverrides keys are case-insensitive.
+        /// </summary>
+        [Fact]
+        public void GivenAVersioningConfiguration_WhenLookingUpOverrideWithDifferentCase_ThenOverrideIsFound()
+        {
+            VersioningConfiguration configuration = new();
+            configuration.ResourceTypeOverrides.Add("Patient", ResourceVersionPolicy.NoVersion);
+
+            Assert.True(configuration.ResourceTypeOverrides.TryGetValue("patient", out string value));
+            Assert.Equal(ResourceVersionPolicy.NoVersion, value);
+        }
     }
 }

@@ -50,7 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger _logger;
-        private readonly ILogger<CapabilityStatementBuilder> _capabilityStatementBuilderLogger;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         private ResourceElement _listedCapabilityStatement;
@@ -67,7 +66,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
             ILogger<SystemConformanceProvider> logger,
-            ILoggerFactory loggerFactory,
             IUrlResolver urlResolver,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             SearchParameterStatusManager searchParameterStatusManager)
@@ -78,7 +76,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -89,7 +86,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _configuration = configuration;
             _supportedProfiles = supportedProfiles;
             _logger = logger;
-            _capabilityStatementBuilderLogger = loggerFactory.CreateLogger<CapabilityStatementBuilder>();
             _disposed = false;
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
@@ -139,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             metadataUrl = _urlResolver.ResolveMetadataUrl(false);
                         }
 
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, metadataUrl, _searchParameterStatusManager, _capabilityStatementBuilderLogger);
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, metadataUrl, _searchParameterStatusManager);
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {

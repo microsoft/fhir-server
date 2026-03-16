@@ -12,7 +12,6 @@ using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using MediatR;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -43,7 +42,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly Uri _metadataUrl;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
-        private readonly ILogger<CapabilityStatementBuilder> _logger;
 
         public ConformanceBuilderTests()
         {
@@ -53,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             _metadataUrl = new Uri("https://test.com");
-            _logger = Substitute.For<ILogger<CapabilityStatementBuilder>>();
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 Substitute.For<ISearchParameterStatusDataStore>(),
                 _searchParameterDefinitionManager,
@@ -66,8 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 configuration,
                 _supportedProfiles,
                 _metadataUrl,
-                _searchParameterStatusManager,
-                _logger);
+                _searchParameterStatusManager);
         }
 
         [Fact]
@@ -97,6 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public void GivenAConformanceBuilder_WhenVersionofResourceIsDifferentFromDefault_ThenResourceUsesResourceSpecificVersionLogic(string resourceType)
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
             versionConfig.ResourceTypeOverrides.Add(resourceType, "no-version");
 
@@ -108,8 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 configuration,
                 supportedProfiles,
                 _metadataUrl,
-                _searchParameterStatusManager,
-                Substitute.For<ILogger<CapabilityStatementBuilder>>());
+                _searchParameterStatusManager);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -129,6 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public void GivenAConformanceBuilder_WhenResourceTypeOverridesContainsResourcesThatDontMatch_ThenResourceUsesDefaultVersionLogic()
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
             versionConfig.ResourceTypeOverrides.Add("blah", "no-version");
 
@@ -140,8 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 configuration,
                 supportedProfiles,
                 _metadataUrl,
-                _searchParameterStatusManager,
-                Substitute.For<ILogger<CapabilityStatementBuilder>>());
+                _searchParameterStatusManager);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -161,6 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public void GivenAConformanceBuilder_WhenResourceTypeOverridesIsEmpty_ThenResourceUsesDefaultVersionLogic()
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
@@ -171,8 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 configuration,
                 supportedProfiles,
                 _metadataUrl,
-                _searchParameterStatusManager,
-                Substitute.For<ILogger<CapabilityStatementBuilder>>());
+                _searchParameterStatusManager);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -189,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         /// <summary>
-        /// Ensure correct case versioning policy is used in conformance builder when default values are suppiled in proper case.
+        /// Ensure correct case versioning policy is used in conformance builder when default values are supplied in mixed case.
         /// </summary>
         /// <param name="defaultVersioningPolicy">The default versioning policy to apply, specified as a string.</param>
         /// <param name="expectedVersioningPolicy">The expected versioning policy.</param>
@@ -213,8 +209,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 configuration,
                 supportedProfiles,
                 _metadataUrl,
-                _searchParameterStatusManager,
-                Substitute.For<ILogger<CapabilityStatementBuilder>>());
+                _searchParameterStatusManager);
 
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
@@ -232,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         /// <summary>
-        /// Ensure correct case versioning policy is used in conformance builder when override values are suppiled in proper case.
+        /// Ensure correct case versioning policy is used in conformance builder when override values are supplied in mixed case.
         /// </summary>
         /// <param name="overrideVersioningPolicy">The override versioning policy to apply, specified as a string.</param>
         /// <param name="expectedVersioningPolicy">The expected versioning policy.</param>
@@ -254,8 +249,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 configuration,
                 supportedProfiles,
                 _metadataUrl,
-                _searchParameterStatusManager,
-                Substitute.For<ILogger<CapabilityStatementBuilder>>());
+                _searchParameterStatusManager);
 
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {

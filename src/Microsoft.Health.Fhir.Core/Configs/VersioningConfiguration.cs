@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Configs
@@ -23,5 +24,21 @@ namespace Microsoft.Health.Fhir.Core.Configs
         }
 
         public Dictionary<string, string> ResourceTypeOverrides { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Normalizes all <see cref="ResourceTypeOverrides"/> values to lowercase.
+        /// Call after configuration binding to ensure values match the lowercase
+        /// constants used in FHIRPath capability queries.
+        /// </summary>
+        public void NormalizeOverrideValues()
+        {
+            foreach (string key in ResourceTypeOverrides.Keys.ToList())
+            {
+                if (ResourceTypeOverrides[key] != null)
+                {
+                    ResourceTypeOverrides[key] = ResourceTypeOverrides[key].ToLowerInvariant();
+                }
+            }
+        }
     }
 }
