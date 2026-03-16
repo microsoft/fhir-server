@@ -10,7 +10,6 @@ using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Extensions.Xunit;
