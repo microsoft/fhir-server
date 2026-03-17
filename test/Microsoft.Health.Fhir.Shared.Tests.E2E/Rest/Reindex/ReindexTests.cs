@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             await CancelAnyRunningReindexJobsAsync();
 
-            const int numberOfSearchParams = 10; // increase to 500 when cache is not updated by API calls.
+            const int numberOfSearchParams = 50; // increase to 500 when cache is not updated by API calls.
             const string urlPrefix = "http://example.org/";
             var codes = new List<string>();
             var urls = new List<string>();
@@ -69,14 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var response = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", urls)}");
                 Assert.True(response.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={response.Resource.Total}");
 
-                var parameters = new Parameters
-                {
-                    Parameter =
-                    [
-                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
-                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
-                    ],
-                };
+                var parameters = new Parameters { Parameter = [] };
 
                 var value = ((FhirResponse<Parameters> Response, Uri JobUri))await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
                 Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
@@ -142,11 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 foreach (var code in codes)
                 {
-                    bundle.Entry.Add(
-                        new EntryComponent
-                        {
-                            Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" },
-                        });
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" } });
                 }
 
                 var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
