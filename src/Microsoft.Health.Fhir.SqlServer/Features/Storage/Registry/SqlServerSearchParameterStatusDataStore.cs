@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             cmd.CommandText = "dbo.MergeSearchParams";
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
 
-            if (_schemaInformation.Current >= 107)
+            if (_schemaInformation.Current >= 108)
             {
                 cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", false);
                 cmd.Parameters.Add(new SqlParameter("@TransactionId", SqlDbType.BigInt) { Value = DBNull.Value });
