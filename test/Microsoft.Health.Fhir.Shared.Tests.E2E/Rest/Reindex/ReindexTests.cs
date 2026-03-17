@@ -71,10 +71,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 var parameters = new Parameters { Parameter = [] };
 
-                var value = ((FhirResponse<Parameters> Response, Uri JobUri))await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                var value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
                 Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
 
-                await WaitForJobCompletionAsync(value.JobUri, TimeSpan.FromSeconds(300));
+                await WaitForJobCompletionAsync(value.Uri, TimeSpan.FromSeconds(300));
 
                 await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
                 {
@@ -150,7 +150,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             var searchParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
-            (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
             {
@@ -169,18 +168,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     ],
                 };
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+                var value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
 
                 var tasks = new[]
                 {
-                    WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300)),
+                    WaitForJobCompletionAsync(value.Uri, TimeSpan.FromSeconds(300)),
                     RandomPersonUpdate(testResources),
                 };
                 await Task.WhenAll(tasks);
 
                 // reported in reindex counts should be less than total resources created
-                await CheckReportedCounts(value.jobUri, testResources.Count, true);
+                await CheckReportedCounts(value.Uri, testResources.Count, true);
             }
             finally
             {
@@ -204,7 +203,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var testResources = new List<(string resourceType, string resourceId)>();
             var supplyDeliveryCount = 40 * storageMultiplier;
             var personCount = 20 * storageMultiplier;
-            (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
             {
@@ -253,13 +251,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     },
                 };
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                var value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
 
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
-                Assert.NotNull(value.jobUri);
+                Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
+                Assert.NotNull(value.Uri);
 
                 // Wait for job to complete (this will wait for all sub-jobs to complete)
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                var jobStatus = await WaitForJobCompletionAsync(value.Uri, TimeSpan.FromSeconds(300));
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
@@ -269,7 +267,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await SearchCreatedResources("SupplyDelivery", supplyDeliveryCount);
 
                 // check what reindex job reported
-                await CheckReportedCounts(value.jobUri, testResources.Count, false);
+                await CheckReportedCounts(value.Uri, testResources.Count, false);
 
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
