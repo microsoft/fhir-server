@@ -69,9 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var response = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", urls)}");
                 Assert.True(response.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={response.Resource.Total}");
 
-                var parameters = new Parameters { Parameter = [] };
-
-                var value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                var value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
                 Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
 
                 await WaitForJobCompletionAsync(value.Uri, TimeSpan.FromSeconds(300));
