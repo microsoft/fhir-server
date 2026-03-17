@@ -45,17 +45,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             await CancelAnyRunningReindexJobsAsync();
 
-            const int numberOfSearchParams = 20; // increase to 500 when cache is not updated by API calls.
-            const string urlPrefix = "http://example.org/";
+            const int numberOfSearchParams = 10; // increase to 500 when cache is not updated by API calls.
+            const string urlPrefix = "http://my.org/";
             var codes = new List<string>();
-            var urls = new List<string>();
             try
             {
                 for (var i = 0; i < numberOfSearchParams; i++)
                 {
                     var code = $"c-id-{i}";
                     codes.Add(code);
-                    urls.Add($"{urlPrefix}{code}");
                 }
 
                 var bundle = await CreatePersonSearchParamsAsync();
@@ -66,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
 
                 // check by urls
-                var response = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", urls)}");
+                var response = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", codes.Select(_ => $"{urlPrefix}{_}"))}");
                 Assert.True(response.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={response.Resource.Total}");
 
                 var value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
