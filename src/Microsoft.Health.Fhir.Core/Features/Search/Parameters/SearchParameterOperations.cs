@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to add
                         // a search parameter. This is to avoid creating a duplicate search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        await GetAndApplySearchParameterUpdates(cancellationToken, caller: "AddSearchParameterAsync");
 
                         // verify the parameter is supported before continuing
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to delete
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        await GetAndApplySearchParameterUpdates(cancellationToken, caller: "DeleteSearchParameterAsync");
 
                         // First we delete the status metadata from the data store as this function depends on
                         // the in memory definition manager.  Once complete we remove the SearchParameter from
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // We need to make sure we have the latest search parameters before trying to update
                         // existing search parameter. This is to avoid trying to update a search parameter that
                         // was recently added and that hasn't propogated to all fhir-server instances.
-                        await GetAndApplySearchParameterUpdates(cancellationToken);
+                        await GetAndApplySearchParameterUpdates(cancellationToken, caller: "UpdateSearchParameterAsync");
 
                         var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                         var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -283,14 +283,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <summary>
-        /// This method should be called periodically to get any updates to SearchParameters
-        /// added to the DB by other service instances.
-        /// It should also be called when a user starts a reindex job
+        /// This method should be called periodically to get any updates to SearchParameters added to the DB by other service instances.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
+        /// <param name="caller">If provided, indicates the caller of this method</param>
         /// <returns>A task.</returns>
-        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool forceFullRefresh = false)
+        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool forceFullRefresh = false, string caller = null)
         {
             var st = DateTime.UtcNow;
             var results = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, forceFullRefresh ? null : _searchParamLastUpdated);
@@ -379,7 +378,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
 
-            await _searchParameterStatusManager.TryLogEvent("GetAndApplySearchParameterUpdates", "Warn", $"Cache advanced={inCache && allHaveResources} SearchParamLastUpdated={_searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fff")}", st, cancellationToken);
+            var method = $"GetAndApplySearchParameterUpdates{(caller != null ? $".{caller}" : string.Empty)}";
+            var msg = $"Cache in sync={inCache && allHaveResources} Processed params={statuses.Count} SearchParamLastUpdated={_searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fff")}";
+            _logger.LogInformation($"{method}: {msg}");
+            await _searchParameterStatusManager.TryLogEvent(method, "Warn", msg, st, cancellationToken);
         }
 
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,

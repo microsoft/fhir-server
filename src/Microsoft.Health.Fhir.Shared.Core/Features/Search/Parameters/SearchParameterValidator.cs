@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 else
                 {
                     // Refresh the search parameter cache in the search parameter definition manager before starting the validation.
-                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken, caller: "SearchParameterValidator");
 
                     // If a search parameter with the same uri exists already
                     if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out var searchParameterInfo))
