@@ -124,10 +124,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.NotNull(response);
                 var error = HasNotSupportedError(response.Resource);
                 Assert.False(error, $"Search param {searchParameterCode} is NOT supported after reindex.");
-                return;
             }
 
-            async Task<Bundle> DeletePersonSearchParamsAsync()
+            async Task DeletePersonSearchParamsAsync()
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
 
@@ -136,8 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" } });
                 }
 
-                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
-                return result;
+                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
             }
         }
 
