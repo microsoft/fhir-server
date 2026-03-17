@@ -523,6 +523,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
                             sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                         }
+                        else if (TryExtractGetResourcesByTokensParams(expression, clonedSearchOptions, (SqlServerFhirModel)_model, out var resourceTypeId, out var searchParamId, out var tokens, out var top))
+                        {
+                            PopulateGetResourcesByTokensCommand(sqlCommand, resourceTypeId, searchParamId, tokens, top);
+                        }
                         else
                         {
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
@@ -2058,7 +2062,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             tokens = new List<Token>();
             top = searchOptions.MaxItemCount + 1;
 
-            if (!StoredProcedureLayerIsEnabled || _schemaInformation.Current < 102)
+            if (!StoredProcedureLayerIsEnabled)
             {
                 return false;
             }
@@ -2088,7 +2092,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 else
                 {
                     model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId); // search param
-                    if (spe.Expression is StringExpression strExp) // single token without system
+                    if (spe.Expression is StringExpression strExp && strExp.FieldName == FieldName.TokenCode) // single token without system
                     {
                         tokens.Add(new Token(strExp.Value, null, null));
                     }
@@ -2096,7 +2100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         foreach (var exp in multOr.Expressions) // multiple tokens
                         {
-                            if (exp is StringExpression tokenCodeExp) // token without system
+                            if (exp is StringExpression tokenCodeExp && tokenCodeExp.FieldName == FieldName.TokenCode) // token without system
                             {
                                 tokens.Add(new Token(tokenCodeExp.Value, null, null));
                             }
