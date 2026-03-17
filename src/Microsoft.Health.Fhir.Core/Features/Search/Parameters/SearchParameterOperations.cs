@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
+        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
@@ -41,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             IModelInfoProvider modelInfoProvider,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ILogger<SearchParameterOperations> logger)
         {
@@ -49,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
+            EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -57,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _modelInfoProvider = modelInfoProvider;
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
+            _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
         }
@@ -74,6 +79,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             else
             {
                 return _searchParameterDefinitionManager.SearchParameterHashMap.TryGetValue(resourceType, out string hash) ? hash : null;
+            }
+        }
+
+        public async Task EnsureNoActiveReindexJobAsync(CancellationToken cancellationToken)
+        {
+            using IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory();
+            (bool found, string id) activeReindexJob = await fhirOperationDataStore.Value.CheckActiveReindexJobsAsync(cancellationToken);
+
+            if (activeReindexJob.found)
+            {
+                throw new JobConflictException(Core.Resources.ChangesToSearchParametersNotAllowedWhileReindexing);
             }
         }
 
@@ -161,6 +177,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     try
                     {
+                        await EnsureNoActiveReindexJobAsync(cancellationToken);
+
                         _logger.LogInformation("Deleting the search parameter '{Url}'", searchParameterUrl);
                         await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new[] { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
                     }
@@ -188,6 +206,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 },
                 _logger,
                 cancellationToken);
+        }
+
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false)
+        {
+            await EnsureNoActiveReindexJobAsync(cancellationToken);
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(searchParameterUris, status, cancellationToken, ignoreSearchParameterNotSupportedException);
         }
 
         /// <summary>

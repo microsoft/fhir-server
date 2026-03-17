@@ -31,10 +31,11 @@ using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+
+using FhirJobConflictException = global::Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.SearchParameterState
@@ -64,10 +65,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly ILogger<SearchParameterStatusManager> _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger2 = Substitute.For<ILogger<SearchParameterStateUpdateHandler>>();
-        private readonly IQueueClient _queueClient = Substitute.For<IQueueClient>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
-        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
 
         public SearchParameterStateUpdateHandlerTests()
@@ -101,28 +100,20 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 fhirDataStoreProvider,
                 NullLogger<SearchParameterDefinitionManager>.Instance);
 
-            _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
-
-            // Create a proper IScope<IFhirOperationDataStore> mock
-            _fhirOperationDataStoreFactory = () =>
-            {
-                var scope = Substitute.For<IScoped<IFhirOperationDataStore>>();
-                scope.Value.Returns(_fhirOperationDataStore);
-                return scope;
-            };
-
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
                 _authorizationService,
                 _searchParameterStatusManager,
+                _searchParameterOperations,
                 _logger2,
-                _queueClient,
-                _auditLogger,
-                _fhirOperationDataStoreFactory); // Pass the required parameter here
+                _auditLogger);
 
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
+            _searchParameterOperations.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+            _searchParameterOperations.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>(), Arg.Any<bool>()).Returns(Task.CompletedTask);
+
             var searchParamDefinitionStore = new List<SearchParameterInfo>
             {
                 new SearchParameterInfo(
@@ -249,6 +240,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
             Assert.True(urlPart.Value.ToString() == ResourceId);
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.Supported.ToString());
+            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.Supported, Arg.Any<CancellationToken>(), false);
         }
 
         [Fact]
@@ -312,6 +304,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
             Assert.True(urlPart.Value.ToString() == ResourceId);
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.PendingDisable.ToString());
+            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.PendingDisable, Arg.Any<CancellationToken>(), false);
         }
 
         [Fact]
@@ -320,7 +313,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var loggers = CreateTestAuditLogger();
-            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient, loggers.auditLogger, _fhirOperationDataStoreFactory);
+            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _searchParameterOperations, _logger2, loggers.auditLogger);
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
@@ -340,6 +333,39 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
             Assert.Single(loggers.logger.LogRecords);
             Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
+        }
+
+        [Fact]
+        public async Task GivenReindexRunningBeforeStatusUpdate_WhenHandlingRequest_ThenPreconditionFailedIsThrown()
+        {
+            _searchParameterOperations
+                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
+                .Do(_ => throw new FhirJobConflictException("reindex running"));
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
+        }
+
+        [Fact]
+        public async Task GivenReindexStartsAfterParse_WhenHandlingRequest_ThenConflictBundleIsReturned()
+        {
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            _searchParameterOperations.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+            _searchParameterOperations
+                .When(x => x.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>(), Arg.Any<bool>()))
+                .Do(_ => throw new FhirJobConflictException("reindex running"));
+
+            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
+            {
+                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
+            };
+
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+
+            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
+            var outcome = (OperationOutcome)unwrappedResponse.Entry.Single().Resource;
+            Assert.Equal(OperationOutcome.IssueType.Conflict, outcome.Issue.Single().Code);
+            Assert.Equal(Fhir.Core.Resources.ReindexRunningException, outcome.Issue.Single().Details.Text);
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()

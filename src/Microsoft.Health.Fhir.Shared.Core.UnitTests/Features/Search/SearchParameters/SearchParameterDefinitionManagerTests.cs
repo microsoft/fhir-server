@@ -148,6 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchParameterDataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
             searchParameterDataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true, null);
 
+            var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
             var searchService = Substitute.For<ISearchService>();
 
             _searchParameterOperations = new SearchParameterOperations(
@@ -156,6 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
+                () => fhirOperationDataStore.CreateMockScope(),
                 () => searchService.CreateMockScope(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
@@ -649,6 +651,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .ToDictionary(sp => sp.Url, StringComparer.Ordinal);
 
             var searchService = Substitute.For<ISearchService>();
+            var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
 
             // Simulate datastore behavior where URL filter misses records and fallback scan is required.
             searchService.SearchAsync(
@@ -680,6 +683,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
+                () => fhirOperationDataStore.CreateMockScope(),
                 () => searchService.CreateMockScope(),
                 NullLogger<SearchParameterOperations>.Instance);
 
@@ -728,6 +732,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .ToDictionary(sp => sp.Url, StringComparer.Ordinal);
 
             var searchService = Substitute.For<ISearchService>();
+            var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
             searchService.SearchAsync(
                     KnownResourceTypes.SearchParameter,
                     Arg.Is<IReadOnlyList<Tuple<string, string>>>(q => q.Any(p => string.Equals(p.Item1, "url", StringComparison.Ordinal))),
@@ -754,6 +759,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
+                () => fhirOperationDataStore.CreateMockScope(),
                 () => searchService.CreateMockScope(),
                 NullLogger<SearchParameterOperations>.Instance);
 

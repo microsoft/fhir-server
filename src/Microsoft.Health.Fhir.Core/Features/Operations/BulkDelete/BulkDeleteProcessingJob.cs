@@ -19,7 +19,9 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly Func<IScoped<IDeletionService>> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IQueueClient _queueClient;
 
@@ -38,12 +41,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
+            ISearchParameterOperations searchParameterOperations,
             Func<IScoped<ISearchService>> searchService,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
@@ -77,6 +82,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
+
+                if (types.Count > 0
+                    && string.Equals(types[0], KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)
+                    && !(definition.ExcludedResourceTypes?.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) ?? false))
+                {
+                    await _searchParameterOperations.EnsureNoActiveReindexJobAsync(cancellationToken);
+                }
 
                 try
                 {

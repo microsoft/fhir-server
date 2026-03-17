@@ -144,6 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
+                () => _fhirOperationDataStore.CreateMockScope(),
                 () => _searchService,
                 NullLogger<SearchParameterOperations>.Instance);
 
@@ -1583,7 +1584,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
-                () => _fixture.SearchService.CreateMockScope(),
+                () => _fhirOperationDataStore.CreateMockScope(),
+                () => _searchService,
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
