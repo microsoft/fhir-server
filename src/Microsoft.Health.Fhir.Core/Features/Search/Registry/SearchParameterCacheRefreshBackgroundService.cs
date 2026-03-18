@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             try
             {
                 _logger.LogInformation("Performing incremental SearchParameter cache refresh...");
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false, "SearchParameterCacheRefreshBackgroundService");
+                await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
                 _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
             }
             catch (OperationCanceledException)

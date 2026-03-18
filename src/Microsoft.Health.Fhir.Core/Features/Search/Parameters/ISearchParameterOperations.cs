@@ -26,9 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
-        /// <param name="caller">If provided, indicates the caller of this method</param>
         /// <returns>A task.</returns>
-        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false, string caller = null);
+        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
 
         string GetSearchParameterHash(string resourceType);
     }
