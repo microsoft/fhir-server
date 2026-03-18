@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -843,69 +843,69 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public void NormalizeWhitespace_NullEmptyOrWhitespaceInput_ReturnsEmpty(string input)
+        public void StripAllWhitespace_NullEmptyOrWhitespaceInput_ReturnsEmpty(string input)
         {
             // Arrange & Act
-            string result = SqlServerSearchService.NormalizeWhitespace(input);
+            string result = SqlServerSearchService.StripAllWhitespace(input);
 
             // Assert
             Assert.Equal(string.Empty, result);
         }
 
         [Fact]
-        public void NormalizeWhitespace_StripsAllSpaces()
+        public void StripAllWhitespace_StripsAllSpaces()
         {
             // Arrange
             string input = "SELECT  *   FROM    dbo.Resource";
 
             // Act
-            string result = SqlServerSearchService.NormalizeWhitespace(input);
+            string result = SqlServerSearchService.StripAllWhitespace(input);
 
             // Assert
             Assert.Equal("SELECT*FROMdbo.Resource", result);
         }
 
         [Fact]
-        public void NormalizeWhitespace_StripsTabsAndNewlines()
+        public void StripAllWhitespace_StripsTabsAndNewlines()
         {
             // Arrange
             string input = "SELECT\t*\r\nFROM\n\tdbo.Resource";
 
             // Act
-            string result = SqlServerSearchService.NormalizeWhitespace(input);
+            string result = SqlServerSearchService.StripAllWhitespace(input);
 
             // Assert
             Assert.Equal("SELECT*FROMdbo.Resource", result);
         }
 
         [Fact]
-        public void NormalizeWhitespace_StripsMixedWhitespace()
+        public void StripAllWhitespace_StripsMixedWhitespace()
         {
             // Arrange
             string input = "  SELECT \t\r\n  *  \n\n  FROM  \r\n  dbo.Resource  ";
 
             // Act
-            string result = SqlServerSearchService.NormalizeWhitespace(input);
+            string result = SqlServerSearchService.StripAllWhitespace(input);
 
             // Assert
             Assert.Equal("SELECT*FROMdbo.Resource", result);
         }
 
         [Fact]
-        public void NormalizeWhitespace_StripsAllWhitespaceFromFormattedQuery()
+        public void StripAllWhitespace_StripsAllWhitespaceFromFormattedQuery()
         {
             // Arrange
             string input = "SELECT * FROM dbo.Resource";
 
             // Act
-            string result = SqlServerSearchService.NormalizeWhitespace(input);
+            string result = SqlServerSearchService.StripAllWhitespace(input);
 
             // Assert
             Assert.Equal("SELECT*FROMdbo.Resource", result);
         }
 
         [Fact]
-        public void NormalizeWhitespace_HandlesDifferentEngineFormats()
+        public void StripAllWhitespace_HandlesDifferentEngineFormats()
         {
             // Arrange - simulates how different SQL engines might format the same query
             string engineA = "SELECT *\r\nFROM dbo.Resource\r\nWHERE Id = @p0";
@@ -913,9 +913,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             string engineC = "SELECT * FROM dbo.Resource WHERE Id = @p0";
 
             // Act
-            string resultA = SqlServerSearchService.NormalizeWhitespace(engineA);
-            string resultB = SqlServerSearchService.NormalizeWhitespace(engineB);
-            string resultC = SqlServerSearchService.NormalizeWhitespace(engineC);
+            string resultA = SqlServerSearchService.StripAllWhitespace(engineA);
+            string resultB = SqlServerSearchService.StripAllWhitespace(engineB);
+            string resultC = SqlServerSearchService.StripAllWhitespace(engineC);
 
             // Assert - all should normalize to the same string
             Assert.Equal(resultA, resultB);
@@ -930,30 +930,30 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [InlineData("SELECT FROM", "SELECTFROM")]// space (CHAR 32)
         [InlineData("SELECT\fFROM", "SELECTFROM")]// form feed (CHAR 12)
         [InlineData("SELECT\vFROM", "SELECTFROM")]// vertical tab (CHAR 11)
-        public void NormalizeWhitespace_StripsEachIndividualWhitespaceCharacter(string input, string expected)
+        public void StripAllWhitespace_StripsEachIndividualWhitespaceCharacter(string input, string expected)
         {
             // Act
-            string result = SqlServerSearchService.NormalizeWhitespace(input);
+            string result = SqlServerSearchService.StripAllWhitespace(input);
 
             // Assert
             Assert.Equal(expected, result);
         }
 
         [Fact]
-        public void NormalizeWhitespace_StripsMultipleConsecutiveMixedWhitespaceCharacters()
+        public void StripAllWhitespace_StripsMultipleConsecutiveMixedWhitespaceCharacters()
         {
             // Arrange - every whitespace character type back to back
             string input = "SELECT\t \r\n\r\f\vFROM";
 
             // Act
-            string result = SqlServerSearchService.NormalizeWhitespace(input);
+            string result = SqlServerSearchService.StripAllWhitespace(input);
 
             // Assert
             Assert.Equal("SELECTFROM", result);
         }
 
         [Fact]
-        public void NormalizeWhitespace_MatchesRealWorldDatabaseStorageFormat()
+        public void StripAllWhitespace_MatchesRealWorldDatabaseStorageFormat()
         {
             // Arrange - simulates the actual query text a SQL Server database stores,
             // where ↵ (LF, CHAR 10) separates logical lines as seen in database tooling.
@@ -971,9 +971,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             string fragmentAfterHint = "WHERE ResourceTypeId = 128 AND IsHistory = 0 AND IsDeleted = 0 ) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC";
 
             // Act
-            string normalizedDatabase = SqlServerSearchService.NormalizeWhitespace(databaseFormat);
-            string normalizedBefore = SqlServerSearchService.NormalizeWhitespace(fragmentBeforeHint);
-            string normalizedAfter = SqlServerSearchService.NormalizeWhitespace(fragmentAfterHint);
+            string normalizedDatabase = SqlServerSearchService.StripAllWhitespace(databaseFormat);
+            string normalizedBefore = SqlServerSearchService.StripAllWhitespace(fragmentBeforeHint);
+            string normalizedAfter = SqlServerSearchService.StripAllWhitespace(fragmentAfterHint);
 
             // Assert - both fragments must be findable inside the normalized database text
             Assert.Contains(normalizedBefore, normalizedDatabase, StringComparison.Ordinal);
@@ -981,21 +981,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Fact]
-        public void NormalizeWhitespace_IsIdempotent()
+        public void StripAllWhitespace_IsIdempotent()
         {
-            // Arrange - normalizing an already-normalized string should produce the same result
+            // Arrange - stripping an already-stripped string should produce the same result
             string input = "SELECT\t *\r\n  FROM  \n\t dbo.Resource  \r\n WHERE Id = @p0";
 
             // Act
-            string firstPass = SqlServerSearchService.NormalizeWhitespace(input);
-            string secondPass = SqlServerSearchService.NormalizeWhitespace(firstPass);
+            string firstPass = SqlServerSearchService.StripAllWhitespace(input);
+            string secondPass = SqlServerSearchService.StripAllWhitespace(firstPass);
 
             // Assert
             Assert.Equal(firstPass, secondPass);
         }
 
         [Fact]
-        public void NormalizeWhitespace_TruncationAfterNormalizationPreservesMoreContent()
+        public void StripAllWhitespace_TruncationAfterStrippingPreservesMoreContent()
         {
             // Arrange - a heavily whitespace-padded fragment whose raw length exceeds 4000
             // but whose stripped length is well under. Verifies that normalizing BEFORE
@@ -1005,12 +1005,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             string input = string.Concat(Enumerable.Repeat(paddedWord, 10)); // 5060 raw chars, 60 meaningful
 
             // Act - normalize first (production order), then cap
-            string normalizedFirst = SqlServerSearchService.NormalizeWhitespace(input);
-            string truncatedAfter = normalizedFirst.Length > 4000 ? normalizedFirst[..4000] : normalizedFirst;
+            string strippedFirst = SqlServerSearchService.StripAllWhitespace(input);
+            string truncatedAfter = strippedFirst.Length > 4000 ? strippedFirst[..4000] : strippedFirst;
 
-            // Act - truncate first (old order), then normalize
+            // Act - truncate first (old order), then strip
             string truncatedFirst = input.Length > 4000 ? input[..4000] : input;
-            string normalizedAfter = SqlServerSearchService.NormalizeWhitespace(truncatedFirst);
+            string normalizedAfter = SqlServerSearchService.StripAllWhitespace(truncatedFirst);
 
             // Assert - normalizing first yields more useful content (all 10 SELECT tokens vs fewer)
             Assert.True(

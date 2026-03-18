@@ -1120,7 +1120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// rather than trying to collapse or normalise it.
         /// The SQL side mirrors this by stripping CHAR(9)/CHAR(10)/CHAR(11)/CHAR(12)/CHAR(13)/CHAR(32).
         /// </summary>
-        internal static string NormalizeWhitespace(string text)
+        internal static string StripAllWhitespace(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -1168,7 +1168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
                 JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
                 WHERE @NormalizedText <> ''
-                    AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(qt.query_sql_text, CHAR(9), ''), CHAR(10), ''), CHAR(11), ''), CHAR(12), ''), CHAR(13), ''), CHAR(32), '') LIKE '%' + @NormalizedText + '%'
+                    AND replace(replace(replace(replace(replace(replace(qt.query_sql_text, char(9), ''), char(10), ''), char(11), ''), char(12), ''), char(13), ''), char(32), '') LIKE '%' + @NormalizedText + '%'
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
@@ -1178,17 +1178,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         string searchFragment = searchFragments[segmentIndex];
 
-                        // Normalize first so the 4000-char limit applies to stripped content,
+                        // Strip whitespace first so the 4000-char limit applies to stripped content,
                         // maximising the amount of meaningful text sent to the LIKE comparison.
-                        string normalizedFragment = NormalizeWhitespace(searchFragment);
+                        string strippedFragment = StripAllWhitespace(searchFragment);
 
-                        if (normalizedFragment.Length > 4000)
+                        if (strippedFragment.Length > 4000)
                         {
-                            normalizedFragment = normalizedFragment[..4000];
+                            strippedFragment = strippedFragment[..4000];
                         }
 
                         cmd.Parameters.Clear();
-                        cmd.Parameters.AddWithValue("@NormalizedText", normalizedFragment);
+                        cmd.Parameters.AddWithValue("@NormalizedText", strippedFragment);
 
                         using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
                         int matchIndex = 0;
