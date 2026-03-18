@@ -49,6 +49,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _logger = logger;
         }
 
+        internal async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _searchParameterStatusDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();

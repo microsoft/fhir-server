@@ -283,15 +283,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <summary>
-        /// This method should be called periodically to get any updates to SearchParameters
-        /// added to the DB by other service instances.
-        /// It should also be called when a user starts a reindex job
+        /// This method should be called periodically to get any updates to SearchParameters added to the DB by other service instances.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
         /// <returns>A task.</returns>
         public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default, bool forceFullRefresh = false)
         {
+            var st = DateTime.UtcNow;
             var results = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, forceFullRefresh ? null : _searchParamLastUpdated);
             var statuses = results.Statuses;
 
@@ -377,6 +376,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 _searchParamLastUpdated = results.LastUpdated.Value;
             }
+
+            var msg = $"Cache in sync={inCache && allHaveResources} Processed params={statuses.Count} SearchParamLastUpdated={_searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fff")}";
+            _logger.LogInformation($"GetAndApplySearchParameterUpdates: {msg}");
+            await _searchParameterStatusManager.TryLogEvent("GetAndApplySearchParameterUpdates", "Warn", msg, st, cancellationToken);
         }
 
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
