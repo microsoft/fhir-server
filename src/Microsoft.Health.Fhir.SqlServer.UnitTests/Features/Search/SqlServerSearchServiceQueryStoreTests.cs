@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -1012,7 +1013,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             string normalizedAfter = SqlServerSearchService.NormalizeWhitespace(truncatedFirst);
 
             // Assert - normalizing first yields more useful content (all 10 SELECT tokens vs fewer)
-            Assert.True(truncatedAfter.Length >= normalizedAfter.Length,
+            Assert.True(
+                truncatedAfter.Length >= normalizedAfter.Length,
                 "Normalizing before truncating should preserve at least as much meaningful content.");
             Assert.Equal("SELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECT", truncatedAfter);
         }
