@@ -1112,11 +1112,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Removes all whitespace characters (spaces, tabs, carriage returns, newlines) from the text.
+        /// Removes all whitespace characters (tab/CHAR(9), LF/CHAR(10), VT/CHAR(11), FF/CHAR(12),
+        /// CR/CHAR(13), space/CHAR(32), and any other Unicode whitespace matched by <c>\s</c>) from the text.
         /// This enables robust whitespace-insensitive comparison between the local query text and what
         /// SQL Server Query Store may store — different database engines or drivers can add or reformat
         /// whitespace in unpredictable ways, so the safest comparison strips all whitespace entirely
         /// rather than trying to collapse or normalise it.
+        /// The SQL side mirrors this by stripping CHAR(9)/CHAR(10)/CHAR(11)/CHAR(12)/CHAR(13)/CHAR(32).
         /// </summary>
         internal static string NormalizeWhitespace(string text)
         {
@@ -1166,7 +1168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
                 JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
                 WHERE @NormalizedText <> ''
-                    AND REPLACE(REPLACE(REPLACE(REPLACE(qt.query_sql_text, CHAR(9), ''), CHAR(10), ''), CHAR(13), ''), CHAR(32), '') LIKE '%' + @NormalizedText + '%'
+                    AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(qt.query_sql_text, CHAR(9), ''), CHAR(10), ''), CHAR(11), ''), CHAR(12), ''), CHAR(13), ''), CHAR(32), '') LIKE '%' + @NormalizedText + '%'
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
