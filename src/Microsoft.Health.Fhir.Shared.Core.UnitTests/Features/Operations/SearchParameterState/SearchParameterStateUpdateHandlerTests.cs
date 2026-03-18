@@ -336,36 +336,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         }
 
         [Fact]
-        public async Task GivenReindexRunningBeforeStatusUpdate_WhenHandlingRequest_ThenPreconditionFailedIsThrown()
+        public async Task GivenReindexRunningBeforeStatusUpdate_WhenHandlingRequest_ThenJobConflictIsThrown()
         {
             _searchParameterOperations
                 .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
                 .Do(_ => throw new FhirJobConflictException("reindex running"));
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
-        }
-
-        [Fact]
-        public async Task GivenReindexStartsAfterParse_WhenHandlingRequest_ThenConflictBundleIsReturned()
-        {
-            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
-
-            _searchParameterOperations.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-            _searchParameterOperations
-                .When(x => x.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>(), Arg.Any<bool>()))
-                .Do(_ => throw new FhirJobConflictException("reindex running"));
-
-            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
-            {
-                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
-            };
-
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
-
-            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
-            var outcome = (OperationOutcome)unwrappedResponse.Entry.Single().Resource;
-            Assert.Equal(OperationOutcome.IssueType.Conflict, outcome.Issue.Single().Code);
-            Assert.Equal(Fhir.Core.Resources.ReindexRunningException, outcome.Issue.Single().Details.Text);
+            await Assert.ThrowsAsync<JobConflictException>(() => _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()
