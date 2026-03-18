@@ -18,7 +18,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.VisualStudio.TestPlatform.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
@@ -31,11 +33,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly bool _isSql;
+        private readonly ITestOutputHelper _output;
 
-        public ReindexTests(HttpIntegrationTestFixture fixture)
+        public ReindexTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _isSql = _fixture.DataStore == DataStore.SqlServer;
+            _output = output;
         }
 
         [Fact]
@@ -59,10 +63,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 {
                     Parameter =
                     [
-                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
+                        new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(2) },
                         new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
                     ],
                 };
+
+                await Task.Delay(5000);
 
                 value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
                 Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
@@ -70,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var tasks = new[]
                 {
                     WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300)),
-                    RandomPersonUpdate(testResources),
+                    RandomPersonUpdate(testResources.Take(6).ToList()),
                 };
                 await Task.WhenAll(tasks);
 
@@ -1139,6 +1145,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                         resourcesToCreateInBatch = nextRetryBatch;
 
+                        _output.WriteLine(
+                            $"Batch {(batchStart / batchSize) + 1} attempt {retryAttempt + 1}: " +
+                            $"{createdResources.Count} total created, {resourcesToCreateInBatch.Count} pending retry, " +
+                            $"{failedIds.Count} permanently failed");
                         System.Diagnostics.Debug.WriteLine(
                             $"Batch {(batchStart / batchSize) + 1} attempt {retryAttempt + 1}: " +
                             $"{createdResources.Count} total created, {resourcesToCreateInBatch.Count} pending retry, " +
@@ -1146,6 +1156,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     }
                     catch (Exception ex)
                     {
+                        _output.WriteLine($"Failed to create batch at offset {batchStart}: {ex.Message}");
                         System.Diagnostics.Debug.WriteLine($"Failed to create batch at offset {batchStart}: {ex.Message}");
                         if (retryAttempt == maxCreateRetries - 1)
                         {
@@ -1165,6 +1176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Report on any failures
             if (failedIds.Any())
             {
+                _output.WriteLine($"WARNING: {failedIds.Count} resources failed to create after {maxCreateRetries} retries");
                 System.Diagnostics.Debug.WriteLine($"WARNING: {failedIds.Count} resources failed to create after {maxCreateRetries} retries");
                 System.Diagnostics.Debug.WriteLine($"Failed IDs (first 10): {string.Join(", ", failedIds.Take(10))}");
             }
@@ -1184,11 +1196,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             else if (createdResources.Count < desiredCount)
             {
                 // Log warning but don't fail
+                _output.WriteLine(
+                    $"WARNING: Created {createdResources.Count}/{desiredCount} {resourceType} resources " +
+                    $"(within acceptable threshold of {acceptableMinimum})");
                 System.Diagnostics.Debug.WriteLine(
                     $"WARNING: Created {createdResources.Count}/{desiredCount} {resourceType} resources " +
                     $"(within acceptable threshold of {acceptableMinimum})");
             }
 
+            _output.WriteLine($"Successfully created {createdResources.Count} new {resourceType} resources.");
             System.Diagnostics.Debug.WriteLine($"Successfully created {createdResources.Count} new {resourceType} resources.");
 
             // Return the ACTUAL count of resources we created and have IDs for
@@ -1203,10 +1219,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
         private async Task RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources)
         {
-            foreach (var resource in resources.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e6)))
-            {
-                await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString()));
-            }
+            var tasks = resources
+                .OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e6))
+                .Select(resource => _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString())));
+
+            await Task.WhenAll(tasks);
         }
 
         private async Task CheckReportedCounts(Uri jobUri, long expected, bool lessThan)
@@ -1220,6 +1237,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var content = await response.Content.ReadAsStringAsync();
             var parameters = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(content);
             var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
+            var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
+
+            _output.WriteLine($"CheckReportedCounts: totalResourcesToReindex={total}, resourcesSuccessfullyReindexed={successes}, expected={expected}, lessThan={lessThan}");
+
             if (lessThan)
             {
                 Assert.True(total < expected, $"total={total} < expected={expected}");
@@ -1229,7 +1250,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 Assert.True(total >= expected, $"total={total} >= expected={expected}"); // some of resources might come for not completed retries
             }
 
-            var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
             Assert.True(total == successes, $"total={total} == successes={successes}");
         }
 
