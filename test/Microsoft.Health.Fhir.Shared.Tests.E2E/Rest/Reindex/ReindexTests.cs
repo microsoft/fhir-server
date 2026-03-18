@@ -44,9 +44,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _output = output;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
         {
+            Skip.IfNot(_isSql, "SQL Server only test. Cosmos DB is being deprecated and this scenario is validated on the SQL path.");
+
             await CancelAnyRunningReindexJobsAsync();
 
             const int numberOfSearchParams = 500;

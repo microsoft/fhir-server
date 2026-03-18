@@ -763,6 +763,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Check if all the resource types which are base types of the search parameter
             // were reindexed by this job. If so, then we should mark the search parameters
             // as fully reindexed
+            var disabledParamUris = new List<string>();
+            var deletedParamUris = new List<string>();
             var fullyIndexedParamUris = new List<string>();
             var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
@@ -779,22 +781,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 switch (spStatus)
                 {
                     case SearchParameterStatus.PendingDisable:
-                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Disabled.", searchParameterUrl);
-                        await _searchParameterStatusRetries.ExecuteAsync(
-                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Disabled, cancellationToken));
-                        _processedSearchParameters.Add(searchParameterUrl);
+                        disabledParamUris.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.PendingDelete:
-                        _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameter: '{ParamUri}' to Deleted.", searchParameterUrl);
-                        await _searchParameterStatusRetries.ExecuteAsync(
-                            async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.Deleted, cancellationToken));
-                        _processedSearchParameters.Add(searchParameterUrl);
+                        deletedParamUris.Add(searchParameterUrl);
                         break;
                     case SearchParameterStatus.Supported:
                     case SearchParameterStatus.Enabled:
                         fullyIndexedParamUris.Add(searchParameterUrl);
                         break;
                 }
+            }
+
+            if (disabledParamUris.Count > 0)
+            {
+                _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris}' to Disabled.", string.Join("', '", disabledParamUris));
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(disabledParamUris, SearchParameterStatus.Disabled, cancellationToken));
+                _processedSearchParameters.UnionWith(disabledParamUris);
+            }
+
+            if (deletedParamUris.Count > 0)
+            {
+                _logger.LogJobInformation(_jobInfo, "Reindex job updating the status of the fully indexed search parameter, parameters: '{ParamUris}' to Deleted.", string.Join("', '", deletedParamUris));
+                await _searchParameterStatusRetries.ExecuteAsync(
+                    async () => await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(deletedParamUris, SearchParameterStatus.Deleted, cancellationToken));
+                _processedSearchParameters.UnionWith(deletedParamUris);
             }
 
             if (fullyIndexedParamUris.Count > 0)
