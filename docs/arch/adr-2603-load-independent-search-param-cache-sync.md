@@ -16,7 +16,8 @@ When search param cache is updated, log that event in the database with a timest
 Add logging to that method. Proposed message structure $"Cache in sync={bool} Processed params={count} SearchParamLastUpdated={cache last updated}".
 Before starting reindex processing, check the database logs to see when the last cache update occurred and ensure that all VMs/PODs have "cache in sync = true" and "processed params = 0" and identical cache last updated.
 
-### All VMs/PODs definition
+### All (VMs/PODs) definition
+Getting list of all VMs/PODs is the key for this feature to work.
 There are multiple relatively frequent and very lightweight database calls that each VM/POD is already doing today. For example, each background process attempts to dequeue work from dbo.JobQueue table. 
 We can enanble database logging for these calls. Each log record in the dbo.EventLog table has host name column. Distinct list of host names for an interval greater than dequeue period can give us the list of active VMs/PODs. 
 
