@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
+        private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
@@ -1109,6 +1111,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchFragments;
         }
 
+        /// <summary>
+        /// Removes all whitespace characters (spaces, tabs, carriage returns, newlines) from the text.
+        /// This enables robust whitespace-insensitive comparison between the local query text and what
+        /// SQL Server Query Store may store — different database engines or drivers can add or reformat
+        /// whitespace in unpredictable ways, so the safest comparison strips all whitespace entirely
+        /// rather than trying to collapse or normalise it.
+        /// </summary>
+        internal static string NormalizeWhitespace(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            return WhitespacePattern.Replace(text, string.Empty);
+        }
+
         private async Task LogQueryStoreByTextAsync(
             string queryText,
             ILogger logger,
@@ -1147,7 +1166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
                 JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
                 WHERE @NormalizedText <> ''
-                    AND qt.query_sql_text LIKE '%' + @NormalizedText + '%'
+                    AND REPLACE(REPLACE(REPLACE(REPLACE(qt.query_sql_text, CHAR(9), ''), CHAR(10), ''), CHAR(13), ''), CHAR(32), '') LIKE '%' + @NormalizedText + '%'
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
 
@@ -1157,13 +1176,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         string searchFragment = searchFragments[segmentIndex];
 
-                        if (searchFragment.Length > 4000)
+                        // Normalize first so the 4000-char limit applies to stripped content,
+                        // maximising the amount of meaningful text sent to the LIKE comparison.
+                        string normalizedFragment = NormalizeWhitespace(searchFragment);
+
+                        if (normalizedFragment.Length > 4000)
                         {
-                            searchFragment = searchFragment[..4000];
+                            normalizedFragment = normalizedFragment[..4000];
                         }
 
                         cmd.Parameters.Clear();
-                        cmd.Parameters.AddWithValue("@NormalizedText", searchFragment);
+                        cmd.Parameters.AddWithValue("@NormalizedText", normalizedFragment);
 
                         using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
                         int matchIndex = 0;

@@ -837,5 +837,184 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 .Do(x => throw new InvalidOperationException("No database"));
             return sqlRetryService;
         }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void NormalizeWhitespace_NullEmptyOrWhitespaceInput_ReturnsEmpty(string input)
+        {
+            // Arrange & Act
+            string result = SqlServerSearchService.NormalizeWhitespace(input);
+
+            // Assert
+            Assert.Equal(string.Empty, result);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_StripsAllSpaces()
+        {
+            // Arrange
+            string input = "SELECT  *   FROM    dbo.Resource";
+
+            // Act
+            string result = SqlServerSearchService.NormalizeWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_StripsTabsAndNewlines()
+        {
+            // Arrange
+            string input = "SELECT\t*\r\nFROM\n\tdbo.Resource";
+
+            // Act
+            string result = SqlServerSearchService.NormalizeWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_StripsMixedWhitespace()
+        {
+            // Arrange
+            string input = "  SELECT \t\r\n  *  \n\n  FROM  \r\n  dbo.Resource  ";
+
+            // Act
+            string result = SqlServerSearchService.NormalizeWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_StripsAllWhitespaceFromFormattedQuery()
+        {
+            // Arrange
+            string input = "SELECT * FROM dbo.Resource";
+
+            // Act
+            string result = SqlServerSearchService.NormalizeWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_HandlesDifferentEngineFormats()
+        {
+            // Arrange - simulates how different SQL engines might format the same query
+            string engineA = "SELECT *\r\nFROM dbo.Resource\r\nWHERE Id = @p0";
+            string engineB = "SELECT *\nFROM dbo.Resource\nWHERE Id = @p0";
+            string engineC = "SELECT * FROM dbo.Resource WHERE Id = @p0";
+
+            // Act
+            string resultA = SqlServerSearchService.NormalizeWhitespace(engineA);
+            string resultB = SqlServerSearchService.NormalizeWhitespace(engineB);
+            string resultC = SqlServerSearchService.NormalizeWhitespace(engineC);
+
+            // Assert - all should normalize to the same string
+            Assert.Equal(resultA, resultB);
+            Assert.Equal(resultB, resultC);
+        }
+
+        [Theory]
+        [InlineData("SELECT\tFROM", "SELECTFROM")]// tab (CHAR 9)
+        [InlineData("SELECT\nFROM", "SELECTFROM")]// line feed (CHAR 10)
+        [InlineData("SELECT\rFROM", "SELECTFROM")]// carriage return (CHAR 13)
+        [InlineData("SELECT\r\nFROM", "SELECTFROM")]// CRLF (CHAR 13+10)
+        [InlineData("SELECT FROM", "SELECTFROM")]// space (CHAR 32)
+        [InlineData("SELECT\fFROM", "SELECTFROM")]// form feed (CHAR 12)
+        [InlineData("SELECT\vFROM", "SELECTFROM")]// vertical tab (CHAR 11)
+        public void NormalizeWhitespace_StripsEachIndividualWhitespaceCharacter(string input, string expected)
+        {
+            // Act
+            string result = SqlServerSearchService.NormalizeWhitespace(input);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_StripsMultipleConsecutiveMixedWhitespaceCharacters()
+        {
+            // Arrange - every whitespace character type back to back
+            string input = "SELECT\t \r\n\r\f\vFROM";
+
+            // Act
+            string result = SqlServerSearchService.NormalizeWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECTFROM", result);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_MatchesRealWorldDatabaseStorageFormat()
+        {
+            // Arrange - simulates the actual query text a SQL Server database stores,
+            // where ↵ (LF, CHAR 10) separates logical lines as seen in database tooling.
+            // The database may add extras the C# query does not have:
+            //   - a parameter declaration preamble e.g. "(@p0 int)"
+            //   - index hints e.g. WITH (INDEX(...))
+            // So we assert on two fragments that are guaranteed to appear verbatim in the
+            // database text regardless of those additions.
+            string databaseFormat = "(@p0 int)SELECT TOP (@p0) * FROM (SELECT r.ResourceTypeId, r.ResourceId\nFROM dbo.Resource r WITH (INDEX(IX_Resource_ResourceTypeId_ResourceSurrgateId))\nWHERE ResourceTypeId = 128\n    AND IsHistory = 0 \n    AND IsDeleted = 0 \n) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC";
+
+            // Fragment before the index hint — present in both C# query and database text
+            string fragmentBeforeHint = "SELECT TOP (@p0) * FROM (SELECT r.ResourceTypeId, r.ResourceId";
+
+            // Fragment after the index hint — present in both C# query and database text
+            string fragmentAfterHint = "WHERE ResourceTypeId = 128 AND IsHistory = 0 AND IsDeleted = 0 ) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC";
+
+            // Act
+            string normalizedDatabase = SqlServerSearchService.NormalizeWhitespace(databaseFormat);
+            string normalizedBefore = SqlServerSearchService.NormalizeWhitespace(fragmentBeforeHint);
+            string normalizedAfter = SqlServerSearchService.NormalizeWhitespace(fragmentAfterHint);
+
+            // Assert - both fragments must be findable inside the normalized database text
+            Assert.Contains(normalizedBefore, normalizedDatabase, StringComparison.Ordinal);
+            Assert.Contains(normalizedAfter, normalizedDatabase, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_IsIdempotent()
+        {
+            // Arrange - normalizing an already-normalized string should produce the same result
+            string input = "SELECT\t *\r\n  FROM  \n\t dbo.Resource  \r\n WHERE Id = @p0";
+
+            // Act
+            string firstPass = SqlServerSearchService.NormalizeWhitespace(input);
+            string secondPass = SqlServerSearchService.NormalizeWhitespace(firstPass);
+
+            // Assert
+            Assert.Equal(firstPass, secondPass);
+        }
+
+        [Fact]
+        public void NormalizeWhitespace_TruncationAfterNormalizationPreservesMoreContent()
+        {
+            // Arrange - a heavily whitespace-padded fragment whose raw length exceeds 4000
+            // but whose stripped length is well under. Verifies that normalizing BEFORE
+            // truncating (as the production code does) keeps more meaningful content than
+            // truncating first would.
+            string paddedWord = "SELECT" + new string(' ', 500);  // 506 chars, 6 meaningful
+            string input = string.Concat(Enumerable.Repeat(paddedWord, 10)); // 5060 raw chars, 60 meaningful
+
+            // Act - normalize first (production order), then cap
+            string normalizedFirst = SqlServerSearchService.NormalizeWhitespace(input);
+            string truncatedAfter = normalizedFirst.Length > 4000 ? normalizedFirst[..4000] : normalizedFirst;
+
+            // Act - truncate first (old order), then normalize
+            string truncatedFirst = input.Length > 4000 ? input[..4000] : input;
+            string normalizedAfter = SqlServerSearchService.NormalizeWhitespace(truncatedFirst);
+
+            // Assert - normalizing first yields more useful content (all 10 SELECT tokens vs fewer)
+            Assert.True(truncatedAfter.Length >= normalizedAfter.Length,
+                "Normalizing before truncating should preserve at least as much meaningful content.");
+            Assert.Equal("SELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECT", truncatedAfter);
+        }
     }
 }
