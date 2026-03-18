@@ -897,6 +897,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                     status == OperationStatus.Failed ||
                                     status == OperationStatus.Canceled)
                                 {
+                                    if (status == OperationStatus.Failed || status == OperationStatus.Canceled)
+                                    {
+                                        var failureParam = jobResponse.Resource.Parameter.FirstOrDefault(p => p.Name == "failureReason");
+                                        var failureReason = failureParam?.Value is FhirString fs ? fs.Value : failureParam?.Value?.ToString();
+                                        _output.WriteLine($"Reindex job {jobUri} reached terminal status: {status}. Failure reason: {failureReason ?? "N/A"}");
+
+                                        foreach (var param in jobResponse.Resource.Parameter)
+                                        {
+                                            _output.WriteLine($"  Parameter: {param.Name} = {param.Value}");
+                                        }
+                                    }
+
                                     return status;
                                 }
                             }
