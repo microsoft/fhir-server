@@ -351,52 +351,73 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private async Task<Dictionary<string, ITypedElement>> GetSearchParametersByUrls(List<string> urls, CancellationToken cancellationToken)
         {
-            if (urls.Count == 0)
+            if (!urls.Any())
             {
                 return new Dictionary<string, ITypedElement>();
             }
 
             const int chunkSize = 100;
-            var result = new Dictionary<string, ITypedElement>(StringComparer.Ordinal);
+            var searchParametersByUrl = new Dictionary<string, ITypedElement>(StringComparer.Ordinal);
+            var unresolvedUrls = new HashSet<string>(urls, StringComparer.Ordinal);
 
-            // Query in chunks to avoid SQL query limitations
-            for (int i = 0; i < urls.Count; i += chunkSize)
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+
+            string continuationToken = null;
+
+            do
             {
-                var chunk = urls.GetRange(i, Math.Min(chunkSize, urls.Count - i));
+                cancellationToken.ThrowIfCancellationRequested();
 
-                using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
                 var queryParams = new List<Tuple<string, string>>
                 {
-                    new Tuple<string, string>("url", string.Join(",", chunk)),
                     Tuple.Create(KnownQueryParameterNames.Count, chunkSize.ToString()),
                 };
 
-                var searchResult = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
-
-                if (searchResult?.Results != null)
+                if (!string.IsNullOrEmpty(continuationToken))
                 {
-                    foreach (var entry in searchResult.Results)
+                    queryParams.Add(
+                        Tuple.Create(
+                            KnownQueryParameterNames.ContinuationToken,
+                            ContinuationTokenEncoder.Encode(continuationToken)));
+                }
+
+                var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+                if (result?.Results != null)
+                {
+                    foreach (var entry in result.Results)
                     {
-                        var typedElement = entry.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-                        var url = typedElement?.GetStringScalar("url");
-                        if (!string.IsNullOrEmpty(url) && !result.TryAdd(url, typedElement))
+                        var typedElement = entry.Resource?.RawResource?.ToITypedElement(_modelInfoProvider);
+                        if (typedElement == null)
                         {
-                            _logger.LogWarning("More than one SearchParameter found with url {Url}. Using the first one found.", url);
+                            continue;
+                        }
+
+                        var url = typedElement.GetStringScalar("url");
+                        if (!string.IsNullOrEmpty(url) && unresolvedUrls.Remove(url))
+                        {
+                            searchParametersByUrl[url] = typedElement;
+
+                            if (unresolvedUrls.Count == 0)
+                            {
+                                return searchParametersByUrl;
+                            }
                         }
                     }
                 }
-            }
 
-            var missing = urls.Where(u => !result.ContainsKey(u)).ToList();
-            if (missing.Count > 0)
+                continuationToken = result?.ContinuationToken;
+            }
+            while (!string.IsNullOrEmpty(continuationToken));
+
+            if (unresolvedUrls.Count > 0)
             {
                 _logger.LogWarning(
                     "Could not resolve {Count} SearchParameter URL(s). Samples: {Urls}",
-                    missing.Count,
-                    string.Join(", ", missing.Take(10)));
+                    unresolvedUrls.Count,
+                    string.Join(", ", unresolvedUrls.Take(10)));
             }
 
-            return result;
+            return searchParametersByUrl;
         }
     }
 }
