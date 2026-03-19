@@ -9,6 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -27,16 +29,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
     [Trait(Traits.Category, Categories.Operations)]
     public class ExpiredResourceCleanupWatchdogTests
     {
-        [Fact]
-        public void GivenAWatchdog_WhenGettingParameterNames_ThenCorrectNamesAreReturned()
-        {
-            // Arrange
-            var watchdog = new ExpiredResourceCleanupWatchdog();
+        private readonly ExpiredResourceCleanupWatchdog _watchdog;
+        private readonly ISqlRetryService _sqlRetryService;
+        private readonly IQueueClient _queueClient;
+        private readonly ILogger<ExpiredResourceCleanupWatchdog> _logger;
 
-            // Assert
-            Assert.Equal("ExpiredResourceCleanupWatchdog.RetentionPeriodDays", watchdog.RetentionPeriodDaysId);
-            Assert.Equal("ExpiredResourceCleanupWatchdog.IsEnabled", watchdog.IsEnabledId);
-            Assert.Equal("ExpiredResourceCleanupWatchdog.DeleteOperation", watchdog.DeleteOperationId);
+        public ExpiredResourceCleanupWatchdogTests()
+        {
+            _sqlRetryService = Substitute.For<ISqlRetryService>();
+            _queueClient = Substitute.For<IQueueClient>();
+            _logger = NullLogger<ExpiredResourceCleanupWatchdog>.Instance;
+
+            var configuration = new WatchdogConfiguration();
+            configuration.ExpiredResource.Enabled = true;
+
+            var watchdogOptions = Options.Create(configuration);
+
+            _watchdog = new ExpiredResourceCleanupWatchdog(
+                _sqlRetryService,
+                _queueClient,
+                watchdogOptions,
+                _logger);
         }
 
         [Fact]
@@ -46,9 +59,101 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             var watchdog = new ExpiredResourceCleanupWatchdog();
 
             // Assert
-            Assert.Equal(2 * 3600, watchdog.PeriodSec); // 2 hours
-            Assert.Equal(3600, watchdog.LeasePeriodSec); // 1 hour
-            Assert.True(watchdog.AllowRebalance);
+            Assert.Equal(120, watchdog.PeriodSec);
+            Assert.Equal(60, watchdog.LeasePeriodSec);
+            Assert.False(watchdog.AllowRebalance);
+        }
+
+        [Fact]
+        public async Task GivenWatchdogEnabled_WhenRunWorkAsyncIsCalled_ThenBulkDeleteJobIsEnqueued()
+        {
+            // Arrange
+            var expectedJobInfo = new JobInfo { Id = 123 };
+
+            // Mock the underlying IQueueClient.EnqueueAsync that the extension method calls
+            _queueClient.EnqueueAsync(
+                Arg.Is<byte>(q => q == (byte)QueueType.BulkDelete),
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+                .Returns(new List<JobInfo> { expectedJobInfo });
+
+            // Act
+            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+
+            // Assert - verify that EnqueueAsync was called with the correct queue type
+            await _queueClient.Received(1).EnqueueAsync(
+                Arg.Is<byte>(q => q == (byte)QueueType.BulkDelete),
+                Arg.Is<string[]>(defs => defs.Length == 1 && VerifyBulkDeleteDefinition(defs[0])),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenWatchdogDisabled_WhenRunWorkAsyncIsCalled_ThenBulkDeleteJobIsNotEnqueued()
+        {
+            // Arrange
+            var configuration = new WatchdogConfiguration();
+            configuration.ExpiredResource.Enabled = false;
+
+            var watchdogOptions = Options.Create(configuration);
+
+            var watchdog = new ExpiredResourceCleanupWatchdog(
+                _sqlRetryService,
+                _queueClient,
+                watchdogOptions,
+                _logger);
+
+            // Act
+            await watchdog.RunWorkForTestingAsync(CancellationToken.None);
+
+            // Assert
+            await _queueClient.DidNotReceive().EnqueueAsync(
+                Arg.Any<byte>(),
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenWatchdogEnabled_WhenEnqueueFails_ThenNoExceptionIsThrown()
+        {
+            _queueClient.EnqueueAsync(
+                Arg.Any<byte>(),
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<IReadOnlyList<JobInfo>>(new Exception("Enqueue failed")));
+
+            // Act & Assert - should not throw
+            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+        }
+
+        [Fact]
+        public async Task GivenWatchdogEnabled_WhenEnqueueReturnsNull_ThenNoExceptionIsThrown()
+        {
+            _queueClient.EnqueueAsync(
+                Arg.Any<byte>(),
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+                .Returns((IReadOnlyList<JobInfo>)null);
+
+            // Act & Assert - should not throw
+            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+        }
+
+        private static bool VerifyBulkDeleteDefinition(string definitionJson)
+        {
+            var definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitionJson);
+            return definition != null &&
+                   definition.TypeId == (int)JobType.BulkDeleteOrchestrator &&
+                   definition.DeleteOperation == DeleteOperation.HardDelete;
         }
     }
 }

@@ -61,10 +61,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             var tasks = new List<Task>
             {
-                // _defragWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                // _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                // _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
-                // _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _defragWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
+                _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
+                _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _expiredResourceCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 

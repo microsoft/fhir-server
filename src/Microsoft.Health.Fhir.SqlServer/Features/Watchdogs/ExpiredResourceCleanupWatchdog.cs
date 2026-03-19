@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -55,12 +56,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             // This is used to get param names for testing.
         }
 
-        internal string RetentionPeriodDaysId => $"{Name}.RetentionPeriodDays";
-
-        internal string IsEnabledId => $"{Name}.IsEnabled";
-
-        internal string DeleteOperationId => $"{Name}.DeleteOperation";
-
         /// <inheritdoc/>
         public override double LeasePeriodSec { get; internal set; } = DefaultLeasePeriodSec;
 
@@ -69,6 +64,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         /// <inheritdoc/>
         public override double PeriodSec { get; internal set; } = DefaultPeriodSec;
+
+        /// <summary>
+        /// Exposes RunWorkAsync for unit testing purposes.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        internal Task RunWorkForTestingAsync(CancellationToken cancellationToken) => RunWorkAsync(cancellationToken);
 
         /// <inheritdoc/>
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
@@ -82,12 +84,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await EnqueueBulkDeleteJobAsync(cancellationToken);
         }
 
-        /// <inheritdoc/>
-        protected override Task InitAdditionalParamsAsync()
-        {
-            return Task.CompletedTask;
-        }
-
         private async Task EnqueueBulkDeleteJobAsync(CancellationToken cancellationToken)
         {
             try
@@ -98,6 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 var searchParameters = new List<Tuple<string, string>>
                 {
                     Tuple.Create("_expiryDate", $"lt{cutoffDateString}"),
+                    Tuple.Create(KnownQueryParameterNames.RemoveReferences, "true"),
                 };
 
                 var definition = new BulkDeleteDefinition(
