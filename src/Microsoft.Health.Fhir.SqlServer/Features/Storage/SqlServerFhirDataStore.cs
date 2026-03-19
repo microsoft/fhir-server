@@ -799,8 +799,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand();
             //// Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
+            bool hasPendingStatuses = pendingStatuses?.Count > 0;
 
-            if (pendingStatuses?.Count > 0)
+            if (hasPendingStatuses)
             {
                 cmd.CommandText = "dbo.MergeSearchParams";
                 new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses.ToList()));
@@ -808,14 +809,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else
             {
                 cmd.CommandText = "dbo.MergeResources";
+                cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
             }
 
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            if (pendingStatuses?.Count == 0)
-            {
-                cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
-            }
 
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
