@@ -36,8 +36,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ILogger<ExpiredResourceCleanupWatchdog> _logger;
         private readonly ExpiredResourceConfiguration _configuration;
 
-        private int _retentionPeriodDays;
-
         public ExpiredResourceCleanupWatchdog(
             ISqlRetryService sqlRetryService,
             IQueueClient queueClient,
@@ -81,8 +79,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            _retentionPeriodDays = _configuration.RetentionPeriodDays;
-
             await EnqueueBulkDeleteJobAsync(cancellationToken);
         }
 
@@ -96,7 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             try
             {
-                var cutoffDate = Clock.UtcNow.AddDays(-_retentionPeriodDays);
+                var cutoffDate = Clock.UtcNow;
                 var cutoffDateString = cutoffDate.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                 var searchParameters = new List<Tuple<string, string>>
@@ -107,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 var definition = new BulkDeleteDefinition(
                     JobType.BulkDeleteOrchestrator,
                     DeleteOperation.HardDelete,
-                    type: null, // null type means all resource types
+                    type: null,
                     searchParameters,
                     excludedResourceTypes: null,
                     url: $"./ExpiredResourceCleanupWatchdog",
@@ -121,10 +117,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 if (jobs != null && jobs.Count > 0)
                 {
                     _logger.LogInformation(
-                        "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate} (retention period: {RetentionPeriodDays} days).",
+                        "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate}.",
                         jobs[0].Id,
-                        cutoffDateString,
-                        _retentionPeriodDays);
+                        cutoffDateString);
                 }
                 else
                 {
