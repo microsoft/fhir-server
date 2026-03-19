@@ -47,13 +47,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [SkippableFact]
         public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
         {
-            Skip.IfNot(_isSql, "SQL Server only test. Cosmos DB is being deprecated and this scenario is validated on the SQL path.");
+            // Skip.IfNot(_isSql, "SQL Server only test. Cosmos DB is being deprecated and this scenario is validated on the SQL path.");
 
             await CancelAnyRunningReindexJobsAsync();
 
-            const int numberOfSearchParams = 500;
-            const int verificationSampleSize = 50;
+            int numberOfSearchParams = _isSql ? 500 : 100;
+            int searchParameterBatchSize = _isSql ? 100 : 10;
+            int verificationSampleSize = 50;
             const string urlPrefix = "http://my.org/";
+            var bundleOptions = new FhirBundleOptions
+            {
+                BundleProcessingLogic = _isSql ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential,
+            };
             var codes = new List<string>();
             try
             {
@@ -99,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
             async Task<Bundle> CreatePersonSearchParamsAsync()
             {
-                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+                var combinedResult = new Bundle { Type = Bundle.BundleType.BatchResponse, Entry = new List<EntryComponent>() };
 
 #if R5
                 var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
@@ -109,46 +114,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
 #endif
 
-                foreach (var code in codes)
+                foreach (var codeBatch in codes.Chunk(searchParameterBatchSize))
                 {
-                    var searchParam = new SearchParameter
-                    {
-                        Id = code,
-                        Url = $"{urlPrefix}{code}",
-                        Name = code,
-                        Code = code,
-                        Status = PublicationStatus.Active,
-                        Type = SearchParamType.Token,
-                        Expression = "Person.id",
-                        Description = "any",
-                        Base = resourceTypes,
-                    };
+                    var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
 
-                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                    foreach (var code in codeBatch)
+                    {
+                        var searchParam = new SearchParameter
+                        {
+                            Id = code,
+                            Url = $"{urlPrefix}{code}",
+                            Name = code,
+                            Code = code,
+                            Status = PublicationStatus.Active,
+                            Type = SearchParamType.Token,
+                            Expression = "Person.id",
+                            Description = "any",
+                            Base = resourceTypes,
+                        };
+
+                        bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                    }
+
+                    var batchResult = await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions);
+                    combinedResult.Entry.AddRange(batchResult.Resource.Entry);
                 }
 
-                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
-                return result;
+                return combinedResult;
             }
 
             async Task VerifySearchParameterIsEnabledAsync(string searchQuery, string searchParameterCode)
             {
-                var response = await _fixture.TestFhirClient.SearchAsync(searchQuery);
-                Assert.NotNull(response);
-                var error = HasNotSupportedError(response.Resource);
-                Assert.False(error, $"Search param {searchParameterCode} is NOT supported after reindex.");
+                await VerifySearchParameterIsWorkingAsync(searchQuery, searchParameterCode, shouldFindRecords: false);
             }
 
             async Task DeletePersonSearchParamsAsync()
             {
-                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
-
-                foreach (var code in codes)
+                foreach (var codeBatch in codes.Chunk(searchParameterBatchSize))
                 {
-                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" } });
-                }
+                    var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
 
-                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                    foreach (var code in codeBatch)
+                    {
+                        bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" } });
+                    }
+
+                    await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions);
+                }
             }
         }
 
