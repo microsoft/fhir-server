@@ -1018,5 +1018,44 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 "Normalizing before truncating should preserve at least as much meaningful content.");
             Assert.Equal("SELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECT", truncatedAfter);
         }
+
+        // -----------------------------------------------------------------------
+        // StripDboSchemaPrefix
+        // -----------------------------------------------------------------------
+
+        [Theory]
+        [InlineData("dbo.GetResourcesByTypeAndSurrogateIdRange", "GetResourcesByTypeAndSurrogateIdRange")]
+        [InlineData("DBO.GetResourcesByTypeAndSurrogateIdRange", "GetResourcesByTypeAndSurrogateIdRange")]
+        [InlineData("Dbo.GetResourcesByTypeAndSurrogateIdRange", "GetResourcesByTypeAndSurrogateIdRange")]
+        public void StripDboSchemaPrefix_RemovesDboPrefix_CaseInsensitive(string input, string expected)
+        {
+            // Act
+            string result = SqlServerSearchService.StripDboSchemaPrefix(input);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("GetResourcesByTypeAndSurrogateIdRange")]
+        [InlineData("SomeSchema.MyProc")]
+        public void StripDboSchemaPrefix_NoDboPrefix_ReturnsUnchanged(string input)
+        {
+            // Act
+            string result = SqlServerSearchService.StripDboSchemaPrefix(input);
+
+            // Assert
+            Assert.Equal(input, result);
+        }
+
+        [Fact]
+        public void StripDboSchemaPrefix_NullInput_ReturnsNull()
+        {
+            // Act
+            string result = SqlServerSearchService.StripDboSchemaPrefix(null);
+
+            // Assert
+            Assert.Null(result);
+        }
     }
 }

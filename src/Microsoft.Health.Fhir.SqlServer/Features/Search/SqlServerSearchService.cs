@@ -828,8 +828,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                             {
-                                // Capture the query text BEFORE the connection closes
+                                // Capture query text and command type BEFORE the connection closes
                                 string queryTextSnapshot = sqlCommand.CommandText;
+                                bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
                                 int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
@@ -841,6 +842,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     {
                                         await LogQueryStoreByTextAsync(
                                             queryTextSnapshot,
+                                            isStoredProcSnapshot,
                                             _logger,
                                             timeoutSnapshot,
                                             executionTimeSnapshot,
@@ -1130,16 +1132,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return WhitespacePattern.Replace(text, string.Empty);
         }
 
+        /// <summary>
+        /// Strips the <c>dbo.</c> schema prefix from a stored procedure name so it matches
+        /// what SQL Server Query Store records in <c>sys.query_store_query_text.query_sql_text</c>.
+        /// Query Store stores only the bare procedure name without the schema qualifier.
+        /// The comparison is case-insensitive to handle mixed-case schemas such as <c>DBO.</c>.
+        /// If the name has no <c>dbo.</c> prefix (or no prefix at all) it is returned unchanged.
+        /// </summary>
+        internal static string StripDboSchemaPrefix(string procName) =>
+            procName?.Replace("dbo.", string.Empty, StringComparison.OrdinalIgnoreCase);
+
         private async Task LogQueryStoreByTextAsync(
             string queryText,
+            bool isStoredProcedure,
             ILogger logger,
             int timeoutSeconds,
             long executionTime,
             CancellationToken ct)
         {
-            var normalizedText = StripQueryPreambleLines(queryText);
-            var searchFragments = SplitIntoSearchFragments(normalizedText);
-
             // Create a NEW connection for this diagnostic query
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancel, sqlException) =>
@@ -1147,6 +1157,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     using var cmd = connection.CreateCommand();
                     cmd.CommandType = CommandType.Text;
                     cmd.CommandTimeout = timeoutSeconds;
+
+                    var sb = new StringBuilder();
+
+                    // Query Store records only the bare procedure name without the schema prefix.
+                    string effectiveQuery = isStoredProcedure ? StripDboSchemaPrefix(queryText) : queryText;
+                    var normalizedText = StripQueryPreambleLines(effectiveQuery);
+                    var searchFragments = SplitIntoSearchFragments(normalizedText);
 
                     cmd.CommandText = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
@@ -1171,8 +1188,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     AND replace(replace(replace(replace(replace(replace(qt.query_sql_text, char(9), ''), char(10), ''), char(11), ''), char(12), ''), char(13), ''), char(32), '') LIKE '%' + @NormalizedText + '%'
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
-
-                    var sb = new StringBuilder();
 
                     for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
                     {
@@ -2004,8 +2019,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                             {
-                                // Capture the query text BEFORE the connection closes
+                                // Capture query text and command type BEFORE the connection closes
                                 string queryTextSnapshot = sqlCommand.CommandText;
+                                bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
                                 int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
@@ -2017,6 +2033,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     {
                                         await LogQueryStoreByTextAsync(
                                             queryTextSnapshot,
+                                            isStoredProcSnapshot,
                                             _logger,
                                             timeoutSnapshot,
                                             executionTimeSnapshot,
