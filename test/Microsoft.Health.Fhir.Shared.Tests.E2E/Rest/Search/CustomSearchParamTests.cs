@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(searchParam));
 
-            AssertUrlLengthValidationError(exception);
+            Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
         }
 
         [Fact]
@@ -93,11 +93,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
 
-            AssertUrlLengthValidationError(exception);
-        }
-
-        private static void AssertUrlLengthValidationError(FhirClientException exception)
-        {
             Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
         }
 
