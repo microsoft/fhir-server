@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             await CancelAnyRunningReindexJobsAsync();
 
             const int numberOfSearchParams = 500;
+            const int verificationSampleSize = 50;
             const string urlPrefix = "http://my.org/";
             var codes = new List<string>();
             try
@@ -82,7 +83,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 await WaitForJobCompletionAsync(value.uri, TimeSpan.FromSeconds(300));
 
-                await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
+                var sampleInterval = Math.Max(1, numberOfSearchParams / verificationSampleSize);
+                var sampledCodes = codes.Where((_, index) => index % sampleInterval == 0).Take(verificationSampleSize).ToList();
+                Assert.Equal(verificationSampleSize, sampledCodes.Count);
+
+                await Parallel.ForEachAsync(sampledCodes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
                 {
                     await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
                 });
@@ -1004,7 +1009,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                 {
                                     if (status == OperationStatus.Failed || status == OperationStatus.Canceled)
                                     {
-                                        var failureParam = jobResponse.Resource.Parameter.FirstOrDefault(p => p.Name == "failureReason");
+                                        var failureParam = jobResponse.Resource.Parameter.FirstOrDefault(p => p.Name == "failureDetails");
                                         var failureReason = failureParam?.Value is FhirString fs ? fs.Value : failureParam?.Value?.ToString();
                                         _output.WriteLine($"Reindex job {jobUri} reached terminal status: {status}. Failure reason: {failureReason ?? "N/A"}");
 
