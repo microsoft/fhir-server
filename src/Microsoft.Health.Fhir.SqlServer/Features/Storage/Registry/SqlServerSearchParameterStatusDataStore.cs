@@ -192,7 +192,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", false);
                 cmd.Parameters.Add(new SqlParameter("@TransactionId", SqlDbType.BigInt) { Value = DBNull.Value });
-                cmd.Parameters.AddWithValue("@SingleTransaction", true);
 
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, Array.Empty<ResourceListRow>());
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, Array.Empty<ResourceWriteClaimListRow>());

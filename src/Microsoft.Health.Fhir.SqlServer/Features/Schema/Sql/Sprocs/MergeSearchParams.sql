@@ -1,7 +1,6 @@
 ﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
            ,@IsResourceChangeCaptureEnabled bit = 0
            ,@TransactionId bigint = NULL
-           ,@SingleTransaction bit = 1
            ,@Resources dbo.ResourceList READONLY
            ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
            ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
@@ -44,9 +43,10 @@ DECLARE @SummaryOfChanges TABLE (Uri varchar(128) COLLATE Latin1_General_100_CS_
 DECLARE @InitialTranCount int = @@trancount
 
 BEGIN TRY
+  SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
   IF @InitialTranCount = 0
   BEGIN
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
   END
   
@@ -68,7 +68,7 @@ BEGIN TRY
     ,@RaiseExceptionOnConflict = 1
     ,@IsResourceChangeCaptureEnabled = @IsResourceChangeCaptureEnabled
     ,@TransactionId = @TransactionId
-    ,@SingleTransaction = @SingleTransaction
+    ,@SingleTransaction = 1
     ,@Resources = @Resources
     ,@ResourceWriteClaims = @ResourceWriteClaims
     ,@ReferenceSearchParams = @ReferenceSearchParams
