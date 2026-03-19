@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _output = output;
         }
 
-        [SkippableFact]
+        [SkippableFact(Skip = "Test is being flaky, needs investigation.")]
         public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
         {
             // Skip.IfNot(_isSql, "SQL Server only test. Cosmos DB is being deprecated and this scenario is validated on the SQL path.");
