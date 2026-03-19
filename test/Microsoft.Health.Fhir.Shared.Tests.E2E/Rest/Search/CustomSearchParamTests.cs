@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private readonly ITestOutputHelper _output;
         private const int MaxAllowedUrlLength = 128;
         private const int MaxRetryCount = 10;
-        private const string UrlLengthValidationMessage = "exceeds the maximum limit of 128";
+        private const string UrlLengthValidationMessage = "exceeds the maximum length limit of 128";
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
