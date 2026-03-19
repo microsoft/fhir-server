@@ -871,6 +871,6 @@
     <value>There are no search parameters to reindex for job Id: {0}.</value>
   </data>
   <data name="SearchParameterDefinitionInvalidUriExceedsMaxLength" xml:space="preserve">
-    <value>Search Parameter URL {0} exceeds the maximum limit of {1}</value>
+    <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
   </data>
 </root>

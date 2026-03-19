@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -1692,7 +1692,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search Parameter URL {0} exceeds the maximum limit of {1}.
+        ///   Looks up a localized string similar to Search Parameter URL {0} exceeds the maximum length limit of {1}.
         /// </summary>
         internal static string SearchParameterDefinitionInvalidUriExceedsMaxLength {
             get {
@@ -1719,7 +1719,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The search parameter with Uri '{0}' is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL..
+        ///   Looks up a localized string similar to The search parameter with Uri &apos;{0}&apos; is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL..
         /// </summary>
         internal static string SearchParameterDefinitionSystemDefined {
             get {
