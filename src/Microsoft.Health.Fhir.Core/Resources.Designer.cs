@@ -1692,6 +1692,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search Parameter URL {0} exceeds the maximum limit of {1}.
+        /// </summary>
+        internal static string SearchParameterDefinitionInvalidUriExceedsMaxLength {
+            get {
+                return ResourceManager.GetString("SearchParameterDefinitionInvalidUriExceedsMaxLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A search parameter with Uri &apos;{0}&apos; was not found..
         /// </summary>
         internal static string SearchParameterDefinitionNotFound {

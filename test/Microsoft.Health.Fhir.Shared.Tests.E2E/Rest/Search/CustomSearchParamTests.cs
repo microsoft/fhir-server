@@ -9,7 +9,6 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
@@ -34,7 +33,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly ITestOutputHelper _output;
+        private const int MaxAllowedUrlLength = 128;
         private const int MaxRetryCount = 10;
+        private const string UrlLengthValidationMessage = "exceeds the maximum limit of 128";
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
@@ -68,6 +69,67 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Contains(ex.OperationOutcome.Issue, i => i.Diagnostics.Contains(errorMessage));
             }
+        }
+
+        [Fact]
+        public async Task GivenASearchParameterWithUrlLongerThan128_WhenCreating_ThenValidationErrorReturned()
+        {
+            SearchParameter searchParam = CreateCustomSearchParameter(MaxAllowedUrlLength + 1);
+
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(searchParam));
+
+            AssertUrlLengthValidationError(exception);
+        }
+
+        [Fact]
+        public async Task GivenAnExistingSearchParameter_WhenUpdatingWithUrlLongerThan128_ThenValidationErrorReturned()
+        {
+            SearchParameter searchParam = CreateCustomSearchParameter();
+
+            using FhirResponse<SearchParameter> createResponse = await Client.UpdateAsync(searchParam);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+            searchParam.Url = CreateCustomSearchParameter(MaxAllowedUrlLength + 1).Url;
+
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.UpdateAsync(searchParam));
+
+            AssertUrlLengthValidationError(exception);
+        }
+
+        private static void AssertUrlLengthValidationError(FhirClientException exception)
+        {
+            Assert.Contains(exception.OperationOutcome.Issue, issue => issue.Diagnostics.Contains(UrlLengthValidationMessage));
+        }
+
+        private static SearchParameter CreateCustomSearchParameter(int urlLength = MaxAllowedUrlLength)
+        {
+            string suffix = Guid.NewGuid().ToString("N");
+            const string prefix = "http://example.org/fhir/SearchParameter/";
+
+#if R5
+            var baseResourceTypes = new List<VersionIndependentResourceTypesAll?>
+            {
+                VersionIndependentResourceTypesAll.Patient,
+            };
+#else
+            var baseResourceTypes = new List<ResourceType?>
+            {
+                ResourceType.Patient,
+            };
+#endif
+
+            return new SearchParameter
+            {
+                Id = $"custom-search-param-{suffix[..8]}",
+                Url = prefix + new string('a', urlLength - prefix.Length),
+                Name = $"CustomSearchParam{suffix[..8]}",
+                Status = PublicationStatus.Draft,
+                Description = new Markdown("Custom search parameter used for E2E URL validation tests."),
+                Code = $"customparam{suffix[..8]}",
+                Base = baseResourceTypes,
+                Type = SearchParamType.String,
+                Expression = "Patient.name",
+            };
         }
     }
 }
