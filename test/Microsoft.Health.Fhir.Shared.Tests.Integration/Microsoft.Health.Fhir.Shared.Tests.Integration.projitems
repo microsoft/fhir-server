@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SqlServerSearchServiceIntegrationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\ExpiredResourceCleanupWatchdogTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterOptimisticConcurrencyIntegrationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlAzurePipelinesWorkloadIdentityAuthenticationProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlComplexQueryTests.cs" />
