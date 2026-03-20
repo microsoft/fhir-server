@@ -102,14 +102,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return;
             }
 
+            // Safety net: if the background service is not publishing notifications (e.g. crashed),
+            // fail fast rather than blocking indefinitely. Under normal conditions with a 20-second
+            // refresh interval, even 3 cycles would complete in ~60 seconds.
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
             for (int i = 0; i < cycleCount; i++)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                linkedCts.Token.ThrowIfCancellationRequested();
 
                 // Capture the current signal before awaiting
                 var currentSignal = _refreshSignal;
-                using var registration = cancellationToken.Register(() => currentSignal.TrySetCanceled());
-                await currentSignal.Task;
+                using var registration = linkedCts.Token.Register(() => currentSignal.TrySetCanceled());
+
+                try
+                {
+                    await currentSignal.Task;
+                }
+                catch (TaskCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+                {
+                    throw new TimeoutException(
+                        $"SearchParameterCacheRefreshBackgroundService did not complete {cycleCount} refresh cycle(s) within 5 minutes. The server may be in an unhealthy state.");
+                }
             }
         }
 
