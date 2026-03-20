@@ -182,7 +182,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public override void Dispose()
         {
-            _refreshTimer?.Dispose();
+            // Use Timer.Dispose(WaitHandle) to block until any in-flight callback completes,
+            // ensuring _refreshSemaphore is not accessed after disposal.
+            if (_refreshTimer != null)
+            {
+                using var timerDisposed = new ManualResetEvent(false);
+                if (_refreshTimer.Dispose(timerDisposed))
+                {
+                    timerDisposed.WaitOne();
+                }
+            }
+
             _refreshSemaphore?.Dispose();
             base.Dispose();
             GC.SuppressFinalize(this);
