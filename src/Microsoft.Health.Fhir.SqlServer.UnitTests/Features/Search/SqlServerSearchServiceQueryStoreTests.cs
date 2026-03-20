@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -836,6 +837,225 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     Arg.Any<string>()))
                 .Do(x => throw new InvalidOperationException("No database"));
             return sqlRetryService;
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void StripAllWhitespace_NullEmptyOrWhitespaceInput_ReturnsEmpty(string input)
+        {
+            // Arrange & Act
+            string result = SqlServerSearchService.StripAllWhitespace(input);
+
+            // Assert
+            Assert.Equal(string.Empty, result);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_StripsAllSpaces()
+        {
+            // Arrange
+            string input = "SELECT  *   FROM    dbo.Resource";
+
+            // Act
+            string result = SqlServerSearchService.StripAllWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_StripsTabsAndNewlines()
+        {
+            // Arrange
+            string input = "SELECT\t*\r\nFROM\n\tdbo.Resource";
+
+            // Act
+            string result = SqlServerSearchService.StripAllWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_StripsMixedWhitespace()
+        {
+            // Arrange
+            string input = "  SELECT \t\r\n  *  \n\n  FROM  \r\n  dbo.Resource  ";
+
+            // Act
+            string result = SqlServerSearchService.StripAllWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_StripsAllWhitespaceFromFormattedQuery()
+        {
+            // Arrange
+            string input = "SELECT * FROM dbo.Resource";
+
+            // Act
+            string result = SqlServerSearchService.StripAllWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECT*FROMdbo.Resource", result);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_HandlesDifferentEngineFormats()
+        {
+            // Arrange - simulates how different SQL engines might format the same query
+            string engineA = "SELECT *\r\nFROM dbo.Resource\r\nWHERE Id = @p0";
+            string engineB = "SELECT *\nFROM dbo.Resource\nWHERE Id = @p0";
+            string engineC = "SELECT * FROM dbo.Resource WHERE Id = @p0";
+
+            // Act
+            string resultA = SqlServerSearchService.StripAllWhitespace(engineA);
+            string resultB = SqlServerSearchService.StripAllWhitespace(engineB);
+            string resultC = SqlServerSearchService.StripAllWhitespace(engineC);
+
+            // Assert - all should normalize to the same string
+            Assert.Equal(resultA, resultB);
+            Assert.Equal(resultB, resultC);
+        }
+
+        [Theory]
+        [InlineData("SELECT\tFROM", "SELECTFROM")]// tab (CHAR 9)
+        [InlineData("SELECT\nFROM", "SELECTFROM")]// line feed (CHAR 10)
+        [InlineData("SELECT\rFROM", "SELECTFROM")]// carriage return (CHAR 13)
+        [InlineData("SELECT\r\nFROM", "SELECTFROM")]// CRLF (CHAR 13+10)
+        [InlineData("SELECT FROM", "SELECTFROM")]// space (CHAR 32)
+        [InlineData("SELECT\fFROM", "SELECTFROM")]// form feed (CHAR 12)
+        [InlineData("SELECT\vFROM", "SELECTFROM")]// vertical tab (CHAR 11)
+        public void StripAllWhitespace_StripsEachIndividualWhitespaceCharacter(string input, string expected)
+        {
+            // Act
+            string result = SqlServerSearchService.StripAllWhitespace(input);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_StripsMultipleConsecutiveMixedWhitespaceCharacters()
+        {
+            // Arrange - every whitespace character type back to back
+            string input = "SELECT\t \r\n\r\f\vFROM";
+
+            // Act
+            string result = SqlServerSearchService.StripAllWhitespace(input);
+
+            // Assert
+            Assert.Equal("SELECTFROM", result);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_MatchesRealWorldDatabaseStorageFormat()
+        {
+            // Arrange - simulates the actual query text a SQL Server database stores,
+            // where ↵ (LF, CHAR 10) separates logical lines as seen in database tooling.
+            // The database may add extras the C# query does not have:
+            //   - a parameter declaration preamble e.g. "(@p0 int)"
+            //   - index hints e.g. WITH (INDEX(...))
+            // So we assert on two fragments that are guaranteed to appear verbatim in the
+            // database text regardless of those additions.
+            string databaseFormat = "(@p0 int)SELECT TOP (@p0) * FROM (SELECT r.ResourceTypeId, r.ResourceId\nFROM dbo.Resource r WITH (INDEX(IX_Resource_ResourceTypeId_ResourceSurrgateId))\nWHERE ResourceTypeId = 128\n    AND IsHistory = 0 \n    AND IsDeleted = 0 \n) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC";
+
+            // Fragment before the index hint — present in both C# query and database text
+            string fragmentBeforeHint = "SELECT TOP (@p0) * FROM (SELECT r.ResourceTypeId, r.ResourceId";
+
+            // Fragment after the index hint — present in both C# query and database text
+            string fragmentAfterHint = "WHERE ResourceTypeId = 128 AND IsHistory = 0 AND IsDeleted = 0 ) AS t ORDER BY t.ResourceTypeId DESC, t.ResourceSurrogateId DESC";
+
+            // Act
+            string normalizedDatabase = SqlServerSearchService.StripAllWhitespace(databaseFormat);
+            string normalizedBefore = SqlServerSearchService.StripAllWhitespace(fragmentBeforeHint);
+            string normalizedAfter = SqlServerSearchService.StripAllWhitespace(fragmentAfterHint);
+
+            // Assert - both fragments must be findable inside the normalized database text
+            Assert.Contains(normalizedBefore, normalizedDatabase, StringComparison.Ordinal);
+            Assert.Contains(normalizedAfter, normalizedDatabase, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_IsIdempotent()
+        {
+            // Arrange - stripping an already-stripped string should produce the same result
+            string input = "SELECT\t *\r\n  FROM  \n\t dbo.Resource  \r\n WHERE Id = @p0";
+
+            // Act
+            string firstPass = SqlServerSearchService.StripAllWhitespace(input);
+            string secondPass = SqlServerSearchService.StripAllWhitespace(firstPass);
+
+            // Assert
+            Assert.Equal(firstPass, secondPass);
+        }
+
+        [Fact]
+        public void StripAllWhitespace_TruncationAfterStrippingPreservesMoreContent()
+        {
+            // Arrange - a heavily whitespace-padded fragment whose raw length exceeds 4000
+            // but whose stripped length is well under. Verifies that normalizing BEFORE
+            // truncating (as the production code does) keeps more meaningful content than
+            // truncating first would.
+            string paddedWord = "SELECT" + new string(' ', 500);  // 506 chars, 6 meaningful
+            string input = string.Concat(Enumerable.Repeat(paddedWord, 10)); // 5060 raw chars, 60 meaningful
+
+            // Act - normalize first (production order), then cap
+            string strippedFirst = SqlServerSearchService.StripAllWhitespace(input);
+            string truncatedAfter = strippedFirst.Length > 4000 ? strippedFirst[..4000] : strippedFirst;
+
+            // Act - truncate first (old order), then strip
+            string truncatedFirst = input.Length > 4000 ? input[..4000] : input;
+            string normalizedAfter = SqlServerSearchService.StripAllWhitespace(truncatedFirst);
+
+            // Assert - normalizing first yields more useful content (all 10 SELECT tokens vs fewer)
+            Assert.True(
+                truncatedAfter.Length >= normalizedAfter.Length,
+                "Normalizing before truncating should preserve at least as much meaningful content.");
+            Assert.Equal("SELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECTSELECT", truncatedAfter);
+        }
+
+        // -----------------------------------------------------------------------
+        // StripDboSchemaPrefix
+        // -----------------------------------------------------------------------
+
+        [Theory]
+        [InlineData("dbo.GetResourcesByTypeAndSurrogateIdRange", "GetResourcesByTypeAndSurrogateIdRange")]
+        [InlineData("DBO.GetResourcesByTypeAndSurrogateIdRange", "GetResourcesByTypeAndSurrogateIdRange")]
+        [InlineData("Dbo.GetResourcesByTypeAndSurrogateIdRange", "GetResourcesByTypeAndSurrogateIdRange")]
+        public void StripDboSchemaPrefix_RemovesDboPrefix_CaseInsensitive(string input, string expected)
+        {
+            // Act
+            string result = SqlServerSearchService.StripDboSchemaPrefix(input);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("GetResourcesByTypeAndSurrogateIdRange")]
+        [InlineData("SomeSchema.MyProc")]
+        public void StripDboSchemaPrefix_NoDboPrefix_ReturnsUnchanged(string input)
+        {
+            // Act
+            string result = SqlServerSearchService.StripDboSchemaPrefix(input);
+
+            // Assert
+            Assert.Equal(input, result);
+        }
+
+        [Fact]
+        public void StripDboSchemaPrefix_NullInput_ReturnsNull()
+        {
+            // Act
+            string result = SqlServerSearchService.StripDboSchemaPrefix(null);
+
+            // Assert
+            Assert.Null(result);
         }
     }
 }
