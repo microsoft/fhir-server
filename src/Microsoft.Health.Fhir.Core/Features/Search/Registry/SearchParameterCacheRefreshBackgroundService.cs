@@ -30,7 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
         private readonly ILogger<SearchParameterCacheRefreshBackgroundService> _logger;
         private readonly TimeSpan _refreshInterval;
+#pragma warning disable CA2213 // Disposed via Timer.Dispose(WaitHandle) overload in Dispose()
         private readonly Timer _refreshTimer;
+#pragma warning restore CA2213
         private readonly SemaphoreSlim _refreshSemaphore;
         private bool _isInitialized;
         private CancellationToken _stoppingToken;
