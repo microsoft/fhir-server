@@ -1,3 +1,5 @@
+IF object_id('UpsertSearchParamsWithOptimisticConcurrency') IS NOT NULL DROP PROCEDURE UpsertSearchParamsWithOptimisticConcurrency
+GO
 ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
            ,@IsResourceChangeCaptureEnabled bit = 0
            ,@TransactionId bigint = NULL
