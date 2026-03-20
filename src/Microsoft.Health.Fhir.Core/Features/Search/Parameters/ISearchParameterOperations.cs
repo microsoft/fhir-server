@@ -36,5 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
 
         string GetSearchParameterHash(string resourceType);
+
+        /// <summary>
+        /// Waits for the specified number of successful cache refresh cycles to complete.
+        /// Each cycle corresponds to a successful execution of the background cache refresh service.
+        /// </summary>
+        /// <param name="cycleCount">The number of successful refresh cycles to wait for. If zero or negative, returns immediately.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes when the requested number of refresh cycles have occurred.</returns>
+        Task WaitForRefreshCyclesAsync(int cycleCount, CancellationToken cancellationToken);
     }
 }

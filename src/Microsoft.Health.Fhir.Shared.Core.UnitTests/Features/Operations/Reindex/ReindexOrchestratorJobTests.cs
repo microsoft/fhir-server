@@ -264,6 +264,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.CancelAfter(10); // Cancel after short delay
 
+            // Make WaitForRefreshCyclesAsync block until cancellation, simulating a real wait
+            _searchParameterOperations.WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var ct = callInfo.ArgAt<CancellationToken>(1);
+                    return Task.Delay(Timeout.Infinite, ct);
+                });
+
             var jobInfo = await CreateReindexJobRecord();
             var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: 1);
 
@@ -2037,6 +2045,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // Assert
             Assert.NotNull(jobResult);
+        }
+
+        [Fact]
+        public async Task RefreshSearchParameterCache_WaitsForConfiguredNumberOfCacheRefreshCycles()
+        {
+            // Arrange
+            int configuredMultiplier = 3;
+
+            var emptyStatus = new List<ResourceSearchParameterStatus>();
+            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+                .Returns(emptyStatus);
+
+            var jobInfo = await CreateReindexJobRecord();
+            var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: configuredMultiplier);
+
+            // Act
+            var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+
+            // Assert - WaitForRefreshCyclesAsync should have been called twice (Start and End) with the configured multiplier
+            await _searchParameterOperations.Received(2).WaitForRefreshCyclesAsync(configuredMultiplier, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task RefreshSearchParameterCache_WithZeroMultiplier_DoesNotWait()
+        {
+            // Arrange
+            var emptyStatus = new List<ResourceSearchParameterStatus>();
+            _searchParameterStatusManager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>())
+                .Returns(emptyStatus);
+
+            var jobInfo = await CreateReindexJobRecord();
+            var orchestrator = CreateReindexOrchestratorJob(waitMultiplier: 0);
+
+            // Act
+            var result = await orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+
+            // Assert - WaitForRefreshCyclesAsync should have been called with 0 (returns immediately)
+            await _searchParameterOperations.Received(2).WaitForRefreshCyclesAsync(0, Arg.Any<CancellationToken>());
         }
     }
 }

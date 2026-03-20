@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -21,11 +22,12 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class SearchParameterOperations : ISearchParameterOperations
+    public class SearchParameterOperations : ISearchParameterOperations, INotificationHandler<SearchParameterCacheRefreshedNotification>
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
@@ -36,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
+        private volatile TaskCompletionSource<bool> _refreshSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
@@ -79,6 +82,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             else
             {
                 return _searchParameterDefinitionManager.SearchParameterHashMap.TryGetValue(resourceType, out string hash) ? hash : null;
+            }
+        }
+
+        /// <inheritdoc />
+        public Task Handle(SearchParameterCacheRefreshedNotification notification, CancellationToken cancellationToken)
+        {
+            // Swap in a new TCS and complete the old one, signaling all waiters
+            var previous = Interlocked.Exchange(ref _refreshSignal, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
+            previous.TrySetResult(true);
+            return Task.CompletedTask;
+        }
+
+        /// <inheritdoc />
+        public async Task WaitForRefreshCyclesAsync(int cycleCount, CancellationToken cancellationToken)
+        {
+            if (cycleCount <= 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < cycleCount; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Capture the current signal before awaiting
+                var currentSignal = _refreshSignal;
+                using var registration = cancellationToken.Register(() => currentSignal.TrySetCanceled());
+                await currentSignal.Task;
             }
         }
 

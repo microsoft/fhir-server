@@ -160,7 +160,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<ISearchParameterValidator, SearchParameterValidator>();
             services.AddSingleton<SearchParameterFilterAttribute>();
-            services.AddSingleton<ISearchParameterOperations, SearchParameterOperations>();
+
+            services
+                .RemoveServiceTypeExact<SearchParameterOperations, INotificationHandler<SearchParameterCacheRefreshedNotification>>()
+                .Add<SearchParameterOperations>()
+                .Singleton()
+                .AsSelf()
+                .AsService<ISearchParameterOperations>()
+                .AsService<INotificationHandler<SearchParameterCacheRefreshedNotification>>();
+
             services.AddSingleton<ISearchParameterComparer<SearchParameterInfo>, SearchParameterComparer>();
 
             services.AddTransient<MissingDataFilterCriteria>();

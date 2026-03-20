@@ -134,6 +134,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 _logger.LogJobWarning(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+
+                // Wait for background cache refresh cycles to bring this host's cache up to date
+                _logger.LogJobInformation(_jobInfo, "Waiting for background cache refresh cycles to resolve hash mismatch...");
+                await _searchParameterOperations.WaitForRefreshCyclesAsync(3, cancellationToken);
+
+                // Re-read hash after refresh cycles
+                searchParameterHash = _searchParameterOperations.GetSearchParameterHash(resourceType);
+                isBad = requestedSearchParameterHash != searchParameterHash;
+                if (isBad)
+                {
+                    msg = $"ResourceType={resourceType} SearchParameterHash still mismatched after waiting for cache refresh cycles: Requested={requestedSearchParameterHash} != Current={searchParameterHash}";
+                    _logger.LogJobError(_jobInfo, msg);
+                    await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Error", msg, null, cancellationToken);
+                    throw new ReindexJobException(msg);
+                }
+
+                msg = $"ResourceType={resourceType} SearchParameterHash resolved after cache refresh cycles: Requested={requestedSearchParameterHash} = Current={searchParameterHash}";
+                _logger.LogJobInformation(_jobInfo, msg);
+                await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.GetResourcesToReindexAsync", "Warn", msg, null, cancellationToken);
             }
             else
             {
@@ -150,11 +169,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             isBad = _reindexProcessingJobDefinition.SearchParamLastUpdated > currentDate;
             msg = $"SearchParamLastUpdated: Requested={requested} {(isBad ? ">" : "<=")} Current={current}";
             //// If timestamp from definition (requested by orchestrator) is more recent, then cache on processing VM is stale.
-            //// Cannot just refresh here because we might be missing resources updated via API.
             if (isBad)
             {
                 _logger.LogJobWarning(_jobInfo, msg);
                 await TryLogEvent($"ReindexProcessingJob={_jobInfo.Id}.ExecuteAsync", "Error", msg, null, cancellationToken); // elevate in SQL to log w/o extra settings
+
+                // Cache already refreshed via hash wait above, but timestamp may still lag.
+                // Log the discrepancy but proceed — the hash match is the critical check.
             }
             else // normal
             {

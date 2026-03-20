@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
     {
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IMediator _mediator;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
         private readonly ILogger<SearchParameterCacheRefreshBackgroundService> _logger;
         private readonly TimeSpan _refreshInterval;
@@ -37,11 +38,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public SearchParameterCacheRefreshBackgroundService(
             ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
+            IMediator mediator,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SearchParameterCacheRefreshBackgroundService> logger)
         {
             _searchParameterStatusManager = EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -120,6 +123,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 _logger.LogInformation("Performing incremental SearchParameter cache refresh...");
                 await _searchParameterOperations.GetAndApplySearchParameterUpdates(_stoppingToken, false);
                 _logger.LogInformation("Completed incremental SearchParameter cache refresh.");
+
+                await _mediator.Publish(new SearchParameterCacheRefreshedNotification(), _stoppingToken);
             }
             catch (OperationCanceledException)
             {

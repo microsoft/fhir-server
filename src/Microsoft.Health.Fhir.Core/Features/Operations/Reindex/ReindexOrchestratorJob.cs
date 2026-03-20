@@ -43,7 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly bool _isSurrogateIdRangingSupported;
-        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly OperationsConfiguration _operationsConfiguration;
 
         private CancellationToken _cancellationToken;
@@ -119,7 +118,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _modelInfoProvider = modelInfoProvider;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
-            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _operationsConfiguration = operationsConfiguration.Value;
 
             // Determine support for surrogate ID ranging once
@@ -189,18 +187,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return JsonConvert.SerializeObject(_currentResult);
         }
 
-        private async Task WaitForRefresh()
-        {
-            await Task.Delay(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _coreFeatureConfiguration.SearchParameterCacheRefreshIntervalSeconds * 1000, _cancellationToken);
-        }
-
         private async Task RefreshSearchParameterCache(bool isReindexStart)
         {
-            // before starting anything wait for natural cache refresh. this will also make sure that all processing pods have latest search param definitions.
+            // Wait for the background cache refresh service to complete N successful refresh cycles.
+            // This ensures all instances (including processing pods) have the latest search parameter definitions.
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
-            await WaitForRefresh(); // wait for M * cache refresh intervals
+            await _searchParameterOperations.WaitForRefreshCyclesAsync(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier, _cancellationToken);
 
             // Update the reindex job record with the latest hash map
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
