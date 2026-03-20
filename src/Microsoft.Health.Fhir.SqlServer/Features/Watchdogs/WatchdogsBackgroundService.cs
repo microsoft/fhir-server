@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ExpiredResourceCleanupWatchdog _expiredResourceCleanupWatchdog;
         private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly WatchdogConfiguration _watchdogConfiguration;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
@@ -38,7 +39,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             ExpiredResourceCleanupWatchdog expiredResourceCleanupWatchdog,
             GeoReplicationLagWatchdog geoReplicationLagWatchdog,
-            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
+            IOptions<WatchdogConfiguration> watchdogConfiguration)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
@@ -47,6 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _expiredResourceCleanupWatchdog = EnsureArg.IsNotNull(expiredResourceCleanupWatchdog, nameof(expiredResourceCleanupWatchdog));
             _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
+            _watchdogConfiguration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -65,13 +68,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                _expiredResourceCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
 
             // Only add GeoReplicationLagWatchdog if the feature is enabled
             if (_coreFeatureConfiguration.EnableGeoRedundancy)
             {
                 tasks.Add(_geoReplicationLagWatchdog.ExecuteAsync(continuationTokenSource.Token));
+            }
+
+            if (_watchdogConfiguration.ExpiredResource.Enabled)
+            {
+                tasks.Add(_expiredResourceCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token));
             }
 
             await Task.WhenAny(tasks);

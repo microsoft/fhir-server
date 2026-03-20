@@ -522,7 +522,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     uri = context.Uri;
                 }
-                catch (Exception ex)
+                catch (UriFormatException ex)
                 {
                     _logger.LogWarning(ex, "Failed to read request URI from the request context during delete audit logging.");
                 }

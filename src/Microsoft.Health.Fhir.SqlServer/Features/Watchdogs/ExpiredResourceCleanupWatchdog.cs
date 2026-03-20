@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     /// </summary>
     internal sealed class ExpiredResourceCleanupWatchdog : Watchdog<ExpiredResourceCleanupWatchdog>
     {
-        private const int DefaultPeriodSec = 7200; // 2 hours
+        private const int DefaultPeriodSec = 8 * 3600; // 8 hours
         private const int DefaultLeasePeriodSec = 3600; // 1 hour
 
         private readonly ISqlRetryService _sqlRetryService;
