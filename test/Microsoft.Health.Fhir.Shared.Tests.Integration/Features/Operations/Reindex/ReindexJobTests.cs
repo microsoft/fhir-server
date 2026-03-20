@@ -201,7 +201,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             if (_cacheRefreshBackgroundService != null)
             {
                 await _cacheRefreshBackgroundService.StopAsync(CancellationToken.None);
-                _cacheRefreshBackgroundService.Dispose();
             }
 
             // Clean up resources before finishing test class
