@@ -37,6 +37,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -94,6 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
         private readonly IOptions<ReindexJobConfiguration> _optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+        private SearchParameterCacheRefreshBackgroundService _cacheRefreshBackgroundService;
 
         public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
@@ -148,6 +150,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 () => _searchService,
                 NullLogger<SearchParameterOperations>.Instance);
 
+            // Build a MediatR that routes SearchParameterCacheRefreshedNotification to _searchParameterOperations
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddSingleton<INotificationHandler<SearchParameterCacheRefreshedNotification>>((SearchParameterOperations)_searchParameterOperations);
+            serviceCollection.AddSingleton<IMediator, Mediator>();
+            var serviceProvider = serviceCollection.BuildServiceProvider();
+            var mediator = serviceProvider.GetRequiredService<IMediator>();
+
+            // Start background service so it publishes SearchParameterCacheRefreshedNotification
+            _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
+            {
+                SearchParameterCacheRefreshIntervalSeconds = 1,
+            });
+            _cacheRefreshBackgroundService = new SearchParameterCacheRefreshBackgroundService(
+                _searchParameterStatusManager,
+                (SearchParameterOperations)_searchParameterOperations,
+                mediator,
+                _coreFeatureConfig,
+                NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
+
+            // Start the background service and trigger initialization so it begins publishing notifications
+            await _cacheRefreshBackgroundService.StartAsync(CancellationToken.None);
+            await _cacheRefreshBackgroundService.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+
             _createReindexRequestHandler = new CreateReindexRequestHandler(
                                                 _fhirOperationDataStore,
                                                 DisabledFhirAuthorizationService.Instance,
@@ -175,6 +200,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             // Clean up resources before finishing test class
             await DeleteTestResources();
+
+            if (_cacheRefreshBackgroundService != null)
+            {
+                await _cacheRefreshBackgroundService.StopAsync(CancellationToken.None);
+                _cacheRefreshBackgroundService.Dispose();
+            }
 
             await StopJobHostingBackgroundServiceAsync();
 
@@ -223,11 +254,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
 
                     IJob job = null;
-
-                    _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
-                    {
-                        SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
-                    });
 
                     if (typeId == (int)JobType.ReindexOrchestrator)
                     {
