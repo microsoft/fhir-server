@@ -198,14 +198,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task DisposeAsync()
         {
-            // Clean up resources before finishing test class
-            await DeleteTestResources();
-
+            // Stop the background service first to prevent timer callbacks during cleanup
             if (_cacheRefreshBackgroundService != null)
             {
                 await _cacheRefreshBackgroundService.StopAsync(CancellationToken.None);
                 _cacheRefreshBackgroundService.Dispose();
             }
+
+            // Clean up resources before finishing test class
+            await DeleteTestResources();
 
             await StopJobHostingBackgroundServiceAsync();
 
