@@ -6,7 +6,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -27,7 +26,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
     {
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private readonly IMediator _mediator;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
         private readonly SearchParameterCacheRefreshBackgroundService _service;
 
@@ -35,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
             _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
-            _mediator = Substitute.For<IMediator>();
             _coreFeatureConfiguration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             _coreFeatureConfiguration.Value.Returns(new CoreFeatureConfiguration
             {
@@ -46,7 +43,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 _coreFeatureConfiguration,
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
         }
@@ -80,7 +76,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 options,
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
 
@@ -104,7 +99,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 options,
                 mockLogger);
 
@@ -137,7 +131,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 options,
                 mockLogger);
 
@@ -160,20 +153,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Throws<ArgumentNullException>(() => new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 null,
-                NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
-        }
-
-        [Fact]
-        public void Constructor_WithNullMediator_ShouldThrow()
-        {
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new SearchParameterCacheRefreshBackgroundService(
-                _searchParameterStatusManager,
-                _searchParameterOperations,
-                null,
-                _coreFeatureConfiguration,
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
         }
 
@@ -184,7 +164,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Throws<ArgumentNullException>(() => new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 null,
-                _mediator,
                 _coreFeatureConfiguration,
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
         }
@@ -196,7 +175,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Throws<ArgumentNullException>(() => new SearchParameterCacheRefreshBackgroundService(
                 null,
                 _searchParameterOperations,
-                _mediator,
                 _coreFeatureConfiguration,
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance));
         }
@@ -208,7 +186,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             Assert.Throws<ArgumentNullException>(() => new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 _coreFeatureConfiguration,
                 null));
         }
@@ -240,7 +217,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 _coreFeatureConfiguration,
                 mockLogger);
 
@@ -279,7 +255,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 _coreFeatureConfiguration,
                 mockLogger);
 
@@ -309,7 +284,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 _coreFeatureConfiguration,
                 mockLogger);
 
@@ -344,7 +318,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
-                _mediator,
                 _coreFeatureConfiguration,
                 mockLogger);
 

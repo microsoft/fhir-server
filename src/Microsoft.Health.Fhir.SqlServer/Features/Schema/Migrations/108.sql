@@ -1369,6 +1369,50 @@ WHERE  Status = 'Running'
        OR Status = 'Paused';
 
 GO
+CREATE OR ALTER PROCEDURE dbo.CheckSearchParamCacheConsistency
+@TargetSearchParamLastUpdated VARCHAR (100), @StalenessThresholdMinutes INT=10
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = '@Target=' + @TargetSearchParamLastUpdated + ' @Staleness=' + CONVERT (VARCHAR, @StalenessThresholdMinutes), @st AS DATETIME = getUTCdate(), @Txt AS VARCHAR (1000), @TotalActiveHosts AS INT, @ConvergedHosts AS INT = 0;
+BEGIN TRY
+    DECLARE @ActiveHosts TABLE (
+        HostName VARCHAR (256) NOT NULL PRIMARY KEY);
+    INSERT INTO @ActiveHosts
+    SELECT DISTINCT HostName
+    FROM   dbo.EventLog
+    WHERE  EventDate > dateadd(minute, -@StalenessThresholdMinutes, getUTCdate())
+           AND HostName IS NOT NULL;
+    SET @TotalActiveHosts = (SELECT count(*)
+                             FROM   @ActiveHosts);
+    SELECT @ConvergedHosts = count(DISTINCT E.HostName)
+    FROM   dbo.EventLog AS E
+           INNER JOIN
+           @ActiveHosts AS A
+           ON A.HostName = E.HostName
+    WHERE  E.Process = 'SearchParameterCacheRefresh'
+           AND E.Status = 'End'
+           AND E.EventDate > dateadd(minute, -@StalenessThresholdMinutes, getUTCdate())
+           AND E.EventText LIKE 'SearchParamLastUpdated=%'
+           AND substring(E.EventText, 26, 100) >= @TargetSearchParamLastUpdated;
+    SELECT @TotalActiveHosts AS TotalActiveHosts,
+           @ConvergedHosts AS ConvergedHosts;
+    SET @Txt = 'TotalActiveHosts=' + CONVERT (VARCHAR, @TotalActiveHosts) + ' ConvergedHosts=' + CONVERT (VARCHAR, @ConvergedHosts);
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @Txt;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
+    THROW;
+END CATCH
+
+
+GO
+INSERT INTO Parameters (Id, Char)
+SELECT 'SearchParameterCacheRefresh',
+       'LogEvent';
+
+GO
 CREATE PROCEDURE dbo.CleanupEventLog
 WITH EXECUTE AS 'dbo'
 AS
@@ -1957,6 +2001,12 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
     THROW;
 END CATCH
+
+
+GO
+INSERT INTO Parameters (Id, Char)
+SELECT 'DequeueJob',
+       'LogEvent';
 
 GO
 CREATE PROCEDURE dbo.DisableIndex

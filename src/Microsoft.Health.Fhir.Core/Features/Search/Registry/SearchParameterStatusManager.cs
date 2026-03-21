@@ -265,6 +265,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return tempStatus;
         }
 
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, CancellationToken cancellationToken)
+        {
+            return await _searchParameterStatusDataStore.CheckCacheConsistencyAsync(targetSearchParamLastUpdated, cancellationToken);
+        }
+
         private struct TempStatus
         {
             public bool IsSearchable;

@@ -150,14 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 () => _searchService,
                 NullLogger<SearchParameterOperations>.Instance);
 
-            // Build a MediatR that routes SearchParameterCacheRefreshedNotification to _searchParameterOperations
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddSingleton<INotificationHandler<SearchParameterCacheRefreshedNotification>>((SearchParameterOperations)_searchParameterOperations);
-            serviceCollection.AddSingleton<IMediator, Mediator>();
-            var serviceProvider = serviceCollection.BuildServiceProvider();
-            var mediator = serviceProvider.GetRequiredService<IMediator>();
-
-            // Start background service so it publishes SearchParameterCacheRefreshedNotification
+            // Start background service so it triggers GetAndApplySearchParameterUpdates which signals the TCS.
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
             {
                 SearchParameterCacheRefreshIntervalSeconds = 1,
@@ -165,11 +158,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _cacheRefreshBackgroundService = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 (SearchParameterOperations)_searchParameterOperations,
-                mediator,
                 _coreFeatureConfig,
                 NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
 
-            // Start the background service and trigger initialization so it begins publishing notifications
+            // Start the primary background service and trigger initialization so it begins refreshing immediately.
             await _cacheRefreshBackgroundService.StartAsync(CancellationToken.None);
             await _cacheRefreshBackgroundService.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
@@ -190,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
 
-            // Initialize second FHIR service
+            // Initialize second FHIR service.
             await InitializeSecondFHIRService();
 
             await InitializeJobHosting();

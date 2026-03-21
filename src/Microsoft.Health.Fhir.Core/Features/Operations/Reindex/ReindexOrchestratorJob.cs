@@ -194,7 +194,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
+
+            // First, wait for the local background refresh service to complete N cycles.
+            // This ensures _searchParamLastUpdated is up-to-date on THIS instance before
+            // we use it as the convergence target for cross-instance checks.
             await _searchParameterOperations.WaitForRefreshCyclesAsync(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier, _cancellationToken);
+
+            // SQL Server: After local refresh, verify ALL instances have converged to
+            // the same SearchParamLastUpdated via the EventLog table. This prevents the
+            // orchestrator from creating reindex ranges while other instances still have
+            // stale search parameter caches and would write resources with wrong hashes.
+            await _searchParameterOperations.WaitForAllInstancesCacheConsistencyAsync(_cancellationToken);
 
             // Update the reindex job record with the latest hash map
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;

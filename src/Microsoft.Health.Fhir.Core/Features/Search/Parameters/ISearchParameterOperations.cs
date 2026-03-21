@@ -45,5 +45,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A task that completes when the requested number of refresh cycles have occurred.</returns>
         Task WaitForRefreshCyclesAsync(int cycleCount, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Waits until all active server instances have converged their search parameter caches
+        /// to the current instance's SearchParamLastUpdated timestamp. For SQL, this verifies via
+        /// the EventLog table. For Cosmos/File-based, this returns immediately.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes when all instances have consistent caches.</returns>
+        Task WaitForAllInstancesCacheConsistencyAsync(CancellationToken cancellationToken);
     }
 }

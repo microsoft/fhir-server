@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -22,12 +21,11 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class SearchParameterOperations : ISearchParameterOperations, INotificationHandler<SearchParameterCacheRefreshedNotification>
+    public class SearchParameterOperations : ISearchParameterOperations
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
@@ -86,15 +84,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <inheritdoc />
-        public Task Handle(SearchParameterCacheRefreshedNotification notification, CancellationToken cancellationToken)
-        {
-            // Swap in a new TCS and complete the old one, signaling all waiters
-            var previous = Interlocked.Exchange(ref _refreshSignal, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
-            previous.TrySetResult(true);
-            return Task.CompletedTask;
-        }
-
-        /// <inheritdoc />
         public async Task WaitForRefreshCyclesAsync(int cycleCount, CancellationToken cancellationToken)
         {
             if (cycleCount <= 0)
@@ -126,6 +115,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         $"SearchParameterCacheRefreshBackgroundService did not complete {cycleCount} refresh cycle(s) within 5 minutes. The server may be in an unhealthy state.");
                 }
             }
+        }
+
+        /// <inheritdoc />
+        public async Task WaitForAllInstancesCacheConsistencyAsync(CancellationToken cancellationToken)
+        {
+            if (!_searchParamLastUpdated.HasValue)
+            {
+                _logger.LogInformation("SearchParamLastUpdated is null — skipping cross-instance cache consistency check.");
+                return;
+            }
+
+            var targetTimestamp = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
+
+            // Poll with a timeout — same 10-minute safety net as WaitForRefreshCyclesAsync
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+            while (!linkedCts.Token.IsCancellationRequested)
+            {
+                var result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(targetTimestamp, linkedCts.Token);
+
+                if (result.IsConsistent)
+                {
+                    _logger.LogInformation(
+                        "All {TotalActiveHosts} active host(s) have converged to SearchParamLastUpdated={Target}.",
+                        result.TotalActiveHosts,
+                        targetTimestamp);
+                    return;
+                }
+
+                _logger.LogInformation(
+                    "Cache consistency check: {ConvergedHosts}/{TotalActiveHosts} hosts converged to SearchParamLastUpdated={Target}. Waiting...",
+                    result.ConvergedHosts,
+                    result.TotalActiveHosts,
+                    targetTimestamp);
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), linkedCts.Token);
+                }
+                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+                {
+                    throw new TimeoutException(
+                        $"Not all instances converged to SearchParamLastUpdated={targetTimestamp} within 5 minutes. The server may be in an unhealthy state.");
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
         public async Task EnsureNoActiveReindexJobAsync(CancellationToken cancellationToken)
@@ -354,6 +391,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             if (results.LastUpdated.HasValue && inCache && allHaveResources) // this should be the ony place in the code to assign last updated
             {
                 _searchParamLastUpdated = results.LastUpdated.Value;
+
+                // Signal waiters that a refresh cycle has completed.
+                // This fires every cycle (even when no changes are found) because
+                // WaitForRefreshCyclesAsync counts completed cycles, not cycles with changes.
+                var previous = Interlocked.Exchange(ref _refreshSignal, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
+                previous.TrySetResult(true);
+
+                // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops)
+                try
+                {
+                    var lastUpdatedText = _searchParamLastUpdated.HasValue
+                        ? _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")
+                        : "null";
+                    using IScoped<ISearchService> searchService = _searchServiceFactory();
+                    await searchService.Value.TryLogEvent(
+                        "SearchParameterCacheRefresh",
+                        "End",
+                        $"SearchParamLastUpdated={lastUpdatedText}",
+                        null,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log SearchParameterCacheRefresh event. Cross-instance convergence checks may be affected.");
+                }
             }
         }
 

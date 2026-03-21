@@ -244,5 +244,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.OriginalString, status.Id);
             }
         }
+
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(targetSearchParamLastUpdated, nameof(targetSearchParamLastUpdated));
+
+            if (_schemaInformation.Current < (int)SchemaVersion.V108)
+            {
+                // Pre-V108 schemas don't have the sproc; assume consistent
+                return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 1, ConvergedHosts = 1 };
+            }
+
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.CheckSearchParamCacheConsistency";
+            cmd.Parameters.AddWithValue("@TargetSearchParamLastUpdated", targetSearchParamLastUpdated);
+
+            var results = await cmd.ExecuteReaderAsync(
+                _sqlRetryService,
+                (reader) =>
+                {
+                    var totalActiveHosts = reader.GetInt32(0);
+                    var convergedHosts = reader.GetInt32(1);
+                    return (totalActiveHosts, convergedHosts);
+                },
+                _logger,
+                cancellationToken);
+
+            if (results.Count > 0)
+            {
+                var (totalActiveHosts, convergedHosts) = results[0];
+                return new CacheConsistencyResult
+                {
+                    IsConsistent = totalActiveHosts > 0 && convergedHosts >= totalActiveHosts,
+                    TotalActiveHosts = totalActiveHosts,
+                    ConvergedHosts = convergedHosts,
+                };
+            }
+
+            // If no results, assume consistent (could be a fresh database)
+            return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 0, ConvergedHosts = 0 };
+        }
     }
 }

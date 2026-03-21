@@ -1315,7 +1315,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task CheckDiscrepancies_WhenHashMismatchResolvesAfterRefresh_ProceedsNormally()
+        public async Task CheckDiscrepancies_WhenHashMismatch_ThrowsReindexJobException()
         {
             // Arrange
             var expectedResourceType = "Account";
@@ -1338,9 +1338,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            // First call returns stale hash (mismatch), second call (after wait) returns matching hash
-            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
-                .Returns(staleHash, requestedHash);
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(staleHash);
 
             var jobInfo = new JobInfo()
             {
@@ -1352,33 +1350,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Status = JobStatus.Running,
             };
 
-            var searchResultEntries = Enumerable.Range(1, _mockedSearchCount)
-                .Select(i => CreateSearchResultEntry(i.ToString(), expectedResourceType))
-                .ToList();
+            // Act & Assert - Job should fail immediately on mismatch
+            var exception = await Assert.ThrowsAsync<ReindexJobException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            _searchService.SearchForReindexAsync(
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
-                false,
-                Arg.Any<CancellationToken>(),
-                true)
-                .Returns(new SearchResult(
-                    searchResultEntries,
-                    null,
-                    null,
-                    new List<Tuple<string, string>>()));
-
-            // Act
-            var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(
-                await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
-
-            // Assert - Job succeeded and WaitForRefreshCyclesAsync was called
-            Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
-            await _searchParameterOperations.Received(1).WaitForRefreshCyclesAsync(3, Arg.Any<CancellationToken>());
+            Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Current={staleHash}", exception.Message);
+            await _searchParameterOperations.DidNotReceive().WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
-        public async Task CheckDiscrepancies_WhenHashMismatchPersistsAfterRefresh_ThrowsReindexJobException()
+        public async Task CheckDiscrepancies_WhenHashMismatch_DoesNotWaitForRefresh()
         {
             // Arrange
             var expectedResourceType = "Account";
@@ -1401,7 +1382,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 TypeId = (int)JobType.ReindexProcessing,
             };
 
-            // Hash never resolves — stays mismatched even after refresh
             _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>())
                 .Returns(staleHash);
 
@@ -1415,12 +1395,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
                 Status = JobStatus.Running,
             };
 
-            // Act & Assert - Job should throw ReindexJobException due to persistent mismatch
+            // Act & Assert - Job should fail without trying to self-heal
             var exception = await Assert.ThrowsAsync<ReindexJobException>(
                 async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
 
-            Assert.Contains("still mismatched", exception.Message);
-            await _searchParameterOperations.Received(1).WaitForRefreshCyclesAsync(3, Arg.Any<CancellationToken>());
+            Assert.Contains($"ResourceType={expectedResourceType} SearchParameterHash: Requested={requestedHash} != Current={staleHash}", exception.Message);
+            await _searchParameterOperations.DidNotReceive().WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -1480,6 +1460,53 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             // Assert - Job succeeded and WaitForRefreshCyclesAsync was NOT called
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
+            await _searchParameterOperations.DidNotReceive().WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task CheckDiscrepancies_WhenSearchParamLastUpdatedIsStale_ThrowsReindexJobException()
+        {
+            // Arrange
+            var expectedResourceType = "Account";
+            var matchingHash = "matchingHash";
+            var requestedLastUpdated = new DateTimeOffset(2026, 1, 1, 0, 0, 1, TimeSpan.Zero);
+            var currentLastUpdated = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            var job = new ReindexProcessingJobDefinition()
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = expectedResourceType,
+                ResourceCount = new SearchResultReindex()
+                {
+                    Count = _mockedSearchCount,
+                    EndResourceSurrogateId = 0,
+                    StartResourceSurrogateId = 0,
+                },
+                SearchParameterHash = matchingHash,
+                SearchParamLastUpdated = requestedLastUpdated,
+                SearchParameterUrls = new List<string>() { "http://hl7.org/fhir/SearchParam/Account-status" },
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns(matchingHash);
+            _searchParameterOperations.SearchParamLastUpdated.Returns(currentLastUpdated);
+
+            var jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ReindexJobException>(
+                async () => await _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            Assert.Contains("SearchParamLastUpdated: Requested=2026-01-01 00:00:01.000 > Current=2026-01-01 00:00:00.000", exception.Message);
             await _searchParameterOperations.DidNotReceive().WaitForRefreshCyclesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
     }
