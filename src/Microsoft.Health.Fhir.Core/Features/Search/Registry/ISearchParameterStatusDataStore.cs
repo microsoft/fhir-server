@@ -19,5 +19,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);
 
         Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Checks whether all active instances have converged their search parameter caches
+        /// to at least the specified target timestamp.
+        /// </summary>
+        /// <param name="targetSearchParamLastUpdated">The target SearchParamLastUpdated timestamp to check for.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A <see cref="CacheConsistencyResult"/> indicating convergence status.</returns>
+        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, CancellationToken cancellationToken);
     }
 }

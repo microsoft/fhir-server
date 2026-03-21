@@ -15,7 +15,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
@@ -23,6 +25,8 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
+
+using FhirJobConflictException = global::Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 {
@@ -32,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
     {
         private IDeletionService _deleter;
         private BulkDeleteProcessingJob _processingJob;
+        private ISearchParameterOperations _searchParameterOperations;
         private ISearchService _searchService;
         private IQueueClient _queueClient;
 
@@ -42,7 +47,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 .Returns(Task.FromResult(new SearchResult(5, new List<Tuple<string, string>>())));
             _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
-            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeFactory(), _queueClient);
+            _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchParameterOperations, _searchService.CreateMockScopeFactory(), _queueClient);
         }
 
         [Fact]
@@ -102,6 +108,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             // Checks that the processing job removed the resource type that was processed and lists the remaining two resource types
             var actualDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
             Assert.Equal(2, actualDefinition.Type.SplitByOrSeparator().Count());
+        }
+
+        [Fact]
+        public async Task GivenProcessingJobForSearchParameter_WhenReindexStartsBeforeExecution_ThenConflictIsThrown()
+        {
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, KnownResourceTypes.SearchParameter, new List<Tuple<string, string>>(), new List<string>(), "https:\\test.com", "https:\\test.com", "test");
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            _searchParameterOperations
+                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
+                .Do(_ => throw new FhirJobConflictException("reindex running"));
+
+            await Assert.ThrowsAsync<FhirJobConflictException>(() => _processingJob.ExecuteAsync(jobInfo, CancellationToken.None));
+            await _deleter.DidNotReceiveWithAnyArgs().DeleteMultipleAsync(default, default, default);
         }
     }
 }
