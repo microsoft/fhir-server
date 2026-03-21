@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);
 
         Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
-        
+
         /// <summary>
         /// Checks whether all active instances have converged their search parameter caches
         /// to at least the specified target timestamp.
