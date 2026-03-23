@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
         internal const string LongRunningQueryDetailsParameterId = "Search.LongRunningQueryDetails.IsEnabled";
         internal const string LongRunningQueryDetailsThresholdId = "Search.LongRunningQueryDetails.Threshold";
-        internal const int LongRunningThresholdMillisecondsDefault = 5;
+        internal const int LongRunningThresholdMillisecondsDefault = 5000;
         private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
 
         public SqlServerSearchService(
