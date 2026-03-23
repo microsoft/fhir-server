@@ -366,11 +366,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
-            {
-                await LegacyInitializeSearchParameterStatuses(cancellationToken);
-                return;
-            }
+            await LegacyInitializeSearchParameterStatuses(cancellationToken);
+            return;
+
+            // if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
+            // {
+
+            // }
 
             _logger.LogInformation("Initializing search parameters statuses.");
 
