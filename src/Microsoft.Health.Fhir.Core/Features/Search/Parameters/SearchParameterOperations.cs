@@ -390,7 +390,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // if cache is updated directly and not from the database not all will have corresponding resources. Do not advance timestamp as results are not conclusive.
             if (results.LastUpdated.HasValue && inCache && allHaveResources) // this should be the ony place in the code to assign last updated
             {
-                _searchParamLastUpdated = results.LastUpdated.Value;
+                _searchParamLastUpdated = results.LastUpdated.Value;                
+
+                // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops)
+                try
+                {
+                    var lastUpdatedText = _searchParamLastUpdated.HasValue
+                        ? _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")
+                        : "null";
+                    using IScoped<ISearchService> searchService = _searchServiceFactory();
+                    await searchService.Value.TryLogEvent(
+                        "SearchParameterCacheRefresh",
+                        "End",
+                        $"SearchParamLastUpdated={lastUpdatedText}",
+                        null,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log SearchParameterCacheRefresh event. Cross-instance convergence checks may be affected.");
+                }
             }
 
             // Signal waiters that a refresh cycle has completed.
@@ -398,25 +417,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // WaitForRefreshCyclesAsync counts completed cycles, not cycles with changes.
             var previous = Interlocked.Exchange(ref _refreshSignal, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
             previous.TrySetResult(true);
-
-            // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops)
-            try
-            {
-                var lastUpdatedText = _searchParamLastUpdated.HasValue
-                    ? _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")
-                    : "null";
-                using IScoped<ISearchService> searchService = _searchServiceFactory();
-                await searchService.Value.TryLogEvent(
-                    "SearchParameterCacheRefresh",
-                    "End",
-                    $"SearchParamLastUpdated={lastUpdatedText}",
-                    null,
-                    cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to log SearchParameterCacheRefresh event. Cross-instance convergence checks may be affected.");
-            }
         }
 
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,
