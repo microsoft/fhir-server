@@ -372,12 +372,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var resourceTypes = new Dictionary<string, long>()
             {
-                { "Patient", 2000 },
+                { "Patient", 20 }, // Max include count is reduced to 10 for E2E test acconts
                 { "Group", 1 },
             };
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 2000);
-
+            await CreateGroupWithPatients(tag, 20);
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk delete
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(

@@ -86,6 +86,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds"] = "1";
             configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "5";
             configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
+            configuration["FhirServer:CoreFeatures:MaxIncludeCountPerSearch"] = "10";
+            configuration["FhirServer:CoreFeatures:DefaultIncludeCountPerSearch"] = "10";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
