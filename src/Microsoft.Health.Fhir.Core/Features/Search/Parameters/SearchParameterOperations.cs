@@ -390,7 +390,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // if cache is updated directly and not from the database not all will have corresponding resources. Do not advance timestamp as results are not conclusive.
             if (results.LastUpdated.HasValue && inCache && allHaveResources) // this should be the ony place in the code to assign last updated
             {
-                _searchParamLastUpdated = results.LastUpdated.Value;                
+                _searchParamLastUpdated = results.LastUpdated.Value;
 
                 // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops)
                 try
