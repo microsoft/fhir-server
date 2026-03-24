@@ -24,7 +24,7 @@ Privacy and security are top priorities and the FHIR Server for Azure has been d
 
 This open source project is fully backed by the Microsoft Healthcare team, but we know that this project will only get better with your feedback and contributions. We are leading the development of this code base, and test builds and deployments daily.
 
-There are also two managed offerings in Azure. One is a generally available offering called the [Azure API for FHIR](https://docs.microsoft.com/en-us/azure/healthcare-apis/azure-api-for-fhir/). The second is the [Azure Health Data Services](https://azure.microsoft.com/en-us/services/healthcare-apis/).  Azure Health Data Services includes the ability to deploy a FHIR server and a DICOM server in a single workspace. These Platform as a Service (PaaS) FHIR servers are backed by the open source project in this repository and offer a turn key solution to provisioning a compliant, secure FHIR service. 
+There are also two generally available (GA) managed offerings in Azure, Azure API for FHIR](https://docs.microsoft.com/en-us/azure/healthcare-apis/azure-api-for-fhir/), as well as [Azure Health Data Services](https://azure.microsoft.com/en-us/services/healthcare-apis/).  Azure Health Data Services includes the ability to deploy a FHIR server and a DICOM server in a single workspace. These Platform as a Service (PaaS) FHIR servers are backed by the open source project in this repository and offer a turn key solution to provisioning a compliant, secure FHIR service. 
 
 > [!NOTE]
 > Please note the following upcoming changes:
