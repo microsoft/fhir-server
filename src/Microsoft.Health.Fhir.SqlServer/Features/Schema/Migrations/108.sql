@@ -1389,7 +1389,7 @@ BEGIN TRY
              AND HostName IS NOT NULL
     GROUP BY HostName;
     SELECT @TotalActiveHosts = count(*),
-           @ConvergedHosts = isnull(sum(IsConverged), 0)
+            @ConvergedHosts = isnull(sum(CONVERT (INT, IsConverged)), 0)
     FROM   @HostStatus;
     SELECT @BehindHosts = string_agg(CONVERT (NVARCHAR (256), HostName), ',')
     FROM   @HostStatus

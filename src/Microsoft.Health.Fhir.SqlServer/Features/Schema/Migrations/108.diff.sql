@@ -162,7 +162,7 @@ BEGIN TRY
       GROUP BY HostName
 
   SELECT @TotalActiveHosts = count(*)
-        ,@ConvergedHosts = isnull(sum(IsConverged),0)
+      ,@ConvergedHosts = isnull(sum(convert(int, IsConverged)),0)
     FROM @HostStatus
 
   SELECT @BehindHosts = string_agg(convert(nvarchar(256), HostName), ',')
