@@ -193,6 +193,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             // Wait for the background cache refresh service to complete N successful refresh cycles.
             // This ensures all instances (including processing pods) have the latest search parameter definitions.
+            var syncStartDate = DateTime.UtcNow;
             var suffix = isReindexStart ? "Start" : "End";
             _logger.LogJobInformation(_jobInfo, $"Reindex orchestrator job started cache refresh at the {suffix}.");
             await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Warn", "Started", null, _cancellationToken);
@@ -206,7 +207,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // the same SearchParamLastUpdated via the EventLog table. This prevents the
             // orchestrator from creating reindex ranges while other instances still have
             // stale search parameter caches and would write resources with wrong hashes.
-            var syncStartDate = (_jobInfo.StartDate ?? _jobInfo.CreateDate).ToUniversalTime();
             var activeHostsSince = DateTime.UtcNow.AddSeconds(-20 * _searchParameterCacheRefreshIntervalSeconds);
             await _searchParameterOperations.WaitForAllInstancesCacheConsistencyAsync(syncStartDate, activeHostsSince, _cancellationToken);
 

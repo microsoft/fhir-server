@@ -425,17 +425,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
 
-            // if cache is updated directly and not from the database not all will have corresponding resources. Do not advance timestamp as results are not conclusive.
-            if (results.LastUpdated.HasValue && inCache && allHaveResources) // this should be the ony place in the code to assign last updated
-            {
-                _searchParamLastUpdated = results.LastUpdated.Value;
+            DateTimeOffset? searchParamLastUpdatedToLog = null;
 
-                // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops)
+            // If cache is updated directly and not from the database not all will have corresponding resources.
+            // Do not advance or log the timestamp unless the cache contents are conclusive for this cycle.
+            if (inCache && allHaveResources)
+            {
+                if (results.LastUpdated.HasValue) // this should be the only place in the code to assign last updated
+                {
+                    _searchParamLastUpdated = results.LastUpdated.Value;
+                }
+
+                searchParamLastUpdatedToLog = _searchParamLastUpdated;
+            }
+
+            if (searchParamLastUpdatedToLog.HasValue)
+            {
+                // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
+                // Emit the current cache timestamp even for no-op refresh cycles so later convergence checks
+                // have host evidence after the orchestrator's barrier start time.
                 try
                 {
-                    var lastUpdatedText = _searchParamLastUpdated.HasValue
-                        ? _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")
-                        : "null";
+                    var lastUpdatedText = searchParamLastUpdatedToLog.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
                     using IScoped<ISearchService> searchService = _searchServiceFactory();
                     await searchService.Value.TryLogEvent(
                         "SearchParameterCacheRefresh",
