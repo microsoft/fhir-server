@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             await TryLogConsistencyWaitEventAsync(
                 "Warn",
-                $"Target={targetTimestamp} PollIntervalSeconds=5 TimeoutMinutes=10",
+                $"Target={targetTimestamp} PollIntervalSeconds=30 TimeoutMinutes=10",
                 null,
                 cancellationToken);
 
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(5), linkedCts.Token);
+                    await Task.Delay(TimeSpan.FromSeconds(30), linkedCts.Token);
                 }
                 catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 {
@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         CancellationToken.None);
 
                     throw new TimeoutException(
-                        $"Not all instances converged to SearchParamLastUpdated={targetTimestamp} within 5 minutes. The server may be in an unhealthy state.");
+                        $"Not all instances converged to SearchParamLastUpdated={targetTimestamp} within 10 minutes. The server may be in an unhealthy state.");
                 }
             }
 
