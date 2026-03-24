@@ -28,8 +28,8 @@ There are also two generally available (GA) managed offerings in Azure, Azure AP
 
 > [!NOTE]
 > Please note the following upcoming changes:
-> - FHIR R4B support ends July 1, 2026.  FHIR R4 remains supported.  If R4B is required, previous versions of the repository remain available.  
-> - CosmosDB provider support ends September 30, 2026, in alignment with the previously-announced [retirement](https://learn.microsoft.com/en-us/answers/questions/1377356/retirement-announcement-azure-api-for-fhir) of  [Azure API for FHIR](https://docs.microsoft.com/en-us/azure/healthcare-apis/azure-api-for-fhir/). SQL DB provider, which corresponds to the [Azure Health Data Services FHIR service](https://learn.microsoft.com/en-us/azure/healthcare-apis/fhir/overview), remains supported.
+> - FHIR R4B support ends on July 1, 2026.  FHIR R4 remains supported.  After the scheduled end of support for R4B, if R4B reference is required, previous versions of the repository can be forked.  
+> - CosmosDB provider support ends on September 30, 2026, in alignment with the previously-announced [retirement](https://learn.microsoft.com/en-us/answers/questions/1377356/retirement-announcement-azure-api-for-fhir) of  [Azure API for FHIR](https://docs.microsoft.com/en-us/azure/healthcare-apis/azure-api-for-fhir/). SQL DB provider, which corresponds to the [Azure Health Data Services FHIR service](https://learn.microsoft.com/en-us/azure/healthcare-apis/fhir/overview), remains supported.
 
 # Release Notes
 To see what is releasing in the FHIR Server, please refer to the [releases](https://github.com/microsoft/fhir-server/releases) section on this project. Starting in November 2020, we have tags on the PRs to better describe what is releasing. We have also released documentation on how to [test the most recent build](docs/Testing-Releases.md). 
