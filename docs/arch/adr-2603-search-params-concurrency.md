@@ -16,7 +16,7 @@ We will implement database-level optimistic concurrency across all search parame
 This superceeds previous implementation https://github.com/microsoft/fhir-server/blob/main/docs/arch/adr-2512-searchparameter-concurrency-management.md that was based on individual search params, and was not able to gurantee cross search param consistency.
 
 ### Database-Level Optimistic Concurrency  
-Before validation, we will read the current last updated value from SearchParam (across all search params). When we attempt to add/update search param(s), we will check that the max(last updated) value has not changed since we read it. If it has changed, it means another concurrent operation has modified the reference set, and our add/update will fail with a concurrency conflict error. 
+Before validation, we will read the current value for max(last updated) from the SearchParam table(across all search params). When we attempt to add/update search param(s), we will check that the max(last updated) value has not changed since we read it. If it has changed, it means another concurrent operation has modified the reference set, and our add/update will fail with a concurrency conflict error. 
 
 ### Key Components Modified:
 
