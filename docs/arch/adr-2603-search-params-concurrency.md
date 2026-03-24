@@ -14,7 +14,7 @@ We will implement optimistic concurrency across all search params based on max(L
 
 ### Optimistic Concurrency  
 - Before validation, we will read the current value for max(LastUpdated) from the SearchParam table (across all search params). When we attempt to create/update search param(s), we will check that the max(LastUpdated) value has not changed since we read it. If it has changed, it means another concurrent operation has modified the reference set, and our create/update will fail with a concurrency conflict error.
-- Delete operations will not be protected by optimistic concurrency, as they are idempotent and do not modify the reference set in a way that can cause conflicts. If delete operation is attempted on a search param that has already been deleted by another concurrent operation, it will simply result in a no-op without any error. If delete operations are issued as part of transaction containing other operations, they will follow the same optimistic concurrency rules as create/update operations.
+- Delete operations will not be protected by optimistic concurrency, as they are idempotent and do not modify the reference set in a way that can cause conflicts. If delete operation is attempted on a search param that has already been deleted by another concurrent operation, it will simply result in a no-op without any error. If delete operations are issued as part of transaction containing other search param operations, they will follow the same optimistic concurrency rules as create/update operations.
 
 ### Common Customer Scenarios
 #### No concurrency
