@@ -10,7 +10,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -213,6 +212,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
+                    if (bundleProcessingLogic == BundleProcessingLogic.Parallel)
+                    {
+                        CheckConflictsAcrossInputSearchParams(bundleResource);
+                    }
+
                     await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
 
                     var response = new BundleResponse(
@@ -245,6 +249,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
+                    CheckConflictsAcrossInputSearchParams(bundleResource);
+
                     var responseBundle = new Hl7.Fhir.Model.Bundle
                     {
                         Type = BundleType.TransactionResponse,
@@ -268,6 +274,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             finally
             {
                 _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
+            }
+        }
+
+        private static void CheckConflictsAcrossInputSearchParams(Hl7.Fhir.Model.Bundle bundle)
+        {
+            // fail fast on first violation
+            var codes = new HashSet<string>();
+            var urls = new HashSet<string>();
+            foreach (var param in bundle.Entry.Where(_ => _.Resource?.TypeName == KnownResourceTypes.SearchParameter).Select(_ => _.Resource as SearchParameter))
+            {
+                if (param.Code != null)
+                {
+                    if (!codes.Add(param.Code))
+                    {
+                        throw new RequestNotValidException($"Search params with duplicate codes {param.Code} found");
+                    }
+                }
+
+                if (param.Url != null)
+                {
+                    if (!urls.Add(param.Url))
+                    {
+                        throw new RequestNotValidException($"Search params with duplicate Urls {param.Url} found");
+                    }
+                }
             }
         }
 
