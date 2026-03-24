@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         }
 
         /// <inheritdoc />
-        public async Task WaitForAllInstancesCacheConsistencyAsync(CancellationToken cancellationToken)
+        public async Task WaitForAllInstancesCacheConsistencyAsync(DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
             if (!_searchParamLastUpdated.HasValue)
             {
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             await TryLogConsistencyWaitEventAsync(
                 "Warn",
-                $"Target={targetTimestamp} PollIntervalSeconds=30 TimeoutMinutes=10",
+                $"Target={targetTimestamp} PollIntervalSeconds=30 TimeoutMinutes=10 SyncStartDate={syncStartDate:O} ActiveHostsSince={activeHostsSince:O}",
                 null,
                 cancellationToken);
 
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             while (!linkedCts.Token.IsCancellationRequested)
             {
-                var result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(targetTimestamp, linkedCts.Token);
+                var result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(targetTimestamp, syncStartDate, activeHostsSince, linkedCts.Token);
 
                 if (result.IsConsistent)
                 {

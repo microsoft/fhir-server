@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
     internal class SqlServerSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
+        private const string SearchParamLastUpdatedPrefix = "SearchParamLastUpdated=";
+
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SchemaInformation _schemaInformation;
         private readonly ISqlServerFhirModel _fhirModel;
@@ -245,7 +247,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, CancellationToken cancellationToken)
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(targetSearchParamLastUpdated, nameof(targetSearchParamLastUpdated));
 
@@ -259,31 +261,70 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.CheckSearchParamCacheConsistency";
             cmd.Parameters.AddWithValue("@TargetSearchParamLastUpdated", targetSearchParamLastUpdated);
+            cmd.Parameters.AddWithValue("@SyncStartDate", syncStartDate);
+            cmd.Parameters.AddWithValue("@ActiveHostsSince", activeHostsSince);
 
             var results = await cmd.ExecuteReaderAsync(
                 _sqlRetryService,
                 (reader) =>
                 {
-                    var totalActiveHosts = reader.GetInt32(0);
-                    var convergedHosts = reader.GetInt32(1);
-                    return (totalActiveHosts, convergedHosts);
+                    var hostName = reader.GetString(0);
+                    var syncEventDate = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
+                    var eventText = reader.IsDBNull(2) ? null : reader.GetString(2);
+                    return (hostName, syncEventDate, eventText);
                 },
                 _logger,
                 cancellationToken);
 
-            if (results.Count > 0)
+            if (results.Count == 0)
             {
-                var (totalActiveHosts, convergedHosts) = results[0];
-                return new CacheConsistencyResult
-                {
-                    IsConsistent = totalActiveHosts > 0 && convergedHosts >= totalActiveHosts,
-                    TotalActiveHosts = totalActiveHosts,
-                    ConvergedHosts = convergedHosts,
-                };
+                // If no results, assume consistent (could be a fresh database)
+                return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 0, ConvergedHosts = 0 };
             }
 
-            // If no results, assume consistent (could be a fresh database)
-            return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 0, ConvergedHosts = 0 };
+            var activeHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var latestSyncByHost = new Dictionary<string, (DateTime SyncEventDate, string EventText)>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (hostName, syncEventDate, eventText) in results)
+            {
+                activeHosts.Add(hostName);
+
+                if (syncEventDate.HasValue && !string.IsNullOrEmpty(eventText))
+                {
+                    if (!latestSyncByHost.TryGetValue(hostName, out var existingSync)
+                        || syncEventDate.Value > existingSync.SyncEventDate)
+                    {
+                        latestSyncByHost[hostName] = (syncEventDate.Value, eventText);
+                    }
+                }
+            }
+
+            int totalActiveHosts = activeHosts.Count;
+            int totalConvergedHosts = activeHosts.Count(hostName =>
+                latestSyncByHost.TryGetValue(hostName, out var latestSync)
+                && TryGetLoggedSearchParamLastUpdated(latestSync.EventText, out string loggedSearchParamLastUpdated)
+                && StringComparer.Ordinal.Compare(loggedSearchParamLastUpdated, targetSearchParamLastUpdated) >= 0);
+
+            return new CacheConsistencyResult
+            {
+                IsConsistent = totalActiveHosts > 0 && totalConvergedHosts >= totalActiveHosts,
+                TotalActiveHosts = totalActiveHosts,
+                ConvergedHosts = totalConvergedHosts,
+            };
+        }
+
+        private static bool TryGetLoggedSearchParamLastUpdated(string eventText, out string loggedSearchParamLastUpdated)
+        {
+            if (!string.IsNullOrEmpty(eventText)
+                && eventText.StartsWith(SearchParamLastUpdatedPrefix, StringComparison.Ordinal)
+                && eventText.Length > SearchParamLastUpdatedPrefix.Length)
+            {
+                loggedSearchParamLastUpdated = eventText.Substring(SearchParamLastUpdatedPrefix.Length);
+                return true;
+            }
+
+            loggedSearchParamLastUpdated = null;
+            return false;
         }
     }
 }

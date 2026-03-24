@@ -1370,47 +1370,34 @@ WHERE  Status = 'Running'
 
 GO
 CREATE OR ALTER PROCEDURE dbo.CheckSearchParamCacheConsistency
-@TargetSearchParamLastUpdated VARCHAR (100), @StalenessThresholdMinutes INT=10
+@TargetSearchParamLastUpdated VARCHAR (100), @SyncStartDate DATETIME2 (7), @ActiveHostsSince DATETIME2 (7), @StalenessThresholdMinutes INT=10
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = '@Target=' + @TargetSearchParamLastUpdated + ' @Staleness=' + CONVERT (VARCHAR, @StalenessThresholdMinutes), @st AS DATETIME = getUTCdate(), @Txt AS NVARCHAR (3500), @BehindHosts AS NVARCHAR (2000), @TotalActiveHosts AS INT, @ConvergedHosts AS INT = 0;
-BEGIN TRY
-    DECLARE @HostStatus TABLE (
-        HostName    VARCHAR (256) NOT NULL PRIMARY KEY,
-        IsConverged BIT           NOT NULL);
-    INSERT INTO @HostStatus (HostName, IsConverged)
-    SELECT   HostName,
-             max(CASE WHEN Process = 'SearchParameterCacheRefresh'
-                           AND Status = 'End'
-                           AND EventText LIKE 'SearchParamLastUpdated=%'
-                           AND EventText >= 'SearchParamLastUpdated=' + @TargetSearchParamLastUpdated THEN 1 ELSE 0 END) AS IsConverged
-    FROM     dbo.EventLog
-    WHERE    EventDate > dateadd(minute, -@StalenessThresholdMinutes, getUTCdate())
-             AND HostName IS NOT NULL
-    GROUP BY HostName;
-    SELECT @TotalActiveHosts = count(*),
-           @ConvergedHosts = isnull(sum(CONVERT (INT, IsConverged)), 0)
-    FROM   @HostStatus;
-    SELECT @BehindHosts = string_agg(CONVERT (NVARCHAR (256), HostName), ',')
-    FROM   @HostStatus
-    WHERE  IsConverged = 0;
-    IF @BehindHosts IS NOT NULL
-       AND len(@BehindHosts) > 1900
-        SET @BehindHosts = LEFT(@BehindHosts, 1897) + '...';
-    SELECT @TotalActiveHosts AS TotalActiveHosts,
-           @ConvergedHosts AS ConvergedHosts;
-    SET @Txt = N'TotalActiveHosts=' + CONVERT (VARCHAR, @TotalActiveHosts) + N' ConvergedHosts=' + CONVERT (VARCHAR, @ConvergedHosts);
-    IF @BehindHosts IS NOT NULL
-       AND len(@BehindHosts) > 0
-        SET @Txt = @Txt + N' BehindHosts=' + @BehindHosts;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @Txt;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
+SELECT HostName,
+       CAST (NULL AS DATETIME2 (7)) AS SyncEventDate,
+       CAST (NULL AS NVARCHAR (3500)) AS EventText
+FROM   dbo.EventLog
+WHERE  EventDate >= @ActiveHostsSince
+       AND HostName IS NOT NULL
+       AND Process = 'DequeueJob'
+UNION ALL
+SELECT HostName,
+       EventDate,
+       EventText
+FROM   dbo.EventLog
+WHERE  EventDate >= @SyncStartDate
+       AND HostName IS NOT NULL
+       AND Process = 'SearchParameterCacheRefresh'
+       AND Status = 'End';
+
+
+GO
+INSERT INTO dbo.Parameters (Id, Char)
+SELECT 'DequeueJob',
+       'LogEvent'
+WHERE  NOT EXISTS (SELECT *
+                   FROM   dbo.Parameters
+                   WHERE  Id = 'DequeueJob');
 
 
 GO

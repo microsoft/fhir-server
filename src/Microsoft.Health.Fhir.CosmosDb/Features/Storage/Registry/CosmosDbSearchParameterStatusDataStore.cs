@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             // Do nothing. This is only required for SQL.
         }
 
-        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, CancellationToken cancellationToken)
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
             // Cosmos DB does not use EventLog-based convergence tracking.
             // Return immediately as consistent since each instance refreshes from the same Cosmos container.

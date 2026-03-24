@@ -25,8 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// to at least the specified target timestamp.
         /// </summary>
         /// <param name="targetSearchParamLastUpdated">The target SearchParamLastUpdated timestamp to check for.</param>
+        /// <param name="syncStartDate">Only cache refresh sync records on or after this time are considered for convergence.</param>
+        /// <param name="activeHostsSince">Only active-host evidence on or after this time is considered.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A <see cref="CacheConsistencyResult"/> indicating convergence status.</returns>
-        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, CancellationToken cancellationToken);
+        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken);
     }
 }

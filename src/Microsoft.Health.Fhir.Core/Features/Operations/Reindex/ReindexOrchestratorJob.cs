@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly bool _isSurrogateIdRangingSupported;
         private readonly OperationsConfiguration _operationsConfiguration;
+        private readonly int _searchParameterCacheRefreshIntervalSeconds;
 
         private CancellationToken _cancellationToken;
         private IQueueClient _queueClient;
@@ -119,6 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
             _operationsConfiguration = operationsConfiguration.Value;
+            _searchParameterCacheRefreshIntervalSeconds = Math.Max(1, coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds);
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
@@ -204,7 +206,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // the same SearchParamLastUpdated via the EventLog table. This prevents the
             // orchestrator from creating reindex ranges while other instances still have
             // stale search parameter caches and would write resources with wrong hashes.
-            await _searchParameterOperations.WaitForAllInstancesCacheConsistencyAsync(_cancellationToken);
+            var syncStartDate = (_jobInfo.StartDate ?? _jobInfo.CreateDate).ToUniversalTime();
+            var activeHostsSince = DateTime.UtcNow.AddSeconds(-20 * _searchParameterCacheRefreshIntervalSeconds);
+            await _searchParameterOperations.WaitForAllInstancesCacheConsistencyAsync(syncStartDate, activeHostsSince, _cancellationToken);
 
             // Update the reindex job record with the latest hash map
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;

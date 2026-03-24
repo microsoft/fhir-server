@@ -51,8 +51,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// to the current instance's SearchParamLastUpdated timestamp. For SQL, this verifies via
         /// the EventLog table. For Cosmos/File-based, this returns immediately.
         /// </summary>
+        /// <param name="syncStartDate">Only cache refresh sync records on or after this time are considered for convergence.</param>
+        /// <param name="activeHostsSince">Only active-host evidence on or after this time is considered.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A task that completes when all instances have consistent caches.</returns>
-        Task WaitForAllInstancesCacheConsistencyAsync(CancellationToken cancellationToken);
+        Task WaitForAllInstancesCacheConsistencyAsync(DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken);
     }
 }
