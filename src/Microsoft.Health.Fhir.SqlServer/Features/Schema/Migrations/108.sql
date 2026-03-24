@@ -1373,30 +1373,36 @@ CREATE OR ALTER PROCEDURE dbo.CheckSearchParamCacheConsistency
 @TargetSearchParamLastUpdated VARCHAR (100), @StalenessThresholdMinutes INT=10
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = '@Target=' + @TargetSearchParamLastUpdated + ' @Staleness=' + CONVERT (VARCHAR, @StalenessThresholdMinutes), @st AS DATETIME = getUTCdate(), @Txt AS VARCHAR (1000), @TotalActiveHosts AS INT, @ConvergedHosts AS INT = 0;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = '@Target=' + @TargetSearchParamLastUpdated + ' @Staleness=' + CONVERT (VARCHAR, @StalenessThresholdMinutes), @st AS DATETIME = getUTCdate(), @Txt AS NVARCHAR (3500), @BehindHosts AS NVARCHAR (2000), @TotalActiveHosts AS INT, @ConvergedHosts AS INT = 0;
 BEGIN TRY
-    DECLARE @ActiveHosts TABLE (
-        HostName VARCHAR (256) NOT NULL PRIMARY KEY);
-    INSERT INTO @ActiveHosts
-    SELECT DISTINCT HostName
-    FROM   dbo.EventLog
-    WHERE  EventDate > dateadd(minute, -@StalenessThresholdMinutes, getUTCdate())
-           AND HostName IS NOT NULL;
-    SET @TotalActiveHosts = (SELECT count(*)
-                             FROM   @ActiveHosts);
-    SELECT @ConvergedHosts = count(DISTINCT E.HostName)
-    FROM   dbo.EventLog AS E
-           INNER JOIN
-           @ActiveHosts AS A
-           ON A.HostName = E.HostName
-    WHERE  E.Process = 'SearchParameterCacheRefresh'
-           AND E.Status = 'End'
-           AND E.EventDate > dateadd(minute, -@StalenessThresholdMinutes, getUTCdate())
-           AND E.EventText LIKE 'SearchParamLastUpdated=%'
-           AND substring(E.EventText, 26, 100) >= @TargetSearchParamLastUpdated;
+    DECLARE @HostStatus TABLE (
+        HostName    VARCHAR (256) NOT NULL PRIMARY KEY,
+        IsConverged BIT           NOT NULL);
+    INSERT INTO @HostStatus (HostName, IsConverged)
+    SELECT   HostName,
+             max(CASE WHEN Process = 'SearchParameterCacheRefresh'
+                           AND Status = 'End'
+                           AND EventText LIKE 'SearchParamLastUpdated=%'
+                           AND EventText >= 'SearchParamLastUpdated=' + @TargetSearchParamLastUpdated THEN 1 ELSE 0 END) AS IsConverged
+    FROM     dbo.EventLog
+    WHERE    EventDate > dateadd(minute, -@StalenessThresholdMinutes, getUTCdate())
+             AND HostName IS NOT NULL
+    GROUP BY HostName;
+    SELECT @TotalActiveHosts = count(*),
+           @ConvergedHosts = isnull(sum(IsConverged), 0)
+    FROM   @HostStatus;
+    SELECT @BehindHosts = string_agg(CONVERT (NVARCHAR (256), HostName), ',')
+    FROM   @HostStatus
+    WHERE  IsConverged = 0;
+    IF @BehindHosts IS NOT NULL
+       AND len(@BehindHosts) > 1900
+        SET @BehindHosts = LEFT(@BehindHosts, 1897) + '...';
     SELECT @TotalActiveHosts AS TotalActiveHosts,
            @ConvergedHosts AS ConvergedHosts;
-    SET @Txt = 'TotalActiveHosts=' + CONVERT (VARCHAR, @TotalActiveHosts) + ' ConvergedHosts=' + CONVERT (VARCHAR, @ConvergedHosts);
+    SET @Txt = N'TotalActiveHosts=' + CONVERT (VARCHAR, @TotalActiveHosts) + N' ConvergedHosts=' + CONVERT (VARCHAR, @ConvergedHosts);
+    IF @BehindHosts IS NOT NULL
+       AND len(@BehindHosts) > 0
+        SET @Txt = @Txt + N' BehindHosts=' + @BehindHosts;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @Txt;
 END TRY
 BEGIN CATCH

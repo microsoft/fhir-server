@@ -127,6 +127,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             var targetTimestamp = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
+            var waitStart = DateTime.UtcNow;
+
+            await TryLogConsistencyWaitEventAsync(
+                "Warn",
+                $"Target={targetTimestamp} PollIntervalSeconds=5 TimeoutMinutes=10",
+                null,
+                cancellationToken);
 
             // Poll with a timeout — same 10-minute safety net as WaitForRefreshCyclesAsync
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
@@ -138,10 +145,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (result.IsConsistent)
                 {
+                    var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
+
                     _logger.LogInformation(
                         "All {TotalActiveHosts} active host(s) have converged to SearchParamLastUpdated={Target}.",
                         result.TotalActiveHosts,
                         targetTimestamp);
+
+                    await TryLogConsistencyWaitEventAsync(
+                        "Warn",
+                        $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}",
+                        waitStart,
+                        cancellationToken);
+
                     return;
                 }
 
@@ -157,12 +173,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
                 catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 {
+                    var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
+                    var timeoutMessage = $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}";
+
+                    await TryLogConsistencyWaitEventAsync(
+                        "Error",
+                        timeoutMessage,
+                        waitStart,
+                        CancellationToken.None);
+
                     throw new TimeoutException(
                         $"Not all instances converged to SearchParamLastUpdated={targetTimestamp} within 5 minutes. The server may be in an unhealthy state.");
                 }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        private async Task TryLogConsistencyWaitEventAsync(string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using IScoped<ISearchService> searchService = _searchServiceFactory();
+                await searchService.Value.TryLogEvent(nameof(WaitForAllInstancesCacheConsistencyAsync), status, text, startDate, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log WaitForAllInstancesCacheConsistencyAsync event.");
+            }
         }
 
         public async Task EnsureNoActiveReindexJobAsync(CancellationToken cancellationToken)

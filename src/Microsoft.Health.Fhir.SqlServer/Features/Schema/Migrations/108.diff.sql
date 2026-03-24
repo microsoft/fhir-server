@@ -137,32 +137,47 @@ set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = '@Target='+@TargetSearchParamLastUpdated+' @Staleness='+convert(varchar,@StalenessThresholdMinutes)
        ,@st datetime = getUTCdate()
-       ,@Txt varchar(1000)
+       ,@Txt nvarchar(3500)
+       ,@BehindHosts nvarchar(2000)
        ,@TotalActiveHosts int
        ,@ConvergedHosts int = 0
 
 BEGIN TRY
-  DECLARE @ActiveHosts TABLE (HostName varchar(256) NOT NULL PRIMARY KEY)
-  INSERT INTO @ActiveHosts
-    SELECT DISTINCT HostName
+  DECLARE @HostStatus TABLE
+  (
+    HostName varchar(256) NOT NULL PRIMARY KEY,
+    IsConverged bit NOT NULL
+  )
+
+  INSERT INTO @HostStatus (HostName, IsConverged)
+    SELECT HostName
+          ,max(CASE WHEN Process = 'SearchParameterCacheRefresh'
+                         AND Status = 'End'
+                         AND EventText LIKE 'SearchParamLastUpdated=%'
+                         AND EventText >= 'SearchParamLastUpdated=' + @TargetSearchParamLastUpdated
+                    THEN 1 ELSE 0 END) AS IsConverged
       FROM dbo.EventLog
       WHERE EventDate > dateadd(minute,-@StalenessThresholdMinutes,getUTCdate())
         AND HostName IS NOT NULL
+      GROUP BY HostName
 
-  SET @TotalActiveHosts = (SELECT count(*) FROM @ActiveHosts)
+  SELECT @TotalActiveHosts = count(*)
+        ,@ConvergedHosts = isnull(sum(IsConverged),0)
+    FROM @HostStatus
 
-  SELECT @ConvergedHosts = count(DISTINCT E.HostName)
-    FROM dbo.EventLog E
-      JOIN @ActiveHosts A ON A.HostName = E.HostName
-    WHERE E.Process = 'SearchParameterCacheRefresh'
-      AND E.Status = 'End'
-      AND E.EventDate > dateadd(minute,-@StalenessThresholdMinutes,getUTCdate())
-      AND E.EventText LIKE 'SearchParamLastUpdated=%'
-      AND substring(E.EventText,26,100) >= @TargetSearchParamLastUpdated
+  SELECT @BehindHosts = string_agg(convert(nvarchar(256), HostName), ',')
+    FROM @HostStatus
+    WHERE IsConverged = 0
+
+  IF @BehindHosts IS NOT NULL AND len(@BehindHosts) > 1900
+    SET @BehindHosts = left(@BehindHosts, 1897) + '...'
 
   SELECT @TotalActiveHosts AS TotalActiveHosts, @ConvergedHosts AS ConvergedHosts
 
-  SET @Txt = 'TotalActiveHosts='+convert(varchar,@TotalActiveHosts)+' ConvergedHosts='+convert(varchar,@ConvergedHosts)
+  SET @Txt = N'TotalActiveHosts='+convert(varchar,@TotalActiveHosts)+N' ConvergedHosts='+convert(varchar,@ConvergedHosts)
+  IF @BehindHosts IS NOT NULL AND len(@BehindHosts) > 0
+    SET @Txt = @Txt + N' BehindHosts=' + @BehindHosts
+
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Text=@Txt
 END TRY
 BEGIN CATCH
