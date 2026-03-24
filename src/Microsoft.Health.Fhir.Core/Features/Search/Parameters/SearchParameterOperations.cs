@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
+        private int _activeConsistencyWaiters;
         private volatile TaskCompletionSource<bool> _refreshSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public SearchParameterOperations(
@@ -129,65 +130,74 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var targetTimestamp = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
             var waitStart = DateTime.UtcNow;
 
-            await TryLogConsistencyWaitEventAsync(
-                "Warn",
-                $"Target={targetTimestamp} PollIntervalSeconds=30 TimeoutMinutes=10 SyncStartDate={syncStartDate:O} ActiveHostsSince={activeHostsSince:O}",
-                null,
-                cancellationToken);
+            Interlocked.Increment(ref _activeConsistencyWaiters);
 
-            // Poll with a timeout — same 10-minute safety net as WaitForRefreshCyclesAsync
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-
-            while (!linkedCts.Token.IsCancellationRequested)
+            try
             {
-                var result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(targetTimestamp, syncStartDate, activeHostsSince, linkedCts.Token);
+                await TryLogConsistencyWaitEventAsync(
+                    "Warn",
+                    $"Target={targetTimestamp} PollIntervalSeconds=30 TimeoutMinutes=10 SyncStartDate={syncStartDate:O} ActiveHostsSince={activeHostsSince:O}",
+                    null,
+                    cancellationToken);
 
-                if (result.IsConsistent)
+                // Poll with a timeout — same 10-minute safety net as WaitForRefreshCyclesAsync
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+                while (!linkedCts.Token.IsCancellationRequested)
                 {
-                    var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
+                    var result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(targetTimestamp, syncStartDate, activeHostsSince, linkedCts.Token);
+
+                    if (result.IsConsistent)
+                    {
+                        var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
+
+                        _logger.LogInformation(
+                            "All {TotalActiveHosts} active host(s) have converged to SearchParamLastUpdated={Target}.",
+                            result.TotalActiveHosts,
+                            targetTimestamp);
+
+                        await TryLogConsistencyWaitEventAsync(
+                            "Warn",
+                            $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}",
+                            waitStart,
+                            cancellationToken);
+
+                        return;
+                    }
 
                     _logger.LogInformation(
-                        "All {TotalActiveHosts} active host(s) have converged to SearchParamLastUpdated={Target}.",
+                        "Cache consistency check: {ConvergedHosts}/{TotalActiveHosts} hosts converged to SearchParamLastUpdated={Target}. Waiting...",
+                        result.ConvergedHosts,
                         result.TotalActiveHosts,
                         targetTimestamp);
 
-                    await TryLogConsistencyWaitEventAsync(
-                        "Warn",
-                        $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}",
-                        waitStart,
-                        cancellationToken);
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(30), linkedCts.Token);
+                    }
+                    catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+                    {
+                        var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
+                        var timeoutMessage = $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}";
 
-                    return;
+                        await TryLogConsistencyWaitEventAsync(
+                            "Error",
+                            timeoutMessage,
+                            waitStart,
+                            CancellationToken.None);
+
+                        throw new TimeoutException(
+                            $"Not all instances converged to SearchParamLastUpdated={targetTimestamp} within 10 minutes. The server may be in an unhealthy state.");
+                    }
                 }
 
-                _logger.LogInformation(
-                    "Cache consistency check: {ConvergedHosts}/{TotalActiveHosts} hosts converged to SearchParamLastUpdated={Target}. Waiting...",
-                    result.ConvergedHosts,
-                    result.TotalActiveHosts,
-                    targetTimestamp);
-
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(30), linkedCts.Token);
-                }
-                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                {
-                    var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
-                    var timeoutMessage = $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}";
-
-                    await TryLogConsistencyWaitEventAsync(
-                        "Error",
-                        timeoutMessage,
-                        waitStart,
-                        CancellationToken.None);
-
-                    throw new TimeoutException(
-                        $"Not all instances converged to SearchParamLastUpdated={targetTimestamp} within 10 minutes. The server may be in an unhealthy state.");
-                }
+                cancellationToken.ThrowIfCancellationRequested();
             }
-
-            cancellationToken.ThrowIfCancellationRequested();
+            finally
+            {
+                Interlocked.Decrement(ref _activeConsistencyWaiters);
+            }
         }
 
         private async Task TryLogConsistencyWaitEventAsync(string status, string text, DateTime? startDate, CancellationToken cancellationToken)
@@ -439,11 +449,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 searchParamLastUpdatedToLog = _searchParamLastUpdated;
             }
 
-            if (searchParamLastUpdatedToLog.HasValue)
+            if (searchParamLastUpdatedToLog.HasValue
+                && (results.LastUpdated.HasValue || Volatile.Read(ref _activeConsistencyWaiters) > 0))
             {
                 // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
-                // Emit the current cache timestamp even for no-op refresh cycles so later convergence checks
-                // have host evidence after the orchestrator's barrier start time.
+                // Emit the current cache timestamp for no-op refresh cycles only while a consistency waiter is active.
                 try
                 {
                     var lastUpdatedText = searchParamLastUpdatedToLog.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
