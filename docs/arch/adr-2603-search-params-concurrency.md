@@ -22,7 +22,7 @@ Before validation, we will read the current value for max(LastUpdated) from the 
 **Accepted**
 
 ## Consequences
-Data correctness will be enforced by ensuring that concurrent modifications to search parameters are properly serialized, preventing bad data ingested int the database.
+Data correctness will be enforced by ensuring that concurrent modifications to search parameters are properly serialized, preventing bad data ingested into the database.
 
 ## Notes
 This ADR superceeds previous implementation https://github.com/microsoft/fhir-server/blob/main/docs/arch/adr-2512-searchparameter-concurrency-management.md.
