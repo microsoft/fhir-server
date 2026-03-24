@@ -354,11 +354,15 @@ This makes the ViewDefinition Refresh Channel a two-part design:
 - When a ViewDefinition is submitted and materialization is requested:
   1. Create/update the SQL table schema
   2. Kick off full population job
-  3. Auto-create a Subscription resource with:
-     - `criteria`: `{ViewDefinition.resource}?` (optionally with search param equivalents of `where` clauses)
-     - `channel.type`: `view-refresh`
-     - `channel.endpoint`: internal reference to the ViewDefinition
+  3. **`ViewDefinitionSubscriptionManager`** generates N Subscription resources:
+     - At minimum: one broad subscription with `criteria`: `{ViewDefinition.resource}?`
+     - Optionally: narrower subscriptions with search param equivalents of `where` clauses
+     - All subscriptions share:
+       - `channel.type`: `view-refresh`
+       - `channel.endpoint`: internal reference to the ViewDefinition
+     - The manager tracks the 1:N relationship (ViewDefinition → Subscriptions)
   4. Subscription engine handles the rest
+  5. On ViewDefinition removal, the manager deletes all associated Subscriptions
 
 ---
 
@@ -487,6 +491,21 @@ An ICU needs real-time BP trends across all patients. Today this requires custom
 
 6. **Spec contribution** → **Yes, write up after implementation works**
    - Document how subscription-based refresh could be incorporated into the SQL on FHIR spec
+
+7. **ViewDefinition-to-Subscription cardinality** → **1:N (one ViewDefinition, many Subscriptions)**
+   - A single FHIR Subscription supports only **one criteria string** (e.g., `Observation?code=http://loinc.org|85354-9`). It cannot express multiple independent filter queries.
+   - A ViewDefinition's `where` clauses use **FHIRPath**, which may not map cleanly to a single FHIR search query — or may require multiple search queries for full coverage.
+   - **Design**: One ViewDefinition can produce N Subscriptions, all pointing to the same **ViewDefinition Refresh Channel**:
+     ```
+     ViewDefinition (1) ──► (N) Subscriptions ──► (1) ViewDefinition Refresh Channel
+     ```
+   - A **`ViewDefinitionSubscriptionManager`** owns the lifecycle: when a ViewDefinition is registered for materialization, it generates the appropriate subscription(s); when removed, it cleans them up.
+   - **Safe default**: At minimum, one broad subscription per resource type (`Observation?`) guarantees no missed updates. Narrower criteria are a **pure optimization** — the ViewDefinition evaluator always re-applies FHIRPath `where` clauses, so over-triggering is safe (just less efficient).
+   - **Criteria generation strategy** (phased):
+     - **Phase 1**: Resource-type-only (`Observation?`) — simple, correct, no missed updates.
+     - **Phase 2**: Pattern-match common FHIRPath idioms to search params (e.g., `code.coding.exists(system='X' and code='Y')` → `?code=X|Y`). Multiple patterns may produce multiple subscriptions for the same ViewDefinition.
+     - **Future**: Reverse-match against FHIR search parameter FHIRPath definitions for broader coverage.
+   - **Correctness guarantee**: The evaluator's FHIRPath `where` filtering is the single source of truth. Subscription criteria only control *when* the evaluator runs — a broader subscription means more evaluator invocations (cost), but never incorrect results.
 
 ---
 
