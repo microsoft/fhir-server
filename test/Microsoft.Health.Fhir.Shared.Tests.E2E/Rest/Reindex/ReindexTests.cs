@@ -41,15 +41,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Theory]
-        [InlineData(true, true, false)]
-        [InlineData(true, false, false)]
-        [InlineData(false, true, false)]
-        [InlineData(false, false, false)]
-        [InlineData(true, true, true)]
-        [InlineData(true, false, true)]
-        [InlineData(false, true, true)]
-        [InlineData(false, false, true)]
-        public async Task GivenConflictingSearchParams_ThenBadRequestIsReturned(bool dupCodes, bool isParallel, bool isBatch)
+        [InlineData(true, false, true, false)]
+        [InlineData(true, false, false, false)]
+        [InlineData(false, true, true, false)]
+        [InlineData(false, true, false, false)]
+        [InlineData(true, false, true, true)]
+        [InlineData(true, false, false, true)]
+        [InlineData(false, true, true, true)]
+        [InlineData(false, true, false, true)]
+        [InlineData(true, true, false, true)]
+        [InlineData(true, true, false, false)]
+        [InlineData(true, true, true, true)]
+        [InlineData(true, true, true, false)]
+        public async Task GivenTwoSearchParams_ThenBadRequestIsReturnedForConflicts(bool dupCodes, bool dupUrls, bool isParallel, bool isBatch)
         {
             if (!_isSql && !isBatch) // cosmos does not support transaction bundles
             {
@@ -69,12 +73,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 urls.Add($"{urlPrefix}c-code-x");
 
                 ids.Add("c-id-y");
-                if (dupCodes)
+                if (dupCodes && dupUrls)
+                {
+                    codes.Add("c-code-x");
+                    urls.Add($"{urlPrefix}c-code-x");
+                }
+                else if (dupCodes)
                 {
                     codes.Add("c-code-x");
                     urls.Add($"{urlPrefix}c-code-y");
                 }
-                else
+                else if (dupUrls)
                 {
                     codes.Add("c-code-y");
                     urls.Add($"{urlPrefix}c-code-x");
@@ -99,7 +108,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 {
                     Assert.Contains("codes", ex.Message);
                 }
-                else
+
+                if (dupUrls)
                 {
                     Assert.Contains("Urls", ex.Message);
                 }
