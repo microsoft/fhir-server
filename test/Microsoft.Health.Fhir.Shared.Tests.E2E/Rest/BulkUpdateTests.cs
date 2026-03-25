@@ -446,7 +446,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
-            await CreatePatients(tag, 30);
+            await CreatePatients(tag, 31);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -460,7 +460,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             BulkUpdateResult expectedResults = new BulkUpdateResult();
-            expectedResults.ResourcesUpdated.Add("Patient", 30);
+            expectedResults.ResourcesUpdated.Add("Patient", 31);
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
         }
 
@@ -473,7 +473,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             CheckBulkUpdateEnabled();
 
             var tag = Guid.NewGuid().ToString();
-            await CreatePatients(tag, 30);
+            await CreatePatients(tag, 31);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -486,7 +486,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
 
             BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
-            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 30);
+            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 31);
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
         }
 
@@ -498,7 +498,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
-            await CreatePatients(tag, 30);
+            await CreatePatients(tag, 31);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -513,7 +513,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
 
             BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
-            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 30);
+            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 31);
             await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
         }
 
@@ -525,7 +525,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 30);
+            await CreateGroupWithPatients(tag, 31);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -545,7 +545,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             BulkUpdateResult expectedResults = new BulkUpdateResult();
-            expectedResults.ResourcesUpdated.Add("Patient", 30);
+            expectedResults.ResourcesUpdated.Add("Patient", 31);
             expectedResults.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(response.Content.Headers.ContentLocation, expectedResults);
         }
@@ -558,7 +558,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 30);
+            await CreateGroupWithPatients(tag, 31);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -575,7 +575,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responseIgnored.StatusCode);
 
             BulkUpdateResult expectedResultsForIgnored = new BulkUpdateResult();
-            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 30);
+            expectedResultsForIgnored.ResourcesIgnored.Add("Patient", 31);
             expectedResultsForIgnored.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(responseIgnored.Content.Headers.ContentLocation, expectedResultsForIgnored);
         }
@@ -588,7 +588,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 30);
+            await CreateGroupWithPatients(tag, 31);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
 
@@ -606,7 +606,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responsePatchFailed.StatusCode);
 
             BulkUpdateResult expectedResultsPatchFailed = new BulkUpdateResult();
-            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 30);
+            expectedResultsPatchFailed.ResourcesPatchFailed.Add("Patient", 31);
             expectedResultsPatchFailed.ResourcesUpdated.Add("Group", 1);
             await MonitorBulkUpdateJob(responsePatchFailed.Content.Headers.ContentLocation, expectedResultsPatchFailed);
         }
@@ -619,14 +619,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             CheckBulkUpdateEnabled();
             var tag = Guid.NewGuid().ToString();
-            await CreateGroupWithPatients(tag, 30);
+            await CreateGroupWithPatients(tag, 31);
 
             // For included resources present on different pages
             // Create chunk of Group resources with same tag
             await CreateGroups(tag, 20);
 
             // Create Group with included Patients
-            await CreateGroupWithPatients(tag, 30);
+            await CreateGroupWithPatients(tag, 31);
 
             await Task.Delay(5000); // Add delay to ensure resources are created before bulk update
             var queryParam = new Dictionary<string, string>
@@ -643,7 +643,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Accepted, responseForIncludedResultsOnDifferentPages.StatusCode);
 
             BulkUpdateResult expectedResultsForIncludedResultsOnDifferentPages = new BulkUpdateResult();
-            expectedResultsForIncludedResultsOnDifferentPages.ResourcesUpdated.Add("Patient", 60);
+            expectedResultsForIncludedResultsOnDifferentPages.ResourcesUpdated.Add("Patient", 62);
             expectedResultsForIncludedResultsOnDifferentPages.ResourcesUpdated.Add("Group", 22);
             await MonitorBulkUpdateJob(responseForIncludedResultsOnDifferentPages.Content.Headers.ContentLocation, expectedResultsForIncludedResultsOnDifferentPages);
         }
