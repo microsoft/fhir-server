@@ -279,16 +279,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static void CheckConflictsAcrossInputSearchParams(Hl7.Fhir.Model.Bundle bundle)
         {
-            // fail fast on first violation
             var codes = new HashSet<string>();
             var urls = new HashSet<string>();
+            var dupCodes = new HashSet<string>();
+            var dupUrls = new HashSet<string>();
             foreach (var param in bundle.Entry.Where(_ => _.Resource?.TypeName == KnownResourceTypes.SearchParameter).Select(_ => _.Resource as SearchParameter))
             {
                 if (param.Code != null)
                 {
                     if (!codes.Add(param.Code))
                     {
-                        throw new RequestNotValidException($"Search params with duplicate codes {param.Code} found");
+                        dupCodes.Add(param.Code);
                     }
                 }
 
@@ -296,9 +297,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     if (!urls.Add(param.Url))
                     {
-                        throw new RequestNotValidException($"Search params with duplicate Urls {param.Url} found");
+                        dupUrls.Add(param.Url);
                     }
                 }
+            }
+
+            if (dupCodes.Count > 0 || dupUrls.Count > 0)
+            {
+                if (dupCodes.Count == 0)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamUrlsInBundle, string.Join(", ", dupUrls)));
+                }
+                else if (dupUrls.Count == 0)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesInBundle, string.Join(", ", dupCodes)));
+                }
+
+                throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
             }
         }
 

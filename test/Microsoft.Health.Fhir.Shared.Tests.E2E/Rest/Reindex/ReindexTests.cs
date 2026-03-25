@@ -18,7 +18,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
@@ -36,6 +38,119 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             _fixture = fixture;
             _isSql = _fixture.DataStore == DataStore.SqlServer;
+        }
+
+        [Theory]
+        [InlineData(true, true, false)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        [InlineData(false, false, false)]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, true)]
+        [InlineData(false, true, true)]
+        [InlineData(false, false, true)]
+        public async Task GivenConflictingSearchParams_ThenBadRequestIsReturned(bool dupCodes, bool isParallel, bool isBatch)
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+            const string urlPrefix = "http://my.org/";
+            var codes = new List<string>();
+            var urls = new List<string>();
+            var ids = new List<string>();
+            try
+            {
+                ids.Add("c-id-x");
+                codes.Add("c-code-x");
+                urls.Add($"{urlPrefix}c-code-x");
+
+                ids.Add("c-id-y");
+                if (dupCodes)
+                {
+                    codes.Add("c-code-x");
+                    urls.Add($"{urlPrefix}c-code-y");
+                }
+                else
+                {
+                    codes.Add("c-code-y");
+                    urls.Add($"{urlPrefix}c-code-x");
+                }
+
+                var response = await CreatePersonSearchParamsAsync();
+                if (!isParallel && isBatch) // sequential batch
+                {
+                    Assert.Equal(2, response.Entry.Count);
+                    Assert.All(response.Entry, _ => Assert.NotNull(_.Resource as SearchParameter)); // both search params ingested
+                }
+                else
+                {
+                    Assert.Fail("This point should not be reached.");
+                }
+            }
+            catch (FhirClientException ex)
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+                Assert.Contains("Input search parameters have duplicate", ex.Message);
+                if (dupCodes)
+                {
+                    Assert.Contains("codes", ex.Message);
+                }
+                else
+                {
+                    Assert.Contains("Urls", ex.Message);
+                }
+            }
+            finally
+            {
+                await DeletePersonSearchParamsAsync(); // this is just in case.
+            }
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = isBatch ? Bundle.BundleType.Batch : Bundle.BundleType.Transaction, Entry = new List<EntryComponent>() };
+
+#if R5
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
+                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+#else
+                var resourceTypes = new List<ResourceType?>();
+                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+#endif
+
+                for (var i = 0; i < ids.Count; i++)
+                {
+                    var code = codes[i];
+                    var id = ids[i];
+                    var searchParam = new SearchParameter
+                    {
+                        Id = id,
+                        Url = urls[i],
+                        Name = code,
+                        Code = code,
+                        Status = PublicationStatus.Active,
+                        Type = SearchParamType.Token,
+                        Expression = "Person.id",
+                        Description = "any",
+                        Base = resourceTypes,
+                    };
+
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = isParallel ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential });
+                return result;
+            }
+
+            async Task DeletePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                foreach (var id in ids)
+                {
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{id}" } });
+                }
+
+                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+            }
         }
 
         [Fact]
