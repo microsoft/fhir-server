@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
         }
 
-        private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
+        private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken, int retryDepth = 0)
         {
             if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
             {
@@ -434,7 +434,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (SqlException ex) when (ex.Number == 50001)
             {
-                _logger.LogInformation("Concurrent update detected. Continuing with initialization. Exception: {Exception}", ex);
+                if (retryDepth >= 3)
+                {
+                    _logger.LogError("Maximum retry attempts reached for initializing search parameter statuses.");
+                    throw;
+                }
+
+                _logger.LogInformation("Concurrent update detected, retrying");
+                await InitializeSearchParameterStatuses(cancellationToken, retryDepth + 1);
             }
         }
 
