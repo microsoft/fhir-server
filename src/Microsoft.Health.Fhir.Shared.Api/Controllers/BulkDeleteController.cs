@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return false;
             }
 
-            return string.IsNullOrWhiteSpace(resourceType) || string.Equals(resourceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(resourceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
