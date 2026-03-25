@@ -372,7 +372,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var resourceTypes = new Dictionary<string, long>()
             {
-                { "Patient", 20 }, // Max include count is reduced to 10 for E2E test acconts
+                { "Patient", 20 }, // Max include count is reduced to 10 for E2E test accounts
                 { "Group", 1 },
             };
             var tag = Guid.NewGuid().ToString();
