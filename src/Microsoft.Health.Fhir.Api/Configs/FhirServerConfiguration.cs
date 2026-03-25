@@ -40,5 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public ResourceManagerConfig ResourceManager { get; } = new ResourceManagerConfig();
 
         public SmartIdentityProviderConfiguration SmartIdentityProvider { get; } = new SmartIdentityProviderConfiguration();
+
+        public WatchdogConfiguration Watchdog { get; } = new WatchdogConfiguration();
     }
 }

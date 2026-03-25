@@ -516,11 +516,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         return aggregate;
                     });
 
+                Uri uri = null;
+
+                try
+                {
+                    uri = context.Uri;
+                }
+                catch (UriFormatException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to read request URI from the request context during delete audit logging.");
+                }
+
                 _auditLogger.LogAudit(
                     auditAction: action,
                     operation: operation.ToString(),
                     resourceType: primaryResourceType,
-                    requestUri: context.Uri,
+                    requestUri: uri,
                     statusCode: statusCode,
                     correlationId: context.CorrelationId,
                     callerIpAddress: string.Empty,
