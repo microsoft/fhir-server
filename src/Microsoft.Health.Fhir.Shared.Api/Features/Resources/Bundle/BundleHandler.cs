@@ -285,20 +285,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var dupUrls = new HashSet<string>();
             foreach (var param in bundle.Entry.Where(_ => _.Resource?.TypeName == KnownResourceTypes.SearchParameter).Select(_ => _.Resource as SearchParameter))
             {
-                if (param.Code != null)
+                if (param.Code != null && !codes.Add(param.Code))
                 {
-                    if (!codes.Add(param.Code))
-                    {
-                        dupCodes.Add(param.Code);
-                    }
+                    dupCodes.Add(param.Code);
                 }
 
-                if (param.Url != null)
+                if (param.Url != null && !urls.Add(param.Url))
                 {
-                    if (!urls.Add(param.Url))
-                    {
-                        dupUrls.Add(param.Url);
-                    }
+                    dupUrls.Add(param.Url);
                 }
             }
 
