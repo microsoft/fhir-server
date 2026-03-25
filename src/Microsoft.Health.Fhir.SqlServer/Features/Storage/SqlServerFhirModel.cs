@@ -404,6 +404,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             fileStatuses.RemoveAll((fs) => existingParams.Any((param) => param.Uri == fs.Uri && (param.Status != SearchParameterStatus.Initialized)));
 
+            if (fileStatuses.Count == 0)
+            {
+                _logger.LogInformation("No Search Parameters need to be initialized.");
+                return;
+            }
+
             using var resourceExistCmd = new SqlCommand();
             resourceExistCmd.CommandType = CommandType.Text;
             resourceExistCmd.CommandText = "SELECT TOP 1 1 FROM dbo.Resource";
@@ -421,9 +427,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(fileStatuses));
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-
-            _logger.LogInformation("Number of Search Parameters initialized");
+            try
+            {
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                _logger.LogInformation("Number of Search Parameters initialized: {Number}", fileStatuses.Count);
+            }
+            catch (SqlException ex) when (ex.Number == 50001)
+            {
+                _logger.LogInformation("Concurrent update detected. Continuing with initialization. Exception: {Exception}", ex);
+            }
         }
 
         private int GetStringId(FhirMemoryCache<int> cache, string stringValue, StoredProcedure sproc)
