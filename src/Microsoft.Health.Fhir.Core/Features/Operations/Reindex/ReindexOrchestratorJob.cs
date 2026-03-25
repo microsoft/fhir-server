@@ -202,15 +202,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // we use it as the convergence target for cross-instance checks.
             await _searchParameterOperations.WaitForRefreshCyclesAsync(_operationsConfiguration.Reindex.CacheRefreshWaitMultiplier, _cancellationToken);
 
-            // SQL Server: After local refresh, verify ALL instances have converged to
-            // the same SearchParamLastUpdated via the EventLog table. This prevents the
-            // orchestrator from creating reindex ranges while other instances still have
-            // stale search parameter caches and would write resources with wrong hashes.
-            // Use the same lookback as active host detection so we do not miss qualifying
-            // refresh events that occurred shortly before this instance entered the wait.
-            var activeHostsSince = DateTime.UtcNow.AddSeconds(-20 * _searchParameterCacheRefreshIntervalSeconds);
-            var syncStartDate = activeHostsSince;
-            await _searchParameterOperations.WaitForAllInstancesCacheConsistencyAsync(syncStartDate, activeHostsSince, _cancellationToken);
+            if (_isSurrogateIdRangingSupported)
+            {
+                // SQL Server: After local refresh, verify ALL instances have converged to
+                // the same SearchParamLastUpdated via the EventLog table. This prevents the
+                // orchestrator from creating reindex ranges while other instances still have
+                // stale search parameter caches and would write resources with wrong hashes.
+                // Use the same lookback as active host detection so we do not miss qualifying
+                // refresh events that occurred shortly before this instance entered the wait.
+                var activeHostsSince = DateTime.UtcNow.AddSeconds(-20 * _searchParameterCacheRefreshIntervalSeconds);
+                var syncStartDate = activeHostsSince;
+                await _searchParameterOperations.WaitForAllInstancesCacheConsistencyAsync(syncStartDate, activeHostsSince, _cancellationToken);
+            }
+            else
+            {
+                // Cosmos DB: There is no EventLog-based convergence tracking, so wait a fixed
+                // delay to allow all instances to refresh their search parameter caches from
+                // the shared Cosmos container.
+                var delayMs = _operationsConfiguration.Reindex.CacheRefreshWaitMultiplier * _searchParameterCacheRefreshIntervalSeconds * 1000;
+                _logger.LogJobInformation(_jobInfo, "Cosmos DB detected — waiting {DelayMs}ms for cache propagation across instances.", delayMs);
+                await Task.Delay(delayMs, _cancellationToken);
+            }
 
             // Update the reindex job record with the latest hash map
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
