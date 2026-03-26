@@ -197,17 +197,27 @@ jobs:
 
         $outboundIps = $outboundIps | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
 
-        if ($outboundIps.Count -eq 0) {
-          Write-Warning "ACA outbound IP addresses were not found. Falling back to Allow Azure Services SQL firewall rule."
-          $allowAzureServicesRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -ErrorAction SilentlyContinue
-          if ($null -ne $allowAzureServicesRule) {
-            Write-Host "SQL firewall rule 'AllowAzureServices' already exists."
+        # Ensure Azure services firewall access is enabled for SQL. ACA egress IPs can change,
+        # and this avoids startup failures when outbound IP discovery is incomplete.
+        $allowAzureServicesRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -ErrorAction SilentlyContinue
+        if ($null -ne $allowAzureServicesRule) {
+          if ($allowAzureServicesRule.StartIpAddress -eq "0.0.0.0" -and $allowAzureServicesRule.EndIpAddress -eq "0.0.0.0") {
+            Write-Host "SQL firewall rule 'AllowAzureServices' already exists with expected address range."
           }
           else {
-            Invoke-WithRetry -OperationName "SQL Firewall Rule AllowAzureServices" -ScriptBlock {
-              New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -StartIPAddress "0.0.0.0" -EndIPAddress "0.0.0.0" -ErrorAction Stop
+            Invoke-WithRetry -OperationName "SQL Firewall Rule Update AllowAzureServices" -ScriptBlock {
+              Set-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -StartIpAddress "0.0.0.0" -EndIpAddress "0.0.0.0" -ErrorAction Stop
             }
           }
+        }
+        else {
+          Invoke-WithRetry -OperationName "SQL Firewall Rule Create AllowAzureServices" -ScriptBlock {
+            New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -StartIPAddress "0.0.0.0" -EndIPAddress "0.0.0.0" -ErrorAction Stop
+          }
+        }
+
+        if ($outboundIps.Count -eq 0) {
+          Write-Warning "ACA outbound IP addresses were not found. Continuing with AllowAzureServices firewall rule only."
         }
         else {
           $ruleIndex = 0

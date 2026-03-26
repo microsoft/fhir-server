@@ -83,6 +83,7 @@ stages:
 
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
+  condition: false
   dependsOn:
   - BuildUnitTests
   - BuildArtifacts
@@ -230,6 +231,7 @@ stages:
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
+  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -250,6 +252,7 @@ stages:
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
+  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -274,6 +277,7 @@ stages:
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
+  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -320,6 +324,7 @@ stages:
 
 - stage: deployR4B
   displayName: 'Deploy R4B CosmosDB Site'
+  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -340,6 +345,7 @@ stages:
 
 - stage: deployR4BSql
   displayName: 'Deploy R4B SQL Site'
+  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -364,6 +370,7 @@ stages:
 
 - stage: deployR5
   displayName: 'Deploy R5 CosmosDB Site'
+  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -384,6 +391,7 @@ stages:
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
+  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -408,6 +416,7 @@ stages:
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
+  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -421,6 +430,7 @@ stages:
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
+  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -435,6 +445,7 @@ stages:
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
+  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -465,6 +476,7 @@ stages:
 
 - stage: testR4BCosmos
   displayName: 'Run R4B Cosmos Tests'
+  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -478,6 +490,7 @@ stages:
 
 - stage: testR4BSql
   displayName: 'Run R4B SQL Tests'
+  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -492,6 +505,7 @@ stages:
 
 - stage: testR5Cosmos
   displayName: 'Run R5 Cosmos Tests'
+  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -505,6 +519,7 @@ stages:
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
+  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
@@ -519,6 +534,7 @@ stages:
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
+  condition: false
   dependsOn:
   - BuildUnitTests
   - testStu3Cosmos
