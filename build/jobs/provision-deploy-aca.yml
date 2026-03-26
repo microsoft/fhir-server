@@ -266,6 +266,62 @@ jobs:
           }
         }
 
+        # ── Diagnostic: verify SQL admin state after deployment ──
+        $sqlServer = Get-AzSqlServer -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -ErrorAction Stop
+        $adminProps = $sqlServer.Administrators
+        Write-Host "=== SQL Server Admin State ==="
+        Write-Host "  Login:         $($adminProps.Login)"
+        Write-Host "  Sid:           $($adminProps.Sid)"
+        Write-Host "  TenantId:      $($adminProps.TenantId)"
+        Write-Host "  PrincipalType: $($adminProps.PrincipalType)"
+        Write-Host "  AzureADOnly:   $($adminProps.AzureADOnlyAuthentication)"
+
+        Write-Host "=== Expected Identity ==="
+        Write-Host "  UAMI PrincipalId: $($sqlAdminIdentity.PrincipalId)"
+        Write-Host "  UAMI ClientId:    $($sqlAdminIdentity.ClientId)"
+
+        if ($adminProps.Sid -ne $sqlAdminIdentity.PrincipalId) {
+          Write-Warning "SQL admin SID ($($adminProps.Sid)) does NOT match UAMI PrincipalId ($($sqlAdminIdentity.PrincipalId))!"
+        } else {
+          Write-Host "  SID matches UAMI PrincipalId ✓"
+        }
+
+        # Verify KV secret
+        $kvSecret = Get-AzKeyVaultSecret -VaultName "${{ parameters.keyVaultName }}" -Name "SqlServer--ConnectionString" -AsPlainText -ErrorAction Stop
+        if ($kvSecret -match 'User Id=([^;]+);') {
+          $connStringUserId = $Matches[1]
+          Write-Host "=== KV Secret User Id ==="
+          Write-Host "  User Id in connection string: $connStringUserId"
+          if ($connStringUserId -ne $sqlAdminIdentity.ClientId) {
+            Write-Warning "KV secret User Id ($connStringUserId) does NOT match UAMI ClientId ($($sqlAdminIdentity.ClientId))!"
+          } else {
+            Write-Host "  User Id matches UAMI ClientId ✓"
+          }
+        } else {
+          Write-Warning "Could not parse User Id from KV secret connection string."
+        }
+
+        # Verify container app identities
+        $acaResource = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/containerApps" -Name $webAppName -ApiVersion "2023-05-01" -ExpandProperties -ErrorAction SilentlyContinue
+        if ($null -ne $acaResource) {
+          $acaIdentity = ($acaResource | ConvertTo-Json -Depth 10 | ConvertFrom-Json).Identity
+          Write-Host "=== Container App Identities ==="
+          Write-Host "  SystemAssigned PrincipalId: $($acaIdentity.principalId)"
+          $uamiKeys = @()
+          if ($null -ne $acaIdentity.userAssignedIdentities) {
+            $uamiKeys = ($acaIdentity.userAssignedIdentities | Get-Member -MemberType NoteProperty).Name
+          }
+          Write-Host "  UserAssigned identities: $($uamiKeys -join ', ')"
+          $expectedUamiId = "/subscriptions/$($(Get-AzContext).Subscription.Id)/resourceGroups/$resourceGroupName/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$sqlAdminIdentityName"
+          $hasExpectedUami = $uamiKeys | Where-Object { $_.ToLowerInvariant() -eq $expectedUamiId.ToLowerInvariant() }
+          if ($hasExpectedUami) {
+            Write-Host "  SQL UAMI attached to container app ✓"
+          } else {
+            Write-Warning "SQL UAMI '$sqlAdminIdentityName' NOT found in container app identities!"
+          }
+        }
+        Write-Host "=== End Diagnostics ==="
+
         $containerAppUrl = $deploymentResult.Outputs.containerAppUrl.Value
         if ([string]::IsNullOrWhiteSpace($containerAppUrl)) {
             throw "ACA deployment output did not contain containerAppUrl"
