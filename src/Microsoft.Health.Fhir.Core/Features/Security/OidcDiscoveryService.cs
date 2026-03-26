@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<OidcDiscoveryService> _logger;
         private readonly TimeSpan _cacheDuration;
-        private readonly ConcurrentDictionary<string, (Uri AuthorizationEndpoint, Uri TokenEndpoint, DateTimeOffset Timestamp)> _cache = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, (Uri AuthorizationEndpoint, Uri TokenEndpoint, string Issuer, string JwksUri, DateTimeOffset Timestamp)> _cache = new(StringComparer.Ordinal);
 
         private readonly AsyncRetryPolicy<HttpResponseMessage> _retryPolicy;
 
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                     });
         }
 
-        public async Task<(Uri AuthorizationEndpoint, Uri TokenEndpoint)> ResolveEndpointsAsync(string authority, CancellationToken cancellationToken = default)
+        public async Task<(Uri AuthorizationEndpoint, Uri TokenEndpoint, string Issuer, string JwksUri)> ResolveEndpointsAsync(string authority, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNullOrWhiteSpace(authority, nameof(authority));
 
@@ -80,18 +80,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             {
                 if (DateTimeOffset.UtcNow - cached.Timestamp < _cacheDuration)
                 {
-                    return (cached.AuthorizationEndpoint, cached.TokenEndpoint);
+                    return (cached.AuthorizationEndpoint, cached.TokenEndpoint, cached.Issuer, cached.JwksUri);
                 }
 
                 _cache.TryRemove(normalizedAuthority, out _);
             }
 
             var endpoints = await DiscoverEndpointsAsync(normalizedAuthority, cancellationToken);
-            _cache.TryAdd(normalizedAuthority, (endpoints.AuthorizationEndpoint, endpoints.TokenEndpoint, DateTimeOffset.UtcNow));
+            _cache.TryAdd(normalizedAuthority, (endpoints.AuthorizationEndpoint, endpoints.TokenEndpoint, endpoints.Issuer, endpoints.JwksUri, DateTimeOffset.UtcNow));
             return endpoints;
         }
 
-        private async Task<(Uri AuthorizationEndpoint, Uri TokenEndpoint)> DiscoverEndpointsAsync(string authority, CancellationToken cancellationToken)
+        private async Task<(Uri AuthorizationEndpoint, Uri TokenEndpoint, string Issuer, string JwksUri)> DiscoverEndpointsAsync(string authority, CancellationToken cancellationToken)
         {
             try
             {
@@ -108,10 +108,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
                 string authEndpoint = openIdConfig.RootElement.TryGetProperty("authorization_endpoint", out var authProp) ? authProp.GetString() : null;
                 string tokenEndpoint = openIdConfig.RootElement.TryGetProperty("token_endpoint", out var tokenProp) ? tokenProp.GetString() : null;
+                string issuer = openIdConfig.RootElement.TryGetProperty("issuer", out var issuerProp) ? issuerProp.GetString() : null;
+                string jwksUri = openIdConfig.RootElement.TryGetProperty("jwks_uri", out var jwksProp) ? jwksProp.GetString() : null;
 
                 if (!string.IsNullOrEmpty(authEndpoint) && !string.IsNullOrEmpty(tokenEndpoint))
                 {
-                    return (new Uri(authEndpoint), new Uri(tokenEndpoint));
+                    return (new Uri(authEndpoint), new Uri(tokenEndpoint), issuer, jwksUri);
                 }
 
                 _logger.LogWarning("OIDC discovery document at {Url} did not contain authorization_endpoint or token_endpoint. Falling back to Entra ID URL pattern.", openIdConfigUrl);
@@ -136,7 +138,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             // Fallback: assume Entra ID URL pattern
             return (
                 new Uri(authority + "/oauth2/v2.0/authorize"),
-                new Uri(authority + "/oauth2/v2.0/token"));
+                new Uri(authority + "/oauth2/v2.0/token"),
+                authority + "/v2.0",
+                authority + "/discovery/v2.0/keys");
         }
 
         private static bool IsTransientStatusCode(HttpStatusCode code) =>
