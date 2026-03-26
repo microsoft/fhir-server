@@ -279,15 +279,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static void CheckConflictsAcrossInputSearchParams(Hl7.Fhir.Model.Bundle bundle)
         {
-            var codes = new HashSet<string>();
+            var codes = new HashSet<(Hl7.Fhir.Model.SearchParamType Type, string Code)>();
             var urls = new HashSet<string>();
-            var dupCodes = new HashSet<string>();
+            var dupCodes = new HashSet<(Hl7.Fhir.Model.SearchParamType Type, string Code)>();
             var dupUrls = new HashSet<string>();
             foreach (var param in bundle.Entry.Select(_ => _.Resource as SearchParameter).Where(_ => _ != null))
             {
-                if (param.Code != null && !codes.Add(param.Code))
+                if (param.Code != null && param.Type != null && !codes.Add((param.Type.Value, param.Code)))
                 {
-                    dupCodes.Add(param.Code);
+                    dupCodes.Add((param.Type.Value, param.Code));
                 }
 
                 if (param.Url != null && !urls.Add(param.Url))

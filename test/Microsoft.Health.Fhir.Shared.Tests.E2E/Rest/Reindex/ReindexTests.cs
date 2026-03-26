@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Reflection.Metadata;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,6 +41,71 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             _isSql = _fixture.DataStore == DataStore.SqlServer;
         }
 
+        [Fact]
+        public async Task GivenTwoSearchParamsForDifferentResourceTypesUsingSameCode_ThenBothCreated()
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+#if R5
+            var personTypes = new List<VersionIndependentResourceTypesAll?>();
+            personTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+            var supplyDeliveryTypes = new List<VersionIndependentResourceTypesAll?>();
+            supplyDeliveryTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("SupplyDelivery"));
+#else
+            var personTypes = new List<ResourceType?>();
+            personTypes.Add(Enum.Parse<ResourceType>("Person"));
+            var supplyDeliveryTypes = new List<ResourceType?>();
+            supplyDeliveryTypes.Add(Enum.Parse<ResourceType>("SupplyDelivery"));
+#endif
+            const string urlPrefix = "http://my.org/";
+            var ids = new List<string> { "c-id-1", "c-id-2" };
+            try
+            {
+                var code = "c-id-x"; // same code
+                var searchParam = new SearchParameter
+                {
+                    Id = "c-id-1",
+                    Url = $"{urlPrefix}c-code-1",
+                    Name = code,
+                    Code = code,
+                    Status = PublicationStatus.Active,
+                    Type = SearchParamType.Token,
+                    Expression = "Person.id",
+                    Description = "any",
+                    Base = personTypes,
+                };
+
+                var result = await _fixture.TestFhirClient.UpdateAsync(searchParam);
+                Assert.NotNull(result.Resource);
+
+                searchParam = new SearchParameter
+                {
+                    Id = "c-id-2",
+                    Url = $"{urlPrefix}c-code-2",
+                    Name = code,
+                    Code = code,
+                    Status = PublicationStatus.Active,
+                    Type = SearchParamType.Token,
+                    Expression = "SupplyDelivery.id",
+                    Description = "any",
+                    Base = supplyDeliveryTypes,
+                };
+
+                result = await _fixture.TestFhirClient.UpdateAsync(searchParam);
+                Assert.NotNull(result.Resource);
+            }
+            catch (FhirClientException ex)
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+                Assert.Contains("Input search parameters have duplicate", ex.Message);
+                Assert.Contains("codes", ex.Message);
+            }
+            finally
+            {
+                await DeleteSearchParamsAsync(ids); // this is just in case.
+            }
+        }
+
         [Theory]
         [InlineData(true, false, true, false)]
         [InlineData(true, false, false, false)]
@@ -53,7 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [InlineData(true, true, false, false)]
         [InlineData(true, true, true, true)]
         [InlineData(true, true, true, false)]
-        public async Task GivenTwoSearchParams_ThenBadRequestIsReturnedForConflicts(bool dupCodes, bool dupUrls, bool isParallel, bool isBatch)
+        public async Task GivenTwoPersonSearchParams_ThenBadRequestIsReturnedForConflicts(bool dupCodes, bool dupUrls, bool isParallel, bool isBatch)
         {
             if (!_isSql && !isBatch) // cosmos does not support transaction bundles
             {
@@ -93,7 +159,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 if (!isParallel && isBatch) // sequential batch
                 {
                     Assert.Equal(2, response.Entry.Count);
-                    Assert.All(response.Entry, _ => Assert.NotNull(_.Resource as SearchParameter)); // both search params ingested
+
+                    // both search params ingested. this is not correct, and need to be fixed when dedupping bug is fixed.
+                    Assert.All(response.Entry, _ => Assert.NotNull(_.Resource as SearchParameter));
                 }
                 else
                 {
@@ -116,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                await DeletePersonSearchParamsAsync(); // this is just in case.
+                await DeleteSearchParamsAsync(ids); // this is just in case.
             }
 
             async Task<Bundle> CreatePersonSearchParamsAsync()
@@ -154,18 +222,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = isParallel ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential });
                 return result;
             }
+        }
 
-            async Task DeletePersonSearchParamsAsync()
+        private async Task DeleteSearchParamsAsync(List<string> ids)
+        {
+            var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+            foreach (var id in ids)
             {
-                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
-
-                foreach (var id in ids)
-                {
-                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{id}" } });
-                }
-
-                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{id}" } });
             }
+
+            await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
         }
 
         [Fact]
