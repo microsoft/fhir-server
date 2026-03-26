@@ -243,6 +243,26 @@ jobs:
           }
         }
 
+        # Align SQL AAD admin with the UAMI used by the FHIR app as an Application principal.
+        # This avoids login failures for token-identified principals in ACA startup.
+        $sqlAdminIdentityName = "$sqlServerName-uami"
+        $sqlAdminIdentity = Get-AzUserAssignedIdentity -ResourceGroupName $resourceGroupName -Name $sqlAdminIdentityName -ErrorAction Stop
+        if ($null -eq $sqlAdminIdentity) {
+          throw "SQL admin identity '$sqlAdminIdentityName' was not found in resource group '$resourceGroupName'."
+        }
+
+        $sqlAdminFixTemplateParameters = @{
+          sqlServerName = $sqlServerName
+          sqlAdministratorLogin = $sqlAdminIdentity.PrincipalId
+          sqlAdministratorSid = $sqlAdminIdentity.PrincipalId
+          sqlAdministratorTenantId = $sqlAdminIdentity.TenantId
+          sqlServerPrincipalType = "Application"
+        }
+
+        Invoke-WithRetry -OperationName "SQL AAD Admin Remediation" -ScriptBlock {
+          New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "$sqlServerName-admin-fix" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $sqlAdminFixTemplateParameters -Verbose -ErrorAction Stop
+        }
+
         $containerAppUrl = $deploymentResult.Outputs.containerAppUrl.Value
         if ([string]::IsNullOrWhiteSpace($containerAppUrl)) {
             throw "ACA deployment output did not contain containerAppUrl"
