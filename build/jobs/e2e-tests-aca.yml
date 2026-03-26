@@ -1,0 +1,96 @@
+parameters:
+- name: version
+  type: string
+- name: containerAppName
+  type: string
+- name: appServiceType
+  type: string
+- name: categoryFilter
+  type: string
+  default: 'Category!=ExportLongRunning'
+- name: testRunTitleSuffix
+  type: string
+  default: ''
+
+steps:
+  - template: e2e-tests-extract.yml
+    parameters:
+      version: ${{parameters.version}}
+
+  - template: ../tasks/e2e-set-variables-aca.yml
+    parameters:
+      containerAppName: ${{ parameters.containerAppName }}
+
+  - task: PowerShell@2
+    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $testRoot = "$(Agent.TempDirectory)/E2ETests"
+        $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E"
+        $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+        if (-not $dll) {
+          throw "Could not find $testName.dll under $testRoot"
+        }
+
+        $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
+        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
+
+        Write-Host "Running dotnet $($dll.FullName)"
+        & dotnet $dll.FullName @args
+
+        if ($LASTEXITCODE -ne 0) {
+          throw "E2E tests failed with exit code $LASTEXITCODE"
+        }
+    env:
+      'TestEnvironmentUrl': $(TestEnvironmentUrl)
+      'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
+      'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
+      'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
+      'Resource': $(Resource)
+      'AllStorageAccounts': $(AllStorageAccounts)
+      'TestExportStoreUri': $(TestExportStoreUri)
+      'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
+      'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
+      'tenant-admin-user-name': $(tenant-admin-user-name)
+      'tenant-admin-user-password': $(tenant-admin-user-password)
+      'tenant-id': $(tenant-id)
+      'app_globalAdminServicePrincipal_id': $(app_globalAdminServicePrincipal_id)
+      'app_globalAdminServicePrincipal_secret': $(app_globalAdminServicePrincipal_secret)
+      'app_nativeClient_id': $(app_nativeClient_id)
+      'app_nativeClient_secret': $(app_nativeClient_secret)
+      'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
+      'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
+      'app_globalAdminUserApp_id': $(app_globalAdminUserApp_id)
+      'app_globalAdminUserApp_secret': $(app_globalAdminUserApp_secret)
+      'app_globalConverterUserApp_id': $(app_globalConverterUserApp_id)
+      'app_globalConverterUserApp_secret': $(app_globalConverterUserApp_secret)
+      'app_globalExporterUserApp_id': $(app_globalExporterUserApp_id)
+      'app_globalExporterUserApp_secret': $(app_globalExporterUserApp_secret)
+      'app_globalImporterUserApp_id': $(app_globalImporterUserApp_id)
+      'app_globalImporterUserApp_secret': $(app_globalImporterUserApp_secret)
+      'app_globalReaderUserApp_id': $(app_globalReaderUserApp_id)
+      'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
+      'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
+      'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'app_smartUserClient_id': $(app_smartUserClient_id)
+      'app_smartUserClient_secret': $(app_smartUserClient_secret)
+      'AZURESUBSCRIPTION_CLIENT_ID': $(AzurePipelinesCredential_ClientId)
+      'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
+      'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
+
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
+      mergeTestResults: true
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
+      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
+      failTaskOnFailedTests: false
+    condition: succeededOrFailed()

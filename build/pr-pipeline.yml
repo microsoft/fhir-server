@@ -299,7 +299,7 @@ stages:
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R4
       sql: true
@@ -315,6 +315,8 @@ stages:
       sqlServerName: $(DeploymentEnvironmentName)
       sqlComputeTier: 'Standard'
       reindexEnabled: true
+      containerCpu: '1.0'
+      containerMemory: '2Gi'
 
 - stage: deployR4B
   displayName: 'Deploy R4B CosmosDB Site'
@@ -450,12 +452,15 @@ stages:
   - BuildArtifacts
   - setupEnvironment
   - deployR4Sql
+  variables:
+    TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: R4
-      keyVaultName: $(KeyVaultNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4Sql)
+      containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR4BCosmos
