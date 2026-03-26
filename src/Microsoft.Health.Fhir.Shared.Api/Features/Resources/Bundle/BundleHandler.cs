@@ -292,12 +292,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (param.Code != null && param.Base != null)
                 {
                     var allResourceTypes = SearchParameterDefinitionManager.GetDerivedResourceTypes(_modelInfoProvider, param.Base.Where(_ => _ != null).Select(_ => _.Value.ToString()).ToList());
-                    foreach (var resourceType in allResourceTypes)
+                    foreach (var resourceType in allResourceTypes.Where(_ => !codes.Add((_, param.Code))))
                     {
-                        if (!codes.Add((resourceType, param.Code)))
-                        {
-                            dupCodes.Add((resourceType, param.Code));
-                        }
+                        dupCodes.Add((resourceType, param.Code));
                     }
                 }
 
