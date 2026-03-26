@@ -151,8 +151,8 @@ jobs:
             enableImport = $true
             enableConvertData = $true
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
-            minReplicas = 1
-            maxReplicas = 3
+            minReplicas = 3
+            maxReplicas = 6
             containerCpu = "${{ parameters.containerCpu }}"
             containerMemory = "${{ parameters.containerMemory }}"
             acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
@@ -167,6 +167,22 @@ jobs:
         Write-Host "ResourceGroupName: $resourceGroupName"
         Write-Host "ContainerAppName: $webAppName"
         Write-Host "ContainerAppsEnvironmentName: $acaEnvironmentName"
+
+        # Ensure the SQL database exists before deploying the container.
+        # The deploySqlServer stage creates the SQL server but NOT the database.
+        # Azure SQL returns error 18456 (not 4060) when a AAD token targets a
+        # non-existent database, preventing the FHIR app from self-creating it.
+        $sqlDatabaseName = "FHIR${{ parameters.version }}"
+        $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
+        if ($null -eq $existingDb) {
+          Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating..."
+          Invoke-WithRetry -OperationName "Create SQL Database" -ScriptBlock {
+            New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "Standard" -RequestedServiceObjectiveName "S0" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
+          }
+          Write-Host "Database '$sqlDatabaseName' created successfully."
+        } else {
+          Write-Host "Database '$sqlDatabaseName' already exists on server '$sqlServerName'."
+        }
 
         $deploymentResult = Invoke-WithRetry -OperationName "ACA Deployment" -ScriptBlock {
             New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/r4-sql-aca.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
