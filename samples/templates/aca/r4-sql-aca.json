@@ -94,8 +94,8 @@
       "defaultValue": 3
     },
     "containerCpu": {
-      "type": "number",
-      "defaultValue": 1.0
+      "type": "string",
+      "defaultValue": "1.0"
     },
     "containerMemory": {
       "type": "string",
@@ -253,7 +253,7 @@
               "name": "[variables('containerAppName')]",
               "image": "[variables('containerImage')]",
               "resources": {
-                "cpu": "[parameters('containerCpu')]",
+                "cpu": "[json(parameters('containerCpu'))]",
                 "memory": "[parameters('containerMemory')]"
               },
               "env": "[concat(variables('staticEnvVars'), parameters('additionalEnvVars'))]",

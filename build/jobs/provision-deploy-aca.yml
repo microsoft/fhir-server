@@ -153,7 +153,7 @@ jobs:
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             minReplicas = 1
             maxReplicas = 3
-            containerCpu = [double]::Parse("${{ parameters.containerCpu }}", [System.Globalization.CultureInfo]::InvariantCulture)
+            containerCpu = "${{ parameters.containerCpu }}"
             containerMemory = "${{ parameters.containerMemory }}"
             acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
             additionalEnvVars = $additionalEnvVars
