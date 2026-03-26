@@ -161,17 +161,40 @@ jobs:
 
         $deploymentName = "$webAppName-aca"
         $resourceGroupName = "${{ parameters.resourceGroup }}"
+        $sqlServerName = "${{ parameters.sqlServerName }}".ToLowerInvariant()
 
         Write-Host "Provisioning ACA resources"
         Write-Host "ResourceGroupName: $resourceGroupName"
         Write-Host "ContainerAppName: $webAppName"
         Write-Host "ContainerAppsEnvironmentName: $acaEnvironmentName"
 
+        # Ensure SQL AAD admin is aligned with the UAMI that will be used by the app.
+        # Must use principalType "User" with the UAMI's PrincipalId (object ID) — this matches
+        # how deploySqlServer provisions the admin and how the AAD token oid claim is validated.
+        $sqlAdminIdentityName = "$sqlServerName-uami"
+        $sqlAdminIdentity = Get-AzUserAssignedIdentity -ResourceGroupName $resourceGroupName -Name $sqlAdminIdentityName -ErrorAction Stop
+        if ($null -eq $sqlAdminIdentity) {
+          throw "SQL admin identity '$sqlAdminIdentityName' was not found in resource group '$resourceGroupName'."
+        }
+
+        Write-Host "UAMI '$sqlAdminIdentityName' PrincipalId (ObjectId): $($sqlAdminIdentity.PrincipalId)"
+        Write-Host "UAMI '$sqlAdminIdentityName' ClientId: $($sqlAdminIdentity.ClientId)"
+
+        $sqlAdminFixTemplateParameters = @{
+          sqlServerName = $sqlServerName
+          sqlAdministratorLogin = $sqlAdminIdentity.PrincipalId
+          sqlAdministratorSid = $sqlAdminIdentity.PrincipalId
+          sqlAdministratorTenantId = $sqlAdminIdentity.TenantId
+          sqlServerPrincipalType = "User"
+        }
+
+        Invoke-WithRetry -OperationName "SQL AAD Admin Remediation" -ScriptBlock {
+          New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "$sqlServerName-admin-fix" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $sqlAdminFixTemplateParameters -Verbose -ErrorAction Stop
+        }
+
         $deploymentResult = Invoke-WithRetry -OperationName "ACA Deployment" -ScriptBlock {
             New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/r4-sql-aca.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
         }
-
-        $sqlServerName = "${{ parameters.sqlServerName }}".ToLowerInvariant()
         $managedEnvironment = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/managedEnvironments" -Name $acaEnvironmentName -ApiVersion "2023-05-01" -ExpandProperties
         if ($null -eq $managedEnvironment) {
           throw "Container Apps environment '$acaEnvironmentName' was not found in resource group '$resourceGroupName'."
@@ -241,26 +264,6 @@ jobs:
               }
             }
           }
-        }
-
-        # Align SQL AAD admin with the UAMI used by the FHIR app as an Application principal.
-        # This avoids login failures for token-identified principals in ACA startup.
-        $sqlAdminIdentityName = "$sqlServerName-uami"
-        $sqlAdminIdentity = Get-AzUserAssignedIdentity -ResourceGroupName $resourceGroupName -Name $sqlAdminIdentityName -ErrorAction Stop
-        if ($null -eq $sqlAdminIdentity) {
-          throw "SQL admin identity '$sqlAdminIdentityName' was not found in resource group '$resourceGroupName'."
-        }
-
-        $sqlAdminFixTemplateParameters = @{
-          sqlServerName = $sqlServerName
-          sqlAdministratorLogin = $sqlAdminIdentity.PrincipalId
-          sqlAdministratorSid = $sqlAdminIdentity.PrincipalId
-          sqlAdministratorTenantId = $sqlAdminIdentity.TenantId
-          sqlServerPrincipalType = "Application"
-        }
-
-        Invoke-WithRetry -OperationName "SQL AAD Admin Remediation" -ScriptBlock {
-          New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "$sqlServerName-admin-fix" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $sqlAdminFixTemplateParameters -Verbose -ErrorAction Stop
         }
 
         $containerAppUrl = $deploymentResult.Outputs.containerAppUrl.Value
