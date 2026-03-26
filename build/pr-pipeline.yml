@@ -545,7 +545,6 @@ stages:
   - testR4BSql
   - testR5Cosmos
   - testR5Sql
-  condition: succeeded()
   jobs:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
