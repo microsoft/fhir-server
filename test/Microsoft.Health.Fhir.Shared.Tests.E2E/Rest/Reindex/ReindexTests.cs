@@ -61,10 +61,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var ids = new List<string> { "c-id-1", "c-id-2" };
             try
             {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
                 var code = "c-id-x"; // same code
+                var id = ids[0];
                 var searchParam = new SearchParameter
                 {
-                    Id = "c-id-1",
+                    Id = id,
                     Url = $"{urlPrefix}c-code-1",
                     Name = code,
                     Code = code,
@@ -75,12 +78,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     Base = personTypes,
                 };
 
-                var result = await _fixture.TestFhirClient.UpdateAsync(searchParam);
-                Assert.NotNull(result.Resource);
+                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
 
+                id = ids[1];
                 searchParam = new SearchParameter
                 {
-                    Id = "c-id-2",
+                    Id = id,
                     Url = $"{urlPrefix}c-code-2",
                     Name = code,
                     Code = code,
@@ -91,18 +94,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     Base = supplyDeliveryTypes,
                 };
 
-                result = await _fixture.TestFhirClient.UpdateAsync(searchParam);
-                Assert.NotNull(result.Resource);
-            }
-            catch (FhirClientException ex)
-            {
-                Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
-                Assert.Contains("Input search parameters have duplicate", ex.Message);
-                Assert.Contains("codes", ex.Message);
+                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+                var response = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                Assert.Equal(2, response.Resource.Entry.Count);
+                Assert.All(response.Resource.Entry, _ => Assert.NotNull(_.Resource as SearchParameter));
             }
             finally
             {
-                await DeleteSearchParamsAsync(ids); // this is just in case.
+                await DeleteSearchParamsAsync(ids);
             }
         }
 
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
             finally
             {
-                await DeleteSearchParamsAsync(ids); // this is just in case.
+                await DeleteSearchParamsAsync(ids);
             }
 
             async Task<Bundle> CreatePersonSearchParamsAsync()
