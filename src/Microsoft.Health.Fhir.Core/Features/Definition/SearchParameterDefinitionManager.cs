@@ -574,13 +574,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
         private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
         {
+            return GetDerivedResourceTypes(_modelInfoProvider, resourceTypes);
+        }
+
+        public static ICollection<string> GetDerivedResourceTypes(IModelInfoProvider modelInfoProvider,  IReadOnlyCollection<string> resourceTypes)
+        {
             var completeResourceList = new HashSet<string>(resourceTypes);
 
             foreach (var baseResourceType in resourceTypes)
             {
                 if (baseResourceType == KnownResourceTypes.Resource)
                 {
-                    completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+                    completeResourceList.UnionWith(modelInfoProvider.GetResourceTypeNames().ToHashSet());
 
                     // We added all possible resource types, so no need to continue
                     break;
@@ -588,7 +593,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 if (baseResourceType == KnownResourceTypes.DomainResource)
                 {
-                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+                    var domainResourceChildResourceTypes = modelInfoProvider.GetResourceTypeNames().ToHashSet();
 
                     // Remove types that inherit from Resource directly
                     domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);

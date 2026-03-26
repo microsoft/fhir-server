@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -89,6 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IMediator _mediator;
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         // Total number of requests in the bundle.
         private int _requestCount;
@@ -136,7 +138,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IMediator mediator,
             IRouter router,
             IProvideProfilesForValidation profilesResolver,
-            ILogger<BundleHandler> logger)
+            ILogger<BundleHandler> logger,
+            IModelInfoProvider modelInfoProvider)
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -156,6 +159,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _router = EnsureArg.IsNotNull(router, nameof(router));
             _profilesResolver = EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
@@ -277,7 +281,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static void CheckConflictsAcrossInputSearchParams(Hl7.Fhir.Model.Bundle bundle)
+        private void CheckConflictsAcrossInputSearchParams(Hl7.Fhir.Model.Bundle bundle)
         {
             var codes = new HashSet<(string Type, string Code)>();
             var urls = new HashSet<string>();
@@ -287,7 +291,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (param.Code != null && param.Base != null)
                 {
-                    foreach (var resourceType in param.Base.Where(_ => _ != null && _.HasValue).Select(_ => _.Value.ToString()))
+                    var allResourceTypes = SearchParameterDefinitionManager.GetDerivedResourceTypes(_modelInfoProvider, param.Base.Where(_ => _ != null && _.HasValue).Select(_ => _.Value.ToString()).ToList());
+                    foreach (var resourceType in allResourceTypes)
                     {
                         if (!codes.Add((resourceType, param.Code)))
                         {
