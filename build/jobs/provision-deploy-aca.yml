@@ -168,33 +168,48 @@ jobs:
         Write-Host "ContainerAppName: $webAppName"
         Write-Host "ContainerAppsEnvironmentName: $acaEnvironmentName"
 
-        # Ensure SQL AAD admin is aligned with the UAMI that will be used by the app.
-        # Must use principalType "User" with the UAMI's PrincipalId (object ID) — this matches
-        # how deploySqlServer provisions the admin and how the AAD token oid claim is validated.
-        $sqlAdminIdentityName = "$sqlServerName-uami"
-        $sqlAdminIdentity = Get-AzUserAssignedIdentity -ResourceGroupName $resourceGroupName -Name $sqlAdminIdentityName -ErrorAction Stop
-        if ($null -eq $sqlAdminIdentity) {
-          throw "SQL admin identity '$sqlAdminIdentityName' was not found in resource group '$resourceGroupName'."
-        }
-
-        Write-Host "UAMI '$sqlAdminIdentityName' PrincipalId (ObjectId): $($sqlAdminIdentity.PrincipalId)"
-        Write-Host "UAMI '$sqlAdminIdentityName' ClientId: $($sqlAdminIdentity.ClientId)"
-
-        $sqlAdminFixTemplateParameters = @{
-          sqlServerName = $sqlServerName
-          sqlAdministratorLogin = $sqlAdminIdentity.PrincipalId
-          sqlAdministratorSid = $sqlAdminIdentity.PrincipalId
-          sqlAdministratorTenantId = $sqlAdminIdentity.TenantId
-          sqlServerPrincipalType = "User"
-        }
-
-        Invoke-WithRetry -OperationName "SQL AAD Admin Remediation" -ScriptBlock {
-          New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "$sqlServerName-admin-fix" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $sqlAdminFixTemplateParameters -Verbose -ErrorAction Stop
-        }
-
+        # Deploy ACA first to get the system-assigned identity.
         $deploymentResult = Invoke-WithRetry -OperationName "ACA Deployment" -ScriptBlock {
             New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/r4-sql-aca.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
         }
+
+        # Get the container app's system-assigned identity PrincipalId.
+        $acaResource = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/containerApps" -Name $webAppName -ApiVersion "2023-05-01" -ExpandProperties -ErrorAction Stop
+        $acaIdentityJson = $acaResource | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+        $systemAssignedPrincipalId = $acaIdentityJson.Identity.principalId
+        $systemAssignedTenantId = $acaIdentityJson.Identity.tenantId
+        if ([string]::IsNullOrWhiteSpace($systemAssignedPrincipalId)) {
+          throw "Container app '$webAppName' does not have a system-assigned managed identity."
+        }
+        Write-Host "Container App system-assigned PrincipalId: $systemAssignedPrincipalId"
+
+        # Set SQL admin to the container app's system-assigned identity.
+        # Using system-assigned avoids the UAMI token resolution issue in ACA where
+        # ActiveDirectoryMSI with User Id may not properly acquire the UAMI token.
+        $sqlAdminFixTemplateParameters = @{
+          sqlServerName = $sqlServerName
+          sqlAdministratorLogin = $systemAssignedPrincipalId
+          sqlAdministratorSid = $systemAssignedPrincipalId
+          sqlAdministratorTenantId = $systemAssignedTenantId
+          sqlServerPrincipalType = "User"
+        }
+
+        Invoke-WithRetry -OperationName "SQL AAD Admin (system-assigned)" -ScriptBlock {
+          New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "$sqlServerName-admin-fix" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $sqlAdminFixTemplateParameters -Verbose -ErrorAction Stop
+        }
+
+        # Rewrite the KV secret without User Id so SqlClient uses the default (system-assigned) identity.
+        $sqlServerResource = Get-AzSqlServer -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -ErrorAction Stop
+        $sqlConnectionString = "Server=tcp:{0},1433;Initial Catalog=FHIR{1};Persist Security Info=False;Authentication=ActiveDirectoryManagedIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" -f $sqlServerResource.FullyQualifiedDomainName, "${{ parameters.version }}"
+        $sqlConnectionStringSecure = ConvertTo-SecureString $sqlConnectionString -AsPlainText -Force
+        Set-AzKeyVaultSecret -VaultName "${{ parameters.keyVaultName }}" -Name "SqlServer--ConnectionString" -SecretValue $sqlConnectionStringSecure | Out-Null
+        Write-Host "Updated KV secret to use system-assigned identity (no User Id)."
+
+        # Restart the container to pick up the new KV secret.
+        $revisionName = $acaIdentityJson.Properties.latestRevisionName
+        Write-Host "Restarting revision: $revisionName"
+        Invoke-AzRestMethod -Method POST -Path "/subscriptions/$($(Get-AzContext).Subscription.Id)/resourceGroups/$resourceGroupName/providers/Microsoft.App/containerApps/$webAppName/restartRevision?api-version=2023-05-01" -Payload "{`"revisionName`":`"$revisionName`"}" | Out-Null
+        Start-Sleep -Seconds 10
         $managedEnvironment = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/managedEnvironments" -Name $acaEnvironmentName -ApiVersion "2023-05-01" -ExpandProperties
         if ($null -eq $managedEnvironment) {
           throw "Container Apps environment '$acaEnvironmentName' was not found in resource group '$resourceGroupName'."
@@ -276,49 +291,24 @@ jobs:
         Write-Host "  PrincipalType: $($adminProps.PrincipalType)"
         Write-Host "  AzureADOnly:   $($adminProps.AzureADOnlyAuthentication)"
 
-        Write-Host "=== Expected Identity ==="
-        Write-Host "  UAMI PrincipalId: $($sqlAdminIdentity.PrincipalId)"
-        Write-Host "  UAMI ClientId:    $($sqlAdminIdentity.ClientId)"
+        Write-Host "=== Expected (system-assigned) ==="
+        Write-Host "  SystemAssigned PrincipalId: $systemAssignedPrincipalId"
 
-        if ($adminProps.Sid -ne $sqlAdminIdentity.PrincipalId) {
-          Write-Warning "SQL admin SID ($($adminProps.Sid)) does NOT match UAMI PrincipalId ($($sqlAdminIdentity.PrincipalId))!"
+        if ($adminProps.Sid -ne $systemAssignedPrincipalId) {
+          Write-Warning "SQL admin SID ($($adminProps.Sid)) does NOT match system-assigned PrincipalId ($systemAssignedPrincipalId)!"
         } else {
-          Write-Host "  SID matches UAMI PrincipalId ✓"
+          Write-Host "  SID matches system-assigned PrincipalId ✓"
         }
 
-        # Verify KV secret
+        # Verify KV secret has no User Id
         $kvSecret = Get-AzKeyVaultSecret -VaultName "${{ parameters.keyVaultName }}" -Name "SqlServer--ConnectionString" -AsPlainText -ErrorAction Stop
-        if ($kvSecret -match 'User Id=([^;]+);') {
-          $connStringUserId = $Matches[1]
-          Write-Host "=== KV Secret User Id ==="
-          Write-Host "  User Id in connection string: $connStringUserId"
-          if ($connStringUserId -ne $sqlAdminIdentity.ClientId) {
-            Write-Warning "KV secret User Id ($connStringUserId) does NOT match UAMI ClientId ($($sqlAdminIdentity.ClientId))!"
-          } else {
-            Write-Host "  User Id matches UAMI ClientId ✓"
-          }
+        if ($kvSecret -match 'User Id=') {
+          Write-Warning "KV secret still contains 'User Id=' — should have been removed!"
         } else {
-          Write-Warning "Could not parse User Id from KV secret connection string."
+          Write-Host "  KV secret has no User Id (system-assigned default) ✓"
         }
-
-        # Verify container app identities
-        $acaResource = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/containerApps" -Name $webAppName -ApiVersion "2023-05-01" -ExpandProperties -ErrorAction SilentlyContinue
-        if ($null -ne $acaResource) {
-          $acaIdentity = ($acaResource | ConvertTo-Json -Depth 10 | ConvertFrom-Json).Identity
-          Write-Host "=== Container App Identities ==="
-          Write-Host "  SystemAssigned PrincipalId: $($acaIdentity.principalId)"
-          $uamiKeys = @()
-          if ($null -ne $acaIdentity.userAssignedIdentities) {
-            $uamiKeys = ($acaIdentity.userAssignedIdentities | Get-Member -MemberType NoteProperty).Name
-          }
-          Write-Host "  UserAssigned identities: $($uamiKeys -join ', ')"
-          $expectedUamiId = "/subscriptions/$($(Get-AzContext).Subscription.Id)/resourceGroups/$resourceGroupName/providers/Microsoft.ManagedIdentity/userAssignedIdentities/$sqlAdminIdentityName"
-          $hasExpectedUami = $uamiKeys | Where-Object { $_.ToLowerInvariant() -eq $expectedUamiId.ToLowerInvariant() }
-          if ($hasExpectedUami) {
-            Write-Host "  SQL UAMI attached to container app ✓"
-          } else {
-            Write-Warning "SQL UAMI '$sqlAdminIdentityName' NOT found in container app identities!"
-          }
+        if ($kvSecret -match 'ActiveDirectoryManagedIdentity') {
+          Write-Host "  Authentication method: ActiveDirectoryManagedIdentity ✓"
         }
         Write-Host "=== End Diagnostics ==="
 
