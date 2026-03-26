@@ -198,18 +198,16 @@ jobs:
           New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "$sqlServerName-admin-fix" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $sqlAdminFixTemplateParameters -Verbose -ErrorAction Stop
         }
 
-        # Rewrite the KV secret without User Id so SqlClient uses the default (system-assigned) identity.
-        $sqlServerResource = Get-AzSqlServer -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -ErrorAction Stop
-        $sqlConnectionString = "Server=tcp:{0},1433;Initial Catalog=FHIR{1};Persist Security Info=False;Authentication=ActiveDirectoryManagedIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" -f $sqlServerResource.FullyQualifiedDomainName, "${{ parameters.version }}"
-        $sqlConnectionStringSecure = ConvertTo-SecureString $sqlConnectionString -AsPlainText -Force
-        Set-AzKeyVaultSecret -VaultName "${{ parameters.keyVaultName }}" -Name "SqlServer--ConnectionString" -SecretValue $sqlConnectionStringSecure | Out-Null
-        Write-Host "Updated KV secret to use system-assigned identity (no User Id)."
-
-        # Restart the container to pick up the new KV secret.
+        # Restart the container so it re-reads KV with the correct SQL admin.
+        # The ARM template already writes the connection string with ActiveDirectoryManagedIdentity
+        # (no User Id), so the app uses the system-assigned identity.
         $revisionName = $acaIdentityJson.Properties.latestRevisionName
         Write-Host "Restarting revision: $revisionName"
-        Invoke-AzRestMethod -Method POST -Path "/subscriptions/$($(Get-AzContext).Subscription.Id)/resourceGroups/$resourceGroupName/providers/Microsoft.App/containerApps/$webAppName/restartRevision?api-version=2023-05-01" -Payload "{`"revisionName`":`"$revisionName`"}" | Out-Null
-        Start-Sleep -Seconds 10
+        $subscriptionId = (Get-AzContext).Subscription.Id
+        $restartPath = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.App/containerApps/$webAppName/revisions/$revisionName/restart?api-version=2023-05-01"
+        $restartResult = Invoke-AzRestMethod -Method POST -Path $restartPath
+        Write-Host "Restart response: $($restartResult.StatusCode)"
+        Start-Sleep -Seconds 15
         $managedEnvironment = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/managedEnvironments" -Name $acaEnvironmentName -ApiVersion "2023-05-01" -ExpandProperties
         if ($null -eq $managedEnvironment) {
           throw "Container Apps environment '$acaEnvironmentName' was not found in resource group '$resourceGroupName'."
@@ -287,7 +285,6 @@ jobs:
         Write-Host "=== SQL Server Admin State ==="
         Write-Host "  Login:         $($adminProps.Login)"
         Write-Host "  Sid:           $($adminProps.Sid)"
-        Write-Host "  TenantId:      $($adminProps.TenantId)"
         Write-Host "  PrincipalType: $($adminProps.PrincipalType)"
         Write-Host "  AzureADOnly:   $($adminProps.AzureADOnlyAuthentication)"
 
@@ -300,15 +297,18 @@ jobs:
           Write-Host "  SID matches system-assigned PrincipalId ✓"
         }
 
-        # Verify KV secret has no User Id
+        # Verify KV secret from ARM template
         $kvSecret = Get-AzKeyVaultSecret -VaultName "${{ parameters.keyVaultName }}" -Name "SqlServer--ConnectionString" -AsPlainText -ErrorAction Stop
+        Write-Host "=== KV Secret ==="
         if ($kvSecret -match 'User Id=') {
-          Write-Warning "KV secret still contains 'User Id=' — should have been removed!"
+          Write-Warning "KV secret contains 'User Id=' — ARM template should NOT include it!"
         } else {
-          Write-Host "  KV secret has no User Id (system-assigned default) ✓"
+          Write-Host "  No User Id in connection string ✓"
         }
         if ($kvSecret -match 'ActiveDirectoryManagedIdentity') {
-          Write-Host "  Authentication method: ActiveDirectoryManagedIdentity ✓"
+          Write-Host "  Auth: ActiveDirectoryManagedIdentity ✓"
+        } elseif ($kvSecret -match 'ActiveDirectoryMSI') {
+          Write-Warning "Auth is still ActiveDirectoryMSI — ARM template not updated!"
         }
         Write-Host "=== End Diagnostics ==="
 

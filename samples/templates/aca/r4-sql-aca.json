@@ -362,7 +362,7 @@
       ],
       "properties": {
         "contentType": "text/plain",
-        "value": "[concat('Server=tcp:', reference(resourceId('Microsoft.Sql/servers', toLower(parameters('sqlServerName'))), '2015-05-01-preview').fullyQualifiedDomainName, ',1433;Initial Catalog=', variables('sqlDatabaseName'), ';Persist Security Info=False;Authentication=ActiveDirectoryMSI;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('sqlManagedIdentityName')), '2018-11-30').clientId, ';')]"
+        "value": "[concat('Server=tcp:', reference(resourceId('Microsoft.Sql/servers', toLower(parameters('sqlServerName'))), '2015-05-01-preview').fullyQualifiedDomainName, ',1433;Initial Catalog=', variables('sqlDatabaseName'), ';Persist Security Info=False;Authentication=ActiveDirectoryManagedIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
       }
     }
   ],
