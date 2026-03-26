@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (param.Code != null && param.Base != null)
                 {
-                    foreach (var resourceType in param.Base.Where(_ => _.HasValue).Select(_ => _.Value.ToString()))
+                    foreach (var resourceType in param.Base.Where(_ => _ != null && _.HasValue).Select(_ => _.Value.ToString()))
                     {
                         if (!codes.Add((resourceType, param.Code)))
                         {
