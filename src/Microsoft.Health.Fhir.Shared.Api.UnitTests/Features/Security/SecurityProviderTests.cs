@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 
             _oidcDiscoveryService = Substitute.For<IOidcDiscoveryService>();
             _oidcDiscoveryService.ResolveEndpointsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns((new Uri(OpenIdAuthorizationEndpointUri), new Uri(OpenIdTokenEndpointUri), (string)null, (string)null));
+                .Returns((new Uri(OpenIdAuthorizationEndpointUri), new Uri(OpenIdTokenEndpointUri), null, null));
 
             _urlResolver = Substitute.For<IUrlResolver>();
             _urlResolver.ResolveRouteNameUrl(
