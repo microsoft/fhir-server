@@ -368,33 +368,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         [Fact]
         public async Task GivenHighContentionScenario_WhenExecuted_ThenNoDeadlocksShouldOccur()
         {
-            // Arrange
+            // Multiple threads trying to add elements to the thread-safe hash set while others are enumerating and removing items, simulating a high contention scenario.
+
             var hashSet = new ThreadSafeHashSet<int>();
             const int numberOfThreads = 100;
             const int operationsPerThread = 1000;
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
-
             // Act - High contention scenario with many threads
             Task[] tasks = new Task[numberOfThreads];
-            for (int i = 0; i < numberOfThreads; i++)
+
+            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000))
             {
-                tasks[i] = Task.Run(
-                () =>
+                for (int i = 0; i < numberOfThreads; i++)
                 {
-                    for (int i = 0; i < operationsPerThread; i++)
+                    tasks[i] = Task.Run(
+                    () =>
                     {
-                        int threadId = Task.CurrentId ?? 1;
-                        int value = (threadId * operationsPerThread) + i;
-                        hashSet.Add(value);
-                        hashSet.Contains(value);
-                        if (i % 2 == 0)
+                        for (int i = 0; i < operationsPerThread; i++)
                         {
-                            hashSet.Remove(value);
+                            int threadId = Task.CurrentId ?? 1;
+                            int value = (threadId * operationsPerThread) + i;
+                            hashSet.Add(value);
+                            hashSet.Contains(value);
+                            if (i % 2 == 0)
+                            {
+                                hashSet.Remove(value);
+                            }
                         }
-                    }
-                },
-                cancellationTokenSource.Token);
+                    },
+                    cancellationTokenSource.Token);
+                }
             }
 
 #pragma warning disable xUnit1031 // Justification: using timeout to detect potential deadlocks.

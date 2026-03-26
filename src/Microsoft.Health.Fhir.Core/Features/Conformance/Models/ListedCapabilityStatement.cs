@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    public class ListedCapabilityStatement : ICloneable
+    public class ListedCapabilityStatement
     {
         internal const string ServerMode = "server";
 
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public ICollection<ReferenceComponent> Profile { get; }
 
-        public object Clone()
+        public ListedCapabilityStatement Clone()
         {
             var clone = new ListedCapabilityStatement
             {
