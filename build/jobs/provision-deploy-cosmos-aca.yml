@@ -133,7 +133,6 @@ jobs:
                     -Location (Get-AzResourceGroup -Name $resourceGroupName).Location `
                     -ApiKind "Sql" `
                     -DefaultConsistencyLevel "Strong" `
-                    -DisableKeyBasedMetadataWriteAccess $false `
                     -ErrorAction Stop
             }
             Write-Host "Cosmos DB account '$cosmosDbAccountName' created successfully."
