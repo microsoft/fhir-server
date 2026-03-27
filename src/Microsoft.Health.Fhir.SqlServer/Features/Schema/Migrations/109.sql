@@ -4702,13 +4702,9 @@ WHILE EXISTS (SELECT *
 DECLARE @SummaryOfChanges TABLE (
     Uri       VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Operation VARCHAR (20)  NOT NULL);
-DECLARE @InitialTranCount AS INT = @@trancount;
 BEGIN TRY
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-    IF @InitialTranCount = 0
-        BEGIN
-            BEGIN TRANSACTION;
-        END
+    BEGIN TRANSACTION;
     SELECT TOP 60 @msg = string_agg(S.Uri, ', ')
     FROM   @SearchParams AS I
            INNER JOIN
@@ -4718,8 +4714,7 @@ BEGIN TRY
     IF @msg IS NOT NULL
         BEGIN
             SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg);
-            IF @InitialTranCount = 0
-                ROLLBACK;
+            ROLLBACK;
             THROW 50001, @msg, 1;
         END
     IF EXISTS (SELECT *
@@ -4747,13 +4742,11 @@ BEGIN TRY
            ON C.Uri = S.Uri
     WHERE  C.Operation = 'INSERT';
     SET @msg = 'LastUpdated=' + substring(CONVERT (VARCHAR, @LastUpdated), 1, 23) + ' INSERT=' + CONVERT (VARCHAR, @@rowcount);
-    IF @InitialTranCount = 0
-        COMMIT TRANSACTION;
+    COMMIT TRANSACTION;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Action = 'Merge', @Rows = @Rows, @Text = @msg;
 END TRY
 BEGIN CATCH
-    IF @InitialTranCount = 0
-       AND @@trancount > 0
+    IF @@trancount > 0
         ROLLBACK;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     THROW;

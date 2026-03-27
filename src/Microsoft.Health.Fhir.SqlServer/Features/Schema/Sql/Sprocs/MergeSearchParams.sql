@@ -40,15 +40,11 @@ BEGIN
 END
 
 DECLARE @SummaryOfChanges TABLE (Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL, Operation varchar(20) NOT NULL)
-DECLARE @InitialTranCount int = @@trancount
 
 BEGIN TRY
   SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
 
-  IF @InitialTranCount = 0
-  BEGIN
-    BEGIN TRANSACTION
-  END
+  BEGIN TRANSACTION
   
   -- Check for concurrency conflicts first using LastUpdated
   -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
@@ -58,7 +54,7 @@ BEGIN TRY
   IF @msg IS NOT NULL
   BEGIN
     SET @msg = concat('Optimistic concurrency conflict detected for search parameters: ', @msg) 
-    IF @InitialTranCount = 0 ROLLBACK TRANSACTION;
+    ROLLBACK TRANSACTION;
     THROW 50001, @msg, 1
   END
 
@@ -110,12 +106,12 @@ BEGIN TRY
     WHERE C.Operation = 'INSERT'
   SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
 
-  IF @InitialTranCount = 0 COMMIT TRANSACTION
+  COMMIT TRANSACTION
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Action='Merge',@Rows=@Rows,@Text=@msg
 END TRY
 BEGIN CATCH
-  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION;
+  IF @@trancount > 0 ROLLBACK TRANSACTION;
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
