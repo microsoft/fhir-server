@@ -84,5 +84,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 
             Assert.Equal(output, results);
         }
+
+        [Theory]
+        [InlineData("<div><a href=\"javascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"JAVASCRIPT:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"vbscript:MsgBox('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\">click</a></div>")]
+        public void GivenHtmlWithMaliciousHref_WhenValidating_ThenValidationErrorIsReturned(string html)
+        {
+            var results = _sanitizer.Validate(html);
+
+            Assert.NotEmpty(results);
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"https://example.com\">safe</a></div>")]
+        [InlineData("<div><a href=\"http://example.com\">safe</a></div>")]
+        [InlineData("<div><a href=\"#section1\">anchor</a></div>")]
+        [InlineData("<div><a href=\"mypage.html\">relative</a></div>")]
+        [InlineData("<div><a href=\"mailto:user@example.com\">email</a></div>")]
+        public void GivenHtmlWithSafeHref_WhenValidating_ThenValidationIsSuccessful(string html)
+        {
+            var results = _sanitizer.Validate(html);
+
+            Assert.Empty(results);
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"javascript:alert('XSS')\">click</a></div>", "<div><a>click</a></div>")]
+        [InlineData("<div><a href=\"data:text/html,<script>alert(1)</script>\">click</a></div>", "<div><a>click</a></div>")]
+        [InlineData("<div><a href=\"https://example.com\">safe</a></div>", "<div><a href=\"https://example.com\">safe</a></div>")]
+        public void GivenHtmlWithMaliciousHref_WhenSanitizing_ThenHrefIsRemoved(string input, string output)
+        {
+            var results = _sanitizer.Sanitize(input);
+
+            Assert.Equal(output, results);
+        }
     }
 }
