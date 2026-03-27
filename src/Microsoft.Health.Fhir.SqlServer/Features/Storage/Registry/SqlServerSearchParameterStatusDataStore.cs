@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
     internal class SqlServerSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
+        private const string SearchParamLastUpdatedPrefix = "SearchParamLastUpdated=";
+
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SchemaInformation _schemaInformation;
         private readonly ISqlServerFhirModel _fhirModel;
@@ -188,6 +190,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             cmd.CommandText = "dbo.MergeSearchParams";
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses.ToList()));
 
+            if (_schemaInformation.Current >= 109)
+            {
+                cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", false);
+                cmd.Parameters.Add(new SqlParameter("@TransactionId", SqlDbType.BigInt) { Value = DBNull.Value });
+
+                new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, Array.Empty<ResourceListRow>());
+                new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, Array.Empty<ResourceWriteClaimListRow>());
+                new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, Array.Empty<ReferenceSearchParamListRow>());
+                new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenSearchParamListRow>());
+                new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, Array.Empty<TokenTextListRow>());
+                new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, Array.Empty<StringSearchParamListRow>());
+                new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, Array.Empty<UriSearchParamListRow>());
+                new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, Array.Empty<NumberSearchParamListRow>());
+                new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, Array.Empty<QuantitySearchParamListRow>());
+                new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, Array.Empty<DateTimeSearchParamListRow>());
+                new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<ReferenceTokenCompositeSearchParamListRow>());
+                new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenTokenCompositeSearchParamListRow>());
+                new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenDateTimeCompositeSearchParamListRow>());
+                new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenQuantityCompositeSearchParamListRow>());
+                new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenStringCompositeSearchParamListRow>());
+                new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, Array.Empty<TokenNumberNumberCompositeSearchParamListRow>());
+            }
+
             var results = await cmd.ExecuteReaderAsync(
                 _sqlRetryService,
                 (reader) => { return reader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri, VLatest.SearchParam.LastUpdated); },
@@ -220,6 +245,86 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 // Add the new search parameters to the FHIR model dictionary.
                 _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.OriginalString, status.Id);
             }
+        }
+
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(targetSearchParamLastUpdated, nameof(targetSearchParamLastUpdated));
+
+            if (_schemaInformation.Current < (int)SchemaVersion.V108)
+            {
+                // Pre-V108 schemas don't have the sproc; assume consistent
+                return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 1, ConvergedHosts = 1 };
+            }
+
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.CheckSearchParamCacheConsistency";
+            cmd.Parameters.AddWithValue("@TargetSearchParamLastUpdated", targetSearchParamLastUpdated);
+            cmd.Parameters.AddWithValue("@SyncStartDate", syncStartDate);
+            cmd.Parameters.AddWithValue("@ActiveHostsSince", activeHostsSince);
+
+            var results = await cmd.ExecuteReaderAsync(
+                _sqlRetryService,
+                (reader) =>
+                {
+                    var hostName = reader.GetString(0);
+                    var syncEventDate = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
+                    var eventText = reader.IsDBNull(2) ? null : reader.GetString(2);
+                    return (hostName, syncEventDate, eventText);
+                },
+                _logger,
+                cancellationToken);
+
+            if (results.Count == 0)
+            {
+                // If no results, assume consistent (could be a fresh database)
+                return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 0, ConvergedHosts = 0 };
+            }
+
+            var activeHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var latestSyncByHost = new Dictionary<string, (DateTime SyncEventDate, string EventText)>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (hostName, syncEventDate, eventText) in results)
+            {
+                activeHosts.Add(hostName);
+
+                if (syncEventDate.HasValue && !string.IsNullOrEmpty(eventText))
+                {
+                    if (!latestSyncByHost.TryGetValue(hostName, out var existingSync)
+                        || syncEventDate.Value > existingSync.SyncEventDate)
+                    {
+                        latestSyncByHost[hostName] = (syncEventDate.Value, eventText);
+                    }
+                }
+            }
+
+            int totalActiveHosts = activeHosts.Count;
+            int totalConvergedHosts = activeHosts.Count(hostName =>
+                latestSyncByHost.TryGetValue(hostName, out var latestSync)
+                && TryGetLoggedSearchParamLastUpdated(latestSync.EventText, out string loggedSearchParamLastUpdated)
+                && StringComparer.Ordinal.Compare(loggedSearchParamLastUpdated, targetSearchParamLastUpdated) >= 0);
+
+            return new CacheConsistencyResult
+            {
+                IsConsistent = totalActiveHosts > 0 && totalConvergedHosts >= totalActiveHosts,
+                TotalActiveHosts = totalActiveHosts,
+                ConvergedHosts = totalConvergedHosts,
+            };
+        }
+
+        private static bool TryGetLoggedSearchParamLastUpdated(string eventText, out string loggedSearchParamLastUpdated)
+        {
+            if (!string.IsNullOrEmpty(eventText)
+                && eventText.StartsWith(SearchParamLastUpdatedPrefix, StringComparison.Ordinal)
+                && eventText.Length > SearchParamLastUpdatedPrefix.Length)
+            {
+                loggedSearchParamLastUpdated = eventText.Substring(SearchParamLastUpdatedPrefix.Length);
+                return true;
+            }
+
+            loggedSearchParamLastUpdated = null;
+            return false;
         }
     }
 }

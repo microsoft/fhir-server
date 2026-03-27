@@ -137,8 +137,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
             finally
             {
-                // Always release the semaphore to allow the next refresh operation
-                _refreshSemaphore.Release();
+                // Guard against ObjectDisposedException: because OnRefreshTimer is async void,
+                // Timer.Dispose(WaitHandle) only waits for the synchronous portion of the callback.
+                // The async continuation can resume after the semaphore has been disposed during shutdown.
+                try
+                {
+                    _refreshSemaphore.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Expected during host shutdown when Dispose() races with an in-flight async callback.
+                }
             }
         }
 

@@ -24,7 +24,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -35,6 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class BulkDeleteController : Controller
     {
         private readonly IMediator _mediator;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IUrlResolver _urlResolver;
 
         private readonly HashSet<string> _excludedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
@@ -48,9 +51,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public BulkDeleteController(
             IMediator mediator,
+            ISearchParameterOperations searchParameterOperations,
             IUrlResolver urlResolver)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
         }
 
@@ -147,11 +152,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 excludedResourceTypesList = excludedResourceTypes.Split(',').ToList();
             }
 
+            if (CanAffectSearchParameters(typeParameter, excludedResourceTypesList))
+            {
+                await _searchParameterOperations.EnsureNoActiveReindexJobAsync(HttpContext.RequestAborted);
+            }
+
             CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, softDeleteCleanup, excludedResourceTypesList, removeReferences, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());
             return response;
+        }
+
+        private static bool CanAffectSearchParameters(string resourceType, IList<string> excludedResourceTypes)
+        {
+            if (excludedResourceTypes?.Any(x => string.Equals(x, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                return false;
+            }
+
+            return string.Equals(resourceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

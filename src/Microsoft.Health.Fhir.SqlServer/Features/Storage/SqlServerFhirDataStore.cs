@@ -30,6 +30,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -420,6 +422,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
+            var allSearchParameterStatuses = resources
+                .Where(r => r.PendingSearchParameterStatuses?.Count > 0)
+                .SelectMany(r => r.PendingSearchParameterStatuses)
+                .ToList();
+
             if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
@@ -430,7 +437,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, allSearchParameterStatuses, cancellationToken);
                             break;
                         }
                         catch (Exception e)
@@ -786,16 +793,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
+        internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, IReadOnlyList<ResourceSearchParameterStatus> pendingStatuses, CancellationToken cancellationToken)
         {
             var sw = Stopwatch.StartNew();
             using var cmd = new SqlCommand();
             //// Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.MergeResources";
+            bool hasPendingStatuses = pendingStatuses?.Count > 0;
+
+            if (hasPendingStatuses)
+            {
+                cmd.CommandText = "dbo.MergeSearchParams";
+                new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses.ToList()));
+            }
+            else
+            {
+                cmd.CommandText = "dbo.MergeResources";
+                cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+            }
+
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+
             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
             new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -830,6 +849,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger.LogInformation($"MergeResourcesWrapperAsync: transactionId={transactionId}, singleTransaction={singleTransaction}, resources={mergeWrappers.Count}, enlistInTran={enlistInTransaction}, commandTimeout={commandTimeout}, elapsed={sw.Elapsed.TotalMilliseconds} ms.");
         }
 
+        private bool TryGetPendingSearchParameterStatusUpdates(out List<ResourceSearchParameterStatus> pendingStatuses)
+        {
+            pendingStatuses = null;
+
+            var context = _requestContextAccessor?.RequestContext;
+            if (context?.Properties == null)
+            {
+                return false;
+            }
+
+            if (!context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatusUpdates, out object value) ||
+                value is not List<ResourceSearchParameterStatus> statuses ||
+                statuses.Count == 0)
+            {
+                return false;
+            }
+
+            lock (statuses)
+            {
+                if (statuses.Count == 0)
+                {
+                    return false;
+                }
+
+                pendingStatuses = statuses.ToList();
+            }
+
+            return true;
+        }
+
+        private void ClearPendingSearchParameterStatusUpdates()
+        {
+            var context = _requestContextAccessor?.RequestContext;
+            context?.Properties?.Remove(SearchParameterRequestContextPropertyNames.PendingStatusUpdates);
+        }
+
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
             bool isBundleParallelOperation =
@@ -843,10 +898,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (isBundleParallelOperation)
             {
                 IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
+                TryGetPendingSearchParameterStatusUpdates(out var pendingStatuses);
+                if (pendingStatuses?.Count > 0)
+                {
+                    resource.PendingSearchParameterStatuses = pendingStatuses;
+                    ClearPendingSearchParameterStatusUpdates();
+                }
+
                 return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
             }
             else
             {
+                // For non-transaction operations, extract pending statuses now so they are merged with the resource.
+                // Transaction bundles skip this; statuses are flushed at the end of the bundle by BundleHandler.
+                if (!isBundleTransaction)
+                {
+                    TryGetPendingSearchParameterStatusUpdates(out var pendingStatuses);
+                    if (pendingStatuses?.Count > 0)
+                    {
+                        resource.PendingSearchParameterStatuses = pendingStatuses;
+                        ClearPendingSearchParameterStatusUpdates();
+                    }
+                }
+
                 // For regular upserts and sequential bundle operations, enlistTransaction is set to true.
                 MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true, ensureAtomicOperations: isBundleTransaction);
                 var mergeOutcome = await MergeAsync(new[] { resource }, mergeOptions, cancellationToken);
