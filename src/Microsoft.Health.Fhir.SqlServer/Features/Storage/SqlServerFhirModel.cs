@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
         }
 
-        private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
+        private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken, int retryDepth = 0)
         {
             if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
             {
@@ -404,6 +404,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             fileStatuses.RemoveAll((fs) => existingParams.Any((param) => param.Uri == fs.Uri && (param.Status != SearchParameterStatus.Initialized)));
 
+            if (fileStatuses.Count == 0)
+            {
+                _logger.LogInformation("No Search Parameters need to be initialized.");
+                return;
+            }
+
             using var resourceExistCmd = new SqlCommand();
             resourceExistCmd.CommandType = CommandType.Text;
             resourceExistCmd.CommandText = "SELECT TOP 1 1 FROM dbo.Resource";
@@ -421,9 +427,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(fileStatuses));
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            try
+            {
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                _logger.LogInformation("Number of Search Parameters initialized: {Number}", fileStatuses.Count);
+            }
+            catch (SqlException ex) when (ex.Number == 50001)
+            {
+                if (retryDepth >= 3)
+                {
+                    _logger.LogError("Maximum retry attempts reached for initializing search parameter statuses.");
+                    throw;
+                }
 
-            _logger.LogInformation("Number of Search Parameters initialized");
+                _logger.LogInformation("Concurrent update detected, retrying");
+                await InitializeSearchParameterStatuses(cancellationToken, retryDepth + 1);
+            }
         }
 
         private int GetStringId(FhirMemoryCache<int> cache, string stringValue, StoredProcedure sproc)
