@@ -251,6 +251,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         // Update supported profiles.
                         await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
+
+                        // Update instantiates capabilities.
+                        await UpdateInstantiatesCapabilitiesAsync(_cancellationTokenSource.Token);
                     }
                 }
                 catch (Exception e)
@@ -407,6 +410,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
 
                 _logger.LogInformation(versioning.ToString());
+            }
+        }
+
+        private async Task UpdateInstantiatesCapabilitiesAsync(CancellationToken cancellationToken = default)
+        {
+            if (_builder != null)
+            {
+                using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+                {
+                    var provider = providerFactory.Value?.Where(x => x is InstantiatesCapabilityProvider).SingleOrDefault();
+                    if (provider != null)
+                    {
+                        try
+                        {
+                            _logger.LogInformation("SystemConformanceProvider: Updating instantiates capabilities.");
+                            await provider.BuildAsync(_builder, cancellationToken);
+                        }
+                        catch (Exception e)
+                        {
+                            _logger.LogError(e, "SystemConformanceProvider: Failed running '{ProviderName}' when updating instantiates capabilities.", provider.ToString());
+                            throw;
+                        }
+                    }
+                }
             }
         }
     }
