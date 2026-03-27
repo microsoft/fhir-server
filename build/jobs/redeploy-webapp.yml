@@ -25,7 +25,7 @@ jobs:
       inlineScript: |
         $containerAppName = "${{ parameters.webAppName }}".ToLower()
         $rgName = "${{ parameters.resourceGroup }}"
-        $newImage = "$(azureContainerRegistry)/${{ parameters.version }}_fhir-server:${{ parameters.imageTag }}"
+        $newImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}"
 
         $currentImage = az containerapp show `
           --name $containerAppName `
