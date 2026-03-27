@@ -198,6 +198,10 @@
       {
         "name": "FhirServer__Operations__Reindex__Enabled",
         "value": "[if(parameters('enableReindex'), 'true', 'false')]"
+      },
+      {
+        "name": "FhirServer__ResourceManager__DataStoreResourceId",
+        "value": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccountName'))]"
       }
     ]
   },
