@@ -11,6 +11,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Ignixa.Abstractions;
@@ -177,12 +178,12 @@ internal sealed class IgnixaFhirJsonInputFormatter : TextInputFormatter
             // Parse with Ignixa first
             ignixa = await _serializer.ParseAsync(memoryStream, context.HttpContext.RequestAborted).ConfigureAwait(false);
 
-            // If we need a Firely Resource, use the Firely parser on the same JSON
+            // If we need a Firely Resource, convert via ITypedElement.ToPoco<Resource>()
+            // instead of the previous JSON round-trip (Ignixa serialize → Firely parse).
             if (needsFirelyResource && ignixa != null)
             {
-                // Get the JSON string from Ignixa and parse with Firely
-                var jsonString = _serializer.Serialize(ignixa);
-                firelyResource = await _firelyParser.ParseAsync<Resource>(jsonString).ConfigureAwait(false);
+                var ignixaElement = new IgnixaResourceElement(ignixa, Schema);
+                firelyResource = ignixaElement.ToTypedElement().ToPoco<Resource>();
             }
         }
         catch (System.Text.Json.JsonException ex)

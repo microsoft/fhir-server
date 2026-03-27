@@ -137,8 +137,10 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
         }
         else if (context.Object is Resource firelyResource)
         {
-            // Convert Firely Resource to Ignixa ResourceJsonNode via JSON serialization
-            resourceNode = ConvertFirelyToIgnixa(firelyResource);
+            // Write Firely JSON directly to the response stream — avoids the
+            // previous triple-hop (Firely serialize → Ignixa parse → Ignixa serialize).
+            await WriteFirelyResourceAsync(firelyResource, response, pretty, selectedEncoding).ConfigureAwait(false);
+            return;
         }
 
         if (resourceNode == null)
@@ -193,15 +195,26 @@ internal sealed class IgnixaFhirJsonOutputFormatter : TextOutputFormatter
     }
 
     /// <summary>
-    /// Converts a Firely <see cref="Resource"/> to an Ignixa <see cref="ResourceJsonNode"/>.
+    /// Writes a Firely <see cref="Resource"/> directly to the response as JSON.
     /// </summary>
-    /// <param name="resource">The Firely resource to convert.</param>
-    /// <returns>The equivalent Ignixa resource node.</returns>
-    private ResourceJsonNode ConvertFirelyToIgnixa(Resource resource)
+    /// <remarks>
+    /// This avoids the previous triple-hop (Firely serialize → Ignixa parse → Ignixa serialize)
+    /// by writing Firely-produced JSON directly to the response stream.
+    /// </remarks>
+    private async Task WriteFirelyResourceAsync(Resource resource, HttpResponse response, bool pretty, Encoding encoding)
     {
-        // Serialize with Firely, then parse with Ignixa
-        var json = _firelySerializer.SerializeToString(resource);
-        return _serializer.Parse(json);
+        string json;
+        if (pretty)
+        {
+            json = await new FhirJsonSerializer(new SerializerSettings { Pretty = true }).SerializeToStringAsync(resource).ConfigureAwait(false);
+        }
+        else
+        {
+            json = await _firelySerializer.SerializeToStringAsync(resource).ConfigureAwait(false);
+        }
+
+        await response.WriteAsync(json, encoding).ConfigureAwait(false);
+        await response.Body.FlushAsync().ConfigureAwait(false);
     }
 
     /// <summary>

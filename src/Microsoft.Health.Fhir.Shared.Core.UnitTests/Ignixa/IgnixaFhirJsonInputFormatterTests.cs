@@ -162,6 +162,38 @@ public class IgnixaFhirJsonInputFormatterTests
     }
 
     // ------------------------------------------------------------------
+    // ReadRequestBody — ResourceJsonNode target (native Ignixa type)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GivenValidPatientJson_WhenReadAsResourceJsonNode_ThenNodeIsReturned()
+    {
+        // Arrange & Act
+        var result = await ReadRequestBody(Samples.GetJson("Patient"), typeof(ResourceJsonNode));
+
+        // Assert
+        Assert.True(result.IsModelSet);
+        var node = Assert.IsType<ResourceJsonNode>(result.Model);
+        Assert.Equal("Patient", node.ResourceType);
+    }
+
+    // ------------------------------------------------------------------
+    // ReadRequestBody — IgnixaResourceElement target
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GivenValidPatientJson_WhenReadAsIgnixaResourceElement_ThenElementIsReturned()
+    {
+        // Arrange & Act
+        var result = await ReadRequestBody(Samples.GetJson("Patient"), typeof(IgnixaResourceElement));
+
+        // Assert
+        Assert.True(result.IsModelSet);
+        var element = Assert.IsType<IgnixaResourceElement>(result.Model);
+        Assert.Equal("Patient", element.ResourceNode.ResourceType);
+    }
+
+    // ------------------------------------------------------------------
     // Error handling
     // ------------------------------------------------------------------
 

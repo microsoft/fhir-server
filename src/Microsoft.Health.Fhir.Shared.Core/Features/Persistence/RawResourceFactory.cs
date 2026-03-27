@@ -125,10 +125,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     poco.Meta.VersionId = "1";
                 }
 
-                // Serialize using Firely, then re-parse and serialize with Ignixa for consistent output format
-                string firelyJson = _fhirJsonSerializer.SerializeToString(poco);
-                var resourceNode = _ignixaJsonSerializer.Parse(firelyJson);
-                string json = _ignixaJsonSerializer.Serialize(resourceNode);
+                // Serialize directly with Firely — the JSON output is valid and does not
+                // need to be re-parsed through Ignixa. This eliminates the previous triple-hop
+                // (Firely serialize → Ignixa parse → Ignixa serialize).
+                string json = _fhirJsonSerializer.SerializeToString(poco);
 
                 return new RawResource(json, FhirResourceFormat.Json, keepMeta);
             }

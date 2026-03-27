@@ -75,6 +75,60 @@ public class IgnixaFhirJsonOutputFormatterTests
         Assert.False(CanWrite(typeof(string)));
     }
 
+    [Fact]
+    public void GivenResourceJsonNodeType_WhenCheckingCanWrite_ThenTrueIsReturned()
+    {
+        Assert.True(CanWrite(typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode)));
+    }
+
+    [Fact]
+    public void GivenIgnixaResourceElementType_WhenCheckingCanWrite_ThenTrueIsReturned()
+    {
+        Assert.True(CanWrite(typeof(IgnixaResourceElement)));
+    }
+
+    // ------------------------------------------------------------------
+    // WriteResponseBody — ResourceJsonNode (native Ignixa type)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GivenAResourceJsonNode_WhenWritten_ThenValidJsonIsProduced()
+    {
+        // Arrange
+        var patientJson = Samples.GetJson("Patient");
+        var node = _ignixaSerializer.Parse(patientJson);
+
+        // Act
+        var json = await WriteObject(node, typeof(global::Ignixa.Serialization.SourceNodes.ResourceJsonNode));
+
+        // Assert
+        Assert.False(string.IsNullOrEmpty(json));
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.NotNull(parsed.Id);
+    }
+
+    // ------------------------------------------------------------------
+    // WriteResponseBody — IgnixaResourceElement
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task GivenAnIgnixaResourceElement_WhenWritten_ThenValidJsonIsProduced()
+    {
+        // Arrange
+        var patientJson = Samples.GetJson("Patient");
+        var node = _ignixaSerializer.Parse(patientJson);
+        var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+        var element = new IgnixaResourceElement(node, schemaContext.Schema);
+
+        // Act
+        var json = await WriteObject(element, typeof(IgnixaResourceElement));
+
+        // Assert
+        Assert.False(string.IsNullOrEmpty(json));
+        var parsed = Parser.Parse<Patient>(json);
+        Assert.NotNull(parsed.Id);
+    }
+
     // ------------------------------------------------------------------
     // WriteResponseBody — Firely Resource POCO
     // ------------------------------------------------------------------
@@ -221,6 +275,11 @@ public class IgnixaFhirJsonOutputFormatterTests
 
     private async Task<string> WriteRawResourceElement(RawResourceElement rawElement)
     {
+        return await WriteObject(rawElement, typeof(RawResourceElement));
+    }
+
+    private async Task<string> WriteObject(object obj, Type objectType)
+    {
         using var body = new MemoryStream();
         var httpContext = new DefaultHttpContext();
         httpContext.Response.StatusCode = (int)HttpStatusCode.OK;
@@ -230,8 +289,8 @@ public class IgnixaFhirJsonOutputFormatterTests
         var writeContext = new OutputFormatterWriteContext(
             httpContext,
             (_, _) => writer,
-            typeof(RawResourceElement),
-            rawElement);
+            objectType,
+            obj);
 
         await _formatter.WriteResponseBodyAsync(writeContext, Encoding.UTF8);
 
