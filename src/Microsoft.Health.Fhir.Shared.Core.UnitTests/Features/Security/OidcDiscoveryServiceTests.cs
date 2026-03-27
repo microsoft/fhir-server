@@ -30,10 +30,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             var service = CreateService(new OidcDiscoveryMessageHandler(expectedAuth, expectedToken));
 
-            var (authEndpoint, tokenEndpoint) = await service.ResolveEndpointsAsync(authority);
+            var (authEndpoint, tokenEndpoint, issuer, jwksUri) = await service.ResolveEndpointsAsync(authority);
 
             Assert.Equal(expectedAuth, authEndpoint.ToString());
             Assert.Equal(expectedToken, tokenEndpoint.ToString());
+            Assert.Equal("https://example.com", issuer);
+            Assert.Equal("https://example.com/.well-known/keys", jwksUri);
         }
 
         [Fact]
@@ -43,10 +45,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             var service = CreateService(new FailingMessageHandler());
 
-            var (authEndpoint, tokenEndpoint) = await service.ResolveEndpointsAsync(authority);
+            var (authEndpoint, tokenEndpoint, issuer, jwksUri) = await service.ResolveEndpointsAsync(authority);
 
             Assert.Equal(authority + "/oauth2/v2.0/authorize", authEndpoint.ToString());
             Assert.Equal(authority + "/oauth2/v2.0/token", tokenEndpoint.ToString());
+            Assert.Equal(authority + "/v2.0", issuer);
+            Assert.Equal(authority + "/discovery/v2.0/keys", jwksUri);
         }
 
         [Fact]
@@ -56,10 +60,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             var service = CreateService(new EmptyDiscoveryMessageHandler());
 
-            var (authEndpoint, tokenEndpoint) = await service.ResolveEndpointsAsync(authority);
+            var (authEndpoint, tokenEndpoint, issuer, jwksUri) = await service.ResolveEndpointsAsync(authority);
 
             Assert.Equal(authority + "/oauth2/v2.0/authorize", authEndpoint.ToString());
             Assert.Equal(authority + "/oauth2/v2.0/token", tokenEndpoint.ToString());
+            Assert.Equal(authority + "/v2.0", issuer);
+            Assert.Equal(authority + "/discovery/v2.0/keys", jwksUri);
         }
 
         [Fact]
@@ -104,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             var service = CreateService(new OidcDiscoveryMessageHandler(expectedAuth, expectedToken));
 
-            var (authEndpoint, tokenEndpoint) = await service.ResolveEndpointsAsync(authority);
+            var (authEndpoint, tokenEndpoint, _, _) = await service.ResolveEndpointsAsync(authority);
 
             Assert.Equal(expectedAuth, authEndpoint.ToString());
             Assert.Equal(expectedToken, tokenEndpoint.ToString());
@@ -176,7 +182,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 string json = $@"{{
                     ""authorization_endpoint"": ""{_authorizationEndpoint}"",
                     ""token_endpoint"": ""{_tokenEndpoint}"",
-                    ""issuer"": ""https://example.com""
+                    ""issuer"": ""https://example.com"",
+                    ""jwks_uri"": ""https://example.com/.well-known/keys""
                 }}";
 
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
