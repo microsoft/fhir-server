@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -237,11 +238,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     await FillRequestLists(bundleResource.Entry, cancellationToken);
 
-                    if (bundleProcessingLogic == BundleProcessingLogic.Sequential && _requestCount <= 1)
+                    if (bundleProcessingLogic == BundleProcessingLogic.Sequential)
                     {
-                        // In this scenario, if the transactional bundle contains a single element, then the execution is forced to be done as parallel.
-                        _logger.LogInformation("Edge Case scenario: sequential transactional bundle has a single record, and it's now changed to execute as parallel.");
-                        bundleProcessingLogic = BundleProcessingLogic.Parallel;
+                        if (_requestCount <= 1)
+                        {
+                            // In this scenario, if the transactional bundle contains a single element, then the execution is forced to be done as parallel.
+                            _logger.LogInformation("Edge Case scenario: sequential transactional bundle has a single record, and it's now changed to execute as parallel.");
+                            bundleProcessingLogic = BundleProcessingLogic.Parallel;
+                        }
+                        else if (bundleResource.Entry.Any(_ => _.Resource?.TypeName == KnownResourceTypes.SearchParameter))
+                        {
+                            _logger.LogInformation("Sequential transaction bundle contains a search parameter, execution is forced to be parallel.");
+                            bundleProcessingLogic = BundleProcessingLogic.Parallel;
+                        }
                     }
 
                     var responseBundle = new Hl7.Fhir.Model.Bundle

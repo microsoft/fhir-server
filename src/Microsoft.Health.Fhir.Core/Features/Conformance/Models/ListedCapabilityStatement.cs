@@ -62,7 +62,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         public IDictionary<string, JToken> AdditionalData { get; }
 
         public ICollection<ReferenceComponent> Profile { get; }
-
-        public ICollection<string> Instantiates { get; internal set; }
     }
 }

@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ISearchParameterComparer<SearchParameterInfo> _searchParameterComparer;
         private readonly ILogger _logger;
+        private readonly int _maxUrlLength = 128;
 
         private const string HttpPostName = "POST";
         private const string HttpPutName = "PUT";
@@ -88,6 +89,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 _logger.LogInformation("Search parameter definition is missing a url. url is null or empty.");
                 validationFailures.Add(
                     new ValidationFailure(nameof(Base.TypeName), Resources.SearchParameterDefinitionInvalidMissingUri));
+            }
+            else if (searchParam.Url.Length > _maxUrlLength)
+            {
+                _logger.LogInformation("Search parameter definition has a url that exceeds the maximum length. url: {Url}, length: {Length}", searchParam.Url, searchParam.Url.Length);
+                validationFailures.Add(
+                    new ValidationFailure(nameof(searchParam.Url), string.Format(Resources.SearchParameterDefinitionInvalidUriExceedsMaxLength, searchParam.Url, _maxUrlLength)));
             }
             else
             {
