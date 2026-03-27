@@ -224,6 +224,24 @@ jobs:
                     -ErrorAction Stop
             }
             Write-Host "Container app Cosmos DB role assignment completed."
+
+            # Assign DocumentDB Account Contributor ARM role so ResourceManagerCollectionSetup
+            # can perform control plane operations (read/create databases and collections).
+            $cosmosDbResourceId = (Get-AzCosmosDBAccount -ResourceGroupName $resourceGroupName -Name $cosmosDbAccountName).Id
+            Write-Host "Assigning DocumentDB Account Contributor ARM role on Cosmos DB account..."
+            $existingArmRole = Get-AzRoleAssignment -ObjectId $containerAppPrincipalId -RoleDefinitionName "DocumentDB Account Contributor" -Scope $cosmosDbResourceId -ErrorAction SilentlyContinue
+            if ($null -eq $existingArmRole) {
+                Invoke-WithRetry -OperationName "ARM Role Assignment for Container App" -ScriptBlock {
+                    New-AzRoleAssignment `
+                        -ObjectId $containerAppPrincipalId `
+                        -RoleDefinitionName "DocumentDB Account Contributor" `
+                        -Scope $cosmosDbResourceId `
+                        -ErrorAction Stop
+                }
+                Write-Host "DocumentDB Account Contributor ARM role assigned."
+            } else {
+                Write-Host "DocumentDB Account Contributor ARM role already assigned."
+            }
         } else {
             Write-Warning "Could not retrieve container app system-assigned identity principal ID."
         }
