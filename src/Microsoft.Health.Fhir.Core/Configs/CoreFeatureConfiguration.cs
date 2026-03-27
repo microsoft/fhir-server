@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public class CoreFeatureConfiguration
     {
+        private VersioningConfiguration _versioning = new VersioningConfiguration();
+
         /// <summary>
         /// Defines CapabilityStatement.name
         /// </summary>
@@ -74,8 +76,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Gets or sets the resource versioning policy.
+        /// When binding from config, will normalized.
         /// </summary>
-        public VersioningConfiguration Versioning { get; set; } = new VersioningConfiguration();
+        public VersioningConfiguration Versioning
+        {
+            get => _versioning;
+            set
+            {
+                _versioning = value;
+
+                // When we bind from configuration, normalize the values to lower case.
+                _versioning?.NormalizeOverrideValues();
+            }
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether the server supports the $status operation for SearchParameters.
@@ -105,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// The background service will call EnsureCacheFreshnessAsync at this interval to keep
         /// SearchParameter cache synchronized across instances. Default is 60 seconds if not specified.
         /// </summary>
-        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 60;
+        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 20;
 
         /// <summary>
         /// Gets or sets the maximum initial delay in seconds for the SearchParameter cache background service timer.
@@ -113,5 +126,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Default is 15 seconds. Set to 0 to disable the delay (useful for testing).
         /// </summary>
         public int SearchParameterCacheRefreshMaxInitialDelaySeconds { get; set; } = 15;
+
+        /// <summary>
+        /// Gets or sets the refresh interval in seconds for the SystemConformanceProvider cache background service.
+        /// </summary>
+        public int SystemConformanceProviderRefreshIntervalSeconds { get; set; } = 60;
+
+        /// <summary>
+        /// Gets or sets the rebuild interval in seconds for the SystemConformanceProvider background service.
+        /// </summary>
+        public int SystemConformanceProviderRebuildIntervalSeconds { get; set; } = 14400; // 4 hours.
     }
 }

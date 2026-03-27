@@ -7,7 +7,8 @@ steps:
   displayName: 'Set Variables'
   inputs:
     azureSubscription: $(ConnectedServiceName)
-    azurePowerShellVersion: LatestVersion
+    azurePowerShellVersion: latestVersion
+    pwsh: true
     ScriptType: InlineScript
     Inline: |
         $keyVault = "$(KeyVaultBaseName)-ts"

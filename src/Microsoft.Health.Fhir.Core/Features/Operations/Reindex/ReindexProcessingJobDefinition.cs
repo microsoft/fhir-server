@@ -18,7 +18,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public string ResourceType { get; set; }
 
-        public string ResourceTypeSearchParameterHashMap { get; set; }
+        public DateTimeOffset SearchParamLastUpdated { get; set; }
+
+        public string SearchParameterHash { get; set; }
 
         public SearchResultReindex ResourceCount { get; set; }
 

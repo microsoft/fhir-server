@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public const uint MinMaximumNumberOfResourcesPerWrite = 1;
 
         public ReindexJobRecord(
-            IReadOnlyDictionary<string, string> searchParametersHash,
             IReadOnlyCollection<string> targetResourceTypes,
             IReadOnlyCollection<string> targetSearchParameterTypes,
             IReadOnlyCollection<string> searchParameterResourceTypes,
@@ -41,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             int typeId = (int)JobType.ReindexOrchestrator,
             ushort? targetDataStoreUsagePercentage = null)
         {
-            ResourceTypeSearchParameterHashMap = EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
             TargetResourceTypes = EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
             TargetSearchParameterTypes = EnsureArg.IsNotNull(targetSearchParameterTypes, nameof(targetSearchParameterTypes));
             SearchParameterResourceTypes = EnsureArg.IsNotNull(searchParameterResourceTypes, nameof(searchParameterResourceTypes));
@@ -105,9 +103,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.Progress)]
         public long Progress { get; set; }
-
-        [JsonProperty(JobRecordProperties.ResourceTypeSearchParameterHashMap)]
-        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; internal set; }
 
         [JsonProperty(JobRecordProperties.LastModified)]
         public DateTimeOffset LastModified { get; set; }

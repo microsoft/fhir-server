@@ -21,6 +21,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         # Import retry helper for transient error handling

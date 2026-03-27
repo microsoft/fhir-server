@@ -46,6 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger = logger;
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _fhirDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
         /// <inheritdoc />
         public virtual async Task<SearchResult> SearchAsync(
             string resourceType,

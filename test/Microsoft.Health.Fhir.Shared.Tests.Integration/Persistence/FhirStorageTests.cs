@@ -100,7 +100,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 {
                     if (requestedExceptions > 30)
                     {
-                        Assert.Contains("Resource has been recently updated or added", e.Message);
+                        Assert.Contains("Cannot persit resource due to a conflict with duplicated keys. Check the volume of resource being submited for ingestion.", e.Message);
                     }
                     else
                     {
@@ -1247,6 +1247,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             observationResource.Id = observationId;
             observationResource.VersionId = "1";
+            observationResource.Meta ??= new Meta();
+            observationResource.Meta.LastUpdated = DateTimeOffset.UtcNow;
 
             var resourceElement = observationResource.ToResourceElement();
             RawResource rawResource;
@@ -1258,7 +1260,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
             else
             {
-                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             }
 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);

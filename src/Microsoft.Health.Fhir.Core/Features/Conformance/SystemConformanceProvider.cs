@@ -37,9 +37,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
 #pragma warning restore CA2213 // Disposable fields should be disposed // SystemConformanceProvider is a Singleton class.
 
+        private readonly TimeSpan _cacheRefreshInterval;
+        private readonly TimeSpan _cacheRebuildInterval;
         private readonly TimeSpan _backgroundLoopLoggingInterval = TimeSpan.FromMinutes(10);
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IUrlResolver _urlResolver;
@@ -89,6 +90,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
+
+            _cacheRebuildInterval = TimeSpan.FromSeconds(_configuration.Value.SystemConformanceProviderRebuildIntervalSeconds);
+            _cacheRefreshInterval = TimeSpan.FromSeconds(_configuration.Value.SystemConformanceProviderRefreshIntervalSeconds);
 
             LogVersioningPolicyConfiguration();
         }
@@ -204,10 +208,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public async Task BackgroudLoop()
         {
+            Stopwatch loggingTimer = Stopwatch.StartNew();
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
-                Stopwatch sw = Stopwatch.StartNew();
-                for (int i = 0; i < _rebuildDelay; i++)
+                Stopwatch rebuildMetadataStopWatch = Stopwatch.StartNew();
+                while (rebuildMetadataStopWatch.Elapsed < _cacheRebuildInterval)
                 {
                     if (_builder != null && _builder.IsSyncProfilesRequested())
                     {
@@ -215,7 +220,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         break;
                     }
 
-                    await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
+                    await Task.Delay(_cacheRefreshInterval, _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {
@@ -229,33 +234,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         return;
                     }
 
-                    if (sw.Elapsed >= _backgroundLoopLoggingInterval)
+                    if (loggingTimer.Elapsed >= _backgroundLoopLoggingInterval)
                     {
                         _logger.LogInformation("SystemConformanceProvider's BackgroudLoop is active and running.");
-                        sw.Restart();
+                        loggingTimer.Restart();
                     }
                 }
 
                 try
                 {
+                    // If the sync profile is requested or the rebuild interval has elapsed, then we will rebuild the capability statement and update in-memory metadata.
                     if (_builder != null)
                     {
-                        var cancellationToken = _cancellationTokenSource.Token;
-
                         // Update search params.
                         _builder.SyncSearchParameters();
 
                         // Update supported profiles.
-                        await _builder.SyncProfilesAsync(cancellationToken);
-
-                        // Update other fields populated by providers.
-                        await UpdateMetadataAsync(cancellationToken);
+                        await _builder.SyncProfilesAsync(_cancellationTokenSource.Token);
                     }
                 }
                 catch (Exception e)
                 {
                     // Do not let exceptions escape the background loop.
                     _logger.LogError(e, "SystemConformanceProvider: Unexpected error during background capability statement rebuild.");
+                }
+
+                await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
+                try
+                {
+                    _metadata = null;
+                }
+                finally
+                {
+                    _metadataSemaphore?.Release();
                 }
             }
         }
@@ -341,7 +352,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            await SetMetadataAsync(null);
+            await (_metadataSemaphore?.WaitAsync(cancellationToken) ?? Task.CompletedTask);
+            try
+            {
+                _metadata = null;
+            }
+            finally
+            {
+                _metadataSemaphore?.Release();
+            }
         }
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
@@ -352,16 +371,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
 
             // There is a chance that the BackgroundLoop handler sets _metadata to null between when it is checked and returned, so the value is stored in a local variable.
-            ResourceElement metadata = await UpdateMetadataAsync(cancellationToken);
-            if (metadata == null)
+            ResourceElement metadata;
+            if ((metadata = _metadata) != null)
             {
-                metadata = await GetCapabilityStatementOnStartup(cancellationToken);
+                return metadata;
             }
+
+            _ = await GetCapabilityStatementOnStartup(cancellationToken);
 
             // The semaphore is only used for building the metadata because claiming it before the GetCapabilityStatementOnStartup was leading to deadlocks where the creation
             // of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built.
             // But the metadata builder was waiting on the rebuild handler.
-            return await SetMetadataAsync(metadata);
+            await (_metadataSemaphore?.WaitAsync(cancellationToken) ?? Task.CompletedTask);
+            try
+            {
+                _metadata = _builder.Build().ToResourceElement();
+                return _metadata;
+            }
+            finally
+            {
+                _metadataSemaphore?.Release();
+            }
         }
 
         private void LogVersioningPolicyConfiguration()
@@ -377,70 +407,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
 
                 _logger.LogInformation(versioning.ToString());
-            }
-        }
-
-        private async Task<ResourceElement> UpdateMetadataAsync(CancellationToken cancellationToken)
-        {
-            await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
-            try
-            {
-                // Note: the method will update non-static sections of the metadata only; thus, it does nothing
-                //       when the full metadata is not yet built.
-                if (_builder != null && _metadata != null)
-                {
-                    _logger.LogInformation("SystemConformanceProvider: Updating the metadata.");
-
-                    using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
-                    {
-                        var providers = providerFactory.Value?
-                            .Where(x => x is IVolatileProvideCapability)?
-                            .Select(x => (IVolatileProvideCapability)x)
-                            .ToList()
-                            ?? new List<IVolatileProvideCapability>();
-                        foreach (var provider in providers)
-                        {
-                            Stopwatch watch = Stopwatch.StartNew();
-
-                            try
-                            {
-                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}'.", provider.ToString());
-                                await provider.UpdateAsync(_builder, cancellationToken);
-                            }
-                            catch (Exception e)
-                            {
-                                _logger.LogWarning(e, "Failed to update Capability Statement.");
-                                throw;
-                            }
-                            finally
-                            {
-                                _logger.LogInformation("SystemConformanceProvider: Updating the metadata with '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
-                            }
-                        }
-                    }
-
-                    _metadata = _builder.Build().ToResourceElement();
-                }
-
-                return _metadata;
-            }
-            finally
-            {
-                _metadataSemaphore?.Release();
-            }
-        }
-
-        private async Task<ResourceElement> SetMetadataAsync(ResourceElement metadata)
-        {
-            await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
-            try
-            {
-                _metadata = metadata;
-                return _metadata;
-            }
-            finally
-            {
-                _metadataSemaphore?.Release();
             }
         }
     }

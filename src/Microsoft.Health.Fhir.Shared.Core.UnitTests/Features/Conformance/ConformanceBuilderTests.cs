@@ -184,6 +184,88 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
         }
 
+        /// <summary>
+        /// Ensure correct case versioning policy is used in conformance builder when default values are supplied in mixed case.
+        /// </summary>
+        /// <param name="defaultVersioningPolicy">The default versioning policy to apply, specified as a string.</param>
+        /// <param name="expectedVersioningPolicy">The expected versioning policy.</param>
+        [Theory]
+        [InlineData("Versioned", CapabilityStatement.ResourceVersionPolicy.Versioned)]
+        [InlineData("No-Version", CapabilityStatement.ResourceVersionPolicy.NoVersion)]
+        [InlineData("Versioned-Update", CapabilityStatement.ResourceVersionPolicy.VersionedUpdate)]
+        public void GivenAConformanceBuilder_WhenDefaultVersioningPolicyUsesMixedCase_ThenResourceUsesExpectedVersionLogic(string defaultVersioningPolicy, CapabilityStatement.ResourceVersionPolicy expectedVersioningPolicy)
+        {
+            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            VersioningConfiguration versionConfig = new()
+            {
+                Default = defaultVersioningPolicy,
+            };
+
+            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
+            var builder = CapabilityStatementBuilder.Create(
+                ModelInfoProvider.Instance,
+                _searchParameterDefinitionManager,
+                configuration,
+                supportedProfiles,
+                _metadataUrl,
+                _searchParameterStatusManager);
+
+            ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
+            {
+                c.Interaction.Add(new ResourceInteractionComponent
+                {
+                    Code = "create",
+                });
+            });
+            ITypedElement resource = capabilityStatement.Build();
+
+            var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
+
+            Assert.True(patientResource.Type.ToString() == KnownResourceTypes.Patient);
+            Assert.True(patientResource.Versioning == expectedVersioningPolicy);
+        }
+
+        /// <summary>
+        /// Ensure correct case versioning policy is used in conformance builder when override values are supplied in mixed case.
+        /// </summary>
+        /// <param name="overrideVersioningPolicy">The override versioning policy to apply, specified as a string.</param>
+        /// <param name="expectedVersioningPolicy">The expected versioning policy.</param>
+        [Theory]
+        [InlineData("Versioned", CapabilityStatement.ResourceVersionPolicy.Versioned)]
+        [InlineData("No-Version", CapabilityStatement.ResourceVersionPolicy.NoVersion)]
+        [InlineData("Versioned-Update", CapabilityStatement.ResourceVersionPolicy.VersionedUpdate)]
+        public void GivenAConformanceBuilder_WhenResourceTypeOverrideUsesMixedCase_ThenResourceUsesExpectedVersionLogic(string overrideVersioningPolicy, CapabilityStatement.ResourceVersionPolicy expectedVersioningPolicy)
+        {
+            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            VersioningConfiguration versionConfig = new();
+            versionConfig.ResourceTypeOverrides.Add("Patient", overrideVersioningPolicy);
+
+            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
+            var builder = CapabilityStatementBuilder.Create(
+                ModelInfoProvider.Instance,
+                _searchParameterDefinitionManager,
+                configuration,
+                supportedProfiles,
+                _metadataUrl,
+                _searchParameterStatusManager);
+
+            ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
+            {
+                c.Interaction.Add(new ResourceInteractionComponent
+                {
+                    Code = "create",
+                });
+            });
+            ITypedElement resource = capabilityStatement.Build();
+
+            var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
+
+            Assert.True(patientResource.Type.ToString() == KnownResourceTypes.Patient);
+            Assert.True(patientResource.Versioning == expectedVersioningPolicy);
+        }
+
         [Fact]
         public void GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
         {

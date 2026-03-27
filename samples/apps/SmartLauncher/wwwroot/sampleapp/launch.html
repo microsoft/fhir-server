@@ -1,20 +1,188 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+    <meta charset="utf-8" />
     <script>
+      var launchUri = window.location.protocol + '//' + window.location.host + window.location.pathname;
+      var redirectUri = launchUri.replace('launch.html', 'index.html');
+      var params = new URLSearchParams(window.location.search);
+      var oauthFlow = params.get('oauthFlow') || 'fhirclient';
 
-    var launchUri = window.location.protocol + "//" + window.location.host + window.location.pathname;
-    var redirectUri = launchUri.replace("launch.html","index.html");
-    $.getJSON( '/config', function (appConfig) {
-        FHIR.oauth2.authorize({
-            "client_id": appConfig.ClientId,
-            "scope"    : "openid profile",
-            "redirect_uri": redirectUri
+      if (oauthFlow === 'proxy') {
+        // ── Token Proxy path: manual PKCE + redirect ──
+        proxyLaunch();
+      } else {
+        // ── fhirclient path: load the library and authorize ──
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/fhirclient@2.5.3/build/fhir-client.js';
+        script.onload = fhirclientLaunch;
+        document.head.appendChild(script);
+      }
+
+      function getOrigin(url) {
+        try {
+          var parsed = new URL(url);
+          return parsed.origin;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // ── fhirclient flow ──
+      function fhirclientLaunch() {
+        if (params.has('clientId') && params.has('iss')) {
+          // Validate iss against configured FHIR server
+          fetch('/config')
+            .then(function (r) { return r.json(); })
+            .then(function (cfg) {
+              var iss = params.get('iss');
+              if (getOrigin(iss) !== getOrigin(cfg.fhirServerUrl)) {
+                document.body.textContent = 'Error: iss parameter does not match the configured FHIR server.';
+                return;
+              }
+              authorizeWith({
+                authMode: params.get('authMode') || 'public',
+                clientId: params.get('clientId'),
+                scope: params.get('scope') || 'openid fhirUser',
+                iss: iss,
+                clientSecret: params.get('clientSecret') || '',
+                jwk: params.get('jwk') || ''
+              });
             });
-    });
+        } else {
+          fetch('/config')
+            .then(function (r) { return r.json(); })
+            .then(function (appConfig) {
+              authorizeWith({
+                authMode: 'public',
+                clientId: appConfig.clientId,
+                scope: appConfig.scopes || 'openid fhirUser launch/patient patient/Patient.rs',
+                iss: appConfig.fhirServerUrl
+              });
+            });
+        }
+      }
+
+      function authorizeWith(cfg) {
+        var authMode = cfg.authMode || 'public';
+        var options = {
+          client_id: cfg.clientId,
+          scope: cfg.scope,
+          redirect_uri: redirectUri,
+          iss: cfg.iss
+        };
+
+        if (authMode === 'symmetric' && cfg.clientSecret) {
+          options.clientSecret = cfg.clientSecret;
+        }
+
+        if (authMode === 'asymmetric' && cfg.jwk) {
+          try {
+            options.clientPrivateJwk = JSON.parse(cfg.jwk);
+          } catch (e) {
+            document.body.textContent = 'Error: Invalid JWK JSON \u2014 ' + e.message;
+            return;
+          }
+        }
+
+        FHIR.oauth2.authorize(options);
+      }
+
+      // ── Token Proxy flow: manual PKCE ──
+      function proxyLaunch() {
+        var iss = params.get('iss');
+        var clientId = params.get('clientId');
+        var scope = params.get('scope') || 'openid fhirUser';
+
+        if (!iss) {
+          // Fall back to config
+          fetch('/config')
+            .then(function (r) { return r.json(); })
+            .then(function (cfg) {
+              startProxyFlow(cfg.fhirServerUrl, cfg.clientId, cfg.scopes || scope);
+            });
+        } else {
+          // Validate iss against configured FHIR server
+          fetch('/config')
+            .then(function (r) { return r.json(); })
+            .then(function (cfg) {
+              if (getOrigin(iss) !== getOrigin(cfg.fhirServerUrl)) {
+                document.body.textContent = 'Error: iss parameter does not match the configured FHIR server.';
+                return;
+              }
+              startProxyFlow(iss, clientId, scope);
+            });
+        }
+      }
+
+      function startProxyFlow(fhirUrl, clientId, scope) {
+        // Fetch SMART configuration
+        fetch(fhirUrl + '/.well-known/smart-configuration')
+          .then(function (r) { return r.json(); })
+          .then(function (smartConfig) {
+            var authorizeUrl = smartConfig.authorization_endpoint;
+            var tokenUrl = smartConfig.token_endpoint;
+
+            // Generate PKCE pair
+            return generatePkce().then(function (pkce) {
+              // Generate state
+              var state = generateRandomString(32);
+
+              // Store session data
+              sessionStorage.setItem('smart_state', JSON.stringify({
+                state: state,
+                codeVerifier: pkce.codeVerifier,
+                tokenEndpoint: tokenUrl,
+                clientId: clientId,
+                redirectUri: redirectUri,
+                fhirUrl: fhirUrl
+              }));
+
+              // Redirect to authorize endpoint
+              var authParams = new URLSearchParams();
+              authParams.set('response_type', 'code');
+              authParams.set('client_id', clientId);
+              authParams.set('redirect_uri', redirectUri);
+              authParams.set('scope', scope);
+              authParams.set('state', state);
+              authParams.set('code_challenge', pkce.codeChallenge);
+              authParams.set('code_challenge_method', 'S256');
+              authParams.set('aud', fhirUrl);
+
+              window.location.href = authorizeUrl + '?' + authParams.toString();
+            });
+          })
+          .catch(function (err) {
+            document.body.textContent = 'Error fetching SMART configuration: ' + err.message;
+          });
+      }
+
+      function generateRandomString(length) {
+        var array = new Uint8Array(length);
+        crypto.getRandomValues(array);
+        return Array.from(array, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+      }
+
+      function generatePkce() {
+        var verifierBytes = new Uint8Array(32);
+        crypto.getRandomValues(verifierBytes);
+        var codeVerifier = base64UrlEncode(verifierBytes);
+
+        return crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier))
+          .then(function (hash) {
+            return {
+              codeVerifier: codeVerifier,
+              codeChallenge: base64UrlEncode(new Uint8Array(hash))
+            };
+          });
+      }
+
+      function base64UrlEncode(bytes) {
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      }
     </script>
   </head>
-  <body>Loading...</body>
+  <body>Loading&hellip;</body>
 </html>

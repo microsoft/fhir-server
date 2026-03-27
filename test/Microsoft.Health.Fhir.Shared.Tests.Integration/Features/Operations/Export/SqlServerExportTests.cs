@@ -55,6 +55,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
             _queueClient = new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
         }
 
+        /// <summary>
+        /// End-to-end test covering export orchestration, job count validation, user cancellation,
+        /// and re-export scenarios across different resource type configurations.
+        ///
+        /// Steps:
+        ///   1. Seed 1000 patients + 1000 observations + 1000 claims.
+        ///   2. Export all types → verify job count (coord + surrogate ID ranges per type).
+        ///   3. Export Patient with user cancellation (isCustomerRequested = true) → verify
+        ///      GetExportJobByIdAsync throws JobNotFoundException due to CancelledByUser marker.
+        ///   4. Export Patient,Observation → verify job count.
+        ///   5. Export all types again → verify job count.
+        /// </summary>
         [Fact]
         public async Task ExportWorkRegistration()
         {
@@ -66,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
 
                 await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
 
-                await RunExportWithCancel("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
+                await RunExportWithUserCancel("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
 
                 await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
 
@@ -80,16 +92,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Operations.Export
             }
         }
 
-        private async Task RunExportWithCancel(string resourceType, SqlExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        /// <summary>
+        /// Runs an export and then performs a user-initiated cancellation with isCustomerRequested = true.
+        /// This enqueues a CancelledByUser marker job in the group, causing subsequent
+        /// GetExportJobByIdAsync calls to throw JobNotFoundException (404).
+        /// </summary>
+        private async Task RunExportWithUserCancel(string resourceType, SqlExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
         {
             var coorId = await RunExport(resourceType, coordJob, totalJobs, totalJobsAfterFailure);
             var record = (await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None)).JobRecord;
             Assert.Equal(OperationStatus.Running, record.Status);
             record.Status = OperationStatus.Canceled;
-            var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
+            var result = await _operationDataStore.UpdateExportJobAsync(record, null, true, CancellationToken.None);
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
-            result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
-            Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+
+            // CancelledByUser processing job now exists in the group, so GetExportJobByIdAsync throws 404
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None));
         }
 
         private async Task<string> RunExport(string resourceType, SqlExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)

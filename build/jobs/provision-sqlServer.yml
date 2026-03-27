@@ -30,6 +30,7 @@ jobs:
     inputs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
+      pwsh: true
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web

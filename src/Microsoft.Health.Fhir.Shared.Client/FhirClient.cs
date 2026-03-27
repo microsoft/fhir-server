@@ -224,14 +224,28 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default)
         {
+            return await DeleteAsync(uri, true, cancellationToken);
+        }
+
+        public async Task<FhirResponse> DeleteAsync(string uri, bool checkSuccess, CancellationToken cancellationToken = default)
+        {
             using var message = new HttpRequestMessage(HttpMethod.Delete, uri);
             message.Headers.Accept.Add(_mediaType);
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
+            if (checkSuccess)
+            {
+                await EnsureSuccessStatusCodeAsync(response);
+            }
 
             return new FhirResponse(response);
+        }
+
+        public Task<FhirResponse> HardDeleteAsync<T>(T resource, bool checkSuccess, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", checkSuccess, cancellationToken);
         }
 
         public Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)

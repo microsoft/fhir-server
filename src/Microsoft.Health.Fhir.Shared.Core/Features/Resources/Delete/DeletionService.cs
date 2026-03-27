@@ -516,11 +516,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         return aggregate;
                     });
 
+                Uri uri = null;
+
+                try
+                {
+                    uri = context.Uri;
+                }
+                catch (UriFormatException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to read request URI from the request context during delete audit logging.");
+                }
+
                 _auditLogger.LogAudit(
                     auditAction: action,
                     operation: operation.ToString(),
                     resourceType: primaryResourceType,
-                    requestUri: context.Uri,
+                    requestUri: uri,
                     statusCode: statusCode,
                     correlationId: context.CorrelationId,
                     callerIpAddress: string.Empty,
@@ -558,7 +569,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     foreach (var reference in resourcesWithReferences)
                     {
                         ReferenceRemover.RemoveReference(reference.ToPoco(), resource.Resource.ResourceTypeName + "/" + resource.Resource.ResourceId);
-                        var wrapper = _resourceWrapperFactory.Create(reference, deleted: false, keepMeta: false);
+                        var wrapper = _resourceWrapperFactory.Create(reference, deleted: false, keepMeta: true);
                         modifiedResources.Add(new ResourceWrapperOperation(
                             wrapper,
                             allowCreate: false,

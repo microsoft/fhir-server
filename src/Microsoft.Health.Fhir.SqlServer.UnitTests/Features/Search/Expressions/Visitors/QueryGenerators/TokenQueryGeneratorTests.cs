@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenTokenSystemExpression_WhenSystemIdNotExists_ThenUsesSubquery()
+        public void GivenTokenSystemExpression_WhenSystemIdNotExists_ThenUsesScalarSubquery()
         {
             const string systemValue = "http://custom-system.org";
 
@@ -107,8 +107,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Matches(@"SystemId\s+IN\s*\(\s*SELECT", sql);
+            // dbo.System has a primary key on Value, so there is always at most one matching
+            // SystemId — a scalar subquery with = is correct and avoids an unnecessary IN list.
+            Assert.Matches(@"SystemId\s*=\s*\(\s*SELECT", sql);
+            Assert.DoesNotContain(" IN ", sql);
             Assert.Contains(VLatest.System.TableName, sql);
+        }
+
+        [Fact]
+        public void GivenTokenSystemExpression_WhenSystemIdNotExists_ThenSubqueryFiltersOnValue()
+        {
+            const string systemValue = "http://custom-system.org";
+
+            _model.TryGetSystemId(systemValue, out Arg.Any<int>())
+                .Returns(false);
+
+            var expression = new StringExpression(StringOperator.Equals, FieldName.TokenSystem, null, systemValue, true);
+            var context = CreateContext();
+
+            TokenQueryGenerator.Instance.VisitString(expression, context);
+
+            var sql = context.StringBuilder.ToString();
+
+            // The subquery must filter on System.Value so the correct SystemId is returned.
+            Assert.Contains(VLatest.System.Value.Metadata.Name, sql);
+            Assert.Contains(VLatest.System.SystemId.Metadata.Name, sql);
         }
 
         [Fact]
@@ -159,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenVeryLongTokenCode_WhenVisited_ThenIncludesTruncation128Logic()
+        public void GivenVeryLongTokenCode_WhenVisited_ThenIncludesTruncation128LogicIsNotTriggered()
         {
             var veryLongCode = new string('A', 150);
             var expression = new StringExpression(StringOperator.Equals, FieldName.TokenCode, null, veryLongCode, true);
@@ -169,17 +192,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            // Verify truncation-128 logic structure:
-            // - Should have nested structure with OR for handling truncated codes
+            // Verify truncation-128 logic does not exist
+            // - Should not have nested structure with OR for handling truncated codes
             // - Code = @... for the full value match
-            // - OR branch with Code = @... for the 128-truncated value match
-            Assert.Contains("((", sql);
-            Assert.Contains("OR", sql);
+            // - No OR branch with Code = @... for the 128-truncated value match
+            Assert.DoesNotContain("((", sql);
+            Assert.DoesNotContain("OR", sql);
             Assert.Matches(@"Code\s*=\s*@\w+", sql);
 
             // Verify the SQL contains the OR branch for 128-truncation
             // The structure should be ((Code = @p0 ...) OR (Code = @p1 ...))
-            Assert.Contains("))", sql);
+            Assert.DoesNotContain("))", sql);
         }
 
         [Fact]

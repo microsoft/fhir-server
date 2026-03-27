@@ -224,6 +224,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             Debug.Assert(extractedValues != null, "The extracted values should not be null.");
+            if (extractedValues == null)
+            {
+                _logger.LogWarning("The extracted values should not be null.");
+                return results;
+            }
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
@@ -245,7 +250,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // the values ourselves.
                 extractedValues = extractedValues.Where(ev =>
                 {
-                    if (ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
+                    if (ev == null)
+                    {
+                        _logger.LogWarning(
+                            "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
+                            fhirPathExpression,
+                            element.GetType());
+                    }
+
+                    if (ev?.InstanceType != null && ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
                     {
                         return ev.Scalar("reference") is string rr && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
                     }
@@ -256,6 +269,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             foreach (var extractedValue in extractedValues)
             {
+                if (extractedValue == null)
+                {
+                    _logger.LogWarning(
+                        "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
+                        fhirPathExpression,
+                        element.GetType());
+                    continue;
+                }
+
                 if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.InstanceType, GetSearchValueTypeForSearchParamType(searchParameterType), out ITypedElementToSearchValueConverter converter))
                 {
                     _logger.LogWarning(

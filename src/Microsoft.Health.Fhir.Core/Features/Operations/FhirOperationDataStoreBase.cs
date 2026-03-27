@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -21,6 +22,8 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Polly;
+using static System.Net.WebRequestMethods;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations;
 
@@ -79,10 +82,16 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var status = jobInfo.Status;
         var result = jobInfo.Result;
         var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
+        var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+
+        // If there exist any processing job with CancelledByUser status, throw JobNotFoundException
+        if (groupJobs.Any(x => x.Status == JobStatus.CancelledByUser))
+        {
+            throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+        }
 
         if (status == JobStatus.Completed)
         {
-            var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
             var inFlightJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created || (x.EndDate != null && x.EndDate > DateTime.UtcNow.AddSeconds(-15)));
             var cancelledJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
             var failedJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Failed);
@@ -161,10 +170,11 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         return CreateExportJobOutcome(jobId, result ?? def, jobInfo.Version, (byte)status, jobInfo.CreateDate);
     }
 
-    public virtual async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+    public virtual async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, bool isCustomerRequested, CancellationToken cancellationToken)
     {
         EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
+        // This ensures that we only call this update method in case of Cancellation
         if (jobRecord.Status != OperationStatus.Canceled)
         {
             throw new NotSupportedException($"Calls to this method with status={jobRecord.Status} are deprecated.");
@@ -175,7 +185,28 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         try
         {
             var jobWithGroupId = await _queueClient.GetJobByIdAsync(QueueType.Export, long.Parse(jobRecord.Id), false, cancellationToken);
+            if (jobWithGroupId == null)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+            }
+
             await _queueClient.CancelJobByGroupIdAsync(QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
+
+            // Only for export, we want to add a new job with CancelledByUser status as per this IG:
+            // https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request
+            //
+            // Clone the record and clear volatile fields (CanceledTime, FailureDetails)
+            // so the serialized definition is deterministic across retries. This ensures
+            // the SQL SP's SHA1-based dedup prevents duplicate CancelledByUser markers
+            // when CancelExportRequestHandler retries due to JobConflictException.
+            if (isCustomerRequested)
+            {
+                var markerRecord = jobRecord.Clone();
+                markerRecord.CanceledTime = null;
+                markerRecord.FailureDetails = null;
+                string deterministicDefinition = JsonConvert.SerializeObject(markerRecord);
+                await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Export, jobWithGroupId.GroupId, deterministicDefinition, JobStatus.CancelledByUser, null, null, cancellationToken);
+            }
         }
         catch (JobNotExistException ex)
         {
@@ -213,7 +244,6 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             TypeId = (int)JobType.ReindexOrchestrator,
             MaximumNumberOfResourcesPerQuery = jobRecord.MaximumNumberOfResourcesPerQuery,
             MaximumNumberOfResourcesPerWrite = jobRecord.MaximumNumberOfResourcesPerWrite,
-            ResourceTypeSearchParameterHashMap = jobRecord.ResourceTypeSearchParameterHashMap,
             Id = jobRecord.Id,
         };
 
