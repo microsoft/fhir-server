@@ -45,17 +45,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public async Task GivenTwoSearchParamsWithCodeConflictOnDerived_ThenBadRequestIsReturned()
         {
             await CancelAnyRunningReindexJobsAsync();
-
 #if R5
-            var personTypes = new List<VersionIndependentResourceTypesAll?>();
-            personTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
-            var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
-            resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Resource"));
+            var personTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
+            var resourceTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Resource };
 #else
-            var personTypes = new List<ResourceType?>();
-            personTypes.Add(Enum.Parse<ResourceType>("Person"));
-            var resourceTypes = new List<ResourceType?>();
-            resourceTypes.Add(Enum.Parse<ResourceType>("Resource"));
+            var personTypes = new List<ResourceType?>() { ResourceType.Person};
+            var resourceTypes = new List<ResourceType?>() { ResourceType.Resource };
 #endif
             const string urlPrefix = "http://my.org/";
             var ids = new List<string> { "c-id-1", "c-id-2" };
@@ -114,17 +109,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         public async Task GivenTwoSearchParamsForDifferentResourceTypesUsingSameCode_ThenBothCreated()
         {
             await CancelAnyRunningReindexJobsAsync();
-
 #if R5
-            var personTypes = new List<VersionIndependentResourceTypesAll?>();
-            personTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
-            var supplyDeliveryTypes = new List<VersionIndependentResourceTypesAll?>();
-            supplyDeliveryTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("SupplyDelivery"));
+            var personTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
+            var supplyDeliveryTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.SupplyDelivery };
 #else
-            var personTypes = new List<ResourceType?>();
-            personTypes.Add(Enum.Parse<ResourceType>("Person"));
-            var supplyDeliveryTypes = new List<ResourceType?>();
-            supplyDeliveryTypes.Add(Enum.Parse<ResourceType>("SupplyDelivery"));
+            var personTypes = new List<ResourceType?>() { ResourceType.Person };
+            var supplyDeliveryTypes = new List<ResourceType?>() { ResourceType.SupplyDelivery };
 #endif
             const string urlPrefix = "http://my.org/";
             var ids = new List<string> { "c-id-1", "c-id-2" };
@@ -259,15 +249,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             async Task<Bundle> CreatePersonSearchParamsAsync()
             {
                 var bundle = new Bundle { Type = isBatch ? Bundle.BundleType.Batch : Bundle.BundleType.Transaction, Entry = [] };
-
 #if R5
-                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
-                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
 #else
-                var resourceTypes = new List<ResourceType?>();
-                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+                var resourceTypes = new List<ResourceType?>() { ResourceType.Person };
 #endif
-
                 for (var i = 0; i < ids.Count; i++)
                 {
                     var code = codes[i];
