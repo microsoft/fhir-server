@@ -54,11 +54,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 #endif
             const string urlPrefix = "http://my.org/";
             var ids = new List<string> { "c-id-1", "c-id-2" };
+            var code = "same-code";
             try
             {
                 var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
 
-                var code = "same-code";
                 var id = ids[0];
                 var searchParam = new SearchParameter
                 {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             catch (FhirClientException ex)
             {
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
-                Assert.Contains("Input search parameters have duplicate codes", ex.Message);
+                Assert.Contains($"Input search parameters have duplicate codes [(Person, {code})]", ex.Message);
             }
             finally
             {
