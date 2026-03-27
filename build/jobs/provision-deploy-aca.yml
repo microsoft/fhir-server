@@ -177,7 +177,7 @@ jobs:
         if ($null -eq $existingDb) {
           Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating..."
           Invoke-WithRetry -OperationName "Create SQL Database" -ScriptBlock {
-            New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "Standard" -RequestedServiceObjectiveName "S0" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
+            New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "GeneralPurpose" -RequestedServiceObjectiveName "GP_Gen5_4" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
           }
           Write-Host "Database '$sqlDatabaseName' created successfully."
         } else {
