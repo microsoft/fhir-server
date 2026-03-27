@@ -826,23 +826,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // remove processed jobs from _transientResourceTypeJobs and update counts
             foreach (var job in finishedJobs)
             {
-                var record = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
                 foreach (var resourceTypeJobs in _transientResourceTypeJobs.Where(_ => _.Value.JobIds.Count > 0))
                 {
                     resourceTypeJobs.Value.JobIds.Remove(job.Id);
                     //// if job failed it might not be able to set counts correctly, ignore data in result and set failed to all input and succeeded to 0
-                    if (job.Status == JobStatus.Failed)
+                    if (job.Status == JobStatus.Completed)
                     {
-                        var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
-                        _currentResult.FailedResources += def.ResourceCount.Count;
-                        resourceTypeJobs.Value.Counts.Failed += def.ResourceCount.Count; // TODO: Do we need this?
+                        var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                        _currentResult.SucceededResources += result.SucceededResourceCount;
+                        _currentResult.FailedResources += result.FailedResourceCount;
+                        resourceTypeJobs.Value.Counts.Succeeded += result.SucceededResourceCount; // TODO: Do we need this?
+                        resourceTypeJobs.Value.Counts.Failed += result.FailedResourceCount; // TODO: Do we need this?
                     }
                     else
                     {
-                        _currentResult.SucceededResources += record.SucceededResourceCount;
-                        _currentResult.FailedResources += record.FailedResourceCount;
-                        resourceTypeJobs.Value.Counts.Succeeded += record.SucceededResourceCount; // TODO: Do we need this?
-                        resourceTypeJobs.Value.Counts.Failed += record.FailedResourceCount; // TODO: Do we need this?
+                        var result = string.IsNullOrEmpty(job.Result) ? null : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
+                        if (result == null)
+                        {
+                            _logger.LogJobWarning(_jobInfo, "Processing job {ProcessingJobId} had an empty result payload. Status={Status}.", job.Id, job.Status);
+                            AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, $"Processing job {job.Id} failed but returned no result payload.");
+                        }
+                        else
+                        {
+                            var def = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(job.Definition);
+                            _currentResult.FailedResources += def.ResourceCount.Count;
+                            resourceTypeJobs.Value.Counts.Failed += def.ResourceCount.Count; // TODO: Do we need this?
+                            AddErrorResult(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, $"Processing job failed for resource type {def.ResourceType}: {result.Error}");
+                        }
                     }
                 }
 
@@ -871,58 +881,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.JobIds.Count == 0);
             if (allJobsComplete)
             {
-                ////_currentResult.CompletedJobs += allJobs.Count(j => j.Status == JobStatus.Completed);
-
-                ////foreach (var jobInfo in allJobs)
-                ////{
-                ////    var definition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
-
-                ////    var result = string.IsNullOrWhiteSpace(jobInfo.Result)
-                ////        ? null
-                ////        : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(jobInfo.Result);
-
-                ////    if (result == null)
-                ////    {
-                ////        _logger.LogJobWarning(
-                ////            _jobInfo,
-                ////            "Processing job {ProcessingJobId} had an empty or invalid result payload. Status={Status}.",
-                ////            jobInfo.Id,
-                ////            jobInfo.Status);
-
-                ////        if (jobInfo.Status != JobStatus.Completed)
-                ////        {
-                ////            _currentResult.FailedResources += definition.ResourceCount?.Count ?? 0;
-                ////            AddErrorResult(
-                ////                OperationOutcomeConstants.IssueSeverity.Error,
-                ////                OperationOutcomeConstants.IssueType.Exception,
-                ////                $"Processing job {jobInfo.Id} failed but returned no result payload.");
-                ////        }
-
-                ////        continue;
-                ////    }
-
-                ////    _currentResult.SucceededResources += result.SucceededResourceCount;
-
-                ////    if (jobInfo.Status != JobStatus.Completed)
-                ////    {
-                ////        _currentResult.FailedResources += result.FailedResourceCount != 0
-                ////            ? result.FailedResourceCount
-                ////            : definition.ResourceCount?.Count ?? 0;
-
-                ////        // Extract error details from failed processing job
-                ////        if (!string.IsNullOrEmpty(result.Error))
-                ////        {
-                ////            string resourceType = definition?.ResourceType ?? "unknown";
-                ////            AddErrorResult(
-                ////                OperationOutcomeConstants.IssueSeverity.Error,
-                ////                OperationOutcomeConstants.IssueType.Exception,
-                ////                $"Processing job failed for resource type {resourceType}: {result.Error}");
-                ////        }
-                ////    }
-                ////}
-
                 var totalResources = _currentResult.SucceededResources + _currentResult.FailedResources;
-
                 _jobInfo.Data = totalResources;
                 _reindexJobRecord.Count = totalResources;
                 _jobInfo.Data = _currentResult.SucceededResources + _currentResult.FailedResources;
