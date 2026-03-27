@@ -252,28 +252,27 @@ stages:
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
-  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: Stu3
       sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameSql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
       reindexEnabled: true
+      containerCpu: '1.0'
+      containerMemory: '2Gi'
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
@@ -308,16 +307,14 @@ stages:
       version: R4
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4Sql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
       reindexEnabled: true
       containerCpu: '1.0'
       containerMemory: '2Gi'
@@ -345,28 +342,27 @@ stages:
 
 - stage: deployR4BSql
   displayName: 'Deploy R4B SQL Site'
-  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R4B
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4BSql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
       reindexEnabled: true
+      containerCpu: '1.0'
+      containerMemory: '2Gi'
 
 - stage: deployR5
   displayName: 'Deploy R5 CosmosDB Site'
@@ -391,28 +387,27 @@ stages:
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
-  condition: false
   dependsOn:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R5
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR5Sql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
       reindexEnabled: true
+      containerCpu: '1.0'
+      containerMemory: '2Gi'
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
@@ -430,17 +425,19 @@ stages:
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
-  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
   - deployStu3Sql
+  variables:
+    TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: Stu3
-      keyVaultName: $(KeyVaultBaseName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultNameSql)
+      containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR4Cosmos
@@ -490,17 +487,19 @@ stages:
 
 - stage: testR4BSql
   displayName: 'Run R4B SQL Tests'
-  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
   - deployR4BSql
+  variables:
+    TestEnvironmentUrl_R4B_Sql: $[stageDependencies.deployR4BSql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4B_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployR4BSql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: R4B
-      keyVaultName: $(KeyVaultNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
+      keyVaultName: $(KeyVaultNameR4BSql)
+      containerAppName: $(DeploymentEnvironmentNameR4BSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR5Cosmos
@@ -519,17 +518,19 @@ stages:
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
-  condition: false
   dependsOn:
   - BuildArtifacts
   - setupEnvironment
   - deployR5Sql
+  variables:
+    TestEnvironmentUrl_R5_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: R5
-      keyVaultName: $(KeyVaultNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5Sql)
+      containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: aggregateCoverage

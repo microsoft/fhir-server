@@ -6,12 +6,8 @@ parameters:
   default: true
 - name: webAppName
   type: string
-- name: appServicePlanName
+- name: acaEnvironmentName
   type: string
-  default: ''
-- name: appServicePlanResourceGroup
-  type: string
-  default: ''
 - name: subscription
   type: string
 - name: resourceGroup
@@ -126,7 +122,7 @@ jobs:
         }
 
         $webAppName = "${{ parameters.webAppName }}".ToLowerInvariant()
-        $acaEnvironmentName = ("{0}-acae" -f $webAppName).ToLowerInvariant()
+        $acaEnvironmentName = "${{ parameters.acaEnvironmentName }}".ToLowerInvariant()
 
         if ($acaEnvironmentName.Length -gt 32) {
             $acaEnvironmentName = $acaEnvironmentName.Substring(0, 32).TrimEnd('-')
@@ -185,7 +181,7 @@ jobs:
         }
 
         $deploymentResult = Invoke-WithRetry -OperationName "ACA Deployment" -ScriptBlock {
-            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/r4-sql-aca.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
+            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/fhir-sql-aca.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
         }
 
         $managedEnvironment = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/managedEnvironments" -Name $acaEnvironmentName -ApiVersion "2023-05-01" -ExpandProperties
@@ -308,5 +304,5 @@ jobs:
         $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)
         Write-Host "ACA health check passed with $consecutiveSuccessRequired consecutive successes after $elapsed seconds"
 
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql;isOutput=true]$containerAppUrl"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }}_Sql;isOutput=true]$containerAppUrl"
         Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql;isOutput=true]$containerAppUrl"
