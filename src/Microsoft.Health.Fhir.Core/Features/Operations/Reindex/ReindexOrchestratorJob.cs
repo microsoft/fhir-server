@@ -881,9 +881,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.JobIds.Count == 0);
             if (allJobsComplete)
             {
-                var totalResources = _currentResult.SucceededResources + _currentResult.FailedResources;
-                _jobInfo.Data = totalResources;
-                _reindexJobRecord.Count = totalResources;
                 _jobInfo.Data = _currentResult.SucceededResources + _currentResult.FailedResources;
                 _reindexJobRecord.Count = _jobInfo.Data.Value;
                 _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs, _currentResult.CreatedJobs);
