@@ -53,7 +53,8 @@ BEGIN TRY
   END
   
   -- Check for concurrency conflicts first using LastUpdated
-  SELECT @msg = string_agg(S.Uri, ', ') 
+  -- Only the top 60 are included in the message to avoid hitting the 8000 character limit, but all conflicts will cause the transaction to roll back
+  SELECT TOP 60 @msg = string_agg(S.Uri, ', ') 
     FROM @SearchParams I JOIN dbo.SearchParam S ON S.Uri = I.Uri
     WHERE I.LastUpdated != S.LastUpdated
   IF @msg IS NOT NULL
