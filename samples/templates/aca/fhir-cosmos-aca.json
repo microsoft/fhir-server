@@ -1,0 +1,370 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "containerAppName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Container App hosting FHIR."
+      }
+    },
+    "containerAppsEnvironmentName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Container Apps Environment."
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "maxLength": 24,
+      "metadata": {
+        "description": "Name of the Key Vault used by FHIR server."
+      }
+    },
+    "fhirVersion": {
+      "type": "string",
+      "defaultValue": "R4",
+      "allowedValues": [
+        "Stu3",
+        "R4",
+        "R4B",
+        "R5"
+      ]
+    },
+    "registryName": {
+      "type": "string",
+      "metadata": {
+        "description": "Container registry server host name."
+      }
+    },
+    "imageTag": {
+      "type": "string",
+      "defaultValue": "latest"
+    },
+    "cosmosDbAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the existing Cosmos DB account."
+      }
+    },
+    "securityAuthenticationAuthority": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "securityAuthenticationAudience": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "acrPullUserAssignedManagedIdentityResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of UAMI used to pull from ACR."
+      }
+    },
+    "enableExport": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "enableImport": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "enableConvertData": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "enableReindex": {
+      "type": "bool",
+      "defaultValue": true
+    },
+    "minReplicas": {
+      "type": "int",
+      "defaultValue": 1
+    },
+    "maxReplicas": {
+      "type": "int",
+      "defaultValue": 3
+    },
+    "containerCpu": {
+      "type": "string",
+      "defaultValue": "1.0"
+    },
+    "containerMemory": {
+      "type": "string",
+      "defaultValue": "2Gi"
+    },
+    "additionalEnvVars": {
+      "type": "array",
+      "defaultValue": []
+    }
+  },
+  "variables": {
+    "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
+    "containerAppName": "[toLower(parameters('containerAppName'))]",
+    "containerAppsEnvironmentName": "[toLower(parameters('containerAppsEnvironmentName'))]",
+    "keyVaultName": "[toLower(parameters('keyVaultName'))]",
+    "cosmosDbAccountName": "[toLower(parameters('cosmosDbAccountName'))]",
+    "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
+    "imageRepositoryName": "[if(contains(parameters('registryName'),'mcr.'), concat(toLower(parameters('fhirVersion')), '-fhir-server'), concat(toLower(parameters('fhirVersion')), '_fhir-server'))]",
+    "containerImage": "[concat(parameters('registryName'), '/', variables('imageRepositoryName'), ':', parameters('imageTag'))]",
+    "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
+    "storageAccountName": "[concat(substring(replace(variables('containerAppName'), '-', ''), 0, min(11, length(replace(variables('containerAppName'), '-', '')))), uniquestring(resourceGroup().id, variables('containerAppName')))]",
+    "storageAccountUri": "[concat('https://', variables('storageAccountName'), variables('blobStorageUri'))]",
+    "keyVaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('keyVaultName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('keyVaultName'), '.vault.azure.net/'))]",
+    "enableIntegrationStore": "[or(parameters('enableExport'), parameters('enableImport'))]",
+    "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+    "cosmosDataContributorRoleId": "00000000-0000-0000-0000-000000000002",
+    "staticEnvVars": [
+      {
+        "name": "ASPNETCORE_FORWARDEDHEADERS_ENABLED",
+        "value": "true"
+      },
+      {
+        "name": "KeyVault__Endpoint",
+        "value": "[variables('keyVaultEndpoint')]"
+      },
+      {
+        "name": "FhirServer__Security__Enabled",
+        "value": "true"
+      },
+      {
+        "name": "FhirServer__Security__EnableAadSmartOnFhirProxy",
+        "value": "true"
+      },
+      {
+        "name": "FhirServer__Security__Authentication__Authority",
+        "value": "[parameters('securityAuthenticationAuthority')]"
+      },
+      {
+        "name": "FhirServer__Security__Authentication__Audience",
+        "value": "[parameters('securityAuthenticationAudience')]"
+      },
+      {
+        "name": "DataStore",
+        "value": "CosmosDb"
+      },
+      {
+        "name": "CosmosDb__UseManagedIdentity",
+        "value": "true"
+      },
+      {
+        "name": "CosmosDb__ContinuationTokenSizeLimitInKb",
+        "value": "1"
+      },
+      {
+        "name": "CosmosDb__UseQueueClientJobs",
+        "value": "true"
+      },
+      {
+        "name": "TaskHosting__Enabled",
+        "value": "true"
+      },
+      {
+        "name": "TaskHosting__PollingFrequencyInSeconds",
+        "value": "1"
+      },
+      {
+        "name": "TaskHosting__MaxRunningTaskCount",
+        "value": "2"
+      },
+      {
+        "name": "FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds",
+        "value": "2"
+      },
+      {
+        "name": "FhirServer__Operations__Export__Enabled",
+        "value": "[if(parameters('enableExport'), 'true', 'false')]"
+      },
+      {
+        "name": "FhirServer__Operations__Export__StorageAccountUri",
+        "value": "[if(parameters('enableExport'), variables('storageAccountUri'), 'null')]"
+      },
+      {
+        "name": "FhirServer__Operations__Import__Enabled",
+        "value": "[if(parameters('enableImport'), 'true', 'false')]"
+      },
+      {
+        "name": "FhirServer__Operations__IntegrationDataStore__StorageAccountUri",
+        "value": "[if(parameters('enableImport'), variables('storageAccountUri'), 'null')]"
+      },
+      {
+        "name": "FhirServer__Operations__ConvertData__Enabled",
+        "value": "[if(parameters('enableConvertData'), 'true', 'false')]"
+      },
+      {
+        "name": "FhirServer__Operations__ConvertData__ContainerRegistryServers__0",
+        "value": "[if(parameters('enableConvertData'), parameters('registryName'), 'null')]"
+      },
+      {
+        "name": "FhirServer__Operations__Reindex__Enabled",
+        "value": "[if(parameters('enableReindex'), 'true', 'false')]"
+      }
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('containerAppName')]",
+      "location": "[resourceGroup().location]",
+      "identity": {
+        "type": "SystemAssigned,UserAssigned",
+        "userAssignedIdentities": "[json(concat('{\"', parameters('acrPullUserAssignedManagedIdentityResourceId'), '\":{}}'))]"
+      },
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppsEnvironmentName'))]",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "ingress": {
+            "external": true,
+            "targetPort": 8080,
+            "allowInsecure": false,
+            "transport": "auto"
+          },
+          "registries": [
+            {
+              "server": "[parameters('registryName')]",
+              "identity": "[parameters('acrPullUserAssignedManagedIdentityResourceId')]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "[variables('containerAppName')]",
+              "image": "[variables('containerImage')]",
+              "resources": {
+                "cpu": "[json(parameters('containerCpu'))]",
+                "memory": "[parameters('containerMemory')]"
+              },
+              "env": "[concat(variables('staticEnvVars'), parameters('additionalEnvVars'))]",
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/health/check",
+                    "port": 8080
+                  },
+                  "initialDelaySeconds": 20,
+                  "periodSeconds": 10,
+                  "timeoutSeconds": 5,
+                  "failureThreshold": 6
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/health/check",
+                    "port": 8080
+                  },
+                  "initialDelaySeconds": 20,
+                  "periodSeconds": 10,
+                  "timeoutSeconds": 5,
+                  "failureThreshold": 6
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": "[parameters('minReplicas')]",
+            "maxReplicas": "[parameters('maxReplicas')]"
+          }
+        }
+      },
+      "dependsOn": []
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2022-07-01",
+      "name": "[variables('keyVaultName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "Standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "accessPolicies": [],
+        "enableRbacAuthorization": true,
+        "enabledForDeployment": false
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[concat(variables('keyVaultName'), '/Microsoft.Authorization/', guid(uniqueString('KeyVaultSecretsOfficer', variables('containerAppName'), variables('keyVaultName'))))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[resourceId('Microsoft.App/containerApps', variables('containerAppName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').identity.principalId]"
+      }
+    },
+    {
+      "condition": "[variables('enableIntegrationStore')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-06-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[resourceGroup().location]",
+      "kind": "Storage",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false
+      }
+    },
+    {
+      "condition": "[variables('enableIntegrationStore')]",
+      "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
+      "apiVersion": "2018-09-01-preview",
+      "name": "[concat(variables('storageAccountName'), '/Microsoft.Authorization/', guid(uniqueString(variables('storageAccountName'), variables('containerAppName'))))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+        "[resourceId('Microsoft.App/containerApps', variables('containerAppName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[variables('storageBlobDataContributerRoleId')]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2015-06-01",
+      "name": "[concat(variables('keyVaultName'), '/CosmosDb--Host')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "contentType": "text/plain",
+        "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccountName')), '2021-06-15').documentEndpoint]"
+      }
+    }
+  ],
+  "outputs": {
+    "containerAppName": {
+      "type": "string",
+      "value": "[variables('containerAppName')]"
+    },
+    "containerAppFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').properties.configuration.ingress.fqdn]"
+    },
+    "containerAppUrl": {
+      "type": "string",
+      "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').properties.configuration.ingress.fqdn)]"
+    },
+    "exportStorageUri": {
+      "type": "string",
+      "value": "[if(parameters('enableExport'), variables('storageAccountUri'), 'null')]"
+    },
+    "integrationStorageUri": {
+      "type": "string",
+      "value": "[if(parameters('enableImport'), variables('storageAccountUri'), 'null')]"
+    }
+  }
+}
