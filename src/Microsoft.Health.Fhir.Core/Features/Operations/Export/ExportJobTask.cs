@@ -414,7 +414,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, cancellationToken);
+                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, false, cancellationToken);
             }
         }
 

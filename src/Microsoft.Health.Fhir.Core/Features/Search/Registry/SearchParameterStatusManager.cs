@@ -92,6 +92,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
                 else
                 {
+                    // ResourceTypeSearchParameter is a special hardcoded parameter added to
+                    // AllSearchParameters by the UrlLookup registration. It has no entry in the
+                    // status store and SearchParameterSupportResolver.IsSearchParameterSupported
+                    // throws "No target resources defined" for it because it has no BaseResourceTypes
+                    // or TargetResourceTypes. Force it to searchable/supported so background tasks
+                    // (which use SearchableSearchParameterDefinitionManager with UsePartialSearchParams=false)
+                    // don't throw SearchParameterNotSupportedException.
+                    if (p.Url == SearchParameterNames.ResourceTypeUri)
+                    {
+                        p.IsSearchable = true;
+                        p.IsSupported = true;
+                        updated.Add(p);
+                        continue;
+                    }
+
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.

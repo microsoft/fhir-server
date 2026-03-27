@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
+        private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
@@ -826,8 +828,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                             {
-                                // Capture the query text BEFORE the connection closes
+                                // Capture query text and command type BEFORE the connection closes
                                 string queryTextSnapshot = sqlCommand.CommandText;
+                                bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
                                 int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
@@ -839,6 +842,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     {
                                         await LogQueryStoreByTextAsync(
                                             queryTextSnapshot,
+                                            isStoredProcSnapshot,
                                             _logger,
                                             timeoutSnapshot,
                                             executionTimeSnapshot,
@@ -1109,16 +1113,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchFragments;
         }
 
+        /// <summary>
+        /// Removes all whitespace characters (tab/CHAR(9), LF/CHAR(10), VT/CHAR(11), FF/CHAR(12),
+        /// CR/CHAR(13), space/CHAR(32), and any other Unicode whitespace matched by <c>\s</c>) from the text.
+        /// This enables robust whitespace-insensitive comparison between the local query text and what
+        /// SQL Server Query Store may store — different database engines or drivers can add or reformat
+        /// whitespace in unpredictable ways, so the safest comparison strips all whitespace entirely
+        /// rather than trying to collapse or normalise it.
+        /// The SQL side mirrors this by stripping CHAR(9)/CHAR(10)/CHAR(11)/CHAR(12)/CHAR(13)/CHAR(32).
+        /// </summary>
+        internal static string StripAllWhitespace(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            return WhitespacePattern.Replace(text, string.Empty);
+        }
+
+        /// <summary>
+        /// Strips the <c>dbo.</c> schema prefix from a stored procedure name so it matches
+        /// what SQL Server Query Store records in <c>sys.query_store_query_text.query_sql_text</c>.
+        /// Query Store stores only the bare procedure name without the schema qualifier.
+        /// The comparison is case-insensitive to handle mixed-case schemas such as <c>DBO.</c>.
+        /// If the name has no <c>dbo.</c> prefix (or no prefix at all) it is returned unchanged.
+        /// </summary>
+        internal static string StripDboSchemaPrefix(string procName) =>
+            procName?.Replace("dbo.", string.Empty, StringComparison.OrdinalIgnoreCase);
+
         private async Task LogQueryStoreByTextAsync(
             string queryText,
+            bool isStoredProcedure,
             ILogger logger,
             int timeoutSeconds,
             long executionTime,
             CancellationToken ct)
         {
-            var normalizedText = StripQueryPreambleLines(queryText);
-            var searchFragments = SplitIntoSearchFragments(normalizedText);
-
             // Create a NEW connection for this diagnostic query
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancel, sqlException) =>
@@ -1126,6 +1157,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     using var cmd = connection.CreateCommand();
                     cmd.CommandType = CommandType.Text;
                     cmd.CommandTimeout = timeoutSeconds;
+
+                    var sb = new StringBuilder();
+
+                    // Query Store records only the bare procedure name without the schema prefix.
+                    string effectiveQuery = isStoredProcedure ? StripDboSchemaPrefix(queryText) : queryText;
+                    var normalizedText = StripQueryPreambleLines(effectiveQuery);
+                    var searchFragments = SplitIntoSearchFragments(normalizedText);
 
                     cmd.CommandText = @"
                 DECLARE @CutoffTime datetimeoffset = DATEADD(HOUR, -1, SYSUTCDATETIME());
@@ -1147,23 +1185,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 JOIN sys.query_store_plan p ON p.query_id = q.query_id
                 JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
                 WHERE @NormalizedText <> ''
-                    AND qt.query_sql_text LIKE '%' + @NormalizedText + '%'
+                    AND replace(replace(replace(replace(replace(replace(qt.query_sql_text, char(9), ''), char(10), ''), char(11), ''), char(12), ''), char(13), ''), char(32), '') LIKE '%' + @NormalizedText + '%'
                     AND rs.last_execution_time >= @CutoffTime
                 ORDER BY rs.last_execution_time DESC;";
-
-                    var sb = new StringBuilder();
 
                     for (int segmentIndex = 0; segmentIndex < searchFragments.Count; segmentIndex++)
                     {
                         string searchFragment = searchFragments[segmentIndex];
 
-                        if (searchFragment.Length > 4000)
+                        // Strip whitespace first so the 4000-char limit applies to stripped content,
+                        // maximising the amount of meaningful text sent to the LIKE comparison.
+                        string strippedFragment = StripAllWhitespace(searchFragment);
+
+                        if (strippedFragment.Length > 4000)
                         {
-                            searchFragment = searchFragment[..4000];
+                            strippedFragment = strippedFragment[..4000];
                         }
 
                         cmd.Parameters.Clear();
-                        cmd.Parameters.AddWithValue("@NormalizedText", searchFragment);
+                        cmd.Parameters.AddWithValue("@NormalizedText", strippedFragment);
 
                         using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
                         int matchIndex = 0;
@@ -1979,8 +2019,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
                             {
-                                // Capture the query text BEFORE the connection closes
+                                // Capture query text and command type BEFORE the connection closes
                                 string queryTextSnapshot = sqlCommand.CommandText;
+                                bool isStoredProcSnapshot = sqlCommand.CommandType == CommandType.StoredProcedure;
                                 long executionTimeSnapshot = executionStopwatch.ElapsedMilliseconds;
                                 int timeoutSnapshot = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
@@ -1992,6 +2033,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     {
                                         await LogQueryStoreByTextAsync(
                                             queryTextSnapshot,
+                                            isStoredProcSnapshot,
                                             _logger,
                                             timeoutSnapshot,
                                             executionTimeSnapshot,
@@ -2062,7 +2104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             tokens = new List<Token>();
             top = searchOptions.MaxItemCount + 1;
 
-            if (!StoredProcedureLayerIsEnabled || _schemaInformation.Current < 102)
+            if (!StoredProcedureLayerIsEnabled)
             {
                 return false;
             }
@@ -2092,7 +2134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 else
                 {
                     model.TryGetSearchParamId(spe.Parameter.Url, out searchParamId); // search param
-                    if (spe.Expression is StringExpression strExp) // single token without system
+                    if (spe.Expression is StringExpression strExp && strExp.FieldName == FieldName.TokenCode) // single token without system
                     {
                         tokens.Add(new Token(strExp.Value, null, null));
                     }
@@ -2100,7 +2142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         foreach (var exp in multOr.Expressions) // multiple tokens
                         {
-                            if (exp is StringExpression tokenCodeExp) // token without system
+                            if (exp is StringExpression tokenCodeExp && tokenCodeExp.FieldName == FieldName.TokenCode) // token without system
                             {
                                 tokens.Add(new Token(tokenCodeExp.Value, null, null));
                             }

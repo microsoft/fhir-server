@@ -80,8 +80,8 @@ jobs:
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "P2V3"
-            numberOfInstances = 2
+            appServicePlanSku = "P0V3"
+            numberOfInstances = 3
             serviceName = $webAppName
             keyVaultName = "${{ parameters.keyVaultName }}".ToLower()
             securityAuthenticationAuthority = "https://sts.windows.net/$(tenant-id-guid)"
@@ -91,7 +91,7 @@ jobs:
             enableExport = $true
             enableConvertData = $true
             enableImport = $true
-            backgroundTaskCount = 4
+            backgroundTaskCount = 2
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             registryName = '$(azureContainerRegistry)'
             imageTag = '${{ parameters.imageTag }}'

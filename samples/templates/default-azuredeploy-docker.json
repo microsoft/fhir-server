@@ -34,6 +34,7 @@
         "appServicePlanSku": {
             "type": "string",
             "allowedValues": [
+                "P0V3",
                 "P2V3",
                 "B3",
                 "S1",
@@ -769,7 +770,9 @@
                 "name": "Standard_LRS"
             },
             "kind": "Storage",
-            "tags": {}
+            "tags": {
+                "nsp-managed": "true"
+            }
         },
         {
             "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",

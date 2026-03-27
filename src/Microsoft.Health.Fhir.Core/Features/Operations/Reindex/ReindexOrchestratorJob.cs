@@ -871,6 +871,62 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var allJobsComplete = _transientResourceTypeJobs.Values.All(_ => _.JobIds.Count == 0);
             if (allJobsComplete)
             {
+                _currentResult.CompletedJobs += allJobs.Count(j => j.Status == JobStatus.Completed);
+
+                foreach (var jobInfo in allJobs)
+                {
+                    var definition = string.IsNullOrWhiteSpace(jobInfo.Definition)
+                        ? null
+                        : JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
+
+                    var result = string.IsNullOrWhiteSpace(jobInfo.Result)
+                        ? null
+                        : JsonConvert.DeserializeObject<ReindexProcessingJobResult>(jobInfo.Result);
+
+                    if (result == null)
+                    {
+                        _logger.LogJobWarning(
+                            _jobInfo,
+                            "Processing job {ProcessingJobId} had an empty or invalid result payload. Status={Status}.",
+                            jobInfo.Id,
+                            jobInfo.Status);
+
+                        if (jobInfo.Status != JobStatus.Completed)
+                        {
+                            _currentResult.FailedResources += definition?.ResourceCount?.Count ?? 0;
+                            AddErrorResult(
+                                OperationOutcomeConstants.IssueSeverity.Error,
+                                OperationOutcomeConstants.IssueType.Exception,
+                                $"Processing job {jobInfo.Id} failed but returned no result payload.");
+                        }
+
+                        continue;
+                    }
+
+                    _currentResult.SucceededResources += result.SucceededResourceCount;
+
+                    if (jobInfo.Status != JobStatus.Completed)
+                    {
+                        _currentResult.FailedResources += result.FailedResourceCount != 0
+                            ? result.FailedResourceCount
+                            : definition?.ResourceCount?.Count ?? 0;
+
+                        // Extract error details from failed processing job
+                        if (!string.IsNullOrEmpty(result.Error))
+                        {
+                            string resourceType = definition?.ResourceType ?? "unknown";
+                            AddErrorResult(
+                                OperationOutcomeConstants.IssueSeverity.Error,
+                                OperationOutcomeConstants.IssueType.Exception,
+                                $"Processing job failed for resource type {resourceType}: {result.Error}");
+                        }
+                    }
+                }
+
+                var totalResources = _currentResult.SucceededResources + _currentResult.FailedResources;
+
+                _jobInfo.Data = totalResources;
+                _reindexJobRecord.Count = totalResources;
                 _jobInfo.Data = _currentResult.SucceededResources + _currentResult.FailedResources;
                 _reindexJobRecord.Count = _jobInfo.Data.Value;
                 _logger.LogInformation("Finished processing jobs for Group Id: {Id}. Total completed: {CompletedCount} out of {CreatedCount}", _jobInfo.GroupId, _currentResult.CompletedJobs, _currentResult.CreatedJobs);
