@@ -215,13 +215,6 @@
   },
   "resources": [
     {
-      "type": "Microsoft.App/managedEnvironments",
-      "apiVersion": "2023-05-01",
-      "name": "[variables('containerAppsEnvironmentName')]",
-      "location": "[resourceGroup().location]",
-      "properties": {}
-    },
-    {
       "type": "Microsoft.App/containerApps",
       "apiVersion": "2023-05-01",
       "name": "[variables('containerAppName')]",
@@ -289,9 +282,7 @@
           }
         }
       },
-      "dependsOn": [
-        "[resourceId('Microsoft.App/managedEnvironments', variables('containerAppsEnvironmentName'))]"
-      ]
+      "dependsOn": []
     },
     {
       "type": "Microsoft.KeyVault/vaults",
