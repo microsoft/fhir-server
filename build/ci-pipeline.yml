@@ -149,6 +149,7 @@ stages:
       webAppName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployStu3Sql
   displayName: 'Redeploy STU3 SQL Site'
@@ -161,6 +162,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameSql)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
@@ -168,11 +170,11 @@ stages:
   - BuildArtifacts
   - redeployStu3
   jobs:
-  - template: ./jobs/run-cosmos-tests.yml
+  - template: ./jobs/run-cosmos-tests-aca.yml
     parameters:
       version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
+      containerAppName: $(DeploymentEnvironmentName)
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -180,11 +182,11 @@ stages:
   - BuildArtifacts
   - redeployStu3Sql
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultNameSql)
+      containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R4 ***********************
@@ -199,6 +201,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployR4Sql
   displayName: 'Redeploy R4 SQL Site'
@@ -211,6 +214,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -218,11 +222,11 @@ stages:
   - BuildArtifacts
   - redeployR4
   jobs:
-  - template: ./jobs/run-cosmos-tests.yml
+  - template: ./jobs/run-cosmos-tests-aca.yml
     parameters:
       version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4)
+      containerAppName: $(DeploymentEnvironmentNameR4)
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
@@ -230,11 +234,11 @@ stages:
   - BuildArtifacts
   - redeployR4Sql
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4Sql)
+      containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R4B ***********************
@@ -249,6 +253,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4B)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployR4BSql
   displayName: 'Redeploy R4B SQL Site'
@@ -261,6 +266,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4BSql)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testR4BCosmos
   displayName: 'Run R4B Cosmos Tests'
@@ -268,11 +274,11 @@ stages:
   - BuildArtifacts
   - redeployR4B
   jobs:
-  - template: ./jobs/run-cosmos-tests.yml
+  - template: ./jobs/run-cosmos-tests-aca.yml
     parameters:
       version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
+      keyVaultName: $(KeyVaultNameR4B)
+      containerAppName: $(DeploymentEnvironmentNameR4B)
 
 - stage: testR4BSql
   displayName: 'Run R4B SQL Tests'
@@ -280,11 +286,11 @@ stages:
   - BuildArtifacts
   - redeployR4BSql
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
+      keyVaultName: $(KeyVaultNameR4BSql)
+      containerAppName: $(DeploymentEnvironmentNameR4BSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 # *********************** R5 ***********************
@@ -299,6 +305,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR5)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployR5Sql
   displayName: 'Redeploy R5 SQL Site'
@@ -311,6 +318,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR5Sql)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testR5Cosmos
   displayName: 'Run R5 Cosmos Tests'
@@ -318,11 +326,11 @@ stages:
   - BuildArtifacts
   - redeployR5
   jobs:
-  - template: ./jobs/run-cosmos-tests.yml
+  - template: ./jobs/run-cosmos-tests-aca.yml
     parameters:
       version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5)
+      containerAppName: $(DeploymentEnvironmentNameR5)
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -330,11 +338,11 @@ stages:
   - BuildArtifacts
   - redeployR5Sql
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./jobs/run-sql-tests-aca.yml
     parameters:
       version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5Sql)
+      containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: aggregateCoverage

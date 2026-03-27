@@ -3,7 +3,6 @@ variables:
     resourceGroupRoot: 'msh-fhir-pr'
     # Use PR number when available; otherwise fall back to BuildId for manual/non-PR runs.
     prName: $[coalesce(variables['System.PullRequest.PullRequestNumber'], variables['Build.BuildId'])]
-    appServicePlanName: '$(resourceGroupRoot)-$(prName)-asp'    
     ResourceGroupName: '$(resourceGroupRoot)-$(prName)'
     # Unique resource group name with Build.BuildId suffix to avoid waiting for deletion of existing RG
     UniqueResourceGroupName: '$(resourceGroupRoot)-$(prName)-$(Build.BuildId)'

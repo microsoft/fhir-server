@@ -7,23 +7,43 @@ parameters:
   type: string
 - name: imageTag
   type: string
+- name: resourceGroup
+  type: string
 
 jobs:
 - job: provisionEnvironment
   pool:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
-  steps:  
-  - task: AzureRmWebAppDeployment@4
-    displayName: 'Azure App Service Deploy'
+  steps:
+  - task: AzureCLI@2
+    displayName: 'Update Container App Image'
     inputs:
       azureSubscription: '${{ parameters.subscription }}'
-      appType: 'webAppContainer'
-      WebAppName: '${{ parameters.webAppName }}'
-      DockerNamespace: $(azureContainerRegistry)
-      DockerRepository: '${{ parameters.version }}_fhir-server'
-      DockerImageTag: ${{ parameters.imageTag }}
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        $containerAppName = "${{ parameters.webAppName }}".ToLower()
+        $rgName = "${{ parameters.resourceGroup }}"
+        $newImage = "$(azureContainerRegistry)/${{ parameters.version }}_fhir-server:${{ parameters.imageTag }}"
 
-  - template: ./provision-healthcheck.yml
-    parameters: 
-      webAppName: ${{ parameters.webAppName }}
+        $currentImage = az containerapp show `
+          --name $containerAppName `
+          --resource-group $rgName `
+          --query "properties.template.containers[0].image" -o tsv
+        Write-Host "Current image: $currentImage"
+        Write-Host "New image: $newImage"
+
+        az containerapp update `
+          --name $containerAppName `
+          --resource-group $rgName `
+          --image $newImage
+
+        if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
+        Write-Host "Container app image updated successfully."
+
+  - template: ../tasks/container-app-health-check.yml
+    parameters:
+      containerAppName: ${{ parameters.webAppName }}
+      resourceGroup: ${{ parameters.resourceGroup }}
+      subscription: ${{ parameters.subscription }}
