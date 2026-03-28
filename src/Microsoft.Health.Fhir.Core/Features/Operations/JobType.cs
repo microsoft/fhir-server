@@ -20,5 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         ReindexProcessing = 10,
         SubscriptionsProcessing = 11,
         SubscriptionsOrchestrator = 12,
+        ViewDefinitionPopulationOrchestrator = 13,
+        ViewDefinitionPopulationProcessing = 14,
     }
 }

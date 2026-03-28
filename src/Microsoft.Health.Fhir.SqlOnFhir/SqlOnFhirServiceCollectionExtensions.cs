@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
+using Microsoft.Health.Fhir.SqlOnFhir.Materialization.Jobs;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.SqlOnFhir;
 
@@ -23,6 +26,20 @@ public static class SqlOnFhirServiceCollectionExtensions
         services.AddSingleton<IViewDefinitionEvaluator, ViewDefinitionEvaluator>();
         services.AddSingleton<IViewDefinitionSchemaManager, SqlServerViewDefinitionSchemaManager>();
         services.AddSingleton<IViewDefinitionMaterializer, SqlServerViewDefinitionMaterializer>();
+
+        // Register background jobs for ViewDefinition population.
+        // Uses the same auto-discovery pattern as the Subscriptions module.
+        IEnumerable<TypeRegistrationBuilder> jobs = services
+            .TypesInSameAssemblyAs<ViewDefinitionPopulationOrchestratorJob>()
+            .AssignableTo<IJob>()
+            .Transient()
+            .AsSelf();
+
+        foreach (TypeRegistrationBuilder job in jobs)
+        {
+            job.AsDelegate<Func<IJob>>();
+        }
+
         return services;
     }
 }
