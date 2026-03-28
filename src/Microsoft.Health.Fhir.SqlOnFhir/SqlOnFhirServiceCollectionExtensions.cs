@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
 
 namespace Microsoft.Health.Fhir.SqlOnFhir;
 
@@ -20,6 +21,8 @@ public static class SqlOnFhirServiceCollectionExtensions
     public static IServiceCollection AddSqlOnFhir(this IServiceCollection services)
     {
         services.AddSingleton<IViewDefinitionEvaluator, ViewDefinitionEvaluator>();
+        services.AddSingleton<IViewDefinitionSchemaManager, SqlServerViewDefinitionSchemaManager>();
+        services.AddSingleton<IViewDefinitionMaterializer, SqlServerViewDefinitionMaterializer>();
         return services;
     }
 }

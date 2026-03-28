@@ -16,8 +16,8 @@ Combine two complementary FHIR specifications—**SQL on FHIR v2 ViewDefinitions
 | 2 | Foundation | Add Ignixa NuGet packages | ✅ Done |
 | 3 | Foundation | IElement adapter layer | ✅ Done |
 | 4 | Foundation | Ignixa integration smoke test | ✅ Done |
-| 5 | Materialization | SQL Table Schema Manager (`sqlfhir` schema) | ⬜ Pending |
-| 6 | Materialization | Incremental row updater | ⬜ Pending |
+| 5 | Materialization | SQL Table Schema Manager (`sqlfhir` schema) | ✅ Done |
+| 6 | Materialization | Incremental row updater | ✅ Done |
 | 7 | Materialization | Full population background job | ⬜ Pending |
 | 8 | Materialization | Materialization integration tests | ⬜ Pending |
 | 9 | Subscription | ViewDefinition Refresh Channel | ⬜ Pending |
