@@ -18,7 +18,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
@@ -39,13 +41,109 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         [Fact]
+        public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
+        {
+            await CancelAnyRunningReindexJobsAsync();
+
+            const int numberOfSearchParams = 10; // increase to 500 when cache is not updated by API calls and status is saved with resources in a single SQL transaction
+            const string urlPrefix = "http://my.org/";
+            var codes = new List<string>();
+            try
+            {
+                for (var i = 0; i < numberOfSearchParams; i++)
+                {
+                    var code = $"c-id-{i}";
+                    codes.Add(code);
+                }
+
+                var bundle = await CreatePersonSearchParamsAsync();
+                Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
+                foreach (var entry in bundle.Entry)
+                {
+                    Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
+                }
+
+                // check by urls
+                var response = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={string.Join(",", codes.Select(_ => $"{urlPrefix}{_}"))}");
+                Assert.True(response.Resource.Total == numberOfSearchParams, $"Urls expected={numberOfSearchParams} actual={response.Resource.Total}");
+
+                var value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+                Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
+
+                await WaitForJobCompletionAsync(value.Uri, TimeSpan.FromSeconds(300));
+
+                await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
+                {
+                    await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
+                });
+            }
+            finally
+            {
+                await DeletePersonSearchParamsAsync();
+            }
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                #if R5
+                var resourceTypes = new List<VersionIndependentResourceTypesAll?>();
+                resourceTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>("Person"));
+                #else
+                var resourceTypes = new List<ResourceType?>();
+                resourceTypes.Add(Enum.Parse<ResourceType>("Person"));
+                #endif
+
+                foreach (var code in codes)
+                {
+                    var searchParam = new SearchParameter
+                    {
+                        Id = code,
+                        Url = $"{urlPrefix}{code}",
+                        Name = code,
+                        Code = code,
+                        Status = PublicationStatus.Active,
+                        Type = SearchParamType.Token,
+                        Expression = "Person.id",
+                        Description = "any",
+                        Base = resourceTypes,
+                    };
+
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                return result;
+            }
+
+            async Task VerifySearchParameterIsEnabledAsync(string searchQuery, string searchParameterCode)
+            {
+                var response = await _fixture.TestFhirClient.SearchAsync(searchQuery);
+                Assert.NotNull(response);
+                var error = HasNotSupportedError(response.Resource);
+                Assert.False(error, $"Search param {searchParameterCode} is NOT supported after reindex.");
+            }
+
+            async Task DeletePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                foreach (var code in codes)
+                {
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{code}" } });
+                }
+
+                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+            }
+        }
+
+        [Fact]
         public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
         {
             await CancelAnyRunningReindexJobsAsync();
 
             var searchParam = new SearchParameter();
             var testResources = new List<(string resourceType, string resourceId)>();
-            (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
             {
@@ -64,18 +162,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     ],
                 };
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+                var value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
 
                 var tasks = new[]
                 {
-                    WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300)),
+                    WaitForJobCompletionAsync(value.Uri, TimeSpan.FromSeconds(300)),
                     RandomPersonUpdate(testResources),
                 };
                 await Task.WhenAll(tasks);
 
                 // reported in reindex counts should be less than total resources created
-                await CheckReportedCounts(value.jobUri, testResources.Count, true);
+                await CheckReportedCounts(value.Uri, testResources.Count, true);
             }
             finally
             {
@@ -99,7 +197,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             var testResources = new List<(string resourceType, string resourceId)>();
             var supplyDeliveryCount = 40 * storageMultiplier;
             var personCount = 20 * storageMultiplier;
-            (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
             try
             {
@@ -148,13 +245,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     },
                 };
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+                var value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
 
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
-                Assert.NotNull(value.jobUri);
+                Assert.Equal(HttpStatusCode.Created, value.Response.Response.StatusCode);
+                Assert.NotNull(value.Uri);
 
                 // Wait for job to complete (this will wait for all sub-jobs to complete)
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+                var jobStatus = await WaitForJobCompletionAsync(value.Uri, TimeSpan.FromSeconds(300));
                 Assert.True(
                     jobStatus == OperationStatus.Completed,
                     $"Expected Completed, got {jobStatus}");
@@ -164,7 +261,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await SearchCreatedResources("SupplyDelivery", supplyDeliveryCount);
 
                 // check what reindex job reported
-                await CheckReportedCounts(value.jobUri, testResources.Count, false);
+                await CheckReportedCounts(value.Uri, testResources.Count, false);
 
                 // Verify search parameter is working for SupplyDelivery (which has data)
                 // Use the ACTUAL count we got, not the desired count
@@ -642,27 +739,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
                 return (false, null, id);
-            }
-        }
-
-        /// <summary>
-        /// Helper method to create and post a resource in a single operation
-        /// </summary>
-        private async Task<T> CreateAndPostResourceAsync<T>(string id, string name, Func<string, string, Task<T>> createResourceFunc)
-            where T : Resource
-        {
-            var resource = await createResourceFunc(id, name);
-
-            try
-            {
-                // Post the resource using the client's CreateAsync method
-                var response = await _fixture.TestFhirClient.CreateAsync(resource);
-                return response;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
-                return resource; // Return the original resource even on failure so ID can be tracked
             }
         }
 

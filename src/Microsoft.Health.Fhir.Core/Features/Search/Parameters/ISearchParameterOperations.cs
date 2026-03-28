@@ -22,9 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
 
         /// <summary>
-        /// This method should be called periodically to get any updates to SearchParameters
-        /// added to the DB by other service instances.
-        /// It should also be called when a user starts a reindex job
+        /// This method should be called periodically to get any updates to SearchParameters added to the DB by other service instances.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
