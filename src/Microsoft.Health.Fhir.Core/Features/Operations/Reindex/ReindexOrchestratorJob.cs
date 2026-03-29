@@ -811,6 +811,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 var batch = _transientProcessingJobIds.Any()
                           ? await _timeoutRetries.ExecuteAsync(async () =>
+                                //// the cost of order by below is about 1 msec for 100K processing jobs. It is not worth optimizing.
                                 await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.OrderBy(_ => _).Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, cancellationToken))
                           : new List<JobInfo>();
 
