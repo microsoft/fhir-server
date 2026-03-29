@@ -163,7 +163,7 @@ public class CosmosQueueClient : IQueueClient
         return jobInfos;
     }
 
-    public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+    public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long? groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
     {
         // This is a special case, we are adding this function to support Handle Bulk data access 2.0
         // Only limited changes are made in order to get Cosmos working
