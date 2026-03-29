@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Dictionary<string, (HashSet<long> JobIds, Counts Counts)> _transientResourceTypeJobs = [];
         private readonly Dictionary<string, HashSet<string>> _transientSearchParamResouceTypes = [];
         //// populated with holds enqueued job ids. job is removed after it is finished (terminal state, completed or failed).
-        private readonly HashSet<long> _transientProcessingJobIds = [];
+        private readonly SortedSet<long> _transientProcessingJobIds = [];
 
         private DateTimeOffset _searchParamLastUpdated;
 
@@ -811,8 +811,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 var batch = _transientProcessingJobIds.Any()
                           ? await _timeoutRetries.ExecuteAsync(async () =>
-                                //// the cost of order by below is about 1 msec for 100K processing jobs. It is not worth optimizing.
-                                await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.OrderBy(_ => _).Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, cancellationToken))
+                                await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, _transientProcessingJobIds.Take(_operationsConfiguration.Reindex.JobsBatchSize).ToArray(), true, cancellationToken))
                           : new List<JobInfo>();
 
                 var finishedJobs = batch.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).ToList();
