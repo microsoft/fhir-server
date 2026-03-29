@@ -104,6 +104,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
 
         public const string ViewDefinitionRun = "ViewDefinition/$run";
         public const string ViewDefinitionRunById = "ViewDefinition/" + IdRouteSegment + "/$run";
+        public const string ViewDefinitionExport = "ViewDefinition/$viewdefinition-export";
+        public const string ViewDefinitionExportStatus = OperationsConstants.Operations + "/viewdefinition-export/" + IdRouteSegment;
 
         public const string Includes = "$includes";
         public const string IncludesResourceType = ResourceType + "/" + Includes;

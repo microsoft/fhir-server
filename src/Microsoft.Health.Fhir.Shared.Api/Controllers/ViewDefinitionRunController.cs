@@ -17,7 +17,7 @@ using Microsoft.Health.Fhir.ValueSets;
 namespace Microsoft.Health.Fhir.Api.Controllers;
 
 /// <summary>
-/// Controller for the SQL on FHIR $viewdefinition-run operation.
+/// Controller for the SQL on FHIR $viewdefinition-run and $viewdefinition-export operations.
 /// Evaluates a ViewDefinition and returns tabular results in the requested format.
 /// </summary>
 [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
@@ -111,5 +111,113 @@ public class ViewDefinitionRunController : Controller
             ContentType = response.ContentType,
             StatusCode = 200,
         };
+    }
+
+    /// <summary>
+    /// POST ViewDefinition/$viewdefinition-export — Bulk export of ViewDefinition results.
+    /// If the ViewDefinition is already materialized in the requested format, returns download URLs immediately.
+    /// Otherwise enqueues an async export job and returns 202 Accepted with a status polling URL.
+    /// </summary>
+    [HttpPost]
+    [Route(KnownRoutes.ViewDefinitionExport)]
+    [AuditEventType(AuditEventSubType.Export)]
+    public async Task<IActionResult> Export([FromBody] Parameters parameters, [FromQuery(Name = "_format")] string? format)
+    {
+        string? viewDefinitionJson = null;
+        string? viewDefinitionName = null;
+
+        if (parameters?.Parameter != null)
+        {
+            // Extract view.viewResource (inline ViewDefinition)
+            var viewParam = parameters.Parameter.Find(p =>
+                string.Equals(p.Name, "view", StringComparison.OrdinalIgnoreCase));
+
+            if (viewParam?.Part != null)
+            {
+                var viewResourcePart = viewParam.Part.Find(p =>
+                    string.Equals(p.Name, "viewResource", StringComparison.OrdinalIgnoreCase));
+
+                if (viewResourcePart?.Resource != null)
+                {
+                    viewDefinitionJson = JsonSerializer.Serialize(
+                        viewResourcePart.Resource,
+                        new JsonSerializerOptions { WriteIndented = false });
+                }
+
+                var viewRefPart = viewParam.Part.Find(p =>
+                    string.Equals(p.Name, "viewReference", StringComparison.OrdinalIgnoreCase));
+
+                if (viewRefPart?.Value is ResourceReference viewRef)
+                {
+                    viewDefinitionName = viewRef.Reference?.Split('/').LastOrDefault();
+                }
+
+                var namePart = viewParam.Part.Find(p =>
+                    string.Equals(p.Name, "name", StringComparison.OrdinalIgnoreCase));
+
+                if (namePart?.Value is FhirString nameStr)
+                {
+                    viewDefinitionName = nameStr.Value;
+                }
+            }
+
+            // Also check for simple viewDefinitionJson string parameter (convenience)
+            var jsonParam = parameters.Parameter.Find(p =>
+                string.Equals(p.Name, "viewDefinitionJson", StringComparison.OrdinalIgnoreCase));
+
+            if (jsonParam?.Value is FhirString jsonStr)
+            {
+                viewDefinitionJson = jsonStr.Value;
+            }
+
+            var nameParam = parameters.Parameter.Find(p =>
+                string.Equals(p.Name, "viewDefinitionName", StringComparison.OrdinalIgnoreCase));
+
+            if (nameParam?.Value is FhirString nameString)
+            {
+                viewDefinitionName = nameString.Value;
+            }
+        }
+
+        var request = new ViewDefinitionExportRequest(
+            viewDefinitionJson: viewDefinitionJson,
+            viewDefinitionName: viewDefinitionName,
+            format: format ?? "ndjson");
+
+        ViewDefinitionExportResponse response = await _mediator.Send(request, HttpContext.RequestAborted);
+
+        if (response.IsComplete)
+        {
+            // Fast path — already materialized, return output URLs
+            var resultParams = new Parameters();
+
+            foreach (var output in response.Outputs)
+            {
+                var outputParam = new Parameters.ParameterComponent { Name = "output" };
+                outputParam.Part.Add(new Parameters.ParameterComponent { Name = "name", Value = new FhirString(output.Name) });
+                outputParam.Part.Add(new Parameters.ParameterComponent { Name = "location", Value = new FhirUrl(output.Location) });
+                outputParam.Part.Add(new Parameters.ParameterComponent { Name = "format", Value = new Code(output.Format) });
+                resultParams.Parameter.Add(outputParam);
+            }
+
+            return new ObjectResult(resultParams) { StatusCode = 200 };
+        }
+
+        // Async path — job enqueued, return 202 with status URL
+        Response.Headers["Content-Location"] = response.StatusUrl;
+
+        var statusParams = new Parameters();
+        statusParams.Parameter.Add(new Parameters.ParameterComponent
+        {
+            Name = "exportId",
+            Value = new FhirString(response.ExportId),
+        });
+        statusParams.Parameter.Add(new Parameters.ParameterComponent
+        {
+            Name = "status",
+            Value = new Code("accepted"),
+        });
+
+        return new ObjectResult(statusParams) { StatusCode = 202 };
     }
 }
