@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.ObjectModel;
+using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
 
 namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
 
@@ -27,6 +28,11 @@ public sealed class ViewDefinitionRegistration
     /// Gets or sets the FHIR resource type targeted by the ViewDefinition.
     /// </summary>
     public required string ResourceType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the materialization target for this ViewDefinition.
+    /// </summary>
+    public MaterializationTarget Target { get; set; } = MaterializationTarget.SqlServer;
 
     /// <summary>
     /// Gets the list of Subscription resource IDs auto-created for this ViewDefinition.

@@ -29,6 +29,8 @@ public static class SqlOnFhirServiceCollectionExtensions
         services.AddSingleton<IViewDefinitionEvaluator, ViewDefinitionEvaluator>();
         services.AddSingleton<IViewDefinitionSchemaManager, SqlServerViewDefinitionSchemaManager>();
         services.AddSingleton<IViewDefinitionMaterializer, SqlServerViewDefinitionMaterializer>();
+        services.AddSingleton<SqlServerViewDefinitionMaterializer>();
+        services.AddSingleton<MaterializerFactory>();
         services.AddSingleton<IViewDefinitionSubscriptionManager, ViewDefinitionSubscriptionManager>();
 
         // Register background jobs for ViewDefinition population.
