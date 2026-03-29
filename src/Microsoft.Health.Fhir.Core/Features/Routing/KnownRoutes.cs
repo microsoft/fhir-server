@@ -102,6 +102,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         public const string BulkUpdateOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkUpdate;
         public const string ResourceTypeBulkUpdateOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkUpdate;
 
+        public const string ViewDefinitionRun = "ViewDefinition/$run";
+        public const string ViewDefinitionRunById = "ViewDefinition/" + IdRouteSegment + "/$run";
+
         public const string Includes = "$includes";
         public const string IncludesResourceType = ResourceType + "/" + Includes;
         public const string IncludesOperationDefinition = OperationDefinition + "/" + OperationsConstants.Includes;
