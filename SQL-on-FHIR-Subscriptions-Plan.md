@@ -19,7 +19,7 @@ Combine two complementary FHIR specifications—**SQL on FHIR v2 ViewDefinitions
 | 5 | Materialization | SQL Table Schema Manager (`sqlfhir` schema) | ✅ Done |
 | 6 | Materialization | Incremental row updater | ✅ Done |
 | 7 | Materialization | Full population background job | ✅ Done |
-| 8 | Materialization | Materialization integration tests | ⬜ Pending |
+| 8 | Materialization | Materialization integration tests | ✅ Done |
 | 9 | Subscription | ViewDefinition Refresh Channel | ⬜ Pending |
 | 10 | Subscription | Auto-subscription registration | ⬜ Pending |
 | 11 | Subscription | End-to-end flow test | ⬜ Pending |
