@@ -22,7 +22,7 @@ Combine two complementary FHIR specifications—**SQL on FHIR v2 ViewDefinitions
 | 8 | Materialization | Materialization integration tests | ✅ Done |
 | 9 | Subscription | ViewDefinition Refresh Channel | ✅ Done |
 | 10 | Subscription | Auto-subscription registration | ✅ Done |
-| 11 | Subscription | End-to-end flow test | ⬜ Pending |
+| 11 | Subscription | End-to-end flow test | ✅ Done |
 | 12 | Multi-Target | Parquet materializer for Fabric | ⬜ Pending |
 | 13 | API | `$viewdefinition-run` operation | ⬜ Pending |
 | 14 | API | Materialization status tracking | ⬜ Pending |
