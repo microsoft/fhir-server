@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
         private readonly IOptions<ReindexJobConfiguration> _optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+        private readonly IOptions<OperationsConfiguration> _operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
@@ -182,6 +183,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private void InitializeJobHosting()
         {
+            var opConf = new OperationsConfiguration();
+            opConf.Reindex.JobsPollingIntervalSec = 1;
+            _operationsConfig.Value.Returns(opConf);
+
+            _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
+
             // Get the actual queue client from the operation datastore implementation
             var operationDataStoreBase = _fhirOperationDataStore as FhirOperationDataStoreBase;
             if (operationDataStoreBase != null)
@@ -228,10 +235,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                     if (typeId == (int)JobType.ReindexOrchestrator)
                     {
-                        // Create a mock OperationsConfiguration for the test
-                        var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-                        operationsConfig.Value.Returns(new OperationsConfiguration());
-
                         job = new ReindexOrchestratorJob(
                             _queueClient,
                             () => _searchService,
@@ -242,7 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _fixture.FhirRuntimeConfiguration,
                             NullLoggerFactory.Instance,
                             _coreFeatureConfig,
-                            operationsConfig);
+                            _operationsConfig);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
@@ -1080,14 +1083,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob1Result, JobStatus.Failed, null);
                 await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob2Result, JobStatus.Failed, null);
 
-                // Initialize the OperationsConfiguration for the orchestrator
-                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-                operationsConfig.Value.Returns(new OperationsConfiguration());
-                _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
-                {
-                    SearchParameterCacheRefreshIntervalSeconds = 1,
-                });
-
                 // Create orchestrator and execute
                 var runtimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
                 runtimeConfiguration.IsSurrogateIdRangingSupported.Returns(false);
@@ -1102,7 +1097,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     runtimeConfiguration,
                     NullLoggerFactory.Instance,
                     _coreFeatureConfig,
-                    operationsConfig);
+                    _operationsConfig);
 
                 // Execute the orchestrator - it will load all processing jobs and extract errors
                 var orchestratorResult = await orchestrator.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
