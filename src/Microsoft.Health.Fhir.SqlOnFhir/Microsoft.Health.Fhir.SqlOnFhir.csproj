@@ -19,6 +19,7 @@
     <PackageReference Include="Ignixa.SqlOnFhir" />
     <PackageReference Include="Ignixa.SqlOnFhir.Writers" />
     <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
+    <PackageReference Include="Hl7.Fhir.R4" />
   </ItemGroup>
 
   <ItemGroup>

@@ -29,6 +29,7 @@ public static class SqlOnFhirServiceCollectionExtensions
         services.AddSingleton<IViewDefinitionEvaluator, ViewDefinitionEvaluator>();
         services.AddSingleton<IViewDefinitionSchemaManager, SqlServerViewDefinitionSchemaManager>();
         services.AddSingleton<IViewDefinitionMaterializer, SqlServerViewDefinitionMaterializer>();
+        services.AddSingleton<IViewDefinitionSubscriptionManager, ViewDefinitionSubscriptionManager>();
 
         // Register background jobs for ViewDefinition population.
         // Uses the same auto-discovery pattern as the Subscriptions module.

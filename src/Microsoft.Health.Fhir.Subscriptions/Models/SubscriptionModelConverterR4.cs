@@ -64,6 +64,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
                     "azure-storage" => SubscriptionChannelType.Storage,
                     "azure-lake-storage" => SubscriptionChannelType.DatalakeContract,
                     "rest-hook" => SubscriptionChannelType.RestHook,
+                    "view-definition-refresh" => SubscriptionChannelType.ViewDefinitionRefresh,
                     _ => SubscriptionChannelType.None,
                 },
                 ContentType = payloadType switch
@@ -80,9 +81,32 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
                 channelInfo.HeartBeatPeriod = TimeSpan.FromSeconds(heartBeatSpan.Value);
             }
 
+            // Extract channel headers as properties (key: value format)
+            ExtractChannelHeaders(resource, channelInfo);
+
             var info = new SubscriptionInfo(criteriaExt, channelInfo, topic, resourceId, status);
 
             return info;
+        }
+
+        private static void ExtractChannelHeaders(ResourceElement resource, ChannelInfo channelInfo)
+        {
+            var headers = resource.Scalar<IEnumerable<string>>("Subscription.channel.header");
+            if (headers == null)
+            {
+                return;
+            }
+
+            foreach (var header in headers)
+            {
+                int separatorIndex = header.IndexOf(": ", StringComparison.Ordinal);
+                if (separatorIndex > 0)
+                {
+                    string key = header.Substring(0, separatorIndex);
+                    string value = header.Substring(separatorIndex + 2);
+                    channelInfo.Properties[key] = value;
+                }
+            }
         }
     }
 }
