@@ -38,7 +38,7 @@ namespace Microsoft.Health.JobManagement
         ///   or <see cref="JobStatus.Completed"/> status to track table-level defragmentation
         ///   progress within a coordinator job group.
         /// </summary>
-        public Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken);
+        public Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long? groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken);
 
         /// <summary>
         /// Dequeue multiple jobs
