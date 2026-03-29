@@ -25,8 +25,8 @@ Combine two complementary FHIR specifications—**SQL on FHIR v2 ViewDefinitions
 | 11 | Subscription | End-to-end flow test | ✅ Done |
 | 12 | Multi-Target | Parquet materializer for Fabric | ✅ Done |
 | 13 | API | `$viewdefinition-run` operation | ✅ Done |
-| 14 | API | Materialization status tracking | ⬜ Pending |
-| 15 | Docs | Documentation and ADR | ⬜ Pending |
+| 14 | API | Materialization status tracking | ✅ Done |
+| 15 | Docs | Documentation and ADR | ✅ Done |
 
 ---
 

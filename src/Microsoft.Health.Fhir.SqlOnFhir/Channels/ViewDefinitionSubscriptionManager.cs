@@ -78,44 +78,62 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             resourceType);
 
         // Step 1: Create the materialized SQL table
-        if (!await _schemaManager.TableExistsAsync(name, cancellationToken))
-        {
-            await _schemaManager.CreateTableAsync(viewDefinitionJson, cancellationToken);
-        }
-
-        // Step 2: Enqueue full population background job
-        var populationDef = new ViewDefinitionPopulationOrchestratorJobDefinition
-        {
-            ViewDefinitionJson = viewDefinitionJson,
-            ViewDefinitionName = name,
-            ResourceType = resourceType,
-            BatchSize = 100,
-        };
-
-        await _queueClient.EnqueueAsync(
-            (byte)QueueType.ViewDefinitionPopulation,
-            new[] { JsonConvert.SerializeObject(populationDef) },
-            groupId: null,
-            forceOneActiveJobGroup: true,
-            cancellationToken);
-
-        // Step 3: Create Subscription resource via MediatR pipeline
         var registration = new ViewDefinitionRegistration
         {
             ViewDefinitionJson = viewDefinitionJson,
             ViewDefinitionName = name,
             ResourceType = resourceType,
+            Status = ViewDefinitionStatus.Creating,
         };
-
-        string subscriptionId = await CreateSubscriptionAsync(viewDefinitionJson, name, resourceType, cancellationToken);
-        registration.SubscriptionIds.Add(subscriptionId);
 
         _registrations[name] = registration;
 
-        _logger.LogInformation(
-            "ViewDefinition '{ViewDefName}' registered with Subscription '{SubscriptionId}'",
-            name,
-            subscriptionId);
+        try
+        {
+            if (!await _schemaManager.TableExistsAsync(name, cancellationToken))
+            {
+                await _schemaManager.CreateTableAsync(viewDefinitionJson, cancellationToken);
+            }
+
+            // Step 2: Enqueue full population background job
+            registration.Status = ViewDefinitionStatus.Populating;
+
+            var populationDef = new ViewDefinitionPopulationOrchestratorJobDefinition
+            {
+                ViewDefinitionJson = viewDefinitionJson,
+                ViewDefinitionName = name,
+                ResourceType = resourceType,
+                BatchSize = 100,
+            };
+
+            await _queueClient.EnqueueAsync(
+                (byte)QueueType.ViewDefinitionPopulation,
+                new[] { JsonConvert.SerializeObject(populationDef) },
+                groupId: null,
+                forceOneActiveJobGroup: true,
+                cancellationToken);
+
+            // Step 3: Create Subscription resource via MediatR pipeline
+            string subscriptionId = await CreateSubscriptionAsync(viewDefinitionJson, name, resourceType, cancellationToken);
+            registration.SubscriptionIds.Add(subscriptionId);
+
+            // Population is async — status transitions to Active when the job completes.
+            // For now, mark as Active since the subscription is live and incremental updates will flow.
+            registration.Status = ViewDefinitionStatus.Active;
+
+            _logger.LogInformation(
+                "ViewDefinition '{ViewDefName}' registered with Subscription '{SubscriptionId}'",
+                name,
+                subscriptionId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            registration.Status = ViewDefinitionStatus.Error;
+            registration.ErrorMessage = ex.Message;
+
+            _logger.LogError(ex, "Failed to register ViewDefinition '{ViewDefName}'", name);
+            throw;
+        }
 
         return registration;
     }

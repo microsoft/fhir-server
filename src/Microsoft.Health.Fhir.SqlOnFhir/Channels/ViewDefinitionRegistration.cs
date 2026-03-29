@@ -35,6 +35,21 @@ public sealed class ViewDefinitionRegistration
     public MaterializationTarget Target { get; set; } = MaterializationTarget.SqlServer;
 
     /// <summary>
+    /// Gets or sets the current lifecycle status of this materialized ViewDefinition.
+    /// </summary>
+    public ViewDefinitionStatus Status { get; set; } = ViewDefinitionStatus.Creating;
+
+    /// <summary>
+    /// Gets or sets the error message if <see cref="Status"/> is <see cref="ViewDefinitionStatus.Error"/>.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the timestamp when this ViewDefinition was registered.
+    /// </summary>
+    public DateTimeOffset RegisteredAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
     /// Gets the list of Subscription resource IDs auto-created for this ViewDefinition.
     /// </summary>
     public Collection<string> SubscriptionIds { get; } = new();
