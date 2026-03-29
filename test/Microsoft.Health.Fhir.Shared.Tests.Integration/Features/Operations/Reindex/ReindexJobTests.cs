@@ -228,11 +228,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                     IJob job = null;
 
-                    _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
-                    {
-                        SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
-                    });
-
                     if (typeId == (int)JobType.ReindexOrchestrator)
                     {
                         job = new ReindexOrchestratorJob(
