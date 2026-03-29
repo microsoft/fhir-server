@@ -34,6 +34,19 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
                     .ToDictionary(t => t.Attribute.ChannelType, t => t.Type);
         }
 
+        /// <summary>
+        /// Registers an external channel type that lives outside the Subscriptions assembly.
+        /// This allows other modules (e.g., SqlOnFhir) to contribute channel implementations.
+        /// </summary>
+        /// <param name="channelType">The channel type identifier.</param>
+        /// <param name="implementationType">The type implementing <see cref="ISubscriptionChannel"/>.</param>
+        public void RegisterExternalChannel(SubscriptionChannelType channelType, Type implementationType)
+        {
+            EnsureArg.IsNotNull(implementationType, nameof(implementationType));
+
+            _channelTypeMap[channelType] = implementationType;
+        }
+
         public ISubscriptionChannel Create(SubscriptionChannelType type)
         {
             return (ISubscriptionChannel)_serviceProvider.GetService(_channelTypeMap[type]);

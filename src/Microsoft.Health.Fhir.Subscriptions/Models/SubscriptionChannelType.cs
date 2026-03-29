@@ -17,5 +17,6 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
         EventGrid = 5,
         Storage = 6,
         DatalakeContract = 7,
+        ViewDefinitionRefresh = 8,
     }
 }

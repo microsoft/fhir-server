@@ -20,7 +20,7 @@ Combine two complementary FHIR specifications—**SQL on FHIR v2 ViewDefinitions
 | 6 | Materialization | Incremental row updater | ✅ Done |
 | 7 | Materialization | Full population background job | ✅ Done |
 | 8 | Materialization | Materialization integration tests | ✅ Done |
-| 9 | Subscription | ViewDefinition Refresh Channel | ⬜ Pending |
+| 9 | Subscription | ViewDefinition Refresh Channel | ✅ Done |
 | 10 | Subscription | Auto-subscription registration | ⬜ Pending |
 | 11 | Subscription | End-to-end flow test | ⬜ Pending |
 | 12 | Multi-Target | Parquet materializer for Fabric | ⬜ Pending |
