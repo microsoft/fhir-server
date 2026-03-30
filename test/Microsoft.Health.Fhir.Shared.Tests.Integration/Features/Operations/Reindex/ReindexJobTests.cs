@@ -169,6 +169,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await InitializeSecondFHIRService();
 
             InitializeJobHosting();
+
+            StartCacheUpdateTask(CancellationToken.None);
         }
 
         public async Task DisposeAsync()
@@ -185,7 +187,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             var opConf = new OperationsConfiguration();
             opConf.Reindex.JobsPollingIntervalSec = 1;
-            opConf.Reindex.CacheRefreshWaitMultiplier = 10;
             _operationsConfig.Value.Returns(opConf);
 
             _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
@@ -313,12 +314,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private void StartCacheUpdateTask(CancellationToken cancellationToken)
         {
             var task = new Task(
-            _ =>
+            async _ =>
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var allSearchParameterStatus = _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken).Result;
-                    _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, cancellationToken).Wait();
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
                     Thread.Sleep(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds * 1000);
                 }
             },
@@ -941,10 +941,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
 
-                // CRITICAL: Force the search parameter definition manager to refresh/sync
-                // This is the missing piece - the search service needs to know about status changes
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
-
                 // Now test the actual search functionality
                 // Rerun the same search as above
                 searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
@@ -1297,8 +1293,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             CancellationTokenSource cancellationTokenSource,
             int delay = 1000)
         {
-            StartCacheUpdateTask(cancellationTokenSource.Token);
-
             const int MaxNumberOfAttempts = 120;
 
             ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
