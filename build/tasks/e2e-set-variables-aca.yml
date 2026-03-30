@@ -1,6 +1,6 @@
 parameters:
 - name: containerAppName
-  type: string
+    type: string
 - name: version
     type: string
 - name: appServiceType
