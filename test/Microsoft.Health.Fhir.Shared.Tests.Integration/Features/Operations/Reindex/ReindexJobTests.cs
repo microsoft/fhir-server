@@ -185,9 +185,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             var opConf = new OperationsConfiguration();
             opConf.Reindex.JobsPollingIntervalSec = 1;
+            opConf.Reindex.CacheRefreshWaitMultiplier = 10;
             _operationsConfig.Value.Returns(opConf);
 
-            _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 2 });
+            _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
             // Get the actual queue client from the operation datastore implementation
             var operationDataStoreBase = _fhirOperationDataStore as FhirOperationDataStoreBase;
