@@ -409,7 +409,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             // so resources without interactions (e.g. Parameters) must be excluded.
             foreach (var restComponent in _statement.Rest)
             {
-                restComponent.Resource.RemoveWhere(r => r.Interaction == null || r.Interaction.Count == 0);
+                var emptyResources = restComponent.Resource
+                    .Where(r => r.Interaction == null || r.Interaction.Count == 0)
+                    .ToList();
+
+                foreach (var resource in emptyResources)
+                {
+                    restComponent.Resource.Remove(resource);
+                }
             }
 
             // To build a CapabilityStatement we use a custom JsonConverter that serializes
