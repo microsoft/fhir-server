@@ -1588,31 +1588,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     sqlCommand.Parameters.AddWithValue("@p0", searchParamHash);
                     sqlCommand.CommandText = @"
-                        SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
-                          FROM (SELECT TOP (@p3) ResourceSurrogateId
-                                  FROM dbo.Resource
-                                  WHERE ResourceTypeId = @p1
-                                    AND IsHistory = 0
-                                    AND IsDeleted = 0
-                                    AND ResourceSurrogateId > @p2
-                                    AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
-                                  ORDER BY
-                                       ResourceSurrogateId
-                               ) A";
+DECLARE @Mode varchar(200) = 'RT='+convert(varchar,@p1)+' Top='+convert(varchar,@p3)+' MinId='+convert(varchar,@p2)+' Hash='+convert(varchar(20),@p0)
+EXECUTE dbo.LogEvent @Process='Reindex',@Mode=@Mode,@Status='Warn',@Target='Resource',@Action='Select'
+SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
+  FROM (SELECT TOP (@p3) ResourceSurrogateId
+          FROM dbo.Resource
+          WHERE ResourceTypeId = @p1
+            AND IsHistory = 0
+            AND IsDeleted = 0
+            AND ResourceSurrogateId > @p2
+            AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
+          ORDER BY
+                ResourceSurrogateId
+       ) A
+EXECUTE dbo.LogEvent @Process='Reindex',@Mode=@Mode,@Status='Warn',@Target='Resource',@Action='Select',@Rows=@@rowcount
+                     ";
                 }
                 else
                 {
                     sqlCommand.CommandText = @"
-                        SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
-                          FROM (SELECT TOP (@p3) ResourceSurrogateId
-                                  FROM dbo.Resource
-                                  WHERE ResourceTypeId = @p1
-                                    AND IsHistory = 0
-                                    AND IsDeleted = 0
-                                    AND ResourceSurrogateId > @p2
-                                  ORDER BY
-                                       ResourceSurrogateId
-                               ) A";
+DECLARE @Mode varchar(200) = 'RT='+convert(varchar,@p1)+' Top='+convert(varchar,@p3)+' MinId='+convert(varchar,@p2)
+EXECUTE dbo.LogEvent @Process='Reindex',@Mode=@Mode,@Status='Warn',@Target='Resource',@Action='Select'
+SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
+  FROM (SELECT TOP (@p3) ResourceSurrogateId
+          FROM dbo.Resource
+          WHERE ResourceTypeId = @p1
+            AND IsHistory = 0
+            AND IsDeleted = 0
+            AND ResourceSurrogateId > @p2
+          ORDER BY
+                ResourceSurrogateId
+       ) A
+EXECUTE dbo.LogEvent @Process='Reindex',@Mode=@Mode,@Status='Warn',@Target='Resource',@Action='Select',@Rows=@@rowcount
+                    ";
                 }
 
                 LogSqlCommand(sqlCommand);
@@ -1685,14 +1693,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlCommand.Parameters.AddWithValue("@SearchParamHash", searchParamHash);
 
                 sqlCommand.CommandText = @"
-            SELECT COUNT(*) 
-            FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
-              AND IsHistory = 0 
-              AND IsDeleted = 0
-              AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
+SELECT count(*) 
+  FROM dbo.Resource 
+  WHERE ResourceTypeId = @ResourceTypeId 
+    AND ResourceSurrogateId >= @StartId 
+    AND ResourceSurrogateId <= @EndId
+    AND IsHistory = 0 
+    AND IsDeleted = 0
+    AND (SearchParamHash != @SearchParamHash OR SearchParamHash IS NULL)";
             }
             else
             {
@@ -1701,13 +1709,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlCommand.Parameters.AddWithValue("@EndId", endId);
 
                 sqlCommand.CommandText = @"
-            SELECT COUNT(*) 
-            FROM dbo.Resource 
-            WHERE ResourceTypeId = @ResourceTypeId 
-              AND ResourceSurrogateId >= @StartId 
-              AND ResourceSurrogateId <= @EndId
-              AND IsHistory = 0 
-              AND IsDeleted = 0";
+SELECT count(*) 
+  FROM dbo.Resource 
+  WHERE ResourceTypeId = @ResourceTypeId 
+    AND ResourceSurrogateId >= @StartId 
+    AND ResourceSurrogateId <= @EndId
+    AND IsHistory = 0 
+    AND IsDeleted = 0";
             }
 
             LogSqlCommand(sqlCommand);
