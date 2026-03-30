@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Initialize second FHIR service
             await InitializeSecondFHIRService();
 
-            await InitializeJobHosting();
+            InitializeJobHosting();
         }
 
         public async Task DisposeAsync()
@@ -180,9 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return;
         }
 
-#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        private async Task InitializeJobHosting()
-#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        private void InitializeJobHosting()
         {
             // Get the actual queue client from the operation datastore implementation
             var operationDataStoreBase = _fhirOperationDataStore as FhirOperationDataStoreBase;
@@ -1277,9 +1275,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private async Task<JobInfo> SeedOrchestratorJobAsync(ReindexJobRecord jobRecord)
         {
             var definition = JsonConvert.SerializeObject(jobRecord);
-
-            var enqueued = await _queueClient.EnqueueAsync((byte)QueueType.Reindex, new[] { definition }, null, false, CancellationToken.None);
-            return enqueued.Single();
+            return await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, null, definition, JobStatus.Running, null, null, CancellationToken.None);
         }
 
         private async Task SeedProcessingJobAsync(long groupId, ReindexProcessingJobDefinition jobDefinition, ReindexProcessingJobResult jobResult, JobStatus status, int? data)
@@ -1297,12 +1293,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 })
                 : JsonConvert.SerializeObject(jobResult);
 
-            var enqueued = await _queueClient.EnqueueAsync((byte)QueueType.Reindex, new[] { definition }, groupId, false, CancellationToken.None);
-            var processingJob = enqueued.Single();
-            processingJob.Status = status;
-            processingJob.Data = data;
-            processingJob.Result = result;
-            await _queueClient.CompleteJobAsync(processingJob, false, CancellationToken.None);
+            var job = await _queueClient.EnqueueWithStatusAsync((byte)QueueType.Reindex, groupId, definition, JobStatus.Running, null, null, CancellationToken.None);
+            job.Status = status;
+            job.Data = data;
+            job.Result = result;
+            await _queueClient.CompleteJobAsync(job, false, CancellationToken.None);
         }
 
         private async Task<ReindexJobWrapper> PerformReindexingOperation(
