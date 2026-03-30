@@ -81,7 +81,7 @@ steps:
                 $versionVariableName = "TestEnvironmentUrl_$Version"
             }
 
-            Write-Host "Resolved ACA URL for $AppServiceType/$Version: $url"
+            Write-Host "Resolved ACA URL for $AppServiceType/$($Version): $url"
             Write-Host "Setting pipeline variables '$defaultVariableName' and '$versionVariableName'"
             Write-Host "##vso[task.setvariable variable=$defaultVariableName]$url"
             Write-Host "##vso[task.setvariable variable=$versionVariableName]$url"
