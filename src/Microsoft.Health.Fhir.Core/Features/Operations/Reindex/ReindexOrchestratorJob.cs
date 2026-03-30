@@ -807,7 +807,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             do
             {
-                await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), cancellationToken);
+                ////await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), cancellationToken);
 
                 var batch = _transientProcessingJobIds.Any()
                           ? await _timeoutRetries.ExecuteAsync(async () =>
@@ -817,6 +817,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var finishedJobs = batch.Where(j => j.Status == JobStatus.Completed || j.Status == JobStatus.Failed).ToList();
 
                 await ProcessFinishedJobs(finishedJobs, cancellationToken);
+
+                await Task.Delay(TimeSpan.FromSeconds(_operationsConfiguration.Reindex.JobsPollingIntervalSec), cancellationToken);
             }
             while (_transientProcessingJobIds.Any());
         }
