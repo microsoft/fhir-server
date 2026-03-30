@@ -1,0 +1,128 @@
+{
+  "resourceType": "Bundle",
+  "type": "batch",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-01",
+        "name": [{"use": "official", "family": "Pressmore", "given": ["Hyper", "T."]}],
+        "gender": "male",
+        "birthDate": "1968-03-15"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-01"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-02",
+        "name": [{"use": "official", "family": "Dangerfield", "given": ["Rod"]}],
+        "gender": "male",
+        "birthDate": "1955-07-22"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-02"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-03",
+        "name": [{"use": "official", "family": "Redline", "given": ["Scarlett"]}],
+        "gender": "female",
+        "birthDate": "1972-11-08"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-03"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-04",
+        "name": [{"use": "official", "family": "Vasquez", "given": ["Maria", "Elena"]}],
+        "gender": "female",
+        "birthDate": "1960-01-30"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-04"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-05",
+        "name": [{"use": "official", "family": "Thornton", "given": ["James", "R."]}],
+        "gender": "male",
+        "birthDate": "1975-09-12"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-05"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-06",
+        "name": [{"use": "official", "family": "Okafor", "given": ["Chidi"]}],
+        "gender": "male",
+        "birthDate": "1963-04-18"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-06"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-07",
+        "name": [{"use": "official", "family": "Chen", "given": ["Wei", "Lin"]}],
+        "gender": "female",
+        "birthDate": "1970-12-05"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-07"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-08",
+        "name": [{"use": "official", "family": "Kowalski", "given": ["Stefan"]}],
+        "gender": "male",
+        "birthDate": "1958-06-27"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-08"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-09",
+        "name": [{"use": "official", "family": "Baptiste", "given": ["Marie", "Claire"]}],
+        "gender": "female",
+        "birthDate": "1966-08-14"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-09"}
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "crisis-pt-10",
+        "name": [{"use": "official", "family": "Nakamura", "given": ["Kenji"]}],
+        "gender": "male",
+        "birthDate": "1952-02-20"
+      },
+      "request": {"method": "PUT", "url": "Patient/crisis-pt-10"}
+    },
+
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-01", "subject": {"reference": "Patient/crisis-pt-01"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-01"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-02", "subject": {"reference": "Patient/crisis-pt-02"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-02"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-03", "subject": {"reference": "Patient/crisis-pt-03"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-03"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-04", "subject": {"reference": "Patient/crisis-pt-04"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-04"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-05", "subject": {"reference": "Patient/crisis-pt-05"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-05"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-06", "subject": {"reference": "Patient/crisis-pt-06"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-06"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-07", "subject": {"reference": "Patient/crisis-pt-07"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-07"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-08", "subject": {"reference": "Patient/crisis-pt-08"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-08"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-09", "subject": {"reference": "Patient/crisis-pt-09"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-09"}},
+    {"resource": {"resourceType": "Condition", "id": "crisis-cond-10", "subject": {"reference": "Patient/crisis-pt-10"}, "code": {"coding": [{"system": "http://snomed.info/sct", "code": "59621000", "display": "Essential hypertension"}]}, "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]}, "verificationStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]}}, "request": {"method": "PUT", "url": "Condition/crisis-cond-10"}},
+
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-01", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-01"}, "effectiveDateTime": "2026-03-29T08:00:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 182, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 112, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-01"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-02", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-02"}, "effectiveDateTime": "2026-03-29T08:15:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 195, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 118, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-02"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-03", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-03"}, "effectiveDateTime": "2026-03-29T08:30:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 168, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 105, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-03"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-04", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-04"}, "effectiveDateTime": "2026-03-29T08:45:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 175, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 108, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-04"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-05", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-05"}, "effectiveDateTime": "2026-03-29T09:00:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 162, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 98, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-05"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-06", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-06"}, "effectiveDateTime": "2026-03-29T09:15:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 188, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 115, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-06"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-07", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-07"}, "effectiveDateTime": "2026-03-29T09:30:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 171, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 102, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-07"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-08", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-08"}, "effectiveDateTime": "2026-03-29T09:45:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 191, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 120, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-08"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-09", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-09"}, "effectiveDateTime": "2026-03-29T10:00:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 165, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 100, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-09"}},
+    {"resource": {"resourceType": "Observation", "id": "crisis-bp-10", "status": "final", "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure panel"}]}, "subject": {"reference": "Patient/crisis-pt-10"}, "effectiveDateTime": "2026-03-29T10:15:00Z", "component": [{"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6", "display": "Systolic BP"}]}, "valueQuantity": {"value": 185, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}, {"code": {"coding": [{"system": "http://loinc.org", "code": "8462-4", "display": "Diastolic BP"}]}, "valueQuantity": {"value": 116, "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]"}}]}, "request": {"method": "PUT", "url": "Observation/crisis-bp-10"}}
+  ]
+}
