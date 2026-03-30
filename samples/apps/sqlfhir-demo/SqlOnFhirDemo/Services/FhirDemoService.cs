@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace SqlOnFhirDemo.Services;
 
@@ -118,6 +119,231 @@ public class FhirDemoService
     }
 
     /// <summary>
+    /// Loads a Synthea-generated FHIR Bundle from a file, sanitizes it by removing
+    /// external references that may fail (Practitioner, Organization, Location, etc.),
+    /// and posts it to the FHIR server.
+    /// </summary>
+    public async Task<(bool Success, int ResourceCount)> LoadAndPostSyntheaBundleAsync(string filePath)
+    {
+        string rawJson = await File.ReadAllTextAsync(filePath);
+        string sanitized = SanitizeSyntheaBundle(rawJson);
+
+        var (success, _) = await PostBundleAsync(sanitized);
+
+        // Count entries
+        try
+        {
+            var doc = JsonNode.Parse(sanitized);
+            int count = doc?["entry"]?.AsArray().Count ?? 0;
+            return (success, count);
+        }
+        catch
+        {
+            return (success, 0);
+        }
+    }
+
+    /// <summary>
+    /// Loads multiple Synthea bundle files from a directory using parallel HTTP clients.
+    /// Sanitizes each bundle and posts to the FHIR server with configurable concurrency.
+    /// </summary>
+    /// <param name="directory">Path to directory containing Synthea FHIR Bundle JSON files.</param>
+    /// <param name="maxFiles">Maximum number of patient files to load (0 = all).</param>
+    /// <param name="concurrency">Number of parallel upload threads.</param>
+    /// <param name="onProgress">Callback reporting (filesLoaded, totalFiles, resourcesLoaded, failedFiles).</param>
+    public async Task<(int FilesLoaded, int ResourcesLoaded, int Failed)> LoadSyntheaDirectoryAsync(
+        string directory, int maxFiles = 0, int concurrency = 3,
+        Action<int, int, int, int>? onProgress = null)
+    {
+        var files = Directory.GetFiles(directory, "*.json")
+            .Where(f => !Path.GetFileName(f).StartsWith("practitioner", StringComparison.OrdinalIgnoreCase)
+                     && !Path.GetFileName(f).StartsWith("hospital", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (maxFiles > 0) files = files.Take(maxFiles).ToList();
+
+        int filesLoaded = 0;
+        int totalResources = 0;
+        int failed = 0;
+        int totalFiles = files.Count;
+
+        var semaphore = new SemaphoreSlim(concurrency);
+        var tasks = files.Select(async file =>
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                var (success, count) = await LoadAndPostSyntheaBundleAsync(file);
+                if (success)
+                {
+                    Interlocked.Increment(ref filesLoaded);
+                    Interlocked.Add(ref totalResources, count);
+                }
+                else
+                {
+                    Interlocked.Increment(ref failed);
+                }
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref failed);
+                _logger.LogWarning(ex, "Failed to load bundle: {File}", Path.GetFileName(file));
+            }
+            finally
+            {
+                semaphore.Release();
+                onProgress?.Invoke(
+                    Volatile.Read(ref filesLoaded),
+                    totalFiles,
+                    Volatile.Read(ref totalResources),
+                    Volatile.Read(ref failed));
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        return (filesLoaded, totalResources, failed);
+    }
+
+    /// <summary>
+    /// Sanitizes a Synthea-generated FHIR Bundle by:
+    /// 1. Removing entries for resource types that cause reference failures (Practitioner, Organization, Location, etc.)
+    /// 2. Stripping practitioner/organization/location references from remaining resources
+    /// 3. Removing urn:uuid references that won't resolve on the server
+    /// </summary>
+    public static string SanitizeSyntheaBundle(string bundleJson)
+    {
+        var doc = JsonNode.Parse(bundleJson);
+        if (doc == null) return bundleJson;
+
+        var entries = doc["entry"]?.AsArray();
+        if (entries == null) return bundleJson;
+
+        // Resource types to keep (the ones our ViewDefinitions care about + supporting types)
+        var keepTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Patient", "Observation", "Condition", "Encounter",
+            "MedicationRequest", "Procedure", "AllergyIntolerance",
+            "DiagnosticReport", "Immunization", "CarePlan", "CareTeam",
+            "Claim", "ExplanationOfBenefit"
+        };
+
+        // Reference fields to strip (external references that may not resolve)
+        var stripReferenceFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "practitioner", "provider", "organization", "managingOrganization",
+            "serviceProvider", "insurer", "performer", "requester",
+            "asserter", "recorder", "location"
+        };
+
+        var sanitizedEntries = new JsonArray();
+
+        foreach (var entry in entries)
+        {
+            var resource = entry?["resource"];
+            if (resource == null) continue;
+
+            string? resourceType = resource["resourceType"]?.GetValue<string>();
+            if (resourceType == null || !keepTypes.Contains(resourceType)) continue;
+
+            // Strip problematic references from the resource
+            StripReferences(resource, stripReferenceFields);
+
+            // Rewrite urn:uuid references in the request URL to use resource type + server-assigned ID
+            var request = entry?["request"];
+            if (request != null)
+            {
+                string? url = request["url"]?.GetValue<string>();
+                if (url != null && url.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Use PUT with resourceType/id instead of POST with urn:uuid
+                    string? id = resource["id"]?.GetValue<string>();
+                    if (id != null)
+                    {
+                        request["method"] = "PUT";
+                        request["url"] = $"{resourceType}/{id}";
+                    }
+                }
+            }
+
+            sanitizedEntries.Add(entry!.DeepClone());
+        }
+
+        doc["entry"] = sanitizedEntries;
+        return doc.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+    }
+
+    private static void StripReferences(JsonNode resource, HashSet<string> fieldsToStrip)
+    {
+        if (resource is not JsonObject obj) return;
+
+        var keysToRemove = new List<string>();
+
+        foreach (var kvp in obj)
+        {
+            // Strip direct reference fields
+            if (fieldsToStrip.Contains(kvp.Key))
+            {
+                keysToRemove.Add(kvp.Key);
+                continue;
+            }
+
+            // Strip any nested "reference" values that point to urn:uuid or stripped types
+            if (kvp.Value is JsonObject nested)
+            {
+                var refValue = nested["reference"]?.GetValue<string>();
+                if (refValue != null && IsStrippableReference(refValue))
+                {
+                    keysToRemove.Add(kvp.Key);
+                    continue;
+                }
+
+                StripReferences(nested, fieldsToStrip);
+            }
+            else if (kvp.Value is JsonArray arr)
+            {
+                // Process arrays (e.g., performer[])
+                var itemsToRemove = new List<int>();
+                for (int i = 0; i < arr.Count; i++)
+                {
+                    if (arr[i] is JsonObject arrItem)
+                    {
+                        var refVal = arrItem["reference"]?.GetValue<string>();
+                        if (refVal != null && IsStrippableReference(refVal))
+                        {
+                            itemsToRemove.Add(i);
+                        }
+                        else
+                        {
+                            StripReferences(arrItem, fieldsToStrip);
+                        }
+                    }
+                }
+
+                // Remove items in reverse order to preserve indices
+                foreach (int idx in itemsToRemove.OrderByDescending(x => x))
+                {
+                    arr.RemoveAt(idx);
+                }
+            }
+        }
+
+        foreach (var key in keysToRemove)
+        {
+            obj.Remove(key);
+        }
+    }
+
+    private static bool IsStrippableReference(string reference)
+    {
+        return reference.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("Practitioner/", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("Organization/", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("Location/", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("PractitionerRole/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Gets the FHIR server metadata.
     /// </summary>
     public async Task<bool> CheckServerHealthAsync()
@@ -131,5 +357,107 @@ public class FhirDemoService
         {
             return false;
         }
+    }
+
+    private static readonly string[] CrisisLastNames = { "Pressmore", "Dangerfield", "Redline", "Vasquez", "Thornton", "Okafor", "Chen", "Kowalski", "Baptiste", "Nakamura", "Rivera", "Petrov", "Johansson", "Abadi", "Fitzgerald", "Moreau", "Tanaka", "Blackwell", "Gutierrez", "Andersen" };
+    private static readonly string[] CrisisFirstNames = { "Hyper", "Rod", "Scarlett", "Maria", "James", "Chidi", "Wei", "Stefan", "Marie", "Kenji", "Carlos", "Dmitri", "Erik", "Farhan", "Sean", "Isabelle", "Yuki", "Marcus", "Elena", "Lars" };
+    private static readonly Random Rng = new();
+
+    /// <summary>
+    /// Generates a batch of crisis patients with hypertension and severely uncontrolled blood pressure.
+    /// Posts them in bundles of 50 for efficiency.
+    /// </summary>
+    /// <param name="count">Number of crisis patients to generate.</param>
+    /// <param name="onProgress">Callback reporting (patientsCreated, totalPatients).</param>
+    public async Task<int> GenerateCrisisPatientsAsync(int count, Action<int, int>? onProgress = null)
+    {
+        int created = 0;
+        int batchSize = 50;
+
+        for (int batchStart = 0; batchStart < count; batchStart += batchSize)
+        {
+            int batchEnd = Math.Min(batchStart + batchSize, count);
+            var entries = new StringBuilder();
+
+            for (int i = batchStart; i < batchEnd; i++)
+            {
+                string id = $"crisis-gen-{i:D4}";
+                string lastName = CrisisLastNames[i % CrisisLastNames.Length];
+                string firstName = CrisisFirstNames[i % CrisisFirstNames.Length];
+                string gender = i % 2 == 0 ? "male" : "female";
+                int birthYear = 1945 + Rng.Next(40); // Ages 41-81
+                int systolic = 145 + Rng.Next(50);   // 145-194
+                int diastolic = 92 + Rng.Next(30);   // 92-121
+                string now = DateTime.UtcNow.AddMinutes(i).ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+                if (entries.Length > 0) entries.Append(",");
+
+                // Patient
+                entries.Append($@"
+                {{""resource"": {{""resourceType"": ""Patient"", ""id"": ""{id}"", ""name"": [{{""use"": ""official"", ""family"": ""{lastName}"", ""given"": [""{firstName}""]}}], ""gender"": ""{gender}"", ""birthDate"": ""{birthYear}-{(i % 12) + 1:D2}-{(i % 28) + 1:D2}""}}, ""request"": {{""method"": ""PUT"", ""url"": ""Patient/{id}""}}}},");
+
+                // Hypertension condition
+                entries.Append($@"
+                {{""resource"": {{""resourceType"": ""Condition"", ""id"": ""{id}-htn"", ""subject"": {{""reference"": ""Patient/{id}""}}, ""code"": {{""coding"": [{{""system"": ""http://snomed.info/sct"", ""code"": ""59621000"", ""display"": ""Essential hypertension""}}]}}, ""clinicalStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-clinical"", ""code"": ""active""}}]}}, ""verificationStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-ver-status"", ""code"": ""confirmed""}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Condition/{id}-htn""}}}},");
+
+                // Uncontrolled BP observation
+                entries.Append($@"
+                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{id}-bp"", ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{id}-bp""}}}}");
+            }
+
+            string bundle = $@"{{""resourceType"": ""Bundle"", ""type"": ""batch"", ""entry"": [{entries}]}}";
+            var (success, _) = await PostBundleAsync(bundle);
+
+            if (success) created += (batchEnd - batchStart);
+            onProgress?.Invoke(created, count);
+
+            _logger.LogInformation("Crisis patients batch: {Created}/{Total}", created, count);
+        }
+
+        return created;
+    }
+
+    /// <summary>
+    /// Generates intervention observations (corrected BPs) for previously created crisis patients.
+    /// Only corrects a percentage of patients (default 60%) to show realistic partial recovery.
+    /// </summary>
+    /// <param name="crisisCount">Total crisis patients that were generated.</param>
+    /// <param name="correctionRate">Fraction of patients to correct (0.0-1.0).</param>
+    /// <param name="onProgress">Callback reporting (corrected, total).</param>
+    public async Task<int> GenerateInterventionsAsync(int crisisCount, double correctionRate = 0.6, Action<int, int>? onProgress = null)
+    {
+        int toCorrect = (int)(crisisCount * correctionRate);
+        int corrected = 0;
+        int batchSize = 50;
+
+        for (int batchStart = 0; batchStart < toCorrect; batchStart += batchSize)
+        {
+            int batchEnd = Math.Min(batchStart + batchSize, toCorrect);
+            var entries = new StringBuilder();
+
+            for (int i = batchStart; i < batchEnd; i++)
+            {
+                string patientId = $"crisis-gen-{i:D4}";
+                string obsId = $"intervention-gen-{i:D4}";
+                int systolic = 115 + Rng.Next(23);   // 115-137 (controlled)
+                int diastolic = 68 + Rng.Next(20);   // 68-87 (controlled)
+                string now = DateTime.UtcNow.AddMinutes(i).ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+                if (entries.Length > 0) entries.Append(",");
+
+                entries.Append($@"
+                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{obsId}"", ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{patientId}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{obsId}""}}}}");
+            }
+
+            string bundle = $@"{{""resourceType"": ""Bundle"", ""type"": ""batch"", ""entry"": [{entries}]}}";
+            var (success, _) = await PostBundleAsync(bundle);
+
+            if (success) corrected += (batchEnd - batchStart);
+            onProgress?.Invoke(corrected, toCorrect);
+
+            _logger.LogInformation("Interventions batch: {Corrected}/{Total}", corrected, toCorrect);
+        }
+
+        return corrected;
     }
 }

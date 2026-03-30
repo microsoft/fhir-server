@@ -121,6 +121,65 @@
             </div>
         </div>
 
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">📂 Load Data</h5></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label">Synthea Output Folder</label>
+                    <input class="form-control form-control-sm" @bind="SyntheaPath" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Max Patients</label>
+                    <input class="form-control form-control-sm" type="number" @bind="MaxSyntheaFiles" />
+                </div>
+                <button class="btn btn-sm btn-success w-100 mb-2" @onclick="LoadSyntheaDataAsync" disabled="@IsLoading">
+                    @(IsLoading ? $"Loading... {LoadProgress}" : "📥 Load Synthea Data")
+                </button>
+                @if (IsLoading && ProgressPercent > 0)
+                {
+                    <div class="progress mb-2" style="height: 20px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: @(ProgressPercent)%"
+                             aria-valuenow="@ProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                            @(ProgressPercent)%
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">⚡ Demo Scenarios</h5></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label">Crisis Patient Count</label>
+                    <input class="form-control form-control-sm" type="number" @bind="CrisisPatientCount" />
+                </div>
+                <button class="btn btn-sm btn-danger w-100 mb-2" @onclick="LoadCrisisPatientsAsync" disabled="@IsLoading">
+                    @(IsLoading ? $"Loading... {LoadProgress}" : "🚨 Load Crisis Patients")
+                </button>
+                <button class="btn btn-sm btn-success w-100 mb-2" @onclick="LoadInterventionsAsync" disabled="@IsLoading">
+                    @(IsLoading ? $"Loading... {LoadProgress}" : "💊 Apply Interventions (60%)")
+                </button>
+                @if (IsLoading && ProgressPercent > 0)
+                {
+                    <div class="progress mb-2" style="height: 20px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning"
+                             role="progressbar"
+                             style="width: @(ProgressPercent)%"
+                             aria-valuenow="@ProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                            @(ProgressPercent)%
+                        </div>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(ScenarioStatus))
+                {
+                    <div class="alert alert-info mt-2 mb-0 p-2 small">@ScenarioStatus</div>
+                }
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header"><h5 class="mb-0">Active Subscriptions</h5></div>
             <div class="card-body">
@@ -146,6 +205,15 @@
     private int NewBpDiastolic = 80;
     private string BpRecordStatus = "";
     private string SubscriptionsJson = "";
+
+    // Data loading
+    private string SyntheaPath = @"C:\repos\synthea\output\fhir";
+    private int MaxSyntheaFiles = 100;
+    private int CrisisPatientCount = 500;
+    private bool IsLoading = false;
+    private string LoadProgress = "";
+    private string ScenarioStatus = "";
+    private int ProgressPercent = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -202,5 +270,109 @@
     private async Task LoadSubscriptions()
     {
         SubscriptionsJson = await FhirService.GetSubscriptionsAsync();
+    }
+
+    private async Task LoadSyntheaDataAsync()
+    {
+        IsLoading = true;
+        LoadProgress = "Starting...";
+        ProgressPercent = 0;
+        StateHasChanged();
+
+        try
+        {
+            var (filesLoaded, resources, failed) = await FhirService.LoadSyntheaDirectoryAsync(
+                SyntheaPath,
+                MaxSyntheaFiles,
+                concurrency: 3,
+                onProgress: (loaded, total, res, fail) =>
+                {
+                    ProgressPercent = total > 0 ? (int)((double)loaded / total * 100) : 0;
+                    LoadProgress = $"{loaded}/{total} files ({res:N0} resources, {fail} failed)";
+                    InvokeAsync(StateHasChanged);
+                });
+
+            ScenarioStatus = $"✓ Loaded {filesLoaded} bundles ({resources:N0} resources, {failed} failed)";
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            ScenarioStatus = $"✗ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            ProgressPercent = 0;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCrisisPatientsAsync()
+    {
+        IsLoading = true;
+        LoadProgress = "Generating crisis patients...";
+        ProgressPercent = 0;
+        StateHasChanged();
+
+        try
+        {
+            int created = await FhirService.GenerateCrisisPatientsAsync(
+                CrisisPatientCount,
+                onProgress: (done, total) =>
+                {
+                    ProgressPercent = total > 0 ? (int)((double)done / total * 100) : 0;
+                    LoadProgress = $"{done}/{total} crisis patients";
+                    InvokeAsync(StateHasChanged);
+                });
+
+            ScenarioStatus = $"🚨 Created {created} crisis patients with uncontrolled BP!";
+            await Task.Delay(2000);
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            ScenarioStatus = $"✗ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            ProgressPercent = 0;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadInterventionsAsync()
+    {
+        IsLoading = true;
+        LoadProgress = "Applying interventions...";
+        ProgressPercent = 0;
+        StateHasChanged();
+
+        try
+        {
+            int corrected = await FhirService.GenerateInterventionsAsync(
+                CrisisPatientCount,
+                correctionRate: 0.6,
+                onProgress: (done, total) =>
+                {
+                    ProgressPercent = total > 0 ? (int)((double)done / total * 100) : 0;
+                    LoadProgress = $"{done}/{total} patients treated";
+                    InvokeAsync(StateHasChanged);
+                });
+
+            ScenarioStatus = $"💊 Applied interventions to {corrected} patients (60% correction rate)";
+            await Task.Delay(2000);
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            ScenarioStatus = $"✗ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            ProgressPercent = 0;
+            StateHasChanged();
+        }
     }
 }
