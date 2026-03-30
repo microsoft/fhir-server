@@ -71,23 +71,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 if (acceptHeaders?.Any() == true && acceptHeaders.All(a => a.MediaType != "*/*"))
                 {
-                    var isAcceptHeaderValid = false;
+                    string matchedMediaType = null;
 
                     foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
                     {
                         var headerValue = acceptHeader.MediaType.ToString();
-                        isAcceptHeaderValid = await IsFormatSupportedAsync(headerValue);
-
-                        if (isAcceptHeaderValid)
+                        if (await IsFormatSupportedAsync(headerValue))
                         {
+                            matchedMediaType = headerValue;
                             break;
                         }
                     }
 
-                    if (!isAcceptHeaderValid)
+                    if (matchedMediaType == null)
                     {
                         var headerValue = string.Join(',', acceptHeaders.Select(x => x.MediaType.Value));
                         throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue, HeaderNames.Accept));
+                    }
+
+                    // When the Accept header contains extra parameters (e.g., charset=UTF-8),
+                    // ASP.NET Core's content negotiation may fail to match the output formatter.
+                    // Explicitly set the content type so the correct formatter is selected.
+                    if (acceptHeaders.Any(a => a.Parameters.Count > 0 && a.Parameters.Any(p => p.Name != "q")))
+                    {
+                        string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(
+                            matchedMediaType,
+                            acceptHeaders.Select(x => x.MediaType.Value).ToList());
+
+                        if (!string.IsNullOrEmpty(closestClientMediaType))
+                        {
+                            httpContext.Response.ContentType = closestClientMediaType;
+                        }
                     }
                 }
             }
