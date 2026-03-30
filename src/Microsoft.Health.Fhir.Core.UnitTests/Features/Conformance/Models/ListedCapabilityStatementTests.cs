@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             original.AdditionalData["custom"] = JToken.FromObject("value");
 
             // Act
-            var clone = (ListedCapabilityStatement)original.Clone();
+            var clone = original.Clone();
 
             // Assert
             Assert.NotSame(original, clone);
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             original.AdditionalData["custom"] = JToken.FromObject("value");
 
             // Act
-            var clone = (ListedCapabilityStatement)original.Clone();
+            var clone = original.Clone();
 
             // Assert
             Assert.NotSame(original.Status, clone.Status);
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             original.Status.Add("active");
 
             // Act
-            var clone = (ListedCapabilityStatement)original.Clone();
+            var clone = original.Clone();
             clone.Name = "Modified";
             clone.Experimental = true;
             clone.Status.Add("modified");
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             };
 
             // Act
-            var clone = (ListedCapabilityStatement)original.Clone();
+            var clone = original.Clone();
 
             // Assert
             Assert.NotNull(clone.Software);
@@ -334,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     // Perform multiple clone operations to increase chance of concurrent access
                     for (int i = 0; i < 50; i++)
                     {
-                        var clone = (ListedCapabilityStatement)statement.Clone();
+                        var clone = statement.Clone();
                         Assert.NotNull(clone);
                     }
                 }
