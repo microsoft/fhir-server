@@ -404,6 +404,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ITypedElement Build()
         {
+            // Remove resource entries with no interactions to ensure FHIR conformance.
+            // In STU3, CapabilityStatement.rest.resource.interaction has min cardinality 1,
+            // so resources without interactions (e.g. Parameters) must be excluded.
+            foreach (var restComponent in _statement.Rest)
+            {
+                restComponent.Resource.RemoveWhere(r => r.Interaction == null || r.Interaction.Count == 0);
+            }
+
             // To build a CapabilityStatement we use a custom JsonConverter that serializes
             // the ListedCapabilityStatement into a CapabilityStatement poco
             var json = JsonConvert.SerializeObject(_statement, new JsonSerializerSettings
