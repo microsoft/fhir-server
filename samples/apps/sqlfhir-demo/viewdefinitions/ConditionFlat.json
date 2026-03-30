@@ -1,0 +1,71 @@
+{
+  "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
+  "id": "ConditionFlat",
+  "name": "condition_flat",
+  "status": "draft",
+  "resource": "Condition",
+  "select": [
+    {
+      "column": [
+        {
+          "path": "getResourceKey()",
+          "name": "id"
+        },
+        {
+          "path": "subject.getReferenceKey(Patient)",
+          "name": "patient_id"
+        },
+        {
+          "path": "encounter.getReferenceKey(Encounter)",
+          "name": "encounter_id"
+        },
+        {
+          "path": "onset.ofType(dateTime)",
+          "name": "onset_datetime",
+          "type": "dateTime"
+        }
+      ]
+    },
+    {
+      "column": [
+        {
+          "path": "system",
+          "name": "system",
+          "type": "uri"
+        },
+        {
+          "path": "code",
+          "name": "code"
+        }
+      ],
+      "forEachOrNull": "code.coding"
+    },
+    {
+      "column": [
+        {
+          "path": "code",
+          "name": "category"
+        }
+      ],
+      "forEachOrNull": "category.coding"
+    },
+    {
+      "column": [
+        {
+          "path": "code",
+          "name": "clinical_status"
+        }
+      ],
+      "forEachOrNull": "clinicalStatus.coding"
+    },
+    {
+      "column": [
+        {
+          "path": "code",
+          "name": "verification_status"
+        }
+      ],
+      "forEachOrNull": "verificationStatus.coding"
+    }
+  ]
+}

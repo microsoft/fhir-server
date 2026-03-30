@@ -1,0 +1,56 @@
+{
+  "name": "Uncontrolled BP Readings Submodule",
+  "remarks": ["Generates blood pressure readings with uncontrolled values (systolic >=140 or diastolic >=90)"],
+  "states": {
+    "Initial": {
+      "type": "Initial",
+      "direct_transition": "BP_Reading_1"
+    },
+    "BP_Reading_1": {
+      "type": "MultiObservation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "85354-9", "display": "Blood pressure panel" }],
+      "observations": [
+        {
+          "category": "vital-signs",
+          "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic blood pressure" }],
+          "unit": "mmHg",
+          "range": { "low": 142, "high": 175 }
+        },
+        {
+          "category": "vital-signs",
+          "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic blood pressure" }],
+          "unit": "mmHg",
+          "range": { "low": 88, "high": 110 }
+        }
+      ],
+      "direct_transition": "Wait_1"
+    },
+    "Wait_1": {
+      "type": "Delay",
+      "range": { "low": 30, "high": 90, "unit": "days" },
+      "direct_transition": "BP_Reading_2"
+    },
+    "BP_Reading_2": {
+      "type": "MultiObservation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "85354-9", "display": "Blood pressure panel" }],
+      "observations": [
+        {
+          "category": "vital-signs",
+          "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic blood pressure" }],
+          "unit": "mmHg",
+          "range": { "low": 145, "high": 168 }
+        },
+        {
+          "category": "vital-signs",
+          "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic blood pressure" }],
+          "unit": "mmHg",
+          "range": { "low": 92, "high": 105 }
+        }
+      ],
+      "direct_transition": "Terminal"
+    },
+    "Terminal": { "type": "Terminal" }
+  }
+}

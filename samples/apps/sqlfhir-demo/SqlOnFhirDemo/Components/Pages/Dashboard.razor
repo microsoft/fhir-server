@@ -1,0 +1,206 @@
+@page "/dashboard"
+@using SqlOnFhirDemo.Services
+@inject FhirDemoService FhirService
+@rendermode InteractiveServer
+
+<PageTitle>HEDIS CBP Dashboard — SQL on FHIR Demo</PageTitle>
+
+<h1>🏥 HEDIS Controlling Blood Pressure — Real-Time Dashboard</h1>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h5 class="card-title">CBP Rate</h5>
+                <h1>@CbpRate%</h1>
+                <p class="card-text">Controlled / Total Hypertensive</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h5 class="card-title">Controlled</h5>
+                <h1>@ControlledCount</h1>
+                <p class="card-text">BP &lt; 140/90</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <h5 class="card-title">Uncontrolled</h5>
+                <h1>@UncontrolledCount</h1>
+                <p class="card-text">BP ≥ 140/90</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Blood Pressure Readings</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="RefreshData">🔄 Refresh</button>
+                    <span class="ms-2 text-muted small">@LastRefreshed</span>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (BpRows.Count == 0)
+                {
+                    <p class="text-muted">No data yet. Register ViewDefinitions and load sample data to begin.</p>
+                }
+                else
+                {
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Patient ID</th>
+                                <th>Date</th>
+                                <th>Systolic</th>
+                                <th>Diastolic</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in BpRows.Take(50))
+                            {
+                                string systolicStr = row.TryGetValue("sbp_quantity_value", out var sbp) ? sbp?.ToString() ?? "" : "";
+                                string diastolicStr = row.TryGetValue("dbp_quantity_value", out var dbp) ? dbp?.ToString() ?? "" : "";
+                                bool isControlled = double.TryParse(systolicStr, out double sys) && double.TryParse(diastolicStr, out double dia) && sys < 140 && dia < 90;
+
+                                <tr class="@(isControlled ? "" : "table-danger")">
+                                    <td>@(row.TryGetValue("patient_id", out var pid) ? pid : "")</td>
+                                    <td>@(row.TryGetValue("effective_date_time", out var dt) ? dt : "")</td>
+                                    <td><strong>@systolicStr</strong></td>
+                                    <td><strong>@diastolicStr</strong></td>
+                                    <td>
+                                        @if (isControlled)
+                                        {
+                                            <span class="badge bg-success">✓ Controlled</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger">✗ Uncontrolled</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header"><h5 class="mb-0">Record New BP</h5></div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label">Patient ID</label>
+                    <input class="form-control form-control-sm" @bind="NewBpPatientId" placeholder="e.g., Patient/123" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Systolic (mmHg)</label>
+                    <input class="form-control form-control-sm" type="number" @bind="NewBpSystolic" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Diastolic (mmHg)</label>
+                    <input class="form-control form-control-sm" type="number" @bind="NewBpDiastolic" />
+                </div>
+                <button class="btn btn-primary btn-sm w-100" @onclick="RecordBpAsync">
+                    📝 Record BP
+                </button>
+                @if (!string.IsNullOrEmpty(BpRecordStatus))
+                {
+                    <div class="alert alert-info mt-2 mb-0 p-2 small">@BpRecordStatus</div>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Active Subscriptions</h5></div>
+            <div class="card-body">
+                <button class="btn btn-sm btn-outline-secondary mb-2" @onclick="LoadSubscriptions">Show Subscriptions</button>
+                @if (!string.IsNullOrEmpty(SubscriptionsJson))
+                {
+                    <pre class="bg-light p-2 small" style="max-height: 200px; overflow-y: auto;">@SubscriptionsJson</pre>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Dictionary<string, object?>> BpRows = new();
+    private string LastRefreshed = "Never";
+    private string CbpRate = "—";
+    private int ControlledCount = 0;
+    private int UncontrolledCount = 0;
+
+    private string NewBpPatientId = "";
+    private int NewBpSystolic = 120;
+    private int NewBpDiastolic = 80;
+    private string BpRecordStatus = "";
+    private string SubscriptionsJson = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+    }
+
+    private async Task RefreshData()
+    {
+        try
+        {
+            BpRows = await FhirService.QueryViewDefinitionAsync("us_core_blood_pressures");
+            CalculateCbpMetrics();
+            LastRefreshed = DateTime.Now.ToString("HH:mm:ss");
+        }
+        catch (Exception ex)
+        {
+            LastRefreshed = $"Error: {ex.Message}";
+        }
+    }
+
+    private void CalculateCbpMetrics()
+    {
+        ControlledCount = 0;
+        UncontrolledCount = 0;
+
+        foreach (var row in BpRows)
+        {
+            string systolicStr = row.TryGetValue("sbp_quantity_value", out var sbp) ? sbp?.ToString() ?? "" : "";
+            string diastolicStr = row.TryGetValue("dbp_quantity_value", out var dbp) ? dbp?.ToString() ?? "" : "";
+
+            if (double.TryParse(systolicStr, out double sys) && double.TryParse(diastolicStr, out double dia))
+            {
+                if (sys < 140 && dia < 90)
+                    ControlledCount++;
+                else
+                    UncontrolledCount++;
+            }
+        }
+
+        int total = ControlledCount + UncontrolledCount;
+        CbpRate = total > 0 ? Math.Round((double)ControlledCount / total * 100, 1).ToString() : "—";
+    }
+
+    private async Task RecordBpAsync()
+    {
+        var (success, response) = await FhirService.RecordBloodPressureAsync(NewBpPatientId, NewBpSystolic, NewBpDiastolic);
+        BpRecordStatus = success ? "✓ BP recorded! Refresh to see update." : "✗ Error recording BP";
+
+        // Auto-refresh after a short delay to show the subscription-driven update
+        await Task.Delay(2000);
+        await RefreshData();
+    }
+
+    private async Task LoadSubscriptions()
+    {
+        SubscriptionsJson = await FhirService.GetSubscriptionsAsync();
+    }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "Normal BP Readings Submodule",
+  "remarks": ["Generates blood pressure readings for healthy patients (no hypertension, normal BP values)"],
+  "states": {
+    "Initial": {
+      "type": "Initial",
+      "direct_transition": "BP_Reading_1"
+    },
+    "BP_Reading_1": {
+      "type": "MultiObservation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "85354-9", "display": "Blood pressure panel" }],
+      "observations": [
+        {
+          "category": "vital-signs",
+          "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic blood pressure" }],
+          "unit": "mmHg",
+          "range": { "low": 100, "high": 125 }
+        },
+        {
+          "category": "vital-signs",
+          "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic blood pressure" }],
+          "unit": "mmHg",
+          "range": { "low": 60, "high": 80 }
+        }
+      ],
+      "direct_transition": "Terminal"
+    },
+    "Terminal": { "type": "Terminal" }
+  }
+}

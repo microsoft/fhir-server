@@ -1,0 +1,106 @@
+{
+  "name": "HEDIS Controlling Blood Pressure (CBP)",
+  "remarks": [
+    "Custom Synthea module for HEDIS CBP measure demo.",
+    "Generates patients with hypertension and periodic blood pressure observations.",
+    "",
+    "HEDIS CBP Measure: % of members 18-85 with hypertension diagnosis",
+    "whose most recent BP was adequately controlled (<140/90 mmHg).",
+    "",
+    "Patient types generated:",
+    "  Type A (40%): Hypertension + controlled BP (systolic <140, diastolic <90)",
+    "  Type B (35%): Hypertension + uncontrolled BP (systolic >=140 or diastolic >=90)",
+    "  Type C (25%): No hypertension (control group - should NOT appear in measure)",
+    "",
+    "Codes (verified):",
+    "  Hypertension: ICD-10 I10, SNOMED 59621000",
+    "  BP Panel: LOINC 85354-9",
+    "  Systolic: LOINC 8480-6",
+    "  Diastolic: LOINC 8462-4"
+  ],
+  "states": {
+    "Initial": {
+      "type": "Initial",
+      "direct_transition": "Age_Guard"
+    },
+
+    "Age_Guard": {
+      "type": "Guard",
+      "allow": {
+        "condition_type": "Age",
+        "operator": ">=",
+        "quantity": 18,
+        "unit": "years"
+      },
+      "direct_transition": "Choose_Patient_Type"
+    },
+
+    "Choose_Patient_Type": {
+      "type": "Simple",
+      "remarks": ["Split into hypertension-controlled, hypertension-uncontrolled, and healthy"],
+      "distributed_transition": [
+        { "transition": "Onset_Hypertension_Controlled", "distribution": 0.40 },
+        { "transition": "Onset_Hypertension_Uncontrolled", "distribution": 0.35 },
+        { "transition": "Healthy_Patient_BP", "distribution": 0.25 }
+      ]
+    },
+
+    "Onset_Hypertension_Controlled": {
+      "type": "ConditionOnset",
+      "assign_to_attribute": "hypertension",
+      "codes": [
+        {
+          "system": "SNOMED-CT",
+          "code": "59621000",
+          "display": "Essential hypertension"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "I10",
+          "display": "Essential (primary) hypertension"
+        }
+      ],
+      "direct_transition": "Controlled_BP_Series"
+    },
+
+    "Controlled_BP_Series": {
+      "type": "CallSubmodule",
+      "submodule": "hedis_cbp/controlled_bp_readings",
+      "direct_transition": "Terminal"
+    },
+
+    "Onset_Hypertension_Uncontrolled": {
+      "type": "ConditionOnset",
+      "assign_to_attribute": "hypertension",
+      "codes": [
+        {
+          "system": "SNOMED-CT",
+          "code": "59621000",
+          "display": "Essential hypertension"
+        },
+        {
+          "system": "ICD-10-CM",
+          "code": "I10",
+          "display": "Essential (primary) hypertension"
+        }
+      ],
+      "direct_transition": "Uncontrolled_BP_Series"
+    },
+
+    "Uncontrolled_BP_Series": {
+      "type": "CallSubmodule",
+      "submodule": "hedis_cbp/uncontrolled_bp_readings",
+      "direct_transition": "Terminal"
+    },
+
+    "Healthy_Patient_BP": {
+      "type": "CallSubmodule",
+      "submodule": "hedis_cbp/normal_bp_readings",
+      "direct_transition": "Terminal"
+    },
+
+    "Terminal": {
+      "type": "Terminal"
+    }
+  }
+}
