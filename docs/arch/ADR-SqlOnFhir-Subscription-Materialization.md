@@ -259,6 +259,83 @@ sequenceDiagram
 - **Scale under high write volume**: Each resource change triggers ViewDefinition re-evaluation; batching mitigates but doesn't eliminate
 - **Schema evolution**: ViewDefinition column changes require table recreation (not in-place ALTER)
 
+## Future Optimizations
+
+### 1. Parallel Population via Surrogate ID Ranges
+**Problem**: Initial population currently uses sequential `ISearchService.SearchAsync` with continuation
+tokens — a single-threaded chain that processes one batch at a time. This doesn't scale to databases
+with millions of resources.
+
+**Solution**: Follow the Reindex job pattern which uses `GetSurrogateIdRanges()` to partition the
+resource space into non-overlapping ID ranges, then fans out **parallel processing jobs** per range:
+
+```
+Orchestrator:
+  → GetSurrogateIdRanges("Observation", startId, endId, rangeSize=10000, numRanges=10)
+  → Returns: [(0, 10000), (10001, 20000), (20001, 30000), ...]
+  → Enqueue N processing jobs in parallel (one per range)
+
+Processing (parallel, no contention):
+  → SearchForReindexAsync with StartSurrogateId/EndSurrogateId
+  → Each job processes its ID range independently
+  → No continuation token dependency between jobs
+```
+
+**Reference implementation**: `ReindexOrchestratorJob` (lines 489-497) demonstrates the
+`GetSurrogateIdRanges` pattern with configurable range sizes and batch counts.
+
+**Impact**: 5-10x faster initial population for large datasets (millions of resources).
+
+### 2. FHIRPath Where Clause → Search Parameter Translation
+**Problem**: A ViewDefinition like `us_core_blood_pressures` with a `where` clause filtering for
+LOINC code 85354-9 currently triggers the subscription on **every** Observation change. The evaluator
+correctly filters non-matching resources (producing 0 rows), but this wastes compute evaluating
+irrelevant resources.
+
+**Solution**: Pattern-match common FHIRPath `where` idioms to equivalent FHIR search parameters:
+- `code.coding.exists(system='http://loinc.org' and code=%bp_code)` → `?code=http://loinc.org|85354-9`
+- `status = 'active'` → `?status=active`
+- `subject.getReferenceKey(Patient)` → compartment-based filtering
+
+This applies to both:
+1. **Subscription criteria narrowing**: More specific subscriptions = fewer false triggers
+2. **Population query optimization**: Search only matching resources instead of full type scan
+
+**Phased approach**:
+- Phase 1 (current): Broad resource-type subscription (`Observation?`) — correct, no missed updates
+- Phase 2: Pattern-match common FHIRPath to search params as **optimization**
+- Phase 3: Reverse-match against FHIR SearchParameter FHIRPath definitions for broader coverage
+
+**Correctness guarantee**: The evaluator's FHIRPath `where` filtering is always the single source of
+truth. Pre-filtering only reduces wasted work — a broader subscription means more evaluator invocations
+(cost), but never incorrect results.
+
+### 3. Delta Lake for Fabric Target
+**Problem**: Parquet files are immutable — incremental updates via subscriptions append new files
+without removing stale data. Over time this creates duplicates that downstream consumers must handle.
+
+**Solution**: Implement `DeltaLakeViewDefinitionMaterializer` for the `MaterializationTarget.Fabric`
+enum value using ACID MERGE operations on `_resource_key`:
+```sql
+MERGE INTO patient_demographics AS target
+USING (new rows) AS source
+ON target._resource_key = source._resource_key
+WHEN MATCHED THEN UPDATE SET ...
+WHEN NOT MATCHED THEN INSERT ...
+WHEN NOT MATCHED BY SOURCE THEN DELETE
+```
+
+**Benefit**: True incremental upsert/delete on file-based storage with full transactional guarantees.
+Fabric's SQL Analytics Endpoint and Power BI see clean, deduplicated data without compaction lag.
+
+### 4. Persistent Registration State
+**Problem**: ViewDefinition→Subscription mapping is in-memory (`ConcurrentDictionary`). Server
+restart loses all registrations, requiring manual re-registration.
+
+**Solution**: Persist registrations as FHIR Library resources with a ViewDefinition profile, or
+in a dedicated `sqlfhir._registrations` table. On startup, `ViewDefinitionSubscriptionManager`
+re-discovers active registrations and resumes subscription-driven updates.
+
 ## Components Built
 
 | Component | Location | Purpose |
