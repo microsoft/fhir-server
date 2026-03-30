@@ -520,6 +520,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete);
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Test failed with exception: {ex}");
+                DebugOutput($"Test failed with exception: {ex}");
+
+                throw;
+            }
             finally
             {
                 await CleanupAsync();
@@ -536,8 +543,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 foreach (var resource in resources)
                 {
-                    var status = (await _fhirClient.HardDeleteAsync(resource, false)).StatusCode;
-                    Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={status}");
+                    var result = await _fhirClient.HardDeleteAsync(resource, false);
+                    var status = result.StatusCode;
+
+                    DebugOutput($"Cleanup delete for {resource.Id}: {status}");
+                    DebugOutput(result.GetFhirResponseDetailsAsJson());
+                    Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={status} for resource {resource.Id}");
                 }
             }
 
@@ -546,7 +557,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 foreach (var resource in resources)
                 {
                     var status = (await _fhirClient.UpdateAsync(resource)).StatusCode;
-                    Assert.True(status == HttpStatusCode.Created || status == HttpStatusCode.OK, $"expected=({HttpStatusCode.Created},{HttpStatusCode.OK}) actual={status}");
+                    Assert.True(status == HttpStatusCode.Created || status == HttpStatusCode.OK, $"expected=({HttpStatusCode.Created},{HttpStatusCode.OK}) actual={status} for resource {resource.Id}");
                 }
             }
 
