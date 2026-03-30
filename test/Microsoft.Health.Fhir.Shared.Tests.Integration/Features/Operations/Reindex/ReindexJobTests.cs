@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
         private readonly IOptions<ReindexJobConfiguration> _optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+        private readonly IOptions<OperationsConfiguration> _operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
@@ -104,6 +105,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task InitializeAsync()
         {
+            _operationsConfig.Value.Returns(new OperationsConfiguration());
+            _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
+
             // Initialize critical fields first before cleanup
             _fhirOperationDataStore = _fixture.OperationDataStore;
             _fhirStorageTestHelper = _fixture.TestHelper;
@@ -168,6 +172,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await InitializeSecondFHIRService();
 
             InitializeJobHosting();
+
+            StartCacheUpdateTask(CancellationToken.None);
         }
 
         public async Task DisposeAsync()
@@ -221,17 +227,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                     IJob job = null;
 
-                    _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
-                    {
-                        SearchParameterCacheRefreshIntervalSeconds = 1, // Use a short interval for tests
-                    });
-
                     if (typeId == (int)JobType.ReindexOrchestrator)
                     {
-                        // Create a mock OperationsConfiguration for the test
-                        var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-                        operationsConfig.Value.Returns(new OperationsConfiguration());
-
                         job = new ReindexOrchestratorJob(
                             _queueClient,
                             () => _searchService,
@@ -242,7 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                             _fixture.FhirRuntimeConfiguration,
                             NullLoggerFactory.Instance,
                             _coreFeatureConfig,
-                            operationsConfig);
+                            _operationsConfig);
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
@@ -314,12 +311,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private void StartCacheUpdateTask(CancellationToken cancellationToken)
         {
             var task = new Task(
-            _ =>
+            async _ =>
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var allSearchParameterStatus = _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken).Result;
-                    _searchParameterStatusManager.ApplySearchParameterStatus(allSearchParameterStatus, cancellationToken).Wait();
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
                     Thread.Sleep(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds * 1000);
                 }
             },
@@ -462,7 +458,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                var reindexJobWorker = await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
+                var reindexJobWorker = await WaitForReindexCompletionAsync(response, OperationStatus.Completed, cancellationTokenSource);
 
                 Assert.True(reindexJobWorker.JobRecord.ResourceCounts.Count > 0);
                 Assert.True(reindexJobWorker.JobRecord.Progress > 0);
@@ -512,7 +508,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-               await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
+               await WaitForReindexCompletionAsync(response, OperationStatus.Completed, cancellationTokenSource);
             }
             finally
             {
@@ -537,7 +533,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
+                await WaitForReindexCompletionAsync(response, OperationStatus.Completed, cancellationTokenSource);
 
                 var updateSearchParamList = await _searchParameterStatusManager.GetAllSearchParameterStatus(default);
                 Assert.Equal(SearchParameterStatus.Enabled, updateSearchParamList.Where(sp => sp.Uri.OriginalString == searchParam.Url.OriginalString).First().Status);
@@ -586,7 +582,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
+                await WaitForReindexCompletionAsync(response, OperationStatus.Completed, cancellationTokenSource);
 
                 // Rerun the same search as above
                 searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
@@ -734,7 +730,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
+                await WaitForReindexCompletionAsync(response, OperationStatus.Completed, cancellationTokenSource);
 
                 // Rerun the same search as above
                 searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
@@ -804,7 +800,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
+                await WaitForReindexCompletionAsync(response, OperationStatus.Completed, cancellationTokenSource);
 
                 var queryParams2 = new List<Tuple<string, string>>();
 
@@ -940,7 +936,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             try
             {
-                await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
+                await WaitForReindexCompletionAsync(response, OperationStatus.Completed, cancellationTokenSource);
 
                 // CRITICAL: Force the search parameter definition manager to refresh/sync
                 // This is the missing piece - the search service needs to know about status changes
@@ -1080,14 +1076,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob1Result, JobStatus.Failed, null);
                 await SeedProcessingJobAsync(orchestratorGroupId, supplyDeliveryJobDefinition, supplyJob2Result, JobStatus.Failed, null);
 
-                // Initialize the OperationsConfiguration for the orchestrator
-                var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-                operationsConfig.Value.Returns(new OperationsConfiguration());
-                _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration
-                {
-                    SearchParameterCacheRefreshIntervalSeconds = 1,
-                });
-
                 // Create orchestrator and execute
                 var runtimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
                 runtimeConfiguration.IsSurrogateIdRangingSupported.Returns(false);
@@ -1102,7 +1090,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     runtimeConfiguration,
                     NullLoggerFactory.Instance,
                     _coreFeatureConfig,
-                    operationsConfig);
+                    _operationsConfig);
 
                 // Execute the orchestrator - it will load all processing jobs and extract errors
                 var orchestratorResult = await orchestrator.ExecuteAsync(orchestratorJobInfo, CancellationToken.None);
@@ -1300,64 +1288,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await _queueClient.CompleteJobAsync(job, false, CancellationToken.None);
         }
 
-        private async Task<ReindexJobWrapper> PerformReindexingOperation(
-            CreateReindexResponse response,
-            OperationStatus operationStatus,
-            CancellationTokenSource cancellationTokenSource,
-            int delay = 1000)
+        private async Task<ReindexJobWrapper> WaitForReindexCompletionAsync(CreateReindexResponse response, OperationStatus operationStatus, CancellationTokenSource cancellationTokenSource)
         {
-            StartCacheUpdateTask(cancellationTokenSource.Token);
-
-            const int MaxNumberOfAttempts = 120;
-
-            ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
-
-            int delayCount = 0;
-
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < MaxNumberOfAttempts)
+            var stopwatch = Stopwatch.StartNew();
+            ReindexJobWrapper reindexJobWrapper = null;
+            while (stopwatch.Elapsed.TotalSeconds < 120)
             {
-                // Check for any processing jobs that need to be executed
-                var allJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, response.Job.JobRecord.GroupId, true, cancellationTokenSource.Token);
-                var processingJobs = allJobs.Where(j => j.Status == JobStatus.Created || j.Status == JobStatus.Running).ToList();
-
-                // Execute any pending processing jobs
-                foreach (var processingJob in processingJobs.Where(j => j.Status == JobStatus.Created))
-                {
-                    try
-                    {
-                        var scopedJob = _jobFactory.Create(processingJob);
-                        var result = await scopedJob.Value.ExecuteAsync(processingJob, cancellationTokenSource.Token);
-                        processingJob.Status = JobStatus.Completed;
-                        processingJob.Result = result;
-                        await _queueClient.CompleteJobAsync(processingJob, false, cancellationTokenSource.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        processingJob.Status = JobStatus.Failed;
-                        processingJob.Result = JsonConvert.SerializeObject(new { Error = ex.Message });
-                        await _queueClient.CompleteJobAsync(processingJob, false, cancellationTokenSource.Token);
-                    }
-                }
-
-                await Task.Delay(delay);
-                delayCount++;
                 reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                if (reindexJobWrapper.JobRecord.Status == operationStatus)
+                {
+                    break;
+                }
 
                 if (operationStatus == OperationStatus.Completed &&
                     (reindexJobWrapper.JobRecord.Status == OperationStatus.Failed || reindexJobWrapper.JobRecord.Status == OperationStatus.Canceled))
                 {
-                    Assert.Fail($"Fail-fast. Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}.");
+                    Assert.Fail($"Fail-fast. Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Time elapsed: {stopwatch.Elapsed}.");
                 }
+
+                await Task.Delay(1000);
             }
 
-            // If we maxed out attempts and did not reach the expected status, clean up any active jobs
-            if (reindexJobWrapper.JobRecord.Status != operationStatus)
-            {
-                Assert.True(
-                    operationStatus == reindexJobWrapper.JobRecord.Status,
-                    $"Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {delayCount}. Time elapsed: {stopwatch.Elapsed}.");
-            }
+            Assert.Equal(operationStatus, reindexJobWrapper.JobRecord.Status);
 
             var serializer = new FhirJsonSerializer();
             _output.WriteLine(serializer.SerializeToString(reindexJobWrapper.ToParametersResourceElement().ToPoco<Parameters>()));
