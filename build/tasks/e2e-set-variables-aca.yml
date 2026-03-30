@@ -1,10 +1,10 @@
 parameters:
 - name: containerAppName
-    type: string
+  type: string
 - name: version
-    type: string
+  type: string
 - name: appServiceType
-    type: string
+  type: string
 
 steps:
 - task: AzurePowerShell@5
