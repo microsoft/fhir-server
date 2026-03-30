@@ -1,6 +1,10 @@
 parameters:
 - name: containerAppName
   type: string
+- name: version
+    type: string
+- name: appServiceType
+    type: string
 
 steps:
 - task: AzurePowerShell@5
@@ -52,6 +56,37 @@ steps:
             return $null
         }
 
+        function Set-TestEnvironmentUrlVariables {
+            param(
+                [Parameter(Mandatory = $true)]
+                [psobject]$ContainerAppData,
+                [Parameter(Mandatory = $true)]
+                [string]$Version,
+                [Parameter(Mandatory = $true)]
+                [string]$AppServiceType
+            )
+
+            $fqdn = $ContainerAppData.Properties.configuration.ingress.fqdn
+            if ([string]::IsNullOrEmpty($fqdn) -or $fqdn -eq 'null') {
+                throw "Container App '$containerAppName' does not have an ingress FQDN configured."
+            }
+
+            $url = "https://$fqdn"
+            if ($AppServiceType -eq 'SqlServer') {
+                $defaultVariableName = 'TestEnvironmentUrl_Sql'
+                $versionVariableName = "TestEnvironmentUrl_${Version}_Sql"
+            }
+            else {
+                $defaultVariableName = 'TestEnvironmentUrl'
+                $versionVariableName = "TestEnvironmentUrl_$Version"
+            }
+
+            Write-Host "Resolved ACA URL for $AppServiceType/$Version: $url"
+            Write-Host "Setting pipeline variables '$defaultVariableName' and '$versionVariableName'"
+            Write-Host "##vso[task.setvariable variable=$defaultVariableName]$url"
+            Write-Host "##vso[task.setvariable variable=$versionVariableName]$url"
+        }
+
         $keyVault = "$(KeyVaultBaseName)-ts"
         Set-SecretsAsPipelineVariables -VaultName $keyVault
 
@@ -66,6 +101,8 @@ steps:
         if ($null -eq $envSettings) {
             throw "Container App '$containerAppName' has no environment variables configured."
         }
+
+        Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
 
         $acrLoginServer = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"
 

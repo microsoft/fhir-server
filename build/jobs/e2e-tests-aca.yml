@@ -20,6 +20,8 @@ steps:
   - template: ../tasks/e2e-set-variables-aca.yml
     parameters:
       containerAppName: ${{ parameters.containerAppName }}
+      version: ${{ parameters.version }}
+      appServiceType: ${{ parameters.appServiceType }}
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
