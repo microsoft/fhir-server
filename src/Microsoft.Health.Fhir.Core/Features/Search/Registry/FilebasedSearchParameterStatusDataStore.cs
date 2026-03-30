@@ -98,6 +98,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Do nothing. This is only required for SQL.
         }
 
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
+        {
+            // File-based registry is single-instance only. Always consistent.
+            return Task.FromResult(new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 1, ConvergedHosts = 1 });
+        }
+
         public async Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken)
         {
             // Get all statuses to find the max LastUpdated

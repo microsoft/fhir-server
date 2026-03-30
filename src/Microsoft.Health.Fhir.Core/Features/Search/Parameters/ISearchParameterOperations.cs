@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -15,11 +17,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         DateTimeOffset? SearchParamLastUpdated { get; }
 
-        Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
-
         Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
 
-        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
+        Task ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
+
+        Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
+
+        Task EnsureNoActiveReindexJobAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// This method should be called periodically to get any updates to SearchParameters
@@ -32,5 +36,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
 
         string GetSearchParameterHash(string resourceType);
+
+        /// <summary>
+        /// Waits for the specified number of successful cache refresh cycles to complete.
+        /// Each cycle corresponds to a successful execution of the background cache refresh service.
+        /// </summary>
+        /// <param name="cycleCount">The number of successful refresh cycles to wait for. If zero or negative, returns immediately.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes when the requested number of refresh cycles have occurred.</returns>
+        Task WaitForRefreshCyclesAsync(int cycleCount, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Waits until all active server instances have converged their search parameter caches
+        /// to the current instance's SearchParamLastUpdated timestamp. For SQL, this verifies via
+        /// the EventLog table. For Cosmos/File-based, this returns immediately.
+        /// </summary>
+        /// <param name="syncStartDate">Only cache refresh sync records on or after this time are considered for convergence.</param>
+        /// <param name="activeHostsSince">Only active-host evidence on or after this time is considered.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes when all instances have consistent caches.</returns>
+        Task WaitForAllInstancesCacheConsistencyAsync(DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken);
     }
 }

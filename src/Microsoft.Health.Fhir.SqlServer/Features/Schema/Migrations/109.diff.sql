@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
+IF object_id('UpsertSearchParamsWithOptimisticConcurrency') IS NOT NULL DROP PROCEDURE UpsertSearchParamsWithOptimisticConcurrency
+GO
+ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
            ,@IsResourceChangeCaptureEnabled bit = 0
            ,@TransactionId bigint = NULL
            ,@Resources dbo.ResourceList READONLY
@@ -116,7 +118,39 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent'
+INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'MergeSearchParams')
+GO
+-- Enable event logging for DequeueJob to allow active host discovery via EventLog.HostName
+INSERT INTO dbo.Parameters (Id, Char) SELECT 'DequeueJob', 'LogEvent' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'DequeueJob')
+GO
+-- Enable event logging for cache refresh convergence tracking and diagnostics
+INSERT INTO dbo.Parameters (Id, Char) SELECT 'SearchParameterCacheRefresh', 'LogEvent' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'SearchParameterCacheRefresh')
+GO
+CREATE OR ALTER PROCEDURE dbo.CheckSearchParamCacheConsistency
+    @TargetSearchParamLastUpdated varchar(100)
+   ,@SyncStartDate datetime2(7)
+   ,@ActiveHostsSince datetime2(7)
+   ,@StalenessThresholdMinutes int = 10
+AS
+set nocount on
+SELECT HostName
+    ,CAST(NULL AS datetime2(7)) AS SyncEventDate
+      ,CAST(NULL AS nvarchar(3500)) AS EventText
+  FROM dbo.EventLog
+  WHERE EventDate >= @ActiveHostsSince
+    AND HostName IS NOT NULL
+    AND Process = 'DequeueJob'
+
+UNION ALL
+
+SELECT HostName
+    ,EventDate
+      ,EventText
+  FROM dbo.EventLog
+  WHERE EventDate >= @SyncStartDate
+    AND HostName IS NOT NULL
+    AND Process = 'SearchParameterCacheRefresh'
+    AND Status = 'End'
 GO
 --DECLARE @SearchParams dbo.SearchParamList
 --INSERT INTO @SearchParams
