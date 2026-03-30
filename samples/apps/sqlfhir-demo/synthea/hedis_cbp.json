@@ -2,21 +2,8 @@
   "name": "HEDIS Controlling Blood Pressure (CBP)",
   "remarks": [
     "Custom Synthea module for HEDIS CBP measure demo.",
-    "Generates patients with hypertension and periodic blood pressure observations.",
-    "",
-    "HEDIS CBP Measure: % of members 18-85 with hypertension diagnosis",
-    "whose most recent BP was adequately controlled (<140/90 mmHg).",
-    "",
-    "Patient types generated:",
-    "  Type A (40%): Hypertension + controlled BP (systolic <140, diastolic <90)",
-    "  Type B (35%): Hypertension + uncontrolled BP (systolic >=140 or diastolic >=90)",
-    "  Type C (25%): No hypertension (control group - should NOT appear in measure)",
-    "",
-    "Codes (verified):",
-    "  Hypertension: ICD-10 I10, SNOMED 59621000",
-    "  BP Panel: LOINC 85354-9",
-    "  Systolic: LOINC 8480-6",
-    "  Diastolic: LOINC 8462-4"
+    "Self-contained module (no submodules) generating hypertension patients with BP readings.",
+    "Uses SetAttribute for vital signs, matching Synthea's built-in hypertension module pattern."
   ],
   "states": {
     "Initial": {
@@ -37,65 +24,146 @@
 
     "Choose_Patient_Type": {
       "type": "Simple",
-      "remarks": ["Split into hypertension-controlled, hypertension-uncontrolled, and healthy"],
       "distributed_transition": [
-        { "transition": "Onset_Hypertension_Controlled", "distribution": 0.40 },
-        { "transition": "Onset_Hypertension_Uncontrolled", "distribution": 0.35 },
-        { "transition": "Healthy_Patient_BP", "distribution": 0.25 }
+        { "transition": "Set_Controlled_BP", "distribution": 0.40 },
+        { "transition": "Set_Uncontrolled_BP", "distribution": 0.35 },
+        { "transition": "Set_Normal_BP", "distribution": 0.25 }
       ]
     },
 
-    "Onset_Hypertension_Controlled": {
-      "type": "ConditionOnset",
-      "assign_to_attribute": "hypertension",
-      "codes": [
-        {
-          "system": "SNOMED-CT",
-          "code": "59621000",
-          "display": "Essential hypertension"
-        },
-        {
-          "system": "ICD-10-CM",
-          "code": "I10",
-          "display": "Essential (primary) hypertension"
-        }
-      ],
-      "direct_transition": "Controlled_BP_Series"
+    "Set_Controlled_BP": {
+      "type": "SetAttribute",
+      "attribute": "hedis_bp_type",
+      "value": "controlled",
+      "direct_transition": "Onset_Hypertension"
     },
 
-    "Controlled_BP_Series": {
-      "type": "CallSubmodule",
-      "submodule": "hedis_cbp/controlled_bp_readings",
+    "Set_Uncontrolled_BP": {
+      "type": "SetAttribute",
+      "attribute": "hedis_bp_type",
+      "value": "uncontrolled",
+      "direct_transition": "Onset_Hypertension"
+    },
+
+    "Set_Normal_BP": {
+      "type": "SetAttribute",
+      "attribute": "hedis_bp_type",
+      "value": "normal",
+      "direct_transition": "Record_Normal_BP_1"
+    },
+
+    "Onset_Hypertension": {
+      "type": "ConditionOnset",
+      "assign_to_attribute": "hedis_hypertension_dx",
+      "codes": [
+        { "system": "SNOMED-CT", "code": "59621000", "display": "Essential hypertension" }
+      ],
+      "conditional_transition": [
+        {
+          "condition": {
+            "condition_type": "Attribute",
+            "attribute": "hedis_bp_type",
+            "operator": "==",
+            "value": "controlled"
+          },
+          "transition": "Record_Controlled_BP_1"
+        },
+        {
+          "transition": "Record_Uncontrolled_BP_1"
+        }
+      ]
+    },
+
+    "Record_Controlled_BP_1": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 115, "high": 138 },
+      "direct_transition": "Record_Controlled_DBP_1"
+    },
+    "Record_Controlled_DBP_1": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 65, "high": 88 },
+      "direct_transition": "Wait_Controlled_1"
+    },
+    "Wait_Controlled_1": {
+      "type": "Delay",
+      "range": { "low": 30, "high": 90, "unit": "days" },
+      "direct_transition": "Record_Controlled_BP_2"
+    },
+    "Record_Controlled_BP_2": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 110, "high": 135 },
+      "direct_transition": "Record_Controlled_DBP_2"
+    },
+    "Record_Controlled_DBP_2": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 60, "high": 85 },
       "direct_transition": "Terminal"
     },
 
-    "Onset_Hypertension_Uncontrolled": {
-      "type": "ConditionOnset",
-      "assign_to_attribute": "hypertension",
-      "codes": [
-        {
-          "system": "SNOMED-CT",
-          "code": "59621000",
-          "display": "Essential hypertension"
-        },
-        {
-          "system": "ICD-10-CM",
-          "code": "I10",
-          "display": "Essential (primary) hypertension"
-        }
-      ],
-      "direct_transition": "Uncontrolled_BP_Series"
+    "Record_Uncontrolled_BP_1": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 142, "high": 175 },
+      "direct_transition": "Record_Uncontrolled_DBP_1"
     },
-
-    "Uncontrolled_BP_Series": {
-      "type": "CallSubmodule",
-      "submodule": "hedis_cbp/uncontrolled_bp_readings",
+    "Record_Uncontrolled_DBP_1": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 92, "high": 110 },
+      "direct_transition": "Wait_Uncontrolled_1"
+    },
+    "Wait_Uncontrolled_1": {
+      "type": "Delay",
+      "range": { "low": 30, "high": 90, "unit": "days" },
+      "direct_transition": "Record_Uncontrolled_BP_2"
+    },
+    "Record_Uncontrolled_BP_2": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 145, "high": 168 },
+      "direct_transition": "Record_Uncontrolled_DBP_2"
+    },
+    "Record_Uncontrolled_DBP_2": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 88, "high": 105 },
       "direct_transition": "Terminal"
     },
 
-    "Healthy_Patient_BP": {
-      "type": "CallSubmodule",
-      "submodule": "hedis_cbp/normal_bp_readings",
+    "Record_Normal_BP_1": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8480-6", "display": "Systolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 100, "high": 125 },
+      "direct_transition": "Record_Normal_DBP_1"
+    },
+    "Record_Normal_DBP_1": {
+      "type": "Observation",
+      "category": "vital-signs",
+      "codes": [{ "system": "LOINC", "code": "8462-4", "display": "Diastolic Blood Pressure" }],
+      "unit": "mm[Hg]",
+      "range": { "low": 60, "high": 80 },
       "direct_transition": "Terminal"
     },
 
