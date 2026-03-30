@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 if (acceptHeaders?.Any() == true && acceptHeaders.All(a => a.MediaType != "*/*"))
                 {
                     string matchedMediaType = null;
+                    MediaTypeHeaderValue matchedHeader = null;
 
                     foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
                     {
@@ -79,6 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                         if (await IsFormatSupportedAsync(headerValue))
                         {
                             matchedMediaType = headerValue;
+                            matchedHeader = acceptHeader;
                             break;
                         }
                     }
@@ -89,10 +91,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                         throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue, HeaderNames.Accept));
                     }
 
-                    // When the Accept header contains extra parameters (e.g., charset=UTF-8),
-                    // ASP.NET Core's content negotiation may fail to match the output formatter.
-                    // Explicitly set the content type so the correct formatter is selected.
-                    if (acceptHeaders.Any(a => a.Parameters.Count > 0 && a.Parameters.Any(p => p.Name != "q")))
+                    // When the matched Accept entry contains non-quality parameters (e.g., charset=UTF-8),
+                    // ASP.NET Core's content negotiation may fail to match the output formatter because
+                    // formatters only declare base media types without parameters. Explicitly set the
+                    // content type so the correct formatter is selected.
+                    bool hasNonQualityParams = matchedHeader.Parameters.Any(
+                        p => !string.Equals(p.Name.Value, "q", StringComparison.OrdinalIgnoreCase));
+
+                    if (hasNonQualityParams)
                     {
                         string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(
                             matchedMediaType,
