@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     internal class WatchdogsBackgroundService : BackgroundService, INotificationHandler<SearchParametersInitializedNotification>
     {
-        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private bool _storageReady = false;
         private readonly DefragWatchdog _defragWatchdog;
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
