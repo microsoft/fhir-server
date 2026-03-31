@@ -21,6 +21,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
     public class ThreadSafeHashSetTests
     {
         [Fact]
+        public void GivenASetOfRegularBasicOperations_WhenExecuted_ThenTheyShouldBehaveAsExpected()
+        {
+            // Create a new instance of ThreadSafeHashSet
+            var hashSet = new ThreadSafeHashSet<string>();
+            Assert.Empty(hashSet);
+            Assert.False(hashSet.IsReadOnly);
+            Assert.True(hashSet.Count == 0, "Count should be accessible at this moment.");
+
+            // Add elements to the collection.
+            hashSet.Add("test1");
+            hashSet.Add("test2");
+            hashSet.Add("test3");
+            Assert.Equal(3, hashSet.Count);
+
+            // Check if elements are in the collection, as they should.
+            Assert.Contains("test1", hashSet);
+            Assert.Contains("test2", hashSet);
+            Assert.Contains("test3", hashSet);
+            Assert.DoesNotContain("test4", hashSet);
+            Assert.Equal(3, hashSet.Count);
+
+            // Testing removing operations.
+            bool removed = hashSet.Remove("test2");
+            Assert.True(removed);
+            Assert.Equal(2, hashSet.Count);
+            Assert.DoesNotContain("test2", hashSet);
+            removed = hashSet.Remove("test4");
+            Assert.False(removed);
+
+            // After cleaned, no elements should be present.
+            hashSet.Clear();
+            Assert.Empty(hashSet);
+            Assert.True(hashSet.Count == 0, "Count should be accessible at this moment.");
+
+            // Attempt to include duplicated elements
+            bool added = hashSet.TryAdd("test1");
+            Assert.True(added);
+            Assert.True(hashSet.Count == 1, "Collection should contain a single element at this moment.");
+            hashSet.Add("test1"); // Not throw an exception
+            Assert.True(hashSet.Count == 1, "Collection should contain a single element at this moment.");
+            added = hashSet.TryAdd("test1");
+            Assert.False(added);
+            Assert.True(hashSet.Count == 1, "Collection should contain a single element at this moment.");
+        }
+
+        [Fact]
         public void GivenANewInstance_WhenCreated_ThenItShouldBeEmpty()
         {
             // Arrange & Act
