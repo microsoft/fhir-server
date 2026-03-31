@@ -101,6 +101,22 @@ public class ViewDefinitionRunController : Controller
         return await ExecuteAsync(request);
     }
 
+    /// <summary>
+    /// GET ViewDefinition/{id} — Returns the materialization status of a registered ViewDefinition.
+    /// Clients use this to track progress from Created → Populating → Active.
+    /// The URL is returned as a Content-Location header when a ViewDefinition Library is POSTed.
+    /// </summary>
+    [HttpGet]
+    [Route(KnownRoutes.ViewDefinitionStatus)]
+    [AuditEventType(AuditEventSubType.Read)]
+    public async Task<IActionResult> GetStatus([FromRoute] string id)
+    {
+        var request = new ViewDefinitionStatusRequest(id);
+        ViewDefinitionStatusResponse response = await _mediator.Send(request, HttpContext.RequestAborted);
+
+        return new JsonResult(response) { StatusCode = response.Status == "NotFound" ? 404 : 200 };
+    }
+
     private async Task<IActionResult> ExecuteAsync(ViewDefinitionRunRequest request)
     {
         ViewDefinitionRunResponse response = await _mediator.Send(request, HttpContext.RequestAborted);

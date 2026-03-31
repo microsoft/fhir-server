@@ -159,6 +159,25 @@ public class FhirDemoService
     }
 
     /// <summary>
+    /// Queries the materialization status of a registered ViewDefinition.
+    /// Returns the status JSON from GET ViewDefinition/{name}.
+    /// </summary>
+    public async Task<ViewDefinitionMaterializationStatus?> GetViewDefinitionStatusAsync(string viewDefName)
+    {
+        var response = await _httpClient.GetAsync($"ViewDefinition/{viewDefName}");
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        string json = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<ViewDefinitionMaterializationStatus>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+        });
+    }
+
+    /// <summary>
     /// Registers all three ViewDefinitions from the viewdefinitions/ folder.
     /// Returns registration status for each ViewDefinition.
     /// </summary>
@@ -672,4 +691,19 @@ public class ViewDefinitionRegistrationResult
     public bool Success { get; set; }
     public string Response { get; set; } = "";
     public string ViewDefinitionJson { get; set; } = "";
+}
+
+/// <summary>
+/// Materialization status returned by GET ViewDefinition/{name}.
+/// </summary>
+public class ViewDefinitionMaterializationStatus
+{
+    public string ViewDefinitionName { get; set; } = "";
+    public string ResourceType { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string? ErrorMessage { get; set; }
+    public List<string> SubscriptionIds { get; set; } = new();
+    public string? LibraryResourceId { get; set; }
+    public DateTimeOffset? RegisteredAt { get; set; }
+    public bool TableExists { get; set; }
 }

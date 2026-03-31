@@ -701,12 +701,11 @@
             }
             StateHasChanged();
 
-            // Register each one with animated status
+            // Register each one by POSTing a Library resource
             foreach (var reg in ViewDefRegistrations)
             {
                 reg.Phase = RegPhase.Registering;
                 await InvokeAsync(StateHasChanged);
-                await Task.Delay(300);
 
                 try
                 {
@@ -715,17 +714,38 @@
 
                     if (success)
                     {
-                        reg.Phase = RegPhase.Creating;
                         reg.Response = response;
-                        await InvokeAsync(StateHasChanged);
-                        await Task.Delay(500);
 
-                        reg.Phase = RegPhase.Materializing;
-                        await InvokeAsync(StateHasChanged);
-                        await Task.Delay(800);
+                        // Poll status every 1 second until Active or Error
+                        for (int i = 0; i < 30; i++)
+                        {
+                            var status = await FhirService.GetViewDefinitionStatusAsync(reg.ViewDefName);
+                            if (status != null)
+                            {
+                                reg.Phase = status.Status switch
+                                {
+                                    "Creating" => RegPhase.Creating,
+                                    "Populating" => RegPhase.Materializing,
+                                    "Active" => RegPhase.Ready,
+                                    "Error" => RegPhase.Failed,
+                                    _ => reg.Phase,
+                                };
+                                await InvokeAsync(StateHasChanged);
 
-                        reg.Phase = RegPhase.Ready;
-                        reg.Success = true;
+                                if (status.Status is "Active" or "Error")
+                                {
+                                    reg.Success = status.Status == "Active";
+                                    if (status.ErrorMessage != null)
+                                    {
+                                        reg.Response = status.ErrorMessage;
+                                    }
+
+                                    break;
+                                }
+                            }
+
+                            await Task.Delay(1000);
+                        }
                     }
                     else
                     {
