@@ -34,6 +34,9 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
+#if NET9_0_OR_GREATER
+using Microsoft.Health.Fhir.SqlOnFhir;
+#endif
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
@@ -85,6 +88,13 @@ namespace Microsoft.Health.Fhir.Web
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
 
             AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
+
+#if NET9_0_OR_GREATER
+            // Set up SQL on FHIR ViewDefinition materialization.
+            services.AddSqlOnFhir();
+            services.Configure<Microsoft.Health.Fhir.SqlOnFhir.Materialization.SqlOnFhirMaterializationConfiguration>(
+                Configuration.GetSection(Microsoft.Health.Fhir.SqlOnFhir.Materialization.SqlOnFhirMaterializationConfiguration.SectionName));
+#endif
 
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
@@ -191,6 +201,11 @@ namespace Microsoft.Health.Fhir.Web
 
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer(DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured);
+
+#if NET9_0_OR_GREATER
+            // Register ViewDefinition refresh channel with the subscription engine
+            app.ApplicationServices.UseSqlOnFhirChannels();
+#endif
         }
 
         /// <summary>

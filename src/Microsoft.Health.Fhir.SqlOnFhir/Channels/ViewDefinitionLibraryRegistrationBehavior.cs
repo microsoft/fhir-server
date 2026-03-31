@@ -40,18 +40,24 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior : IPipelineBehavio
         RequestHandlerDelegate<UpsertResourceResponse> next,
         CancellationToken cancellationToken)
     {
+        _logger.LogDebug(
+            "ViewDefinitionLibraryRegistrationBehavior invoked for {ResourceType}",
+            request.Resource.InstanceType);
+
         // Let the Library resource be created first
         UpsertResourceResponse response = await next(cancellationToken);
 
         // Check if this is a Library resource with the ViewDefinition profile
         if (!IsViewDefinitionLibrary(request))
         {
+            _logger.LogDebug("Resource is not a ViewDefinition Library, skipping registration");
             return response;
         }
 
         string? viewDefinitionJson = ExtractViewDefinitionJson(request.Resource.Instance);
         if (string.IsNullOrEmpty(viewDefinitionJson))
         {
+            _logger.LogWarning("ViewDefinition Library detected but could not extract ViewDefinition JSON from content");
             return response;
         }
 
@@ -73,7 +79,7 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior : IPipelineBehavio
         return response;
     }
 
-    private static bool IsViewDefinitionLibrary(CreateResourceRequest request)
+    private bool IsViewDefinitionLibrary(CreateResourceRequest request)
     {
         if (!string.Equals(request.Resource.InstanceType, "Library", StringComparison.OrdinalIgnoreCase))
         {
@@ -84,11 +90,14 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior : IPipelineBehavio
         ITypedElement? meta = request.Resource.Instance.Children("meta").FirstOrDefault();
         if (meta == null)
         {
+            _logger.LogDebug("Library resource has no meta element");
             return false;
         }
 
-        return meta.Children("profile")
-            .Any(p => string.Equals(
+        var profiles = meta.Children("profile").ToList();
+        _logger.LogDebug("Library meta.profile values: [{Profiles}]", string.Join(", ", profiles.Select(p => p.Value?.ToString() ?? "(null)")));
+
+        return profiles.Any(p => string.Equals(
                 p.Value?.ToString(),
                 ViewDefinitionSubscriptionManager.ViewDefinitionLibraryProfile,
                 StringComparison.OrdinalIgnoreCase));
