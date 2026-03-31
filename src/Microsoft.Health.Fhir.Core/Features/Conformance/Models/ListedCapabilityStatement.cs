@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Format = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
             PatchFormat = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
             AdditionalData = new ConcurrentDictionary<string, JToken>();
-            Profile = new List<ReferenceComponent>();
+            Profile = new ThreadSafeList<ReferenceComponent>();
         }
 
         public string ResourceType { get; } = "CapabilityStatement";
