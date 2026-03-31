@@ -548,19 +548,23 @@ public class FhirDemoService
             results.AppendLine($"⚠ Could not verify subscriptions: {ex.Message}");
         }
 
-        // Step 3: Bulk delete all tagged demo resources
+        // Step 3: Bulk delete all tagged demo resources (async operation requires Prefer: respond-async)
         onProgress?.Invoke("Bulk deleting tagged demo resources...");
         try
         {
             string tagFilter = $"{DemoTagSystem}|{DemoTag}";
-            var deleteResponse = await _httpClient.DeleteAsync(
+            var request = new HttpRequestMessage(
+                HttpMethod.Delete,
                 $"$bulk-delete?_tag={Uri.EscapeDataString(tagFilter)}&_hardDelete=true&_purgeHistory=true");
+            request.Headers.Add("Prefer", "respond-async");
+
+            var deleteResponse = await _httpClient.SendAsync(request);
             string deleteBody = await deleteResponse.Content.ReadAsStringAsync();
 
             if (deleteResponse.IsSuccessStatusCode)
             {
-                results.AppendLine($"✓ Bulk delete: tagged resources deleted");
-                _logger.LogInformation("Reset: bulk delete of tagged resources succeeded");
+                results.AppendLine($"✓ Bulk delete: job accepted ({deleteResponse.StatusCode})");
+                _logger.LogInformation("Reset: bulk delete of tagged resources accepted");
             }
             else
             {
