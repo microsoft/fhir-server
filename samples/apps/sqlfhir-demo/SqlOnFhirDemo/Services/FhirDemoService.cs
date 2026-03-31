@@ -10,6 +10,18 @@ namespace SqlOnFhirDemo.Services;
 /// </summary>
 public class FhirDemoService
 {
+    /// <summary>
+    /// Tag applied to all resources created by the demo app, enabling targeted bulk delete on reset.
+    /// </summary>
+    public const string DemoTag = "sqlonfhirdemo";
+
+    private const string DemoTagSystem = "https://sql-on-fhir.org/demo";
+
+    /// <summary>
+    /// JSON fragment for the meta.tag to inject into resources.
+    /// </summary>
+    private const string DemoMetaTagJson = @"""meta"": {""tag"": [{""system"": ""https://sql-on-fhir.org/demo"", ""code"": ""sqlonfhirdemo""}]}";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<FhirDemoService> _logger;
 
@@ -350,6 +362,9 @@ public class FhirDemoService
                 }
             }
 
+            // Inject demo tag into resource meta for targeted bulk delete
+            InjectDemoTag(resource);
+
             sanitizedEntries.Add(entry!.DeepClone());
         }
 
@@ -432,49 +447,141 @@ public class FhirDemoService
     }
 
     /// <summary>
-    /// Resets the demo by deleting all clinical resources, subscriptions, and ViewDefinitions.
-    /// Uses FHIR conditional delete ($everything-style) for each resource type.
+    /// Injects the demo tag into a resource's meta.tag array for targeted bulk delete.
+    /// </summary>
+    private static void InjectDemoTag(JsonNode resource)
+    {
+        if (resource is not JsonObject obj)
+        {
+            return;
+        }
+
+        var tagNode = new JsonObject
+        {
+            ["system"] = DemoTagSystem,
+            ["code"] = DemoTag,
+        };
+
+        if (obj["meta"] is JsonObject meta)
+        {
+            if (meta["tag"] is JsonArray tagArray)
+            {
+                tagArray.Add(tagNode);
+            }
+            else
+            {
+                meta["tag"] = new JsonArray(tagNode);
+            }
+        }
+        else
+        {
+            obj["meta"] = new JsonObject
+            {
+                ["tag"] = new JsonArray(tagNode),
+            };
+        }
+    }
+
+    /// <summary>
+    /// Resets the demo by unregistering ViewDefinitions (which drops materialized tables and subscriptions),
+    /// then bulk-deleting all tagged demo resources.
     /// </summary>
     public async Task<string> ResetDemoAsync(Action<string>? onProgress = null)
     {
         var results = new StringBuilder();
 
-        // Resource types to delete in dependency order (children before parents).
-        // Library is included to clean up persisted ViewDefinition registrations,
-        // which triggers the cleanup behavior to drop materialized SQL tables.
-        string[] resourceTypes = { "Observation", "Condition", "Encounter", "Patient", "Subscription", "Library" };
-
-        foreach (string resourceType in resourceTypes)
+        // Step 1: Unregister each ViewDefinition (drops SQL tables + deletes subscriptions)
+        string[] viewDefNames = { "patient_demographics", "us_core_blood_pressures", "condition_flat" };
+        foreach (string viewDefName in viewDefNames)
         {
-            onProgress?.Invoke($"Deleting {resourceType} resources...");
+            onProgress?.Invoke($"Unregistering ViewDefinition: {viewDefName}...");
             try
             {
-                // Use conditional delete to delete all resources of this type
-                // FHIR spec: DELETE [base]/[type]?[search parameters] with _hardDelete for clean removal
-                var response = await _httpClient.DeleteAsync($"{resourceType}?_hardDelete=true&_count=100");
-                string body = await response.Content.ReadAsStringAsync();
+                // Delete the Library resource, which triggers ViewDefinitionLibraryCleanupBehavior
+                // to call UnregisterAsync(dropTable: true)
+                var searchResponse = await _httpClient.GetAsync(
+                    $"Library?name={viewDefName}&_profile={Uri.EscapeDataString(ViewDefinitionLibraryProfile)}&_format=json");
 
-                if (response.IsSuccessStatusCode)
+                if (searchResponse.IsSuccessStatusCode)
                 {
-                    results.AppendLine($"✓ {resourceType}: deleted");
-                    _logger.LogInformation("Reset: deleted {ResourceType} resources", resourceType);
-                }
-                else
-                {
-                    results.AppendLine($"⚠ {resourceType}: {response.StatusCode}");
-                    _logger.LogWarning("Reset: failed to delete {ResourceType}: {Status}", resourceType, response.StatusCode);
+                    string searchJson = await searchResponse.Content.ReadAsStringAsync();
+                    var searchDoc = JsonNode.Parse(searchJson);
+                    var entries = searchDoc?["entry"]?.AsArray();
+
+                    if (entries != null)
+                    {
+                        foreach (var entry in entries)
+                        {
+                            string? libraryId = entry?["resource"]?["id"]?.GetValue<string>();
+                            if (libraryId != null)
+                            {
+                                await _httpClient.DeleteAsync($"Library/{libraryId}?_hardDelete=true");
+                                results.AppendLine($"✓ ViewDef '{viewDefName}': Library/{libraryId} deleted");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        results.AppendLine($"⚠ ViewDef '{viewDefName}': no Library resource found");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                results.AppendLine($"✗ {resourceType}: {ex.Message}");
-                _logger.LogWarning(ex, "Reset: error deleting {ResourceType}", resourceType);
+                results.AppendLine($"✗ ViewDef '{viewDefName}': {ex.Message}");
+                _logger.LogWarning(ex, "Reset: error unregistering ViewDef {ViewDefName}", viewDefName);
             }
+        }
+
+        // Step 2: Verify subscriptions are gone
+        onProgress?.Invoke("Verifying subscriptions cleaned up...");
+        try
+        {
+            var subResponse = await _httpClient.GetAsync("Subscription?status=active,requested&_format=json&_count=10");
+            string subJson = await subResponse.Content.ReadAsStringAsync();
+            var subDoc = JsonNode.Parse(subJson);
+            int? subTotal = subDoc?["total"]?.GetValue<int>();
+            results.AppendLine($"✓ Active subscriptions remaining: {subTotal ?? 0}");
+        }
+        catch (Exception ex)
+        {
+            results.AppendLine($"⚠ Could not verify subscriptions: {ex.Message}");
+        }
+
+        // Step 3: Bulk delete all tagged demo resources
+        onProgress?.Invoke("Bulk deleting tagged demo resources...");
+        try
+        {
+            string tagFilter = $"{DemoTagSystem}|{DemoTag}";
+            var deleteResponse = await _httpClient.DeleteAsync(
+                $"$bulk-delete?_tag={Uri.EscapeDataString(tagFilter)}&_hardDelete=true&_purgeHistory=true");
+            string deleteBody = await deleteResponse.Content.ReadAsStringAsync();
+
+            if (deleteResponse.IsSuccessStatusCode)
+            {
+                results.AppendLine($"✓ Bulk delete: tagged resources deleted");
+                _logger.LogInformation("Reset: bulk delete of tagged resources succeeded");
+            }
+            else
+            {
+                results.AppendLine($"⚠ Bulk delete: {deleteResponse.StatusCode} — {deleteBody}");
+                _logger.LogWarning("Reset: bulk delete returned {Status}", deleteResponse.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            results.AppendLine($"✗ Bulk delete: {ex.Message}");
+            _logger.LogWarning(ex, "Reset: bulk delete failed");
         }
 
         onProgress?.Invoke("Done!");
         return results.ToString();
     }
+
+    /// <summary>
+    /// Profile URL for ViewDefinition Library resources (used in reset search).
+    /// </summary>
+    private const string ViewDefinitionLibraryProfile = "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition";
 
     /// <summary>
     /// Gets the FHIR server metadata.
@@ -527,15 +634,15 @@ public class FhirDemoService
 
                 // Patient
                 entries.Append($@"
-                {{""resource"": {{""resourceType"": ""Patient"", ""id"": ""{id}"", ""name"": [{{""use"": ""official"", ""family"": ""{lastName}"", ""given"": [""{firstName}""]}}], ""gender"": ""{gender}"", ""birthDate"": ""{birthYear}-{(i % 12) + 1:D2}-{(i % 28) + 1:D2}""}}, ""request"": {{""method"": ""PUT"", ""url"": ""Patient/{id}""}}}},");
+                {{""resource"": {{""resourceType"": ""Patient"", ""id"": ""{id}"", {DemoMetaTagJson}, ""name"": [{{""use"": ""official"", ""family"": ""{lastName}"", ""given"": [""{firstName}""]}}], ""gender"": ""{gender}"", ""birthDate"": ""{birthYear}-{(i % 12) + 1:D2}-{(i % 28) + 1:D2}""}}, ""request"": {{""method"": ""PUT"", ""url"": ""Patient/{id}""}}}},");
 
                 // Hypertension condition
                 entries.Append($@"
-                {{""resource"": {{""resourceType"": ""Condition"", ""id"": ""{id}-htn"", ""subject"": {{""reference"": ""Patient/{id}""}}, ""code"": {{""coding"": [{{""system"": ""http://snomed.info/sct"", ""code"": ""59621000"", ""display"": ""Essential hypertension""}}]}}, ""clinicalStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-clinical"", ""code"": ""active""}}]}}, ""verificationStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-ver-status"", ""code"": ""confirmed""}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Condition/{id}-htn""}}}},");
+                {{""resource"": {{""resourceType"": ""Condition"", ""id"": ""{id}-htn"", {DemoMetaTagJson}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""code"": {{""coding"": [{{""system"": ""http://snomed.info/sct"", ""code"": ""59621000"", ""display"": ""Essential hypertension""}}]}}, ""clinicalStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-clinical"", ""code"": ""active""}}]}}, ""verificationStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-ver-status"", ""code"": ""confirmed""}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Condition/{id}-htn""}}}},");
 
                 // Uncontrolled BP observation
                 entries.Append($@"
-                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{id}-bp"", ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{id}-bp""}}}}");
+                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{id}-bp"", {DemoMetaTagJson}, ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{id}-bp""}}}}");
             }
 
             string bundle = $@"{{""resourceType"": ""Bundle"", ""type"": ""batch"", ""entry"": [{entries}]}}";
@@ -579,7 +686,7 @@ public class FhirDemoService
                 if (entries.Length > 0) entries.Append(",");
 
                 entries.Append($@"
-                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{obsId}"", ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{patientId}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{obsId}""}}}}");
+                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{obsId}"", {DemoMetaTagJson}, ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{patientId}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{obsId}""}}}}");
             }
 
             string bundle = $@"{{""resourceType"": ""Bundle"", ""type"": ""batch"", ""entry"": [{entries}]}}";
