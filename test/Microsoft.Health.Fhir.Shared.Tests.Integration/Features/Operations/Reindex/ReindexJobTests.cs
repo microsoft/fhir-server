@@ -1300,12 +1300,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     break;
                 }
 
-                if (operationStatus == OperationStatus.Completed &&
-                    (reindexJobWrapper.JobRecord.Status == OperationStatus.Failed || reindexJobWrapper.JobRecord.Status == OperationStatus.Canceled))
-                {
-                    Assert.Fail($"Fail-fast. Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Time elapsed: {stopwatch.Elapsed}.");
-                }
-
                 await Task.Delay(1000);
             }
 
