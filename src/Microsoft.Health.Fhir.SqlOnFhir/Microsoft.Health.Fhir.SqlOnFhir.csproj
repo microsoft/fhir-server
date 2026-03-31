@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- net9.0 only: Ignixa packages target net9.0 exclusively -->
-    <TargetFramework>net9.0</TargetFramework>
-    <TargetFrameworks></TargetFrameworks>
+    <!-- net9.0 only: Ignixa and DeltaLake.Net packages target net9.0 exclusively.
+         Override Directory.Build.props TargetFrameworks to prevent net8.0 build. -->
+    <TargetFrameworks>net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
