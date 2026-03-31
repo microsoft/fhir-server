@@ -2,10 +2,16 @@
 
   <PropertyGroup>
     <!-- net9.0 only: Ignixa and DeltaLake.Net packages target net9.0 exclusively.
-         Override Directory.Build.props TargetFrameworks to prevent net8.0 build. -->
-    <TargetFrameworks>net9.0</TargetFrameworks>
+         net8.0 is included in TargetFrameworks so CI's -f net8.0 flag doesn't fail at restore,
+         but all source and package references are excluded for net8.0. -->
+    <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- When building for net8.0, produce an empty assembly (no source, no package deps) -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
   <!--
@@ -13,22 +19,22 @@
     These are isolated in this project to avoid polluting core FHIR server assemblies.
     Ignixa uses its own IElement abstraction, NOT Firely's model classes.
     The FirelySdk5 extension package provides bidirectional adapters.
-    Ignixa targets net9.0 only.
+    All external packages are net9.0 only.
   -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <PackageReference Include="Ignixa.SqlOnFhir" />
     <PackageReference Include="Ignixa.SqlOnFhir.Writers" />
     <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
     <PackageReference Include="Hl7.Fhir.R4" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="DeltaLake.Net" />
     <PackageReference Include="Azure.Identity" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Subscriptions\Microsoft.Health.Fhir.Subscriptions.csproj" />
