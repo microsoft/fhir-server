@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private JobHosting _jobHosting;
         private CancellationTokenSource _backgroundCts;
         private Task _jobHostingTask;
+        private Task _cacheUpdateTask;
         private IQueueClient _queueClient;
         private IJobFactory _jobFactory;
 
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Clean up resources before finishing test class
             await DeleteTestResources();
 
-            await StopJobHostingBackgroundServiceAsync();
+            await StopBackgroundTasksAsync();
 
             return;
         }
@@ -285,7 +286,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 cancellationTokenSource: _backgroundCts));
         }
 
-        private async Task StopJobHostingBackgroundServiceAsync()
+        private async Task StopBackgroundTasksAsync()
         {
             if (_backgroundCts != null)
             {
@@ -303,6 +304,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                 }
 
+                if (_cacheUpdateTask != null)
+                {
+                    try
+                    {
+                        await _cacheUpdateTask.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected when cancellation occurs
+                    }
+                }
+
                 _backgroundCts.Dispose();
                 _backgroundCts = null;
             }
@@ -310,7 +323,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private void StartCacheUpdateTask(CancellationToken cancellationToken)
         {
-            var task = new Task(
+            _cacheUpdateTask = new Task(
             async _ =>
             {
                 while (!cancellationToken.IsCancellationRequested)
@@ -327,7 +340,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 }
             },
             cancellationToken);
-            task.Start();
+            _cacheUpdateTask.Start();
         }
 
         [Fact]
