@@ -145,6 +145,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             "vbscript:",
             "data:",
             "livescript:",
+            "file:",
+            "blob:",
+            "ftp:",
+            "ms-its:",
+            "mhtml:",
+            "jar:",
         };
 
         // Obvious invalid structural parsing errors to report
