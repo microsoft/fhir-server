@@ -1295,7 +1295,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             while (stopwatch.Elapsed.TotalSeconds < 120)
             {
                 reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
-                if (reindexJobWrapper.JobRecord.Status == operationStatus)
+                if (reindexJobWrapper.JobRecord.Status == OperationStatus.Failed
+                    || reindexJobWrapper.JobRecord.Status == OperationStatus.Canceled
+                    || reindexJobWrapper.JobRecord.Status == OperationStatus.Completed)
                 {
                     break;
                 }
