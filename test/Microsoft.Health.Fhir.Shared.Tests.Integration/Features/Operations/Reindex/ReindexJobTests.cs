@@ -280,7 +280,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Run this on a separate thread to avoid blocking the test
             _jobHostingTask = Task.Run(() => _jobHosting.ExecuteAsync(
                 (byte)QueueType.Reindex,  // Use the correct queue type
-                runningJobCount: 5,
+                runningJobCount: 2,
                 workerName: "ReindexTestWorker",
                 cancellationTokenSource: _jobHostingCts));
         }
@@ -1234,7 +1234,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Definition = JsonConvert.SerializeObject(jobDefinition),
             };
 
-            Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> dataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
+            Func<IScoped<IFhirDataStore>> dataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
             var processingJob = new ReindexProcessingJob(
                 () => _searchService,
                 dataStoreScope,
