@@ -242,6 +242,28 @@ public class FhirDemoService
         string directory, int maxFiles = 0, int concurrency = 3,
         Action<int, int, int, int>? onProgress = null)
     {
+        // Step 1: Load prerequisite bundles first (practitioners, hospitals/organizations).
+        // These contain Practitioner, PractitionerRole, Organization, and Location resources
+        // that patient bundles reference via conditional references.
+        var prerequisiteFiles = Directory.GetFiles(directory, "*.json")
+            .Where(f => Path.GetFileName(f).StartsWith("practitioner", StringComparison.OrdinalIgnoreCase)
+                     || Path.GetFileName(f).StartsWith("hospital", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (string prereqFile in prerequisiteFiles)
+        {
+            try
+            {
+                _logger.LogInformation("Loading prerequisite bundle: {File}", Path.GetFileName(prereqFile));
+                await LoadAndPostSyntheaBundleAsync(prereqFile);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load prerequisite: {File}", Path.GetFileName(prereqFile));
+            }
+        }
+
+        // Step 2: Load patient bundles
         var files = Directory.GetFiles(directory, "*.json")
             .Where(f => !Path.GetFileName(f).StartsWith("practitioner", StringComparison.OrdinalIgnoreCase)
                      && !Path.GetFileName(f).StartsWith("hospital", StringComparison.OrdinalIgnoreCase))
