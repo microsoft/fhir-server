@@ -99,12 +99,15 @@ public class FhirDemoService
     }
 
     /// <summary>
-    /// Posts a FHIR Bundle to the server.
+    /// Posts a FHIR Bundle to the server with parallel processing enabled.
     /// </summary>
     public async Task<(bool Success, string Response)> PostBundleAsync(string bundleJson)
     {
-        var content = new StringContent(bundleJson, Encoding.UTF8, "application/fhir+json");
-        var response = await _httpClient.PostAsync("", content);
+        var request = new HttpRequestMessage(HttpMethod.Post, "");
+        request.Content = new StringContent(bundleJson, Encoding.UTF8, "application/fhir+json");
+        request.Headers.Add("x-bundle-processing-logic", "Parallel");
+
+        var response = await _httpClient.SendAsync(request);
         var responseBody = await response.Content.ReadAsStringAsync();
         return (response.IsSuccessStatusCode, responseBody);
     }
