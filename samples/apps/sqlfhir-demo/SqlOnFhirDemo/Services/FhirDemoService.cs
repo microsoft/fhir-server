@@ -294,40 +294,24 @@ public class FhirDemoService
 
     /// <summary>
     /// Sanitizes a Synthea-generated FHIR Bundle by:
-    /// 1. Removing entries for resource types that cause reference failures (Practitioner, Organization, Location, etc.)
-    /// 2. Stripping practitioner/organization/location references from remaining resources
-    /// 3. Removing urn:uuid references that won't resolve on the server
+    /// 1. Converting from transaction to batch (entries processed independently, partial failures OK)
+    /// 2. Rewriting urn:uuid request URLs to PUT with resource type/id
+    /// 3. Injecting demo tag for targeted bulk delete
+    /// References are kept intact — in batch mode, entries that fail (e.g., dangling Practitioner
+    /// references) simply return individual errors without affecting other entries.
     /// </summary>
     public static string SanitizeSyntheaBundle(string bundleJson)
     {
         var doc = JsonNode.Parse(bundleJson);
         if (doc == null) return bundleJson;
 
-        // Convert transaction bundles to batch — our sanitization rewrites entries to use
-        // PUT with explicit IDs, so transaction semantics (all-or-nothing) aren't needed.
-        // This also avoids a known NullReferenceException in CreateResourceHandler.IsBundleParallelTransaction
-        // when processing transaction bundles with parallel logic.
+        // Convert transaction to batch — each entry processes independently, so reference
+        // failures don't roll back the whole bundle. This also avoids a NullReferenceException
+        // in CreateResourceHandler.IsBundleParallelTransaction for transaction bundles.
         doc["type"] = "batch";
 
         var entries = doc["entry"]?.AsArray();
         if (entries == null) return bundleJson;
-
-        // Resource types to keep (the ones our ViewDefinitions care about + supporting types)
-        var keepTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Patient", "Observation", "Condition", "Encounter",
-            "MedicationRequest", "Procedure", "AllergyIntolerance",
-            "DiagnosticReport", "Immunization", "CarePlan", "CareTeam",
-            "Claim", "ExplanationOfBenefit"
-        };
-
-        // Reference fields to strip (external references that may not resolve)
-        var stripReferenceFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "practitioner", "provider", "organization", "managingOrganization",
-            "serviceProvider", "insurer", "performer", "requester",
-            "asserter", "recorder", "location"
-        };
 
         var sanitizedEntries = new JsonArray();
 
@@ -337,33 +321,20 @@ public class FhirDemoService
             if (resource == null) continue;
 
             string? resourceType = resource["resourceType"]?.GetValue<string>();
-            if (resourceType == null || !keepTypes.Contains(resourceType)) continue;
+            if (resourceType == null) continue;
 
-            // Strip problematic references from the resource
-            StripReferences(resource, stripReferenceFields);
-
-            // Rewrite urn:uuid references in the request URL to use resource type + server-assigned ID
+            // Rewrite urn:uuid request URLs to PUT with explicit resource type/id
             var request = entry?["request"];
             if (request != null)
             {
                 string? url = request["url"]?.GetValue<string>();
-                if (url != null)
+                if (url != null && url.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (url.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase))
+                    string? id = resource["id"]?.GetValue<string>();
+                    if (id != null)
                     {
-                        // Use PUT with resourceType/id instead of POST with urn:uuid
-                        string? id = resource["id"]?.GetValue<string>();
-                        if (id != null)
-                        {
-                            request["method"] = "PUT";
-                            request["url"] = $"{resourceType}/{id}";
-                        }
-                    }
-                    else if (IsStrippableReference(url))
-                    {
-                        // Skip entries whose request URL targets a stripped resource type
-                        // (e.g., "Practitioner?identifier=..." conditional creates)
-                        continue;
+                        request["method"] = "PUT";
+                        request["url"] = $"{resourceType}/{id}";
                     }
                 }
             }
@@ -376,80 +347,6 @@ public class FhirDemoService
 
         doc["entry"] = sanitizedEntries;
         return doc.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
-    }
-
-    private static void StripReferences(JsonNode resource, HashSet<string> fieldsToStrip)
-    {
-        if (resource is not JsonObject obj) return;
-
-        var keysToRemove = new List<string>();
-
-        foreach (var kvp in obj)
-        {
-            // Strip direct reference fields
-            if (fieldsToStrip.Contains(kvp.Key))
-            {
-                keysToRemove.Add(kvp.Key);
-                continue;
-            }
-
-            // Strip any nested "reference" values that point to urn:uuid or stripped types
-            if (kvp.Value is JsonObject nested)
-            {
-                var refValue = nested["reference"]?.GetValue<string>();
-                if (refValue != null && IsStrippableReference(refValue))
-                {
-                    keysToRemove.Add(kvp.Key);
-                    continue;
-                }
-
-                StripReferences(nested, fieldsToStrip);
-            }
-            else if (kvp.Value is JsonArray arr)
-            {
-                // Process arrays (e.g., performer[])
-                var itemsToRemove = new List<int>();
-                for (int i = 0; i < arr.Count; i++)
-                {
-                    if (arr[i] is JsonObject arrItem)
-                    {
-                        var refVal = arrItem["reference"]?.GetValue<string>();
-                        if (refVal != null && IsStrippableReference(refVal))
-                        {
-                            itemsToRemove.Add(i);
-                        }
-                        else
-                        {
-                            StripReferences(arrItem, fieldsToStrip);
-                        }
-                    }
-                }
-
-                // Remove items in reverse order to preserve indices
-                foreach (int idx in itemsToRemove.OrderByDescending(x => x))
-                {
-                    arr.RemoveAt(idx);
-                }
-            }
-        }
-
-        foreach (var key in keysToRemove)
-        {
-            obj.Remove(key);
-        }
-    }
-
-    private static bool IsStrippableReference(string reference)
-    {
-        return reference.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("Practitioner/", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("Practitioner?", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("Organization/", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("Organization?", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("Location/", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("Location?", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("PractitionerRole/", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("PractitionerRole?", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
