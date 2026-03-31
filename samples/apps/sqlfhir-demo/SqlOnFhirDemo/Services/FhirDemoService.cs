@@ -303,6 +303,12 @@ public class FhirDemoService
         var doc = JsonNode.Parse(bundleJson);
         if (doc == null) return bundleJson;
 
+        // Convert transaction bundles to batch — our sanitization rewrites entries to use
+        // PUT with explicit IDs, so transaction semantics (all-or-nothing) aren't needed.
+        // This also avoids a known NullReferenceException in CreateResourceHandler.IsBundleParallelTransaction
+        // when processing transaction bundles with parallel logic.
+        doc["type"] = "batch";
+
         var entries = doc["entry"]?.AsArray();
         if (entries == null) return bundleJson;
 

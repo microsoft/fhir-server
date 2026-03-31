@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -84,10 +85,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
         private static bool IsBundleParallelTransaction(CreateResourceRequest request)
         {
+            // Access BundleResourceContext via the base class to avoid the shadowed property on CreateResourceRequest.
+            BundleResourceContext bundleContext = ((BaseBundleInnerRequest)request).BundleResourceContext;
             return request.IsBundleInnerRequest &&
-                request.BundleResourceContext.BundleType.HasValue &&
-                request.BundleResourceContext.BundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction &&
-                request.BundleResourceContext.ProcessingLogic == BundleProcessingLogic.Parallel;
+                bundleContext?.BundleType.HasValue == true &&
+                bundleContext.BundleType == Hl7.Fhir.Model.Bundle.BundleType.Transaction &&
+                bundleContext.ProcessingLogic == BundleProcessingLogic.Parallel;
         }
     }
 }
