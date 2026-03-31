@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
     public class ReindexJobTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private JobHosting _jobHosting;
-        private CancellationTokenSource _jobHostingCts;
+        private CancellationTokenSource _backgroundCts;
         private Task _jobHostingTask;
         private IQueueClient _queueClient;
         private IJobFactory _jobFactory;
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             InitializeJobHosting();
 
-            StartCacheUpdateTask(CancellationToken.None);
+            StartCacheUpdateTask(_backgroundCts.Token);
         }
 
         public async Task DisposeAsync()
@@ -275,21 +275,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 30;
             _jobHosting.JobHeartbeatIntervalInSeconds = 5;
 
-            _jobHostingCts = new CancellationTokenSource();
+            _backgroundCts = new CancellationTokenSource();
 
             // Run this on a separate thread to avoid blocking the test
             _jobHostingTask = Task.Run(() => _jobHosting.ExecuteAsync(
                 (byte)QueueType.Reindex,  // Use the correct queue type
                 runningJobCount: 2,
                 workerName: "ReindexTestWorker",
-                cancellationTokenSource: _jobHostingCts));
+                cancellationTokenSource: _backgroundCts));
         }
 
         private async Task StopJobHostingBackgroundServiceAsync()
         {
-            if (_jobHostingCts != null)
+            if (_backgroundCts != null)
             {
-                _jobHostingCts.Cancel();
+                _backgroundCts.Cancel();
 
                 if (_jobHostingTask != null)
                 {
@@ -303,8 +303,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                 }
 
-                _jobHostingCts.Dispose();
-                _jobHostingCts = null;
+                _backgroundCts.Dispose();
+                _backgroundCts = null;
             }
         }
 
@@ -319,12 +319,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     {
                         await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        _output.WriteLine($"Error refreshing search parameter cache: {ex}");
                     }
 
-                    Thread.Sleep(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds * 1000);
+                    Thread.Sleep(TimeSpan.FromSeconds(_coreFeatureConfig.Value.SearchParameterCacheRefreshIntervalSeconds));
                 }
             },
             cancellationToken);
