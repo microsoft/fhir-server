@@ -239,6 +239,12 @@ namespace Microsoft.Health.Fhir.Client
                 await EnsureSuccessStatusCodeAsync(response);
             }
 
+            if (response.IsSuccessStatusCode != true)
+            {
+                Console.WriteLine($"Delete request to '{uri}' failed with status code {(int)response.StatusCode}.");
+                Console.WriteLine($"Response content: '{await response.Content.ReadAsStringAsync(cancellationToken)}'");
+            }
+
             return new FhirResponse(response);
         }
 

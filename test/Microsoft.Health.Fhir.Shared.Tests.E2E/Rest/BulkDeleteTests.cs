@@ -543,11 +543,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 foreach (var resource in resources)
                 {
                     var result = await _fhirClient.HardDeleteAsync(resource, false);
-                    var content = await result.Content.ReadAsStringAsync();
                     var status = result.StatusCode;
 
                     DebugOutput($"Cleanup delete for {resource.Id}: {status}");
-                    DebugOutput(content);
                     Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={status} for resource {resource.Id}");
                 }
             }
