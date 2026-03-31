@@ -459,4 +459,15 @@
   <data name="ExpandInvalidParameterCount" xml:space="preserve">
     <value>The number of the parameter must not be more than one: {0}</value>
   </data>
+  <data name="DuplicateSearchParamCodesInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate codes [{0}]</value>
+    <comment>{0} is comma delimited list of dup codes</comment>
+  </data>
+  <data name="DuplicateSearchParamUrlsInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate Urls [{0}].</value>
+    <comment>{0} is comma delimited list of duplicate Urls</comment>
+  </data>
+  <data name="DuplicateSearchParamCodesAndUrlsInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate codes [{0}] and Urls [{1}].</value>
+  </data>
 </root>
