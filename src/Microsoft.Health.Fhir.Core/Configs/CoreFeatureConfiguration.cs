@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public class CoreFeatureConfiguration
     {
+        private VersioningConfiguration _versioning = new VersioningConfiguration();
+
         /// <summary>
         /// Defines CapabilityStatement.name
         /// </summary>
@@ -74,8 +76,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Gets or sets the resource versioning policy.
+        /// When binding from config, will normalized.
         /// </summary>
-        public VersioningConfiguration Versioning { get; set; } = new VersioningConfiguration();
+        public VersioningConfiguration Versioning
+        {
+            get => _versioning;
+            set
+            {
+                _versioning = value;
+
+                // When we bind from configuration, normalize the values to lower case.
+                _versioning?.NormalizeOverrideValues();
+            }
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether the server supports the $status operation for SearchParameters.

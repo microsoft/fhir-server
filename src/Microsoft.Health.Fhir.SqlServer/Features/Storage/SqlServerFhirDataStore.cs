@@ -145,6 +145,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<MergeOutcome> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
         {
+            const int maxRetries = 30;
+            const int defaultRetryDelayInMilliseconds = 1000;
+
             var retries = 0;
             while (true)
             {
@@ -167,12 +170,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     var trueEx = e is AggregateException ? e.InnerException : e;
                     var sqlEx = trueEx as SqlException;
-                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                    if (sqlEx != null)
                     {
-                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                        await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
-                        await Task.Delay(1000, cancellationToken);
-                        continue;
+                        // SQL Conflict (50409) - It indicates a conflict with another concurrent operation, which could be resolved by retrying.
+                        // SQL Failed Dependency (50424) - Rare scenario. It indicates an issue with the surrogate ID generation, which could be resolved by retrying.
+
+                        if (sqlEx.Number == SqlErrorCodes.Conflict)
+                        {
+                            if (retries++ >= maxRetries)
+                            {
+                                _logger.LogInformation("PreconditionFailed: ResourceConcurrentUpdateConflict");
+                                throw new PreconditionFailedException(Resources.ResourceConcurrentUpdateConflict);
+                            }
+                            else
+                            {
+                                _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (Conflict)", retries);
+                                await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
+
+                                await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
+                                continue;
+                            }
+                        }
+                        else if (sqlEx.Number == FhirSqlErrorCodes.FailedDependency && retries++ < maxRetries)
+                        {
+                            _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}} (FailedDependency)", retries);
+                            await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
+                            await Task.Delay(defaultRetryDelayInMilliseconds, cancellationToken);
+                            continue;
+                        }
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
@@ -458,7 +483,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception e)
                 {
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
-                    if (sqlEx != null && sqlEx.Number == SqlStoreErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
+                    if (sqlEx != null && sqlEx.Number == FhirSqlErrorCodes.MergeResourcesConcurrentCallsIsAboveOptimal)
                     {
                         var delayMs = RandomNumberGenerator.GetInt32(1000, 5000);
                         _logger.LogWarning(e, $"Throttling detected on {nameof(ImportResourcesInternalAsync)}, backing off for {{DelayMs}}ms resources={{Resources}}", delayMs, resources.Count);

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
@@ -54,10 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             "authorize-post",
         };
 
-        public static readonly string[] SmartCapabilityThirdPartyContexts = new[]
-        {
-            "context-ehr-encounter",
-        };
+        public static readonly string[] SmartCapabilityThirdPartyContexts = Array.Empty<string>();
 
         public static ref readonly Coding RestfulSecurityServiceOAuth => ref RestfulSecurityServiceOAuthCodeableConcept;
 
