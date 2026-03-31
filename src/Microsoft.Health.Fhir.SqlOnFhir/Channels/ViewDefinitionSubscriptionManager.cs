@@ -78,6 +78,19 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     /// <inheritdoc />
     public async Task<ViewDefinitionRegistration> RegisterAsync(string viewDefinitionJson, CancellationToken cancellationToken)
     {
+        return await RegisterAsync(viewDefinitionJson, libraryResourceId: null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Registers a ViewDefinition for materialization with an optional pre-existing Library resource ID.
+    /// When <paramref name="libraryResourceId"/> is provided (e.g., from a Library POST), skips Library creation.
+    /// When null, creates a new Library resource to persist the registration.
+    /// </summary>
+    public async Task<ViewDefinitionRegistration> RegisterAsync(
+        string viewDefinitionJson,
+        string? libraryResourceId,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(viewDefinitionJson);
 
         (string name, string resourceType) = ExtractViewDefinitionMetadata(viewDefinitionJson);
@@ -127,9 +140,13 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             string subscriptionId = await CreateSubscriptionAsync(viewDefinitionJson, name, resourceType, cancellationToken);
             registration.SubscriptionIds.Add(subscriptionId);
 
-            // Step 4: Persist ViewDefinition as a Library resource for durability across restarts
-            string libraryId = await CreateLibraryResourceAsync(viewDefinitionJson, name, resourceType, cancellationToken);
-            registration.LibraryResourceId = libraryId;
+            // Step 4: Persist ViewDefinition as a Library resource (if not already provided)
+            if (string.IsNullOrEmpty(libraryResourceId))
+            {
+                libraryResourceId = await CreateLibraryResourceAsync(viewDefinitionJson, name, resourceType, cancellationToken);
+            }
+
+            registration.LibraryResourceId = libraryResourceId;
 
             // Population is async — status transitions to Active when the job completes.
             // For now, mark as Active since the subscription is live and incremental updates will flow.

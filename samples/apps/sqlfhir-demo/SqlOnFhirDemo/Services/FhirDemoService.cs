@@ -37,13 +37,41 @@ public class FhirDemoService
     public string BaseUrl => _httpClient.BaseAddress?.ToString() ?? "http://localhost:44348";
 
     /// <summary>
-    /// Registers a ViewDefinition for materialization by posting it via the $run endpoint
-    /// with a materialize parameter.
+    /// Registers a ViewDefinition for materialization by creating a Library resource
+    /// with the ViewDefinition profile. The FHIR server intercepts Library creation and
+    /// triggers materialization (SQL table, population job, subscription).
     /// </summary>
     public async Task<string> RegisterViewDefinitionAsync(string viewDefinitionJson)
     {
-        var content = new StringContent(viewDefinitionJson, Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync("ViewDefinition/$run", content);
+        using var doc = System.Text.Json.JsonDocument.Parse(viewDefinitionJson);
+        string name = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() ?? "unknown" : "unknown";
+        string resource = doc.RootElement.TryGetProperty("resource", out var r) ? r.GetString() ?? "Unknown" : "Unknown";
+
+        string base64Content = Convert.ToBase64String(Encoding.UTF8.GetBytes(viewDefinitionJson));
+
+        string libraryJson = $$"""
+            {
+                "resourceType": "Library",
+                "meta": {
+                    "profile": ["{{ViewDefinitionLibraryProfile}}"],
+                    "tag": [{"system": "{{DemoTagSystem}}", "code": "{{DemoTag}}"}]
+                },
+                "name": "{{name}}",
+                "title": "ViewDefinition: {{name}}",
+                "status": "active",
+                "type": {
+                    "coding": [{"system": "http://terminology.hl7.org/CodeSystem/library-type", "code": "logic-library"}]
+                },
+                "description": "SQL on FHIR v2 ViewDefinition for {{resource}} resources.",
+                "content": [{
+                    "contentType": "application/json+viewdefinition",
+                    "data": "{{base64Content}}"
+                }]
+            }
+            """;
+
+        var content = new StringContent(libraryJson, Encoding.UTF8, "application/fhir+json");
+        var response = await _httpClient.PostAsync("Library", content);
         return await response.Content.ReadAsStringAsync();
     }
 

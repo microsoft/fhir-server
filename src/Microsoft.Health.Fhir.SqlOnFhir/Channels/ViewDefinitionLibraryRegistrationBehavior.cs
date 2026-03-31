@@ -1,0 +1,119 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System.Text;
+using Hl7.Fhir.ElementModel;
+using MediatR;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
+
+namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
+
+/// <summary>
+/// MediatR pipeline behavior that intercepts creation of Library resources containing ViewDefinitions.
+/// When a Library resource tagged with the ViewDefinition profile is created, this behavior triggers
+/// materialization registration (SQL table creation, population job, subscription setup) via
+/// <see cref="IViewDefinitionSubscriptionManager"/>.
+/// </summary>
+public sealed class ViewDefinitionLibraryRegistrationBehavior : IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>
+{
+    private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
+    private readonly ILogger<ViewDefinitionLibraryRegistrationBehavior> _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ViewDefinitionLibraryRegistrationBehavior"/> class.
+    /// </summary>
+    public ViewDefinitionLibraryRegistrationBehavior(
+        IViewDefinitionSubscriptionManager subscriptionManager,
+        ILogger<ViewDefinitionLibraryRegistrationBehavior> logger)
+    {
+        _subscriptionManager = subscriptionManager;
+        _logger = logger;
+    }
+
+    /// <inheritdoc />
+    public async Task<UpsertResourceResponse> Handle(
+        CreateResourceRequest request,
+        RequestHandlerDelegate<UpsertResourceResponse> next,
+        CancellationToken cancellationToken)
+    {
+        // Let the Library resource be created first
+        UpsertResourceResponse response = await next(cancellationToken);
+
+        // Check if this is a Library resource with the ViewDefinition profile
+        if (!IsViewDefinitionLibrary(request))
+        {
+            return response;
+        }
+
+        string? viewDefinitionJson = ExtractViewDefinitionJson(request.Resource.Instance);
+        if (string.IsNullOrEmpty(viewDefinitionJson))
+        {
+            return response;
+        }
+
+        string libraryId = response.Outcome.RawResourceElement.Id;
+
+        _logger.LogInformation(
+            "Library resource '{LibraryId}' contains a ViewDefinition. Triggering materialization registration",
+            libraryId);
+
+        try
+        {
+            await _subscriptionManager.RegisterAsync(viewDefinitionJson, libraryId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to register ViewDefinition from Library '{LibraryId}'", libraryId);
+        }
+
+        return response;
+    }
+
+    private static bool IsViewDefinitionLibrary(CreateResourceRequest request)
+    {
+        if (!string.Equals(request.Resource.InstanceType, "Library", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Check for ViewDefinition profile in meta.profile
+        ITypedElement? meta = request.Resource.Instance.Children("meta").FirstOrDefault();
+        if (meta == null)
+        {
+            return false;
+        }
+
+        return meta.Children("profile")
+            .Any(p => string.Equals(
+                p.Value?.ToString(),
+                ViewDefinitionSubscriptionManager.ViewDefinitionLibraryProfile,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string? ExtractViewDefinitionJson(ITypedElement resource)
+    {
+        ITypedElement? content = resource.Children("content").FirstOrDefault();
+        if (content == null)
+        {
+            return null;
+        }
+
+        string? contentType = content.Children("contentType").FirstOrDefault()?.Value?.ToString();
+        if (!string.Equals(contentType, ViewDefinitionSubscriptionManager.ViewDefinitionContentType, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        string? base64 = content.Children("data").FirstOrDefault()?.Value?.ToString();
+        if (string.IsNullOrEmpty(base64))
+        {
+            return null;
+        }
+
+        return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+    }
+}
