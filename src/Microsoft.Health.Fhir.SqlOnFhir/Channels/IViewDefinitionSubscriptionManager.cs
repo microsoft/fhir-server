@@ -42,4 +42,22 @@ public interface IViewDefinitionSubscriptionManager
     /// </summary>
     /// <returns>All active registrations.</returns>
     IReadOnlyList<ViewDefinitionRegistration> GetAllRegistrations();
+
+    /// <summary>
+    /// Adopts a ViewDefinition registration into the in-memory cache without creating SQL tables,
+    /// subscriptions, or Library resources. Used by the sync service when picking up changes
+    /// made by another node. Optionally verifies the materialized table exists as a sanity check.
+    /// </summary>
+    /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
+    /// <param name="libraryResourceId">The Library resource ID that persists this ViewDefinition.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The adopted registration.</returns>
+    Task<ViewDefinitionRegistration> AdoptAsync(string viewDefinitionJson, string? libraryResourceId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes a ViewDefinition from the in-memory cache without deleting SQL tables, subscriptions,
+    /// or Library resources. Used by the sync service when another node has already handled cleanup.
+    /// </summary>
+    /// <param name="viewDefinitionName">The ViewDefinition name.</param>
+    void Evict(string viewDefinitionName);
 }

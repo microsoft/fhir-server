@@ -244,14 +244,13 @@ sequenceDiagram
 ### Positive
 - **Sub-second data freshness**: Materialized views update as FHIR resources change, eliminating batch ETL
 - **Standard-based**: Uses two complementary FHIR specs (SQL on FHIR v2 + Subscriptions)
-- **Pluggable targets**: SQL Server for operational analytics, Parquet for Fabric/Spark/research
+- **Pluggable targets**: SQL Server for operational analytics, Parquet for bulk export, Delta Lake for Fabric/OneLake with ACID MERGE semantics
 - **Leverages existing infrastructure**: Reuses subscription engine, job framework, SQL retry service
 - **Ignixa integration**: Avoids building a custom FHIRPath engine and ViewDefinition runner from scratch
 
 ### Negative
 - **Initial population cost**: Full table scan of all resources of a type (future optimization: translate FHIRPath where clauses to search queries)
 - **Over-triggering**: Broad subscription criteria (e.g., `Observation?`) fires for all observations, not just those matching the ViewDefinition's where clause
-- **In-memory registration state**: ViewDefinition→Subscription mapping is in-memory; requires re-registration on server restart
 - **SQL injection surface**: Dynamic DDL generation requires careful identifier validation (implemented via regex)
 
 ### Risks
@@ -310,31 +309,48 @@ This applies to both:
 truth. Pre-filtering only reduces wasted work — a broader subscription means more evaluator invocations
 (cost), but never incorrect results.
 
-### 3. Delta Lake for Fabric Target
-**Problem**: Parquet files are immutable — incremental updates via subscriptions append new files
-without removing stale data. Over time this creates duplicates that downstream consumers must handle.
+### 3. Delta Lake for Fabric Target ✅ Implemented
+`DeltaLakeViewDefinitionMaterializer` implements `IViewDefinitionMaterializer` using the `DeltaLake.Net`
+NuGet package (FFI wrapper around delta-rs/delta-kernel-rs). Routes via `MaterializationTarget.Fabric`.
 
-**Solution**: Implement `DeltaLakeViewDefinitionMaterializer` for the `MaterializationTarget.Fabric`
-enum value using ACID MERGE operations on `_resource_key`:
-```sql
-MERGE INTO patient_demographics AS target
-USING (new rows) AS source
-ON target._resource_key = source._resource_key
-WHEN MATCHED THEN UPDATE SET ...
-WHEN NOT MATCHED THEN INSERT ...
-WHEN NOT MATCHED BY SOURCE THEN DELETE
+**Key behaviors**:
+- **Upsert**: `ITable.MergeAsync` with SQL MERGE on `_resource_key` — proper ACID upsert, no duplicate files
+- **Delete**: `ITable.DeleteAsync` with predicate on `_resource_key` — actually removes rows
+- **Auto-create**: Tables created on first write via `LoadOrCreateTableAsync`
+- **Auth**: `DefaultAzureCredential` bearer tokens for Fabric/OneLake, or connection strings
+
+**Configuration** (uses existing `SqlOnFhirMaterialization` section):
+```json
+{
+  "SqlOnFhirMaterialization": {
+    "DefaultTarget": "Fabric",
+    "StorageAccountUri": "abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/Tables"
+  }
+}
 ```
 
-**Benefit**: True incremental upsert/delete on file-based storage with full transactional guarantees.
-Fabric's SQL Analytics Endpoint and Power BI see clean, deduplicated data without compaction lag.
+Falls back to append-only Parquet materializer if Delta Lake is not configured.
 
-### 4. Persistent Registration State
-**Problem**: ViewDefinition→Subscription mapping is in-memory (`ConcurrentDictionary`). Server
-restart loses all registrations, requiring manual re-registration.
+### 4. Persistent Registration State ✅ Implemented
+ViewDefinition registrations are persisted as FHIR **Library** resources following the SQL on FHIR v2
+spec recommendation. Each Library resource wraps the ViewDefinition JSON in its `content` field with
+`contentType: "application/json+viewdefinition"` and is tagged with a ViewDefinition-specific profile
+for discoverability.
 
-**Solution**: Persist registrations as FHIR Library resources with a ViewDefinition profile, or
-in a dedicated `sqlfhir._registrations` table. On startup, `ViewDefinitionSubscriptionManager`
-re-discovers active registrations and resumes subscription-driven updates.
+**Lifecycle**:
+- **Registration**: `ViewDefinitionSubscriptionManager.RegisterAsync()` creates a Library resource via
+  MediatR, then creates the SQL table, enqueues the population job, and creates the Subscription.
+- **Startup recovery**: On server startup, the manager queries for Library resources with the
+  ViewDefinition profile and re-registers each one, restoring the in-memory cache, subscriptions,
+  and materialized view pipeline.
+- **Deletion cleanup**: A MediatR pipeline behavior intercepts `DeleteResourceRequest` for Library
+  resources that contain ViewDefinitions. When detected, it calls `UnregisterAsync(name, dropTable: true)`
+  to drop the materialized SQL table and clean up auto-created Subscriptions.
+
+**Why Library resources** (per SQL on FHIR v2 spec):
+- `ViewDefinition` is not a core FHIR R4 resource type, so it cannot be stored directly
+- The spec recommends Library as the standard wrapper for computable artifacts
+- Library resources are searchable, versionable, and deletable via standard FHIR APIs
 
 ## Components Built
 
@@ -344,10 +360,12 @@ re-discovers active registrations and resumes subscription-driven updates.
 | SqlServerViewDefinitionSchemaManager | SqlOnFhir/Materialization/ | CREATE TABLE DDL in sqlfhir schema |
 | SqlServerViewDefinitionMaterializer | SqlOnFhir/Materialization/ | Atomic DELETE+INSERT row upserts |
 | ParquetViewDefinitionMaterializer | SqlOnFhir/Materialization/ | Parquet files to Azure Blob/ADLS |
-| MaterializerFactory | SqlOnFhir/Materialization/ | Routes to SQL, Parquet, or both |
+| DeltaLakeViewDefinitionMaterializer | SqlOnFhir/Materialization/ | Delta Lake MERGE for Fabric/OneLake |
+| MaterializerFactory | SqlOnFhir/Materialization/ | Routes to SQL, Parquet, Delta Lake, or combinations |
 | FhirTypeToSqlTypeMap | SqlOnFhir/Materialization/ | FHIR→SQL Server type mapping |
 | ViewDefinitionRefreshChannel | SqlOnFhir/Channels/ | ISubscriptionChannel for incremental updates |
-| ViewDefinitionSubscriptionManager | SqlOnFhir/Channels/ | Registration lifecycle + auto-subscription |
+| ViewDefinitionSubscriptionManager | SqlOnFhir/Channels/ | Registration lifecycle + auto-subscription + Library persistence |
+| ViewDefinitionLibraryCleanupBehavior | SqlOnFhir/Channels/ | Drops SQL table when Library/ViewDef is deleted |
 | PopulationOrchestratorJob | SqlOnFhir/Materialization/Jobs/ | Creates table, enqueues processing |
 | PopulationProcessingJob | SqlOnFhir/Materialization/Jobs/ | Batch search → evaluate → materialize |
 | ViewDefinitionRunHandler | SqlOnFhir/Operations/ | $viewdefinition-run (sync eval or table read) |

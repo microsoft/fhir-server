@@ -18,6 +18,7 @@ public sealed class MaterializerFactory
 {
     private readonly IViewDefinitionMaterializer _sqlMaterializer;
     private readonly IViewDefinitionMaterializer? _parquetMaterializer;
+    private readonly IViewDefinitionMaterializer? _deltaLakeMaterializer;
     private readonly SqlOnFhirMaterializationConfiguration _config;
     private readonly ILogger<MaterializerFactory> _logger;
 
@@ -28,14 +29,17 @@ public sealed class MaterializerFactory
     /// <param name="config">The materialization configuration.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="parquetMaterializer">The Parquet materializer (null if storage not configured).</param>
+    /// <param name="deltaLakeMaterializer">The Delta Lake materializer for Fabric target (null if storage not configured).</param>
     public MaterializerFactory(
         IViewDefinitionMaterializer sqlMaterializer,
         IOptions<SqlOnFhirMaterializationConfiguration> config,
         ILogger<MaterializerFactory> logger,
-        IViewDefinitionMaterializer? parquetMaterializer = null)
+        IViewDefinitionMaterializer? parquetMaterializer = null,
+        IViewDefinitionMaterializer? deltaLakeMaterializer = null)
     {
         _sqlMaterializer = sqlMaterializer;
         _parquetMaterializer = parquetMaterializer;
+        _deltaLakeMaterializer = deltaLakeMaterializer;
         _config = config.Value;
         _logger = logger;
     }
@@ -59,7 +63,7 @@ public sealed class MaterializerFactory
             materializers.Add(_sqlMaterializer);
         }
 
-        if (target.HasFlag(MaterializationTarget.Parquet) || target.HasFlag(MaterializationTarget.Fabric))
+        if (target.HasFlag(MaterializationTarget.Parquet))
         {
             if (_parquetMaterializer != null)
             {
@@ -68,8 +72,29 @@ public sealed class MaterializerFactory
             else
             {
                 _logger.LogWarning(
-                    "Parquet/Fabric materialization requested but storage is not configured. " +
+                    "Parquet materialization requested but storage is not configured. " +
                     "Set SqlOnFhirMaterialization:StorageAccountUri or StorageAccountConnection in appsettings.json");
+            }
+        }
+
+        if (target.HasFlag(MaterializationTarget.Fabric))
+        {
+            if (_deltaLakeMaterializer != null)
+            {
+                materializers.Add(_deltaLakeMaterializer);
+            }
+            else if (_parquetMaterializer != null)
+            {
+                _logger.LogWarning(
+                    "Fabric (Delta Lake) materialization requested but Delta Lake is not configured. " +
+                    "Falling back to append-only Parquet materializer");
+                materializers.Add(_parquetMaterializer);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Fabric materialization requested but storage is not configured. " +
+                    "Set SqlOnFhirMaterialization:StorageAccountUri in appsettings.json");
             }
         }
 

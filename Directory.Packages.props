@@ -51,6 +51,8 @@
     <PackageVersion Include="Ignixa.SqlOnFhir" Version="$(IgnixaVersion)" />
     <PackageVersion Include="Ignixa.SqlOnFhir.Writers" Version="$(IgnixaVersion)" />
     <PackageVersion Include="Ignixa.Extensions.FirelySdk5" Version="$(IgnixaVersion)" />
+    <!-- Delta Lake for Fabric materialization target -->
+    <PackageVersion Include="DeltaLake.Net" Version="0.31.1" />
     <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4B" Version="$(Hl7FhirVersion)" />

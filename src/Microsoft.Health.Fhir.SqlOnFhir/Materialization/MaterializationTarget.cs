@@ -30,8 +30,10 @@ public enum MaterializationTarget
     Parquet = 2,
 
     /// <summary>
-    /// Reserved for future Microsoft Fabric-specific optimizations (Delta Lake, Lakehouse conventions).
-    /// Currently falls back to <see cref="Parquet"/> behavior.
+    /// Materialize to Delta Lake tables in Microsoft Fabric / OneLake.
+    /// Uses ACID MERGE operations for proper upsert/delete semantics on file-based storage.
+    /// Best for: Fabric Lakehouse, Power BI DirectQuery, real-time analytics on OneLake.
+    /// Falls back to append-only <see cref="Parquet"/> if Delta Lake is not configured.
     /// </summary>
     Fabric = 4,
 }

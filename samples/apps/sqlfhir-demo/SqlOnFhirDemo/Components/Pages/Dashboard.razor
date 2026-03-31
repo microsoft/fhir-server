@@ -1,6 +1,7 @@
 @page "/dashboard"
 @using SqlOnFhirDemo.Services
 @inject FhirDemoService FhirService
+@implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>HEDIS CBP Dashboard — SQL on FHIR Demo</PageTitle>
@@ -93,6 +94,131 @@
                 }
             </div>
         </div>
+
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">📋 ViewDefinition Registration</h5>
+                <button class="btn btn-sm btn-primary" @onclick="RegisterViewDefinitionsAsync" disabled="@IsRegistering">
+                    @(IsRegistering ? "Registering..." : "🚀 Register All ViewDefinitions")
+                </button>
+            </div>
+            <div class="card-body">
+                @if (ViewDefRegistrations.Count == 0 && !IsRegistering)
+                {
+                    <p class="text-muted mb-0">Click "Register All ViewDefinitions" to create materialized views and their linked subscriptions.</p>
+                }
+                else
+                {
+                    @foreach (var reg in ViewDefRegistrations)
+                    {
+                        <div class="card mb-2 @(reg.Success ? "border-success" : reg.Phase == RegPhase.Failed ? "border-danger" : "")">
+                            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>@reg.ViewDefName</strong>
+                                    <span class="badge bg-secondary ms-2">@reg.ResourceType</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    @* Status progression *@
+                                    @switch (reg.Phase)
+                                    {
+                                        case RegPhase.Pending:
+                                            <span class="badge bg-light text-dark">⏳ Pending</span>
+                                            break;
+                                        case RegPhase.Registering:
+                                            <span class="badge bg-warning text-dark">📝 Registering...</span>
+                                            break;
+                                        case RegPhase.Creating:
+                                            <span class="badge bg-info text-dark">🏗️ Creating Table</span>
+                                            break;
+                                        case RegPhase.Materializing:
+                                            <span class="badge bg-primary">⚙️ Materializing</span>
+                                            break;
+                                        case RegPhase.Ready:
+                                            <span class="badge bg-success">✅ Ready</span>
+                                            break;
+                                        case RegPhase.Failed:
+                                            <span class="badge bg-danger">✗ Failed</span>
+                                            break;
+                                    }
+
+                                    <button class="btn btn-outline-info btn-sm py-0 px-2"
+                                            @onclick="() => ToggleExpand(reg.ViewDefName, ExpandMode.Columns)">
+                                        📊 Columns
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                            @onclick="() => ToggleExpand(reg.ViewDefName, ExpandMode.Json)">
+                                        { } JSON
+                                    </button>
+                                    <button class="btn btn-outline-warning btn-sm py-0 px-2"
+                                            @onclick="() => ToggleExpand(reg.ViewDefName, ExpandMode.Subscription)">
+                                        🔔 Subscription
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (ExpandedViewDef == reg.ViewDefName)
+                            {
+                                <div class="card-body py-2">
+                                    @if (ExpandMode_ == ExpandMode.Columns && reg.Columns.Count > 0)
+                                    {
+                                        <table class="table table-sm table-bordered mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Column Name</th>
+                                                    <th>FHIRPath</th>
+                                                    <th>Context</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var col in reg.Columns)
+                                                {
+                                                    <tr>
+                                                        <td><code>@col.Name</code></td>
+                                                        <td><code class="text-primary">@col.Path</code></td>
+                                                        <td>
+                                                            @if (!string.IsNullOrEmpty(col.Context))
+                                                            {
+                                                                <span class="badge bg-light text-dark border">@col.Context</span>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                        @if (reg.WhereClause != null)
+                                        {
+                                            <div class="mt-2">
+                                                <small class="text-muted">Filter:</small>
+                                                <code class="text-danger ms-1">@reg.WhereClause</code>
+                                            </div>
+                                        }
+                                    }
+                                    else if (ExpandMode_ == ExpandMode.Json)
+                                    {
+                                        <pre class="bg-light p-2 small mb-0" style="max-height: 300px; overflow-y: auto;">@reg.ViewDefinitionJson</pre>
+                                    }
+                                    else if (ExpandMode_ == ExpandMode.Subscription)
+                                    {
+                                        @if (string.IsNullOrEmpty(ExpandedSubscriptionJson))
+                                        {
+                                            <p class="text-muted small mb-0">Loading subscription...</p>
+                                        }
+                                        else
+                                        {
+                                            <pre class="bg-light p-2 small mb-0" style="max-height: 300px; overflow-y: auto;">@ExpandedSubscriptionJson</pre>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                @if (!string.IsNullOrEmpty(RegistrationStatus))
+                {
+                    <div class="alert alert-info mt-2 mb-0 p-2 small">@RegistrationStatus</div>
+                }
+            </div>
+        </div>
     </div>
 
     <div class="col-md-4">
@@ -132,10 +258,10 @@
                     <label class="form-label">Max Patients</label>
                     <input class="form-control form-control-sm" type="number" @bind="MaxSyntheaFiles" />
                 </div>
-                <button class="btn btn-sm btn-success w-100 mb-2" @onclick="LoadSyntheaDataAsync" disabled="@IsLoading">
-                    @(IsLoading ? $"Loading... {LoadProgress}" : "📥 Load Synthea Data")
+                <button class="btn btn-sm btn-success w-100 mb-2" @onclick="LoadSyntheaDataAsync" disabled="@IsLoadingSynthea">
+                    @(IsLoadingSynthea ? $"Loading... {LoadProgress}" : "📥 Load Synthea Data")
                 </button>
-                @if (IsLoading && ProgressPercent > 0)
+                @if (IsLoadingSynthea && ProgressPercent > 0)
                 {
                     <div class="progress mb-2" style="height: 20px;">
                         <div class="progress-bar progress-bar-striped progress-bar-animated"
@@ -156,20 +282,20 @@
                     <label class="form-label">Crisis Patient Count</label>
                     <input class="form-control form-control-sm" type="number" @bind="CrisisPatientCount" />
                 </div>
-                <button class="btn btn-sm btn-danger w-100 mb-2" @onclick="LoadCrisisPatientsAsync" disabled="@IsLoading">
-                    @(IsLoading ? $"Loading... {LoadProgress}" : "🚨 Load Crisis Patients")
+                <button class="btn btn-sm btn-danger w-100 mb-2" @onclick="LoadCrisisPatientsAsync" disabled="@IsLoadingScenario">
+                    @(IsLoadingScenario ? $"Loading... {LoadProgress}" : "🚨 Load Crisis Patients")
                 </button>
-                <button class="btn btn-sm btn-success w-100 mb-2" @onclick="LoadInterventionsAsync" disabled="@IsLoading">
-                    @(IsLoading ? $"Loading... {LoadProgress}" : "💊 Apply Interventions (60%)")
+                <button class="btn btn-sm btn-success w-100 mb-2" @onclick="LoadInterventionsAsync" disabled="@IsLoadingScenario">
+                    @(IsLoadingScenario ? $"Loading... {LoadProgress}" : "💊 Apply Interventions (60%)")
                 </button>
-                @if (IsLoading && ProgressPercent > 0)
+                @if (IsLoadingScenario && ScenarioProgressPercent > 0)
                 {
                     <div class="progress mb-2" style="height: 20px;">
                         <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning"
                              role="progressbar"
-                             style="width: @(ProgressPercent)%"
-                             aria-valuenow="@ProgressPercent" aria-valuemin="0" aria-valuemax="100">
-                            @(ProgressPercent)%
+                             style="width: @(ScenarioProgressPercent)%"
+                             aria-valuenow="@ScenarioProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                            @(ScenarioProgressPercent)%
                         </div>
                     </div>
                 }
@@ -187,6 +313,20 @@
                 @if (!string.IsNullOrEmpty(SubscriptionsJson))
                 {
                     <pre class="bg-light p-2 small" style="max-height: 200px; overflow-y: auto;">@SubscriptionsJson</pre>
+                }
+            </div>
+        </div>
+
+        <div class="card mt-3 border-danger">
+            <div class="card-header bg-danger text-white"><h5 class="mb-0">🔄 Reset Demo</h5></div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Deletes all Patients, Observations, Conditions, Subscriptions and clears ViewDefinition registrations.</p>
+                <button class="btn btn-sm btn-outline-danger w-100" @onclick="ResetDemoAsync" disabled="@IsResetting">
+                    @(IsResetting ? $"Resetting... {ResetProgress}" : "🗑️ Reset Everything")
+                </button>
+                @if (!string.IsNullOrEmpty(ResetResult))
+                {
+                    <pre class="bg-light p-2 small mt-2 mb-0" style="max-height: 150px; overflow-y: auto;">@ResetResult</pre>
                 }
             </div>
         </div>
@@ -210,14 +350,46 @@
     private string SyntheaPath = @"C:\repos\synthea\output\fhir";
     private int MaxSyntheaFiles = 100;
     private int CrisisPatientCount = 500;
-    private bool IsLoading = false;
+    private bool IsLoadingSynthea = false;
+    private bool IsLoadingScenario = false;
     private string LoadProgress = "";
     private string ScenarioStatus = "";
     private int ProgressPercent = 0;
+    private int ScenarioProgressPercent = 0;
+
+    // ViewDefinition registration
+    private List<ViewDefRegState> ViewDefRegistrations = new();
+    private bool IsRegistering = false;
+
+    // Reset demo
+    private bool IsResetting = false;
+    private string ResetProgress = "";
+    private string ResetResult = "";
+    private string RegistrationStatus = "";
+    private string ExpandedViewDef = "";
+    private ExpandMode ExpandMode_ = ExpandMode.Columns;
+    private string ExpandedSubscriptionJson = "";
+    private string ViewDefinitionsPath = Path.GetFullPath(
+        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "viewdefinitions"));
+
+    private Timer? _autoRefreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await RefreshData();
+        _autoRefreshTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshData();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    public void Dispose()
+    {
+        _autoRefreshTimer?.Dispose();
     }
 
     private async Task RefreshData()
@@ -274,7 +446,7 @@
 
     private async Task LoadSyntheaDataAsync()
     {
-        IsLoading = true;
+        IsLoadingSynthea = true;
         LoadProgress = "Starting...";
         ProgressPercent = 0;
         StateHasChanged();
@@ -301,7 +473,7 @@
         }
         finally
         {
-            IsLoading = false;
+            IsLoadingSynthea = false;
             ProgressPercent = 0;
             StateHasChanged();
         }
@@ -309,9 +481,9 @@
 
     private async Task LoadCrisisPatientsAsync()
     {
-        IsLoading = true;
+        IsLoadingScenario = true;
         LoadProgress = "Generating crisis patients...";
-        ProgressPercent = 0;
+        ScenarioProgressPercent = 0;
         StateHasChanged();
 
         try
@@ -320,7 +492,7 @@
                 CrisisPatientCount,
                 onProgress: (done, total) =>
                 {
-                    ProgressPercent = total > 0 ? (int)((double)done / total * 100) : 0;
+                    ScenarioProgressPercent = total > 0 ? (int)((double)done / total * 100) : 0;
                     LoadProgress = $"{done}/{total} crisis patients";
                     InvokeAsync(StateHasChanged);
                 });
@@ -335,17 +507,17 @@
         }
         finally
         {
-            IsLoading = false;
-            ProgressPercent = 0;
+            IsLoadingScenario = false;
+            ScenarioProgressPercent = 0;
             StateHasChanged();
         }
     }
 
     private async Task LoadInterventionsAsync()
     {
-        IsLoading = true;
+        IsLoadingScenario = true;
         LoadProgress = "Applying interventions...";
-        ProgressPercent = 0;
+        ScenarioProgressPercent = 0;
         StateHasChanged();
 
         try
@@ -355,7 +527,7 @@
                 correctionRate: 0.6,
                 onProgress: (done, total) =>
                 {
-                    ProgressPercent = total > 0 ? (int)((double)done / total * 100) : 0;
+                    ScenarioProgressPercent = total > 0 ? (int)((double)done / total * 100) : 0;
                     LoadProgress = $"{done}/{total} patients treated";
                     InvokeAsync(StateHasChanged);
                 });
@@ -370,9 +542,232 @@
         }
         finally
         {
-            IsLoading = false;
-            ProgressPercent = 0;
+            IsLoadingScenario = false;
+            ScenarioProgressPercent = 0;
             StateHasChanged();
         }
+    }
+
+
+    private async Task ResetDemoAsync()
+    {
+        IsResetting = true;
+        ResetProgress = "";
+        ResetResult = "";
+        StateHasChanged();
+
+        try
+        {
+            ResetResult = await FhirService.ResetDemoAsync(
+                onProgress: status =>
+                {
+                    ResetProgress = status;
+                    InvokeAsync(StateHasChanged);
+                });
+
+            // Clear local UI state
+            ViewDefRegistrations.Clear();
+            BpRows.Clear();
+            ControlledCount = 0;
+            UncontrolledCount = 0;
+            CbpRate = "—";
+            SubscriptionsJson = "";
+            ScenarioStatus = "";
+            RegistrationStatus = "";
+            LastRefreshed = "Never";
+        }
+        catch (Exception ex)
+        {
+            ResetResult = $"✗ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsResetting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RegisterViewDefinitionsAsync()
+    {
+        IsRegistering = true;
+        ViewDefRegistrations.Clear();
+        RegistrationStatus = "";
+        StateHasChanged();
+
+        try
+        {
+            // Pre-populate with pending state
+            string[] viewDefFiles = Directory.GetFiles(ViewDefinitionsPath, "*.json");
+            foreach (string filePath in viewDefFiles)
+            {
+                string json = await File.ReadAllTextAsync(filePath);
+                var parsed = ParseViewDefinitionMeta(json);
+                ViewDefRegistrations.Add(new ViewDefRegState
+                {
+                    ViewDefName = parsed.Name,
+                    ResourceType = parsed.ResourceType,
+                    Phase = RegPhase.Pending,
+                    ViewDefinitionJson = json,
+                    Columns = parsed.Columns,
+                    WhereClause = parsed.WhereClause,
+                });
+            }
+            StateHasChanged();
+
+            // Register each one with animated status
+            foreach (var reg in ViewDefRegistrations)
+            {
+                reg.Phase = RegPhase.Registering;
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(300);
+
+                try
+                {
+                    string response = await FhirService.RegisterViewDefinitionAsync(reg.ViewDefinitionJson);
+                    bool success = !response.Contains("\"severity\":\"error\"", StringComparison.OrdinalIgnoreCase);
+
+                    if (success)
+                    {
+                        reg.Phase = RegPhase.Creating;
+                        reg.Response = response;
+                        await InvokeAsync(StateHasChanged);
+                        await Task.Delay(500);
+
+                        reg.Phase = RegPhase.Materializing;
+                        await InvokeAsync(StateHasChanged);
+                        await Task.Delay(800);
+
+                        reg.Phase = RegPhase.Ready;
+                        reg.Success = true;
+                    }
+                    else
+                    {
+                        reg.Phase = RegPhase.Failed;
+                        reg.Response = response;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    reg.Phase = RegPhase.Failed;
+                    reg.Response = ex.Message;
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+
+            int successCount = ViewDefRegistrations.Count(r => r.Success);
+            RegistrationStatus = $"✓ {successCount}/{ViewDefRegistrations.Count} ViewDefinitions ready. " +
+                "Subscriptions auto-created for incremental updates.";
+        }
+        catch (Exception ex)
+        {
+            RegistrationStatus = $"✗ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsRegistering = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleExpand(string viewDefName, ExpandMode mode)
+    {
+        if (ExpandedViewDef == viewDefName && ExpandMode_ == mode)
+        {
+            ExpandedViewDef = "";
+            ExpandedSubscriptionJson = "";
+            return;
+        }
+
+        ExpandedViewDef = viewDefName;
+        ExpandMode_ = mode;
+        ExpandedSubscriptionJson = "";
+
+        if (mode == ExpandMode.Subscription)
+        {
+            var reg = ViewDefRegistrations.FirstOrDefault(r => r.ViewDefName == viewDefName);
+            if (reg != null)
+            {
+                try
+                {
+                    ExpandedSubscriptionJson = "Loading...";
+                    StateHasChanged();
+                    ExpandedSubscriptionJson = await FhirService.GetSubscriptionForViewDefAsync(reg.ResourceType);
+                }
+                catch (Exception ex)
+                {
+                    ExpandedSubscriptionJson = $"Error: {ex.Message}";
+                }
+            }
+        }
+    }
+
+    private static (string Name, string ResourceType, List<ColumnInfo> Columns, string? WhereClause) ParseViewDefinitionMeta(string json)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        string name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "unknown" : "unknown";
+        string resourceType = root.TryGetProperty("resource", out var r) ? r.GetString() ?? "Unknown" : "Unknown";
+
+        var columns = new List<ColumnInfo>();
+        if (root.TryGetProperty("select", out var selectArr))
+        {
+            foreach (var selectBlock in selectArr.EnumerateArray())
+            {
+                string? context = null;
+                if (selectBlock.TryGetProperty("forEach", out var fe))
+                    context = $"forEach: {fe.GetString()}";
+                else if (selectBlock.TryGetProperty("forEachOrNull", out var fen))
+                    context = $"forEachOrNull: {fen.GetString()}";
+
+                if (selectBlock.TryGetProperty("column", out var colArr))
+                {
+                    foreach (var col in colArr.EnumerateArray())
+                    {
+                        string colName = col.TryGetProperty("name", out var cn) ? cn.GetString() ?? "" : "";
+                        string colPath = col.TryGetProperty("path", out var cp) ? cp.GetString() ?? "" : "";
+                        columns.Add(new ColumnInfo { Name = colName, Path = colPath, Context = context });
+                    }
+                }
+            }
+        }
+
+        string? whereClause = null;
+        if (root.TryGetProperty("where", out var whereArr))
+        {
+            var clauses = new List<string>();
+            foreach (var w in whereArr.EnumerateArray())
+            {
+                if (w.TryGetProperty("path", out var wp))
+                    clauses.Add(wp.GetString() ?? "");
+            }
+            if (clauses.Count > 0)
+                whereClause = string.Join(" AND ", clauses);
+        }
+
+        return (name, resourceType, columns, whereClause);
+    }
+
+    private enum RegPhase { Pending, Registering, Creating, Materializing, Ready, Failed }
+    private enum ExpandMode { Columns, Json, Subscription }
+
+    private class ViewDefRegState
+    {
+        public string ViewDefName { get; set; } = "";
+        public string ResourceType { get; set; } = "Unknown";
+        public bool Success { get; set; }
+        public RegPhase Phase { get; set; } = RegPhase.Pending;
+        public string Response { get; set; } = "";
+        public string ViewDefinitionJson { get; set; } = "";
+        public List<ColumnInfo> Columns { get; set; } = new();
+        public string? WhereClause { get; set; }
+    }
+
+    private class ColumnInfo
+    {
+        public string Name { get; set; } = "";
+        public string Path { get; set; } = "";
+        public string? Context { get; set; }
     }
 }

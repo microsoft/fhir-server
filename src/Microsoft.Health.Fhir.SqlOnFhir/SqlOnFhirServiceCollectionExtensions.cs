@@ -3,8 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using DeltaLake.Interfaces;
+using DeltaLake.Table;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.SqlOnFhir.Channels;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization.Jobs;
@@ -30,8 +35,34 @@ public static class SqlOnFhirServiceCollectionExtensions
         services.AddSingleton<IViewDefinitionSchemaManager, SqlServerViewDefinitionSchemaManager>();
         services.AddSingleton<IViewDefinitionMaterializer, SqlServerViewDefinitionMaterializer>();
         services.AddSingleton<SqlServerViewDefinitionMaterializer>();
-        services.AddSingleton<MaterializerFactory>();
         services.AddSingleton<IViewDefinitionSubscriptionManager, ViewDefinitionSubscriptionManager>();
+
+        // Register Delta Lake engine and materializer for Fabric target.
+        // The engine is a long-lived resource that manages the FFI bridge to delta-rs.
+        services.AddSingleton<IEngine>(_ => new DeltaEngine(EngineOptions.Default));
+        services.AddSingleton<DeltaLakeViewDefinitionMaterializer>();
+        services.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<IOptions<SqlOnFhirMaterializationConfiguration>>();
+            var sqlMaterializer = sp.GetRequiredService<SqlServerViewDefinitionMaterializer>();
+            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MaterializerFactory>>();
+
+            // Resolve optional materializers based on configuration
+            ParquetViewDefinitionMaterializer? parquetMaterializer = config.Value.IsStorageConfigured
+                ? sp.GetService<ParquetViewDefinitionMaterializer>()
+                : null;
+
+            DeltaLakeViewDefinitionMaterializer? deltaLakeMaterializer = config.Value.IsStorageConfigured
+                ? sp.GetRequiredService<DeltaLakeViewDefinitionMaterializer>()
+                : null;
+
+            return new MaterializerFactory(
+                sqlMaterializer,
+                config,
+                logger,
+                parquetMaterializer: parquetMaterializer,
+                deltaLakeMaterializer: deltaLakeMaterializer);
+        });
 
         // Register background jobs for ViewDefinition population.
         // Uses the same auto-discovery pattern as the Subscriptions module.
@@ -49,6 +80,20 @@ public static class SqlOnFhirServiceCollectionExtensions
         // Register the ViewDefinition refresh subscription channel.
         services.AddTransient<ViewDefinitionRefreshChannel>();
         services.AddTransient<ISubscriptionChannel, ViewDefinitionRefreshChannel>();
+
+        // Register cleanup behavior: drops materialized SQL tables when Library/ViewDef is deleted.
+        services.AddTransient<
+            MediatR.IPipelineBehavior<
+                Microsoft.Health.Fhir.Core.Messages.Delete.DeleteResourceRequest,
+                Microsoft.Health.Fhir.Core.Messages.Delete.DeleteResourceResponse>,
+            ViewDefinitionLibraryCleanupBehavior>();
+
+        // Register startup recovery and multi-node sync service for ViewDefinition Library resources.
+        // Waits for SearchParametersInitializedNotification, then polls every 10s for changes.
+        services.AddSingleton<ViewDefinitionSyncService>();
+        services.AddHostedService(sp => sp.GetRequiredService<ViewDefinitionSyncService>());
+        services.AddSingleton<INotificationHandler<SearchParametersInitializedNotification>>(
+            sp => sp.GetRequiredService<ViewDefinitionSyncService>());
 
         return services;
     }

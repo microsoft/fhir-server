@@ -53,4 +53,9 @@ public sealed class ViewDefinitionRegistration
     /// Gets the list of Subscription resource IDs auto-created for this ViewDefinition.
     /// </summary>
     public Collection<string> SubscriptionIds { get; } = new();
+
+    /// <summary>
+    /// Gets or sets the ID of the Library resource that persists this ViewDefinition.
+    /// </summary>
+    public string? LibraryResourceId { get; set; }
 }

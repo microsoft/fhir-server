@@ -119,6 +119,81 @@ public class FhirDemoService
     }
 
     /// <summary>
+    /// Registers all three ViewDefinitions from the viewdefinitions/ folder.
+    /// Returns registration status for each ViewDefinition.
+    /// </summary>
+    public async Task<List<ViewDefinitionRegistrationResult>> RegisterAllViewDefinitionsAsync(
+        string viewDefinitionsPath,
+        Action<string, string>? onProgress = null)
+    {
+        var results = new List<ViewDefinitionRegistrationResult>();
+
+        string[] viewDefFiles = Directory.GetFiles(viewDefinitionsPath, "*.json");
+        if (viewDefFiles.Length == 0)
+        {
+            _logger.LogWarning("No ViewDefinition files found in {Path}", viewDefinitionsPath);
+            return results;
+        }
+
+        foreach (string filePath in viewDefFiles)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(filePath);
+            onProgress?.Invoke(fileName, "Registering...");
+
+            try
+            {
+                string json = await File.ReadAllTextAsync(filePath);
+                using var doc = JsonDocument.Parse(json);
+                string viewDefName = doc.RootElement.TryGetProperty("name", out var nameProp)
+                    ? nameProp.GetString() ?? fileName
+                    : fileName;
+                string resourceType = doc.RootElement.TryGetProperty("resource", out var resProp)
+                    ? resProp.GetString() ?? "Unknown"
+                    : "Unknown";
+
+                string response = await RegisterViewDefinitionAsync(json);
+                bool success = !response.Contains("OperationOutcome", StringComparison.OrdinalIgnoreCase)
+                    || !response.Contains("error", StringComparison.OrdinalIgnoreCase);
+
+                results.Add(new ViewDefinitionRegistrationResult
+                {
+                    FileName = fileName,
+                    ViewDefName = viewDefName,
+                    ResourceType = resourceType,
+                    Success = success,
+                    Response = response,
+                    ViewDefinitionJson = json,
+                });
+
+                onProgress?.Invoke(viewDefName, success ? "✓ Registered" : "✗ Failed");
+            }
+            catch (Exception ex)
+            {
+                results.Add(new ViewDefinitionRegistrationResult
+                {
+                    FileName = fileName,
+                    ViewDefName = fileName,
+                    Success = false,
+                    Response = ex.Message,
+                });
+                onProgress?.Invoke(fileName, $"✗ Error: {ex.Message}");
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Gets the subscriptions for a specific ViewDefinition by searching for its criteria pattern.
+    /// </summary>
+    public async Task<string> GetSubscriptionForViewDefAsync(string resourceType)
+    {
+        var response = await _httpClient.GetAsync(
+            $"Subscription?status=active,requested&criteria={resourceType}%3F&_format=json");
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    /// <summary>
     /// Loads a Synthea-generated FHIR Bundle from a file, sanitizes it by removing
     /// external references that may fail (Practitioner, Organization, Location, etc.),
     /// and posts it to the FHIR server.
@@ -254,14 +329,23 @@ public class FhirDemoService
             if (request != null)
             {
                 string? url = request["url"]?.GetValue<string>();
-                if (url != null && url.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase))
+                if (url != null)
                 {
-                    // Use PUT with resourceType/id instead of POST with urn:uuid
-                    string? id = resource["id"]?.GetValue<string>();
-                    if (id != null)
+                    if (url.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase))
                     {
-                        request["method"] = "PUT";
-                        request["url"] = $"{resourceType}/{id}";
+                        // Use PUT with resourceType/id instead of POST with urn:uuid
+                        string? id = resource["id"]?.GetValue<string>();
+                        if (id != null)
+                        {
+                            request["method"] = "PUT";
+                            request["url"] = $"{resourceType}/{id}";
+                        }
+                    }
+                    else if (IsStrippableReference(url))
+                    {
+                        // Skip entries whose request URL targets a stripped resource type
+                        // (e.g., "Practitioner?identifier=..." conditional creates)
+                        continue;
                     }
                 }
             }
@@ -338,9 +422,58 @@ public class FhirDemoService
     {
         return reference.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase)
             || reference.StartsWith("Practitioner/", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("Practitioner?", StringComparison.OrdinalIgnoreCase)
             || reference.StartsWith("Organization/", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("Organization?", StringComparison.OrdinalIgnoreCase)
             || reference.StartsWith("Location/", StringComparison.OrdinalIgnoreCase)
-            || reference.StartsWith("PractitionerRole/", StringComparison.OrdinalIgnoreCase);
+            || reference.StartsWith("Location?", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("PractitionerRole/", StringComparison.OrdinalIgnoreCase)
+            || reference.StartsWith("PractitionerRole?", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Resets the demo by deleting all clinical resources, subscriptions, and ViewDefinitions.
+    /// Uses FHIR conditional delete ($everything-style) for each resource type.
+    /// </summary>
+    public async Task<string> ResetDemoAsync(Action<string>? onProgress = null)
+    {
+        var results = new StringBuilder();
+
+        // Resource types to delete in dependency order (children before parents).
+        // Library is included to clean up persisted ViewDefinition registrations,
+        // which triggers the cleanup behavior to drop materialized SQL tables.
+        string[] resourceTypes = { "Observation", "Condition", "Encounter", "Patient", "Subscription", "Library" };
+
+        foreach (string resourceType in resourceTypes)
+        {
+            onProgress?.Invoke($"Deleting {resourceType} resources...");
+            try
+            {
+                // Use conditional delete to delete all resources of this type
+                // FHIR spec: DELETE [base]/[type]?[search parameters] with _hardDelete for clean removal
+                var response = await _httpClient.DeleteAsync($"{resourceType}?_hardDelete=true&_count=100");
+                string body = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    results.AppendLine($"✓ {resourceType}: deleted");
+                    _logger.LogInformation("Reset: deleted {ResourceType} resources", resourceType);
+                }
+                else
+                {
+                    results.AppendLine($"⚠ {resourceType}: {response.StatusCode}");
+                    _logger.LogWarning("Reset: failed to delete {ResourceType}: {Status}", resourceType, response.StatusCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                results.AppendLine($"✗ {resourceType}: {ex.Message}");
+                _logger.LogWarning(ex, "Reset: error deleting {ResourceType}", resourceType);
+            }
+        }
+
+        onProgress?.Invoke("Done!");
+        return results.ToString();
     }
 
     /// <summary>
@@ -460,4 +593,17 @@ public class FhirDemoService
 
         return corrected;
     }
+}
+
+/// <summary>
+/// Result of registering a single ViewDefinition.
+/// </summary>
+public class ViewDefinitionRegistrationResult
+{
+    public string FileName { get; set; } = "";
+    public string ViewDefName { get; set; } = "";
+    public string ResourceType { get; set; } = "Unknown";
+    public bool Success { get; set; }
+    public string Response { get; set; } = "";
+    public string ViewDefinitionJson { get; set; } = "";
 }

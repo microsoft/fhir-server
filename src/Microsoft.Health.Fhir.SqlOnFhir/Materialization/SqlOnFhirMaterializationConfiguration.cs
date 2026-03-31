@@ -7,8 +7,20 @@ namespace Microsoft.Health.Fhir.SqlOnFhir.Materialization;
 
 /// <summary>
 /// Configuration for SQL on FHIR ViewDefinition materialization.
-/// Configures storage destinations for Parquet/Fabric output targets.
+/// Configures storage destinations for Parquet and Fabric (Delta Lake) output targets.
 /// Follows the same authentication pattern as the FHIR server's $export configuration.
+/// <para>
+/// <b>Fabric / Delta Lake example:</b>
+/// <code>
+/// "SqlOnFhirMaterialization": {
+///   "DefaultTarget": "Fabric",
+///   "StorageAccountUri": "abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/Tables"
+/// }
+/// </code>
+/// Delta tables are created at <c>{StorageAccountUri}/{ViewDefinitionName}/</c>.
+/// Authentication uses <c>DefaultAzureCredential</c> when <c>StorageAccountUri</c> is set,
+/// or a connection string when <c>StorageAccountConnection</c> is set.
+/// </para>
 /// </summary>
 public class SqlOnFhirMaterializationConfiguration
 {
@@ -19,14 +31,21 @@ public class SqlOnFhirMaterializationConfiguration
 
     /// <summary>
     /// Gets or sets the connection string for Azure Blob Storage or ADLS.
-    /// Used for connection string-based authentication.
+    /// Used for connection string-based authentication (Parquet and Delta Lake targets).
     /// Mutually exclusive with <see cref="StorageAccountUri"/> (if both set, URI takes precedence).
     /// </summary>
     public string? StorageAccountConnection { get; set; }
 
     /// <summary>
-    /// Gets or sets the URI for Azure Blob Storage or ADLS (for Managed Identity authentication).
-    /// Example: <c>https://myaccount.blob.core.windows.net</c> or <c>https://onelake.dfs.fabric.microsoft.com</c>.
+    /// Gets or sets the URI for Azure Blob Storage, ADLS, or OneLake (for Managed Identity authentication).
+    /// <para>
+    /// Examples:
+    /// <list type="bullet">
+    ///   <item><c>https://myaccount.blob.core.windows.net</c> — Azure Blob Storage (Parquet target)</item>
+    ///   <item><c>abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/Tables</c> — Fabric / OneLake (Delta Lake target)</item>
+    /// </list>
+    /// When set, authentication uses <c>DefaultAzureCredential</c> to obtain a bearer token.
+    /// </para>
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1056:URI-like properties should not be strings", Justification = "Config binding requires string type for deserialization from appsettings.json")]
     public string? StorageAccountUri { get; set; }
@@ -34,12 +53,14 @@ public class SqlOnFhirMaterializationConfiguration
     /// <summary>
     /// Gets or sets the default blob container name for Parquet output.
     /// Defaults to <c>sqlfhir</c> if not specified.
+    /// Not used for Fabric/Delta Lake target when <see cref="StorageAccountUri"/> includes the full OneLake path.
     /// </summary>
     public string DefaultContainer { get; set; } = "sqlfhir";
 
     /// <summary>
     /// Gets or sets the default materialization target when not specified per-ViewDefinition.
     /// Defaults to <see cref="MaterializationTarget.SqlServer"/>.
+    /// Set to <see cref="MaterializationTarget.Fabric"/> for Delta Lake on OneLake.
     /// </summary>
     public MaterializationTarget DefaultTarget { get; set; } = MaterializationTarget.SqlServer;
 
