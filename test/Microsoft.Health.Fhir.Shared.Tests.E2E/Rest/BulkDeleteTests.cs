@@ -519,12 +519,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await EnsureBulkDeleteAsync();
 
                 await CheckSearchParameterStatusAsync(SearchParameterStatus.PendingDelete);
+                DebugOutput($"Finished test");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Test failed with exception: {ex}");
                 DebugOutput($"Test failed with exception: {ex}");
-
                 throw;
             }
             finally
@@ -544,10 +543,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 foreach (var resource in resources)
                 {
                     var result = await _fhirClient.HardDeleteAsync(resource, false);
+                    var content = await result.Content.ReadAsStringAsync();
                     var status = result.StatusCode;
 
                     DebugOutput($"Cleanup delete for {resource.Id}: {status}");
-                    DebugOutput(result.GetFhirResponseDetailsAsJson());
+                    DebugOutput(content);
                     Assert.True(status == HttpStatusCode.NotFound || status == HttpStatusCode.NoContent, $"expected=({HttpStatusCode.NotFound},{HttpStatusCode.NoContent}) actual={status} for resource {resource.Id}");
                 }
             }
