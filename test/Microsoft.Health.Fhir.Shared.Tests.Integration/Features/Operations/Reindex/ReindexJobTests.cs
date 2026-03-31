@@ -1291,13 +1291,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private async Task<ReindexJobWrapper> WaitForReindexCompletionAsync(CreateReindexResponse response, OperationStatus operationStatus, CancellationTokenSource cancellationTokenSource)
         {
             var stopwatch = Stopwatch.StartNew();
-            ReindexJobWrapper reindexJobWrapper = null;
+            ReindexJobWrapper orchestrator = null;
             while (stopwatch.Elapsed.TotalSeconds < 120)
             {
-                reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
-                if (reindexJobWrapper.JobRecord.Status == OperationStatus.Failed
-                    || reindexJobWrapper.JobRecord.Status == OperationStatus.Canceled
-                    || reindexJobWrapper.JobRecord.Status == OperationStatus.Completed)
+                orchestrator = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+                if (orchestrator.JobRecord.Status == OperationStatus.Failed
+                    || orchestrator.JobRecord.Status == OperationStatus.Canceled
+                    || orchestrator.JobRecord.Status == OperationStatus.Completed)
                 {
                     break;
                 }
@@ -1305,12 +1305,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 await Task.Delay(1000);
             }
 
-            Assert.Equal(operationStatus, reindexJobWrapper.JobRecord.Status);
+            Assert.Equal(operationStatus, orchestrator.JobRecord.Status);
 
             var serializer = new FhirJsonSerializer();
-            _output.WriteLine(serializer.SerializeToString(reindexJobWrapper.ToParametersResourceElement().ToPoco<Parameters>()));
+            _output.WriteLine(serializer.SerializeToString(orchestrator.ToParametersResourceElement().ToPoco<Parameters>()));
 
-            return reindexJobWrapper;
+            return orchestrator;
         }
 
         private async Task<CreateReindexResponse> SetUpForReindexing(CreateReindexRequest request = null)
