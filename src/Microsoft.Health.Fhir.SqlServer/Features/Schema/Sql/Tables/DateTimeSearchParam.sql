@@ -19,6 +19,7 @@ ON dbo.DateTimeSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
@@ -34,6 +35,7 @@ INCLUDE
     IsMin,
     IsMax
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
@@ -49,6 +51,7 @@ INCLUDE
     IsMin,
     IsMax
 )
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
@@ -64,6 +67,7 @@ INCLUDE
     IsMax
 )
 WHERE IsLongerThanADay = 1
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
@@ -79,5 +83,6 @@ INCLUDE
     IsMax
 )
 WHERE IsLongerThanADay = 1
+WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
