@@ -40,7 +40,8 @@ public class FhirDemoService
     /// Registers a ViewDefinition for materialization by creating a Library resource
     /// with the ViewDefinition profile. The FHIR server intercepts Library creation and
     /// triggers materialization (SQL table, population job, subscription).
-    /// If a Library with the same name already exists, it is deleted first to avoid duplicates.
+    /// Uses PUT with a deterministic ID derived from the ViewDefinition name, so re-registering
+    /// updates the existing Library instead of creating duplicates.
     /// </summary>
     public async Task<string> RegisterViewDefinitionAsync(string viewDefinitionJson)
     {
@@ -48,14 +49,14 @@ public class FhirDemoService
         string name = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() ?? "unknown" : "unknown";
         string resource = doc.RootElement.TryGetProperty("resource", out var r) ? r.GetString() ?? "Unknown" : "Unknown";
 
-        // Delete any existing Library with the same ViewDefinition name to avoid duplicates
-        await DeleteExistingViewDefinitionLibraryAsync(name);
-
+        // Deterministic ID: "viewdef-{name}" so PUT always targets the same resource
+        string libraryId = $"viewdef-{name}";
         string base64Content = Convert.ToBase64String(Encoding.UTF8.GetBytes(viewDefinitionJson));
 
         string libraryJson = $$"""
             {
                 "resourceType": "Library",
+                "id": "{{libraryId}}",
                 "meta": {
                     "profile": ["{{ViewDefinitionLibraryProfile}}"],
                     "tag": [{"system": "{{DemoTagSystem}}", "code": "{{DemoTag}}"}]
@@ -75,48 +76,8 @@ public class FhirDemoService
             """;
 
         var content = new StringContent(libraryJson, Encoding.UTF8, "application/fhir+json");
-        var response = await _httpClient.PostAsync("Library", content);
+        var response = await _httpClient.PutAsync($"Library/{libraryId}", content);
         return await response.Content.ReadAsStringAsync();
-    }
-
-    /// <summary>
-    /// Deletes any existing Library resources that contain a ViewDefinition with the given name.
-    /// </summary>
-    private async Task DeleteExistingViewDefinitionLibraryAsync(string viewDefName)
-    {
-        try
-        {
-            var searchResponse = await _httpClient.GetAsync(
-                $"Library?name={viewDefName}&_profile={Uri.EscapeDataString(ViewDefinitionLibraryProfile)}&_format=json");
-
-            if (!searchResponse.IsSuccessStatusCode)
-            {
-                return;
-            }
-
-            string searchJson = await searchResponse.Content.ReadAsStringAsync();
-            var searchDoc = JsonNode.Parse(searchJson);
-            var entries = searchDoc?["entry"]?.AsArray();
-
-            if (entries == null)
-            {
-                return;
-            }
-
-            foreach (var entry in entries)
-            {
-                string? libraryId = entry?["resource"]?["id"]?.GetValue<string>();
-                if (libraryId != null)
-                {
-                    await _httpClient.DeleteAsync($"Library/{libraryId}?_hardDelete=true");
-                    _logger.LogInformation("Deleted existing ViewDefinition Library/{LibraryId} for '{ViewDefName}'", libraryId, viewDefName);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to check/delete existing Library for '{ViewDefName}'", viewDefName);
-        }
     }
 
     /// <summary>

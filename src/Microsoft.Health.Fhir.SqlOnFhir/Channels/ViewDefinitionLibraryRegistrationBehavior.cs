@@ -18,7 +18,9 @@ namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
 /// materialization registration (SQL table creation, population job, subscription setup) via
 /// <see cref="IViewDefinitionSubscriptionManager"/>.
 /// </summary>
-public sealed class ViewDefinitionLibraryRegistrationBehavior : IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>
+public sealed class ViewDefinitionLibraryRegistrationBehavior :
+    IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
+    IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>
 {
     private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
     private readonly ILogger<ViewDefinitionLibraryRegistrationBehavior> _logger;
@@ -79,15 +81,59 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior : IPipelineBehavio
         return response;
     }
 
+    /// <inheritdoc />
+    public async Task<UpsertResourceResponse> Handle(
+        UpsertResourceRequest request,
+        RequestHandlerDelegate<UpsertResourceResponse> next,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("ViewDefinitionLibraryRegistrationBehavior (Upsert) invoked for {ResourceType}", request.Resource.InstanceType);
+
+        UpsertResourceResponse response = await next(cancellationToken);
+
+        if (!IsViewDefinitionLibraryElement(request.Resource))
+        {
+            return response;
+        }
+
+        string? viewDefinitionJson = ExtractViewDefinitionJson(request.Resource.Instance);
+        if (string.IsNullOrEmpty(viewDefinitionJson))
+        {
+            return response;
+        }
+
+        string libraryId = response.Outcome.RawResourceElement.Id;
+
+        _logger.LogInformation(
+            "Library resource '{LibraryId}' upserted with ViewDefinition. Triggering materialization registration",
+            libraryId);
+
+        try
+        {
+            await _subscriptionManager.RegisterAsync(viewDefinitionJson, libraryId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to register ViewDefinition from Library '{LibraryId}'", libraryId);
+        }
+
+        return response;
+    }
+
     private bool IsViewDefinitionLibrary(CreateResourceRequest request)
     {
-        if (!string.Equals(request.Resource.InstanceType, "Library", StringComparison.OrdinalIgnoreCase))
+        return IsViewDefinitionLibraryElement(request.Resource);
+    }
+
+    private bool IsViewDefinitionLibraryElement(Microsoft.Health.Fhir.Core.Models.ResourceElement resource)
+    {
+        if (!string.Equals(resource.InstanceType, "Library", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
         // Check for ViewDefinition profile in meta.profile
-        ITypedElement? meta = request.Resource.Instance.Children("meta").FirstOrDefault();
+        ITypedElement? meta = resource.Instance.Children("meta").FirstOrDefault();
         if (meta == null)
         {
             _logger.LogDebug("Library resource has no meta element");

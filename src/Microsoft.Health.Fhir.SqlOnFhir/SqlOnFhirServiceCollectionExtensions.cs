@@ -98,6 +98,13 @@ public static class SqlOnFhirServiceCollectionExtensions
                 Microsoft.Health.Fhir.Core.Messages.Upsert.UpsertResourceResponse>,
             ViewDefinitionLibraryRegistrationBehavior>();
 
+        // Register upsert behavior: triggers materialization when Library/ViewDef is PUT.
+        services.AddTransient<
+            MediatR.IPipelineBehavior<
+                Microsoft.Health.Fhir.Core.Messages.Upsert.UpsertResourceRequest,
+                Microsoft.Health.Fhir.Core.Messages.Upsert.UpsertResourceResponse>,
+            ViewDefinitionLibraryRegistrationBehavior>();
+
         // Register startup recovery and multi-node sync service for ViewDefinition Library resources.
         // Waits for SearchParametersInitializedNotification, then polls every 10s for changes.
         services.AddSingleton<ViewDefinitionSyncService>();
