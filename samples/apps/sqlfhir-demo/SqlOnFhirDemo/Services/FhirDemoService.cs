@@ -163,7 +163,7 @@ public class FhirDemoService
 
     /// <summary>
     /// Queries the materialization status of a registered ViewDefinition.
-    /// Returns the status JSON from GET ViewDefinition/{name}.
+    /// Returns the status JSON from GET ViewDefinition/{name}/$status.
     /// </summary>
     public async Task<ViewDefinitionMaterializationStatus?> GetViewDefinitionStatusAsync(string viewDefName)
     {

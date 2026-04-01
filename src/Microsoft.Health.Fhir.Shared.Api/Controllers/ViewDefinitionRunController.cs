@@ -109,6 +109,20 @@ public class ViewDefinitionRunController : Controller
     }
 
     /// <summary>
+    /// GET ViewDefinition — Lists all registered ViewDefinitions and their materialization status.
+    /// </summary>
+    [HttpGet]
+    [Route(KnownRoutes.ViewDefinitionList)]
+    [AuditEventType(AuditEventSubType.Read)]
+    public async Task<IActionResult> List()
+    {
+        var request = new ViewDefinitionListRequest();
+        ViewDefinitionListResponse response = await _mediator.Send(request, HttpContext.RequestAborted);
+
+        return new JsonResult(response) { StatusCode = 200 };
+    }
+
+    /// <summary>
     /// GET ViewDefinition/{id} — Returns the materialization status of a registered ViewDefinition.
     /// Clients use this to track progress from Created → Populating → Active.
     /// The URL is returned as a Content-Location header when a ViewDefinition Library is POSTed.
