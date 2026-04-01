@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Concurrent;
 using System.Text;
 using Hl7.Fhir.ElementModel;
 using MediatR;
@@ -35,6 +36,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
     private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
     private readonly ILogger<ViewDefinitionSyncService> _logger;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _recentlyEvicted = new(StringComparer.OrdinalIgnoreCase);
 
     private Timer? _refreshTimer;
     private CancellationToken _stoppingToken;
@@ -175,10 +177,19 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
 
             if (existing == null)
             {
+                // Skip if recently evicted (prevents re-adopting a just-deleted ViewDefinition
+                // before the soft-deleted Library disappears from search results)
+                if (_recentlyEvicted.TryGetValue(name, out DateTimeOffset evictedAt)
+                    && DateTimeOffset.UtcNow - evictedAt < TimeSpan.FromSeconds(30))
+                {
+                    continue;
+                }
+
                 // Another node registered this — adopt into our local cache
                 try
                 {
                     await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken);
+                    _recentlyEvicted.TryRemove(name, out _);
                 }
                 catch (Exception ex)
                 {
@@ -212,6 +223,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                     registration.ViewDefinitionName);
 
                 _subscriptionManager.Evict(registration.ViewDefinitionName);
+                _recentlyEvicted[registration.ViewDefinitionName] = DateTimeOffset.UtcNow;
             }
         }
     }

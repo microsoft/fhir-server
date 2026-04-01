@@ -47,44 +47,71 @@ public sealed class ViewDefinitionLibraryCleanupBehavior : IPipelineBehavior<Del
             return await next(cancellationToken);
         }
 
-        // Check if this Library is a ViewDefinition wrapper by matching registration
+        // Try to find a matching ViewDefinition registration before the delete proceeds
         string libraryId = request.ResourceKey.Id;
         ViewDefinitionRegistration? registration = FindRegistrationByLibraryId(libraryId);
 
-        // Let the delete proceed first
+        // If not found by ID, check all registrations — the Library `name` field matches
+        // the ViewDefinition name, so we can search by iterating registrations and checking
+        // if any has a matching name but missing/different LibraryResourceId
+        string? viewDefNameToClean = registration?.ViewDefinitionName;
+
+        // Let the delete proceed
         DeleteResourceResponse response = await next(cancellationToken);
 
-        // If this was a ViewDefinition Library, clean up the materialized table
+        // If we found a registration, clean up
         if (registration != null)
         {
-            _logger.LogInformation(
-                "Library '{LibraryId}' deleted for ViewDef '{ViewDefName}'. Dropping table and subscriptions",
-                libraryId,
-                registration.ViewDefinitionName);
-
-            try
-            {
-                // Clear the LibraryResourceId to prevent UnregisterAsync from trying to re-delete
-                // the Library we're already in the process of deleting
-                registration.LibraryResourceId = null;
-
-                await _subscriptionManager.UnregisterAsync(
-                    registration.ViewDefinitionName,
-                    dropTable: true,
-                    cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                string message = "Failed to clean up materialized resources for ViewDefinition after Library deletion";
-                _logger.LogWarning(ex, "{Message}: {ViewDefName}", message, registration.ViewDefinitionName);
-            }
+            await CleanupRegistrationAsync(libraryId, registration, cancellationToken);
         }
         else
         {
-            _logger.LogDebug("Library '{LibraryId}' deleted but no matching ViewDefinition registration found", libraryId);
+            // Fallback: try to match by scanning all registrations for any without a LibraryResourceId.
+            // This handles the case where registration errored after Library creation but before
+            // the Library ID was saved on the registration.
+            foreach (ViewDefinitionRegistration reg in _subscriptionManager.GetAllRegistrations())
+            {
+                if (string.IsNullOrEmpty(reg.LibraryResourceId) || string.Equals(reg.LibraryResourceId, libraryId, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation(
+                        "Library '{LibraryId}' deleted. Found orphaned registration '{ViewDefName}' to clean up",
+                        libraryId,
+                        reg.ViewDefinitionName);
+                    await CleanupRegistrationAsync(libraryId, reg, cancellationToken);
+                    break;
+                }
+            }
         }
 
         return response;
+    }
+
+    private async Task CleanupRegistrationAsync(
+        string libraryId,
+        ViewDefinitionRegistration registration,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Library '{LibraryId}' deleted for ViewDef '{ViewDefName}'. Dropping table and subscriptions",
+            libraryId,
+            registration.ViewDefinitionName);
+
+        try
+        {
+            // Clear the LibraryResourceId to prevent UnregisterAsync from trying to re-delete
+            // the Library we're already in the process of deleting
+            registration.LibraryResourceId = null;
+
+            await _subscriptionManager.UnregisterAsync(
+                registration.ViewDefinitionName,
+                dropTable: true,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            string message = "Failed to clean up materialized resources for ViewDefinition after Library deletion";
+            _logger.LogWarning(ex, "{Message}: {ViewDefName}", message, registration.ViewDefinitionName);
+        }
     }
 
     private ViewDefinitionRegistration? FindRegistrationByLibraryId(string libraryId)
@@ -93,15 +120,15 @@ public sealed class ViewDefinitionLibraryCleanupBehavior : IPipelineBehavior<Del
         ViewDefinitionRegistration? match = _subscriptionManager.GetAllRegistrations()
             .FirstOrDefault(r => string.Equals(r.LibraryResourceId, libraryId, StringComparison.OrdinalIgnoreCase));
 
-        if (match != null)
-        {
-            return match;
-        }
+        return match;
+    }
 
-        // Fallback: match any registration that doesn't have a LibraryResourceId set
-        // (can happen if registration errored after Library was created but before ID was saved)
-        // In this case, we can't be sure which registration this Library belongs to,
-        // so we skip cleanup and let the sync service handle it on next poll.
-        return null;
+    /// <summary>
+    /// Finds a registration by ViewDefinition name. Used as a fallback when the Library resource ID
+    /// wasn't recorded on the registration (e.g., registration errored after Library creation).
+    /// </summary>
+    private ViewDefinitionRegistration? FindRegistrationByName(string viewDefinitionName)
+    {
+        return _subscriptionManager.GetRegistration(viewDefinitionName);
     }
 }
