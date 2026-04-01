@@ -34,9 +34,6 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
-#if NET9_0_OR_GREATER
-using Microsoft.Health.Fhir.SqlOnFhir;
-#endif
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
@@ -89,12 +86,8 @@ namespace Microsoft.Health.Fhir.Web
 
             AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
 
-#if NET9_0_OR_GREATER
-            // Set up SQL on FHIR ViewDefinition materialization.
-            services.AddSqlOnFhir();
-            services.Configure<Microsoft.Health.Fhir.SqlOnFhir.Materialization.SqlOnFhirMaterializationConfiguration>(
-                Configuration.GetSection(Microsoft.Health.Fhir.SqlOnFhir.Materialization.SqlOnFhirMaterializationConfiguration.SectionName));
-#endif
+            // Hook for version-specific modules (e.g., SqlOnFhir in R4.Web)
+            AddVersionSpecificServices(services);
 
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
@@ -111,6 +104,51 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             AddTelemetryProvider(services);
+        }
+
+        /// <summary>
+        /// Registers SQL on FHIR ViewDefinition materialization if the SqlOnFhir assembly is available.
+        /// The SqlOnFhir module depends on Hl7.Fhir.R4, so it is only available in R4.Web.
+        /// Uses reflection to avoid compile-time dependency from the shared Startup.
+        /// </summary>
+        protected virtual void AddVersionSpecificServices(IServiceCollection services)
+        {
+            try
+            {
+                var sqlOnFhirAssembly = System.Reflection.Assembly.Load("Microsoft.Health.Fhir.SqlOnFhir");
+                var extensionsType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.SqlOnFhirServiceCollectionExtensions");
+                var addMethod = extensionsType?.GetMethod("AddSqlOnFhir", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                addMethod?.Invoke(null, new object[] { services });
+
+                var configType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.Materialization.SqlOnFhirMaterializationConfiguration");
+                var sectionName = configType?.GetField("SectionName")?.GetValue(null) as string ?? "SqlOnFhirMaterialization";
+                var configureMethod = typeof(OptionsConfigurationServiceCollectionExtensions)
+                    .GetMethods().First(m => m.Name == "Configure" && m.GetParameters().Length == 2)
+                    .MakeGenericMethod(configType!);
+                configureMethod.Invoke(null, new object[] { services, Configuration.GetSection(sectionName) });
+            }
+            catch (System.IO.FileNotFoundException)
+            {
+                // SqlOnFhir assembly not available (non-R4 build) — skip registration
+            }
+        }
+
+        /// <summary>
+        /// Configures SQL on FHIR channels if the SqlOnFhir assembly is available.
+        /// </summary>
+        protected virtual void ConfigureVersionSpecificServices(IApplicationBuilder app)
+        {
+            try
+            {
+                var sqlOnFhirAssembly = System.Reflection.Assembly.Load("Microsoft.Health.Fhir.SqlOnFhir");
+                var extensionsType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.SqlOnFhirServiceCollectionExtensions");
+                var useMethod = extensionsType?.GetMethod("UseSqlOnFhirChannels", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                useMethod?.Invoke(null, new object[] { app.ApplicationServices });
+            }
+            catch (System.IO.FileNotFoundException)
+            {
+                // SqlOnFhir assembly not available — skip
+            }
         }
 
         private void AddDataStore(IServiceCollection services, IFhirServerBuilder fhirServerBuilder, IFhirRuntimeConfiguration runtimeConfiguration)
@@ -202,10 +240,7 @@ namespace Microsoft.Health.Fhir.Web
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer(DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured);
 
-#if NET9_0_OR_GREATER
-            // Register ViewDefinition refresh channel with the subscription engine
-            app.ApplicationServices.UseSqlOnFhirChannels();
-#endif
+            ConfigureVersionSpecificServices(app);
         }
 
         /// <summary>
