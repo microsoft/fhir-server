@@ -9,6 +9,8 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.SqlOnFhir.Channels;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
@@ -36,11 +38,16 @@ public static class SqlOnFhirServiceCollectionExtensions
         services.AddSingleton<IViewDefinitionMaterializer, SqlServerViewDefinitionMaterializer>();
         services.AddSingleton<SqlServerViewDefinitionMaterializer>();
         services.AddSingleton<IViewDefinitionSubscriptionManager, ViewDefinitionSubscriptionManager>();
-        services.AddSingleton<INotificationHandler<Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun.ViewDefinitionPopulationCompleteNotification>>(
+        services.AddSingleton<INotificationHandler<ViewDefinitionPopulationCompleteNotification>>(
             sp => (ViewDefinitionSubscriptionManager)sp.GetRequiredService<IViewDefinitionSubscriptionManager>());
 
         // Register MediatR handlers from this assembly (not auto-discovered by KnownAssemblies).
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<ViewDefinitionEvaluator>());
+
+        // MediatR registers notification handlers as Transient by default during assembly scanning.
+        // Remove the auto-discovered transient handlers so only our singleton registrations are used.
+        services.RemoveServiceTypeExact<ViewDefinitionSubscriptionManager, INotificationHandler<ViewDefinitionPopulationCompleteNotification>>();
+        services.RemoveServiceTypeExact<ViewDefinitionSyncService, INotificationHandler<SearchParametersInitializedNotification>>();
 
         // Register Delta Lake engine and materializer for Fabric target.
         // The engine is a long-lived resource that manages the FFI bridge to delta-rs.

@@ -55,6 +55,7 @@ public class ViewDefinitionPopulationProcessingJobTests
             _resourceDeserializer,
             _materializer,
             _queueClient,
+            Substitute.For<MediatR.IMediator>(),
             NullLogger<ViewDefinitionPopulationProcessingJob>.Instance);
     }
 

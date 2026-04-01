@@ -153,6 +153,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 string? viewDefinitionJson = ExtractViewDefinitionJson(entry.Resource);
                 if (viewDefinitionJson == null)
                 {
+                    _logger.LogWarning("Failed to extract ViewDefinition JSON from Library '{Id}'", entry.Resource.ResourceId);
                     continue;
                 }
 
@@ -161,10 +162,14 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 {
                     persistedViewDefs[name] = (viewDefinitionJson, entry.Resource.ResourceId);
                 }
+                else
+                {
+                    _logger.LogWarning("ViewDefinition JSON from Library '{Id}' has no 'name' property", entry.Resource.ResourceId);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to parse Library '{Id}'", entry.Resource.ResourceId);
+                _logger.LogWarning(ex, "Failed to parse Library '{Id}'", entry.Resource.ResourceId);
             }
         }
 
@@ -230,6 +235,8 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
 
     /// <summary>
     /// Extracts the ViewDefinition JSON from a Library resource's content attachment.
+    /// Handles both POCO-based element models (where base64Binary Value is byte[])
+    /// and JSON-based element models (where Value is a base64 string).
     /// </summary>
     private string? ExtractViewDefinitionJson(ResourceWrapper wrapper)
     {
@@ -239,16 +246,36 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
         ITypedElement? contentElement = typedElement.Children("content").FirstOrDefault();
         if (contentElement == null)
         {
+            _logger.LogWarning("Library '{ResourceId}' has no content element", wrapper.ResourceId);
             return null;
         }
 
         string? ct = contentElement.Children("contentType").FirstOrDefault()?.Value?.ToString();
         if (!string.Equals(ct, ViewDefinitionSubscriptionManager.ViewDefinitionContentType, StringComparison.OrdinalIgnoreCase))
         {
+            _logger.LogDebug(
+                "Library '{ResourceId}' content type '{ContentType}' does not match expected '{Expected}'",
+                wrapper.ResourceId,
+                ct,
+                ViewDefinitionSubscriptionManager.ViewDefinitionContentType);
             return null;
         }
 
-        string? base64 = contentElement.Children("data").FirstOrDefault()?.Value?.ToString();
+        object? dataValue = contentElement.Children("data").FirstOrDefault()?.Value;
+        if (dataValue == null)
+        {
+            _logger.LogWarning("Library '{ResourceId}' has no data element in content", wrapper.ResourceId);
+            return null;
+        }
+
+        // POCO-based element model returns byte[] for base64Binary fields;
+        // JSON-based element model returns the raw base64 string.
+        if (dataValue is byte[] bytes)
+        {
+            return Encoding.UTF8.GetString(bytes);
+        }
+
+        string? base64 = dataValue.ToString();
         if (string.IsNullOrEmpty(base64))
         {
             return null;
