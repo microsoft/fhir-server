@@ -1,7 +1,7 @@
 variables:
     ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-ci-aca'
-    DeploymentEnvironmentName: '$(resourceGroupRoot)'
+    DeploymentEnvironmentName: 'msh-fhir-ci'
     AcaEnvironmentName: '$(DeploymentEnvironmentName)-acae'
     # CI uses the same name for Key Vaults as the deployment environment (no BuildId suffix needed)
     KeyVaultBaseName: '$(DeploymentEnvironmentName)'

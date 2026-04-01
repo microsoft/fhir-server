@@ -190,7 +190,7 @@ jobs:
             additionalEnvVars = $additionalEnvVars
         }
 
-        $deploymentName = "$webAppName-aca"
+        $deploymentName = "$webAppName"
 
         Write-Host "Provisioning ACA resources"
         Write-Host "ResourceGroupName: $resourceGroupName"

@@ -147,7 +147,7 @@ jobs:
             additionalEnvVars = $additionalEnvVars
         }
 
-        $deploymentName = "$webAppName-aca"
+        $deploymentName = "$webAppName"
         $resourceGroupName = "${{ parameters.resourceGroup }}"
         $sqlServerName = "${{ parameters.sqlServerName }}".ToLowerInvariant()
 
