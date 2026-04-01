@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     }
                 })).ToArray();
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             Task.WaitAll(tasks, cancellationTokenSource.Token);
@@ -306,7 +306,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     }
                 })).ToArray();
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             Task.WaitAll(tasks, cancellationTokenSource.Token);
@@ -336,7 +336,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     Assert.True(exists);
                 })).ToArray();
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             Task.WaitAll(tasks, cancellationTokenSource.Token);
@@ -362,7 +362,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             var tasks = Enumerable.Range(0, totalItems / 2).Select(i =>
                 Task.Run(() => list.Remove(i))).ToArray();
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             Task.WaitAll(tasks, cancellationTokenSource.Token);
@@ -397,7 +397,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
 
             var allTasks = addTasks.Concat(removeTasks).ToArray();
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             Task.WaitAll(allTasks, cancellationTokenSource.Token);
@@ -438,7 +438,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                 .Concat(enumerationTasks)
                 .ToArray();
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             Task.WaitAll(allTasks, cancellationTokenSource.Token);
@@ -490,7 +490,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                 }));
             }
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             Task.WaitAll(tasks.ToArray(), cancellationTokenSource.Token);
@@ -508,7 +508,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             // Act - High contention scenario with many threads
             Task[] tasks = new Task[numberOfThreads];
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+            using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
             for (int i = 0; i < numberOfThreads; i++)
             {
