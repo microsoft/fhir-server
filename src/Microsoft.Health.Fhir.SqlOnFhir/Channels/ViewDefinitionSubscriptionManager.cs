@@ -119,23 +119,32 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 await _schemaManager.CreateTableAsync(viewDefinitionJson, cancellationToken);
             }
 
-            // Step 2: Enqueue full population background job
+            // Step 2: Enqueue full population background job.
+            // This is best-effort — the subscription will handle incremental updates even if
+            // the initial population job fails to enqueue.
             registration.Status = ViewDefinitionStatus.Populating;
 
-            var populationDef = new ViewDefinitionPopulationOrchestratorJobDefinition
+            try
             {
-                ViewDefinitionJson = viewDefinitionJson,
-                ViewDefinitionName = name,
-                ResourceType = resourceType,
-                BatchSize = 100,
-            };
+                var populationDef = new ViewDefinitionPopulationOrchestratorJobDefinition
+                {
+                    ViewDefinitionJson = viewDefinitionJson,
+                    ViewDefinitionName = name,
+                    ResourceType = resourceType,
+                    BatchSize = 100,
+                };
 
-            await _queueClient.EnqueueAsync(
-                (byte)QueueType.ViewDefinitionPopulation,
-                new[] { JsonConvert.SerializeObject(populationDef) },
-                groupId: null,
-                forceOneActiveJobGroup: true,
-                cancellationToken);
+                await _queueClient.EnqueueAsync(
+                    (byte)QueueType.ViewDefinitionPopulation,
+                    new[] { JsonConvert.SerializeObject(populationDef) },
+                    groupId: null,
+                    forceOneActiveJobGroup: false,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Failed to enqueue population job for '{ViewDefName}'. Incremental updates via subscription will still work", name);
+            }
 
             // Step 3: Create Subscription resource via MediatR pipeline
             string subscriptionId = await CreateSubscriptionAsync(viewDefinitionJson, name, resourceType, cancellationToken);
