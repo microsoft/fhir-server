@@ -650,14 +650,14 @@ public class FhirDemoService
 
                 // Patient
                 entries.Append($@"
-                {{""resource"": {{""resourceType"": ""Patient"", ""id"": ""{id}"", {DemoMetaTagJson}, ""name"": [{{""use"": ""official"", ""family"": ""{lastName}"", ""given"": [""{firstName}""]}}], ""gender"": ""{gender}"", ""birthDate"": ""{birthYear}-{(i % 12) + 1:D2}-{(i % 28) + 1:D2}""}}, ""request"": {{""method"": ""PUT"", ""url"": ""Patient/{id}""}}}},");
+                {{""resource"": {{""resourceType"": ""Patient"", ""id"": ""{id}"", {DemoMetaTagJson}, ""name"": [{{""use"": ""official"", ""family"": ""{lastName}"", ""given"": [""{firstName}""]}}], ""gender"": ""{gender}"", ""birthDate"": ""{birthYear}-{(i % 12) + 1:D2}-{(i % 28) + 1:D2}""}}, ""request"": {{""method"": ""PUT"", ""url"": ""Patient/{id}""}}}}");
 
                 // Hypertension condition
-                entries.Append($@"
-                {{""resource"": {{""resourceType"": ""Condition"", ""id"": ""{id}-htn"", {DemoMetaTagJson}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""code"": {{""coding"": [{{""system"": ""http://snomed.info/sct"", ""code"": ""59621000"", ""display"": ""Essential hypertension""}}]}}, ""clinicalStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-clinical"", ""code"": ""active""}}]}}, ""verificationStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-ver-status"", ""code"": ""confirmed""}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Condition/{id}-htn""}}}},");
+                entries.Append($@",
+                {{""resource"": {{""resourceType"": ""Condition"", ""id"": ""{id}-htn"", {DemoMetaTagJson}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""code"": {{""coding"": [{{""system"": ""http://snomed.info/sct"", ""code"": ""59621000"", ""display"": ""Essential hypertension""}}]}}, ""clinicalStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-clinical"", ""code"": ""active""}}]}}, ""verificationStatus"": {{""coding"": [{{""system"": ""http://terminology.hl7.org/CodeSystem/condition-ver-status"", ""code"": ""confirmed""}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Condition/{id}-htn""}}}}");
 
                 // Uncontrolled BP observation
-                entries.Append($@"
+                entries.Append($@",
                 {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{id}-bp"", {DemoMetaTagJson}, ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{id}-bp""}}}}");
             }
 
