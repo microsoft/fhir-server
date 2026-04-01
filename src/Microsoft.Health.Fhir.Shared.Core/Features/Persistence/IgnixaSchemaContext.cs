@@ -25,12 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     /// Currently supported FHIR versions:
     /// </para>
     /// <list type="bullet">
+    /// <item><description>STU3 - Uses <see cref="STU3CoreSchemaProvider"/></description></item>
     /// <item><description>R4 - Uses <see cref="R4CoreSchemaProvider"/></description></item>
+    /// <item><description>R4B - Uses <see cref="R4BCoreSchemaProvider"/></description></item>
     /// <item><description>R5 - Uses <see cref="R5CoreSchemaProvider"/></description></item>
     /// </list>
-    /// <para>
-    /// STU3 and R4B support can be added when schema providers become available.
-    /// </para>
     /// </remarks>
     public class IgnixaSchemaContext : IIgnixaSchemaContext
     {
@@ -71,10 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             return fhirVersion switch
             {
-                // STU3 and R4B schema providers can be added when available in Ignixa.Specification.Generated
-                FhirSpecification.Stu3 => new R4CoreSchemaProvider(), // Fallback to R4 for STU3 until Stu3CoreSchemaProvider is available
+                FhirSpecification.Stu3 => new STU3CoreSchemaProvider(),
                 FhirSpecification.R4 => new R4CoreSchemaProvider(),
-                FhirSpecification.R4B => new R4CoreSchemaProvider(), // Fallback to R4 for R4B until R4BCoreSchemaProvider is available
+                FhirSpecification.R4B => new R4BCoreSchemaProvider(),
                 FhirSpecification.R5 => new R5CoreSchemaProvider(),
                 _ => throw new NotSupportedException($"FHIR version {fhirVersion} is not supported for Ignixa schema context."),
             };
