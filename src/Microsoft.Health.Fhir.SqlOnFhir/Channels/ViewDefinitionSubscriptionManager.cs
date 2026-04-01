@@ -79,22 +79,13 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     }
 
     /// <inheritdoc />
-    public async Task<ViewDefinitionRegistration> RegisterAsync(string viewDefinitionJson, CancellationToken cancellationToken)
-    {
-        return await RegisterAsync(viewDefinitionJson, libraryResourceId: null, cancellationToken);
-    }
-
-    /// <summary>
-    /// Registers a ViewDefinition for materialization with an optional pre-existing Library resource ID.
-    /// When <paramref name="libraryResourceId"/> is provided (e.g., from a Library POST), skips Library creation.
-    /// When null, creates a new Library resource to persist the registration.
-    /// </summary>
     public async Task<ViewDefinitionRegistration> RegisterAsync(
         string viewDefinitionJson,
-        string? libraryResourceId,
+        string libraryResourceId,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(viewDefinitionJson);
+        ArgumentException.ThrowIfNullOrWhiteSpace(libraryResourceId);
 
         (string name, string resourceType) = ExtractViewDefinitionMetadata(viewDefinitionJson);
 
@@ -170,12 +161,6 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             // Step 3: Create Subscription resource via MediatR pipeline
             string subscriptionId = await CreateSubscriptionAsync(viewDefinitionJson, name, resourceType, cancellationToken);
             registration.SubscriptionIds.Add(subscriptionId);
-
-            // Step 4: Persist ViewDefinition as a Library resource (if not already provided)
-            if (string.IsNullOrEmpty(libraryResourceId))
-            {
-                libraryResourceId = await CreateLibraryResourceAsync(viewDefinitionJson, name, resourceType, cancellationToken);
-            }
 
             registration.LibraryResourceId = libraryResourceId;
 
@@ -352,50 +337,6 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         var response = await SendScopedAsync<UpsertResourceResponse>(request, cancellationToken);
 
         return response.Outcome.RawResourceElement.Id;
-    }
-
-    /// <summary>
-    /// Creates a FHIR Library resource that wraps the ViewDefinition JSON for persistent storage.
-    /// The Library is tagged with the ViewDefinition profile so it can be discovered on startup.
-    /// </summary>
-    private async Task<string> CreateLibraryResourceAsync(
-        string viewDefinitionJson,
-        string viewDefinitionName,
-        string resourceType,
-        CancellationToken cancellationToken)
-    {
-        var library = new Library
-        {
-            Meta = new Meta
-            {
-                Profile = new List<string> { ViewDefinitionLibraryProfile },
-            },
-            Name = viewDefinitionName,
-            Title = $"ViewDefinition: {viewDefinitionName}",
-            Status = PublicationStatus.Active,
-            Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/library-type", "logic-library"),
-            Description = new Markdown($"SQL on FHIR v2 ViewDefinition for {resourceType} resources. Auto-created by materialization registration."),
-            Content = new List<Attachment>
-            {
-                new Attachment
-                {
-                    ContentType = ViewDefinitionContentType,
-                    Data = System.Text.Encoding.UTF8.GetBytes(viewDefinitionJson),
-                },
-            },
-        };
-
-        ResourceElement resourceElement = new ResourceElement(library.ToTypedElement());
-        var request = new CreateResourceRequest(resourceElement, bundleResourceContext: null);
-        var response = await SendScopedAsync<UpsertResourceResponse>(request, cancellationToken);
-
-        string libraryId = response.Outcome.RawResourceElement.Id;
-        _logger.LogInformation(
-            "Created Library resource '{LibraryId}' for ViewDefinition '{ViewDefName}'",
-            libraryId,
-            viewDefinitionName);
-
-        return libraryId;
     }
 
     /// <summary>

@@ -14,22 +14,13 @@ public interface IViewDefinitionSubscriptionManager
     /// Registers a ViewDefinition for materialization: creates the SQL table, enqueues the
     /// full population job, and creates Subscription resource(s) via the MediatR pipeline so
     /// the subscription engine starts sending change events to the ViewDefinitionRefreshChannel.
-    /// Also creates a Library resource to persist the registration (if not already provided).
+    /// The caller must provide the Library resource ID that persists this ViewDefinition.
     /// </summary>
     /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
+    /// <param name="libraryResourceId">The ID of the Library resource that persists this ViewDefinition.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The registration details including auto-created Subscription IDs.</returns>
-    Task<ViewDefinitionRegistration> RegisterAsync(string viewDefinitionJson, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Registers a ViewDefinition for materialization with a pre-existing Library resource.
-    /// Skips Library creation since the caller has already persisted the Library resource.
-    /// </summary>
-    /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
-    /// <param name="libraryResourceId">The ID of the already-persisted Library resource.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The registration details including auto-created Subscription IDs.</returns>
-    Task<ViewDefinitionRegistration> RegisterAsync(string viewDefinitionJson, string? libraryResourceId, CancellationToken cancellationToken);
+    Task<ViewDefinitionRegistration> RegisterAsync(string viewDefinitionJson, string libraryResourceId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Unregisters a ViewDefinition: deletes the auto-created Subscription resource(s) and
