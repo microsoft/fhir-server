@@ -98,6 +98,25 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
         (string name, string resourceType) = ExtractViewDefinitionMetadata(viewDefinitionJson);
 
+        // Skip re-registration if the ViewDefinition is already registered with identical content
+        if (_registrations.TryGetValue(name, out ViewDefinitionRegistration? existing)
+            && existing.ViewDefinitionJson == viewDefinitionJson
+            && existing.Status is ViewDefinitionStatus.Active or ViewDefinitionStatus.Populating)
+        {
+            _logger.LogInformation(
+                "ViewDefinition '{ViewDefName}' already registered with same content (status: {Status}). Skipping",
+                name,
+                existing.Status);
+
+            // Update the Library ID if it changed (e.g., PUT created a new version)
+            if (!string.IsNullOrEmpty(libraryResourceId))
+            {
+                existing.LibraryResourceId = libraryResourceId;
+            }
+
+            return existing;
+        }
+
         _logger.LogInformation(
             "Registering ViewDefinition '{ViewDefName}' for materialization (resource type: {ResourceType})",
             name,
