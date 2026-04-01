@@ -37,6 +37,9 @@ public static class SqlOnFhirServiceCollectionExtensions
         services.AddSingleton<SqlServerViewDefinitionMaterializer>();
         services.AddSingleton<IViewDefinitionSubscriptionManager, ViewDefinitionSubscriptionManager>();
 
+        // Register MediatR handlers from this assembly (not auto-discovered by KnownAssemblies).
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<ViewDefinitionEvaluator>());
+
         // Register Delta Lake engine and materializer for Fabric target.
         // The engine is a long-lived resource that manages the FFI bridge to delta-rs.
         services.AddSingleton<IEngine>(_ => new DeltaEngine(EngineOptions.Default));
