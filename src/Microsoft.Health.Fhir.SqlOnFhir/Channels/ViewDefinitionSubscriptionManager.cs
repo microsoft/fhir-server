@@ -9,6 +9,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -55,7 +56,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
     private readonly ConcurrentDictionary<string, ViewDefinitionRegistration> _registrations = new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly IMediator _mediator;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IViewDefinitionSchemaManager _schemaManager;
     private readonly IQueueClient _queueClient;
     private readonly ILogger<ViewDefinitionSubscriptionManager> _logger;
@@ -64,12 +65,12 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     /// Initializes a new instance of the <see cref="ViewDefinitionSubscriptionManager"/> class.
     /// </summary>
     public ViewDefinitionSubscriptionManager(
-        IMediator mediator,
+        IServiceScopeFactory scopeFactory,
         IViewDefinitionSchemaManager schemaManager,
         IQueueClient queueClient,
         ILogger<ViewDefinitionSubscriptionManager> logger)
     {
-        _mediator = mediator;
+        _scopeFactory = scopeFactory;
         _schemaManager = schemaManager;
         _queueClient = queueClient;
         _logger = logger;
@@ -185,7 +186,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         {
             try
             {
-                await _mediator.Send(
+                await SendScopedAsync(
                     new DeleteResourceRequest(KnownResourceTypes.Subscription, subscriptionId, DeleteOperation.SoftDelete),
                     cancellationToken);
 
@@ -202,7 +203,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         {
             try
             {
-                await _mediator.Send(
+                await SendScopedAsync(
                     new DeleteResourceRequest("Library", registration.LibraryResourceId, DeleteOperation.SoftDelete),
                     cancellationToken);
 
@@ -298,7 +299,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         ResourceElement resourceElement = new ResourceElement(subscription.ToTypedElement());
         var request = new CreateResourceRequest(resourceElement, bundleResourceContext: null);
 
-        var response = await _mediator.Send<UpsertResourceResponse>(request, cancellationToken);
+        var response = await SendScopedAsync<UpsertResourceResponse>(request, cancellationToken);
 
         return response.Outcome.RawResourceElement.Id;
     }
@@ -336,7 +337,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
         ResourceElement resourceElement = new ResourceElement(library.ToTypedElement());
         var request = new CreateResourceRequest(resourceElement, bundleResourceContext: null);
-        var response = await _mediator.Send<UpsertResourceResponse>(request, cancellationToken);
+        var response = await SendScopedAsync<UpsertResourceResponse>(request, cancellationToken);
 
         string libraryId = response.Outcome.RawResourceElement.Id;
         _logger.LogInformation(
@@ -416,6 +417,17 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         });
 
         return subscription;
+    }
+
+    /// <summary>
+    /// Sends a MediatR request within a new DI scope, avoiding the "cannot resolve scoped service
+    /// from root provider" error when called from singleton services.
+    /// </summary>
+    private async Task<TResponse> SendScopedAsync<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken)
+    {
+        using IServiceScope scope = _scopeFactory.CreateScope();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+        return await mediator.Send(request, cancellationToken);
     }
 
     private static (string Name, string ResourceType) ExtractViewDefinitionMetadata(string viewDefinitionJson)
