@@ -79,11 +79,11 @@
     },
     "minReplicas": {
       "type": "int",
-      "defaultValue": 1
+      "defaultValue": 0
     },
     "maxReplicas": {
       "type": "int",
-      "defaultValue": 3
+      "defaultValue": 8
     },
     "containerCpu": {
       "type": "string",
