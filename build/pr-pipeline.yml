@@ -284,8 +284,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -308,8 +306,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
@@ -329,8 +325,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -353,8 +347,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: deployR4B
   displayName: 'Deploy R4B CosmosDB Site'
@@ -374,8 +366,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: deployR4BSql
   displayName: 'Deploy R4B SQL Site'
@@ -398,8 +388,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: deployR5
   displayName: 'Deploy R5 CosmosDB Site'
@@ -419,8 +407,6 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
@@ -443,8 +429,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-      containerCpu: '1.0'
-      containerMemory: '2Gi'
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'

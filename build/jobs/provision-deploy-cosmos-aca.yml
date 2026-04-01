@@ -18,12 +18,6 @@ parameters:
   default: true
 - name: keyVaultName
   type: string
-- name: containerCpu
-  type: string
-  default: '1.0'
-- name: containerMemory
-  type: string
-  default: '2Gi'
 
 jobs:
 - job: provisionEnvironment
@@ -191,9 +185,7 @@ jobs:
             enableConvertData = $true
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             minReplicas = 3
-            maxReplicas = 6
-            containerCpu = "${{ parameters.containerCpu }}"
-            containerMemory = "${{ parameters.containerMemory }}"
+            maxReplicas = 8
             acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
             additionalEnvVars = $additionalEnvVars
         }

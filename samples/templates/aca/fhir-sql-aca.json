@@ -95,11 +95,11 @@
     },
     "containerCpu": {
       "type": "string",
-      "defaultValue": "1.0"
+      "defaultValue": "0.5"
     },
     "containerMemory": {
       "type": "string",
-      "defaultValue": "2Gi"
+      "defaultValue": "1Gi"
     },
     "additionalEnvVars": {
       "type": "array",
@@ -216,7 +216,7 @@
   "resources": [
     {
       "type": "Microsoft.App/containerApps",
-      "apiVersion": "2023-05-01",
+      "apiVersion": "2024-03-01",
       "name": "[variables('containerAppName')]",
       "location": "[resourceGroup().location]",
       "identity": {
@@ -278,7 +278,27 @@
           ],
           "scale": {
             "minReplicas": "[parameters('minReplicas')]",
-            "maxReplicas": "[parameters('maxReplicas')]"
+            "maxReplicas": "[parameters('maxReplicas')]",
+            "rules": [
+              {
+                "name": "http-scaling",
+                "http": {
+                  "metadata": {
+                    "concurrentRequests": "50"
+                  }
+                }
+              },
+              {
+                "name": "cpu-scaling",
+                "custom": {
+                  "type": "cpu",
+                  "metadata": {
+                    "type": "Utilization",
+                    "value": "70"
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -310,7 +330,7 @@
       ],
       "properties": {
         "roleDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
-        "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').identity.principalId]"
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'Full').identity.principalId]"
       }
     },
     {
@@ -340,7 +360,7 @@
       ],
       "properties": {
         "roleDefinitionId": "[variables('storageBlobDataContributerRoleId')]",
-        "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').identity.principalId]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'Full').identity.principalId]",
         "principalType": "ServicePrincipal"
       }
     },
@@ -364,11 +384,11 @@
     },
     "containerAppFqdn": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').properties.configuration.ingress.fqdn]"
+      "value": "[reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'Full').properties.configuration.ingress.fqdn]"
     },
     "containerAppUrl": {
       "type": "string",
-      "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2023-05-01', 'Full').properties.configuration.ingress.fqdn)]"
+      "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', variables('containerAppName')), '2024-03-01', 'Full').properties.configuration.ingress.fqdn)]"
     },
     "exportStorageUri": {
       "type": "string",
