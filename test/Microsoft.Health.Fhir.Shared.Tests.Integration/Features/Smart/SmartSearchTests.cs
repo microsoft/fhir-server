@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                     _typedElementToSearchValueConverterManager,
                     Substitute.For<IReferenceToElementResolver>(),
                     ModelInfoProvider.Instance,
-                    Substitute.For<IFhirPathProvider>(),
+                    new FirelyFhirPathProvider(),
                     NullLogger<TypedElementSearchIndexer>.Instance);
 
                 ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
