@@ -109,7 +109,7 @@ public class ViewDefinitionRunController : Controller
     }
 
     /// <summary>
-    /// GET ViewDefinition — Lists all registered ViewDefinitions and their materialization status.
+    /// GET ViewDefinition — Lists all registered ViewDefinitions as a Bundle of Parameters resources.
     /// </summary>
     [HttpGet]
     [Route(KnownRoutes.ViewDefinitionList)]
@@ -119,13 +119,26 @@ public class ViewDefinitionRunController : Controller
         var request = new ViewDefinitionListRequest();
         ViewDefinitionListResponse response = await _mediator.Send(request, HttpContext.RequestAborted);
 
-        return new JsonResult(response) { StatusCode = 200 };
+        var bundle = new Bundle
+        {
+            Type = Bundle.BundleType.Searchset,
+            Total = response.ViewDefinitions.Count,
+        };
+
+        foreach (ViewDefinitionStatusResponse viewDef in response.ViewDefinitions)
+        {
+            bundle.Entry.Add(new Bundle.EntryComponent
+            {
+                Resource = BuildStatusParameters(viewDef),
+            });
+        }
+
+        return new ObjectResult(bundle) { StatusCode = 200 };
     }
 
     /// <summary>
-    /// GET ViewDefinition/{id} — Returns the materialization status of a registered ViewDefinition.
+    /// GET ViewDefinition/{id} — Returns the materialization status as a Parameters resource.
     /// Clients use this to track progress from Created → Populating → Active.
-    /// The URL is returned as a Content-Location header when a ViewDefinition Library is POSTed.
     /// </summary>
     [HttpGet]
     [Route(KnownRoutes.ViewDefinitionStatus)]
@@ -135,7 +148,76 @@ public class ViewDefinitionRunController : Controller
         var request = new ViewDefinitionStatusRequest(id);
         ViewDefinitionStatusResponse response = await _mediator.Send(request, HttpContext.RequestAborted);
 
-        return new JsonResult(response) { StatusCode = response.Status == "NotFound" ? 404 : 200 };
+        if (response.Status == "NotFound")
+        {
+            return NotFound();
+        }
+
+        return new ObjectResult(BuildStatusParameters(response)) { StatusCode = 200 };
+    }
+
+    private static Parameters BuildStatusParameters(ViewDefinitionStatusResponse status)
+    {
+        var parameters = new Parameters();
+
+        parameters.Parameter.Add(new Parameters.ParameterComponent
+        {
+            Name = "viewDefinitionName",
+            Value = new FhirString(status.ViewDefinitionName),
+        });
+        parameters.Parameter.Add(new Parameters.ParameterComponent
+        {
+            Name = "resourceType",
+            Value = new FhirString(status.ResourceType),
+        });
+        parameters.Parameter.Add(new Parameters.ParameterComponent
+        {
+            Name = "status",
+            Value = new Code(status.Status),
+        });
+        parameters.Parameter.Add(new Parameters.ParameterComponent
+        {
+            Name = "tableExists",
+            Value = new FhirBoolean(status.TableExists),
+        });
+
+        if (!string.IsNullOrEmpty(status.ErrorMessage))
+        {
+            parameters.Parameter.Add(new Parameters.ParameterComponent
+            {
+                Name = "errorMessage",
+                Value = new FhirString(status.ErrorMessage),
+            });
+        }
+
+        if (!string.IsNullOrEmpty(status.LibraryResourceId))
+        {
+            parameters.Parameter.Add(new Parameters.ParameterComponent
+            {
+                Name = "libraryResourceId",
+                Value = new FhirString(status.LibraryResourceId),
+            });
+        }
+
+        if (status.RegisteredAt != default)
+        {
+            parameters.Parameter.Add(new Parameters.ParameterComponent
+            {
+                Name = "registeredAt",
+                Value = new Instant(status.RegisteredAt),
+            });
+        }
+
+        foreach (string subId in status.SubscriptionIds)
+        {
+            parameters.Parameter.Add(new Parameters.ParameterComponent
+            {
+                Name = "subscriptionId",
+                Value = new FhirString(subId),
+            });
+        }
+
+        return parameters;
     }
 
     private async Task<IActionResult> ExecuteAsync(ViewDefinitionRunRequest request)

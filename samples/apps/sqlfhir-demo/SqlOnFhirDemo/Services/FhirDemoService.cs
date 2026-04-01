@@ -163,7 +163,7 @@ public class FhirDemoService
 
     /// <summary>
     /// Queries the materialization status of a registered ViewDefinition.
-    /// Returns the status JSON from GET ViewDefinition/{name}/$status.
+    /// Parses the FHIR Parameters resource returned by GET ViewDefinition/{name}.
     /// </summary>
     public async Task<ViewDefinitionMaterializationStatus?> GetViewDefinitionStatusAsync(string viewDefName)
     {
@@ -174,10 +174,40 @@ public class FhirDemoService
         }
 
         string json = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<ViewDefinitionMaterializationStatus>(json, new JsonSerializerOptions
+        var doc = JsonNode.Parse(json);
+        if (doc == null)
         {
-            PropertyNameCaseInsensitive = true,
-        });
+            return null;
+        }
+
+        var status = new ViewDefinitionMaterializationStatus();
+        var parameters = doc["parameter"]?.AsArray();
+        if (parameters == null)
+        {
+            return status;
+        }
+
+        foreach (var param in parameters)
+        {
+            string? name = param?["name"]?.GetValue<string>();
+            string? value = param?["valueString"]?.GetValue<string>()
+                ?? param?["valueCode"]?.GetValue<string>()
+                ?? param?["valueBoolean"]?.GetValue<bool>().ToString()
+                ?? param?["valueInstant"]?.GetValue<string>();
+
+            switch (name)
+            {
+                case "viewDefinitionName": status.ViewDefinitionName = value ?? ""; break;
+                case "resourceType": status.ResourceType = value ?? ""; break;
+                case "status": status.Status = value ?? ""; break;
+                case "errorMessage": status.ErrorMessage = value; break;
+                case "tableExists": status.TableExists = bool.TryParse(value, out var b) && b; break;
+                case "libraryResourceId": status.LibraryResourceId = value; break;
+                case "subscriptionId": status.SubscriptionIds.Add(value ?? ""); break;
+            }
+        }
+
+        return status;
     }
 
     /// <summary>
