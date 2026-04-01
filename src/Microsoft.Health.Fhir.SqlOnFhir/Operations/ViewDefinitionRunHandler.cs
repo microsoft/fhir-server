@@ -72,7 +72,7 @@ public sealed class ViewDefinitionRunHandler : IRequestHandler<ViewDefinitionRun
             return await RunInlineAsync(request.ViewDefinitionJson, request.Format, request.Limit, cancellationToken);
         }
 
-        throw new InvalidOperationException("Either viewDefinitionJson or viewDefinitionName is required.");
+        throw new Microsoft.Health.Fhir.Core.Exceptions.ResourceNotFoundException("Either viewDefinitionJson or viewDefinitionName is required.");
     }
 
     private async Task<ViewDefinitionRunResponse> RunFromMaterializedTableAsync(
@@ -83,7 +83,7 @@ public sealed class ViewDefinitionRunHandler : IRequestHandler<ViewDefinitionRun
     {
         if (!await _schemaManager.TableExistsAsync(viewDefinitionName, cancellationToken))
         {
-            throw new InvalidOperationException($"Materialized table for ViewDefinition '{viewDefinitionName}' does not exist.");
+            throw new Microsoft.Health.Fhir.Core.Exceptions.ResourceNotFoundException($"Materialized table for ViewDefinition '{viewDefinitionName}' does not exist.");
         }
 
         string qualifiedTable = SqlServerViewDefinitionSchemaManager.GetQualifiedTableName(viewDefinitionName);

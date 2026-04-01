@@ -96,7 +96,7 @@ public class ViewDefinitionRunController : Controller
     [Route(KnownRoutes.ViewDefinitionRunById)]
     [AuditEventType(AuditEventSubType.Read)]
     public async Task<IActionResult> RunById(
-        [FromRoute] string id,
+        [FromRoute(Name = KnownActionParameterNames.Id)] string id,
         [FromQuery(Name = "_format")] string? format,
         [FromQuery(Name = "_limit")] int? limit)
     {
@@ -116,7 +116,7 @@ public class ViewDefinitionRunController : Controller
     [HttpGet]
     [Route(KnownRoutes.ViewDefinitionStatus)]
     [AuditEventType(AuditEventSubType.Read)]
-    public async Task<IActionResult> GetStatus([FromRoute] string id)
+    public async Task<IActionResult> GetStatus([FromRoute(Name = KnownActionParameterNames.Id)] string id)
     {
         var request = new ViewDefinitionStatusRequest(id);
         ViewDefinitionStatusResponse response = await _mediator.Send(request, HttpContext.RequestAborted);
