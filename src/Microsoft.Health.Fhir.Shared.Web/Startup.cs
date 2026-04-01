@@ -135,20 +135,43 @@ namespace Microsoft.Health.Fhir.Web
 
         /// <summary>
         /// Configures SQL on FHIR channels if the SqlOnFhir assembly is available.
+        /// Deferred to first request since SubscriptionChannelFactory may not be resolvable
+        /// during Configure() when using Health Extensions DI patterns.
         /// </summary>
         protected virtual void ConfigureVersionSpecificServices(IApplicationBuilder app)
         {
-            try
+            // Register a one-time middleware that wires up the channel on first request,
+            // when all singletons are guaranteed to be resolved.
+            bool channelRegistered = false;
+            object channelLock = new();
+
+            app.Use(async (context, next) =>
             {
-                var sqlOnFhirAssembly = System.Reflection.Assembly.Load("Microsoft.Health.Fhir.SqlOnFhir");
-                var extensionsType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.SqlOnFhirServiceCollectionExtensions");
-                var useMethod = extensionsType?.GetMethod("UseSqlOnFhirChannels", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                useMethod?.Invoke(null, new object[] { app.ApplicationServices });
-            }
-            catch (System.IO.FileNotFoundException)
-            {
-                // SqlOnFhir assembly not available — skip
-            }
+                if (!channelRegistered)
+                {
+                    lock (channelLock)
+                    {
+                        if (!channelRegistered)
+                        {
+                            try
+                            {
+                                var sqlOnFhirAssembly = System.Reflection.Assembly.Load("Microsoft.Health.Fhir.SqlOnFhir");
+                                var extensionsType = sqlOnFhirAssembly.GetType("Microsoft.Health.Fhir.SqlOnFhir.SqlOnFhirServiceCollectionExtensions");
+                                var useMethod = extensionsType?.GetMethod("UseSqlOnFhirChannels", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                                useMethod?.Invoke(null, new object[] { context.RequestServices });
+                            }
+                            catch (System.IO.FileNotFoundException)
+                            {
+                                // SqlOnFhir assembly not available — skip
+                            }
+
+                            channelRegistered = true;
+                        }
+                    }
+                }
+
+                await next();
+            });
         }
 
         private void AddDataStore(IServiceCollection services, IFhirServerBuilder fhirServerBuilder, IFhirRuntimeConfiguration runtimeConfiguration)
