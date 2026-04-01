@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             await using var cmd = new SqlCommand("dbo.CleanupEventLog") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            await LogSearchParamStats(cancellationToken);
+            ////await LogSearchParamStats(cancellationToken);
         }
 
         protected override async Task InitAdditionalParamsAsync()
