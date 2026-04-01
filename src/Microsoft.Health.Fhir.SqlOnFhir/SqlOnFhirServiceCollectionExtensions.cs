@@ -36,6 +36,8 @@ public static class SqlOnFhirServiceCollectionExtensions
         services.AddSingleton<IViewDefinitionMaterializer, SqlServerViewDefinitionMaterializer>();
         services.AddSingleton<SqlServerViewDefinitionMaterializer>();
         services.AddSingleton<IViewDefinitionSubscriptionManager, ViewDefinitionSubscriptionManager>();
+        services.AddSingleton<INotificationHandler<Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun.ViewDefinitionPopulationCompleteNotification>>(
+            sp => (ViewDefinitionSubscriptionManager)sp.GetRequiredService<IViewDefinitionSubscriptionManager>());
 
         // Register MediatR handlers from this assembly (not auto-discovered by KnownAssemblies).
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<ViewDefinitionEvaluator>());

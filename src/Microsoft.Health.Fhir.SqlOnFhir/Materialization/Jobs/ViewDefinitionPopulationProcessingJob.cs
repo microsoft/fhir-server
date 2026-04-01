@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -27,27 +29,25 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
     private readonly IResourceDeserializer _resourceDeserializer;
     private readonly IViewDefinitionMaterializer _materializer;
     private readonly IQueueClient _queueClient;
+    private readonly IMediator _mediator;
     private readonly ILogger<ViewDefinitionPopulationProcessingJob> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ViewDefinitionPopulationProcessingJob"/> class.
     /// </summary>
-    /// <param name="searchServiceFactory">Factory for creating scoped search service instances.</param>
-    /// <param name="resourceDeserializer">Deserializer for converting ResourceWrapper to ResourceElement.</param>
-    /// <param name="materializer">The materializer for inserting rows into the SQL table.</param>
-    /// <param name="queueClient">The queue client for enqueuing follow-up jobs.</param>
-    /// <param name="logger">The logger instance.</param>
     public ViewDefinitionPopulationProcessingJob(
         Func<IScoped<ISearchService>> searchServiceFactory,
         IResourceDeserializer resourceDeserializer,
         IViewDefinitionMaterializer materializer,
         IQueueClient queueClient,
+        IMediator mediator,
         ILogger<ViewDefinitionPopulationProcessingJob> logger)
     {
         _searchServiceFactory = searchServiceFactory;
         _resourceDeserializer = resourceDeserializer;
         _materializer = materializer;
         _queueClient = queueClient;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -165,6 +165,17 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
             _logger.LogInformation(
                 "Enqueued follow-up processing job for '{ViewDefName}' with continuation token",
                 definition.ViewDefinitionName);
+        }
+        else
+        {
+            // No more resources — population is complete. Notify the subscription manager.
+            await _mediator.Publish(
+                new ViewDefinitionPopulationCompleteNotification(
+                    definition.ViewDefinitionName,
+                    success: totalFailedResources == 0,
+                    rowsInserted: totalRowsInserted,
+                    errorMessage: totalFailedResources > 0 ? $"{totalFailedResources} resources failed" : null),
+                cancellationToken);
         }
 
         var result = new ViewDefinitionPopulationProcessingJobResult

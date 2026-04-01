@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -34,7 +35,8 @@ namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
 /// 3. Creates a FHIR Subscription resource via the MediatR pipeline (getting full validation)
 /// 4. Tracks the 1:N mapping (ViewDefinition → Subscriptions)
 /// </summary>
-public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscriptionManager
+public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscriptionManager,
+    INotificationHandler<ViewDefinitionPopulationCompleteNotification>
 {
     private const string BackportProfileUrl = "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-subscription";
     private const string TransactionTopicUrl = "http://azurehealthcareapis.com/data-extentions/SubscriptionTopics/transactions";
@@ -158,12 +160,12 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
             registration.LibraryResourceId = libraryResourceId;
 
-            // Population is async — status transitions to Active when the job completes.
-            // For now, mark as Active since the subscription is live and incremental updates will flow.
-            registration.Status = ViewDefinitionStatus.Active;
+            // Status stays as Populating — the ViewDefinitionPopulationProcessingJob will
+            // publish ViewDefinitionPopulationCompleteNotification when done, which triggers
+            // the Handle method above to set status to Active (or Error).
 
             _logger.LogInformation(
-                "ViewDefinition '{ViewDefName}' registered with Subscription '{SubscriptionId}'",
+                "ViewDefinition '{ViewDefName}' registered with Subscription '{SubscriptionId}'. Status: Populating",
                 name,
                 subscriptionId);
         }
@@ -288,6 +290,26 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         {
             _logger.LogInformation("Evicted ViewDefinition '{ViewDefName}' from local cache", viewDefinitionName);
         }
+    }
+
+    /// <summary>
+    /// Handles the population complete notification by updating the in-memory registration status.
+    /// </summary>
+    public Task Handle(ViewDefinitionPopulationCompleteNotification notification, CancellationToken cancellationToken)
+    {
+        if (_registrations.TryGetValue(notification.ViewDefinitionName, out ViewDefinitionRegistration? registration))
+        {
+            registration.Status = notification.Success ? ViewDefinitionStatus.Active : ViewDefinitionStatus.Error;
+            registration.ErrorMessage = notification.ErrorMessage;
+
+            _logger.LogInformation(
+                "ViewDefinition '{ViewDefName}' population complete: {Status} ({Rows} rows)",
+                notification.ViewDefinitionName,
+                registration.Status,
+                notification.RowsInserted);
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
