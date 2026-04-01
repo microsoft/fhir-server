@@ -3,7 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -16,6 +19,8 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers;
 
+#nullable enable
+
 /// <summary>
 /// Controller for the SQL on FHIR $viewdefinition-run and $viewdefinition-export operations.
 /// Evaluates a ViewDefinition and returns tabular results in the requested format.
@@ -24,6 +29,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers;
 [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
 public class ViewDefinitionRunController : Controller
 {
+    private static readonly JsonSerializerOptions CompactJsonOptions = new() { WriteIndented = false };
+
     private readonly IMediator _mediator;
 
     /// <summary>
@@ -53,7 +60,7 @@ public class ViewDefinitionRunController : Controller
         {
             viewDefinitionJson = JsonSerializer.Serialize(
                 viewResourceParam.Resource,
-                new JsonSerializerOptions { WriteIndented = false });
+                CompactJsonOptions);
         }
 
         // Also check for viewDefinitionJson as a string parameter
@@ -157,7 +164,7 @@ public class ViewDefinitionRunController : Controller
                 {
                     viewDefinitionJson = JsonSerializer.Serialize(
                         viewResourcePart.Resource,
-                        new JsonSerializerOptions { WriteIndented = false });
+                        CompactJsonOptions);
                 }
 
                 var viewRefPart = viewParam.Part.Find(p =>
