@@ -255,11 +255,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             list.Add("exists");
 
             // Act & Assert
+            Assert.Single(list);
+            Assert.Contains("exists", list);
             Assert.DoesNotContain("does_not_exist", list);
         }
 
         [Fact]
-        public async Task GivenConcurrentAdds_WhenExecuted_ThenAllItemsShouldBeAddedWithoutDataLoss()
+        public void GivenConcurrentAdds_WhenExecuted_ThenAllItemsShouldBeAddedWithoutDataLoss()
         {
             // Arrange
             var list = new ThreadSafeList<int>();
@@ -274,16 +276,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     {
                         list.Add((threadId * itemsPerThread) + i);
                     }
-                }));
+                })).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert
             Assert.Equal(numberOfThreads * itemsPerThread, list.Count);
         }
 
         [Fact]
-        public async Task GivenConcurrentAddsOfSameItems_WhenExecuted_ThenAllDuplicatesShouldExist()
+        public void GivenConcurrentAddsOfSameItems_WhenExecuted_ThenAllDuplicatesShouldExist()
         {
             // Arrange
             var list = new ThreadSafeList<int>();
@@ -298,16 +304,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     {
                         list.Add(i);
                     }
-                }));
+                })).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - Unlike a hash set, duplicates are expected
             Assert.Equal(numberOfThreads * itemsToAdd, list.Count);
         }
 
         [Fact]
-        public async Task GivenConcurrentContainsChecks_WhenExecuted_ThenShouldReturnCorrectResults()
+        public void GivenConcurrentContainsChecks_WhenExecuted_ThenShouldReturnCorrectResults()
         {
             // Arrange
             var list = new ThreadSafeList<int>();
@@ -324,16 +334,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                 {
                     bool exists = list.Contains(i);
                     Assert.True(exists);
-                }));
+                })).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - All checks should have succeeded
             Assert.Equal(itemsToAdd, list.Count);
         }
 
         [Fact]
-        public async Task GivenConcurrentRemoves_WhenExecuted_ThenItemsShouldBeRemovedCorrectly()
+        public void GivenConcurrentRemoves_WhenExecuted_ThenItemsShouldBeRemovedCorrectly()
         {
             // Arrange
             var list = new ThreadSafeList<int>();
@@ -346,9 +360,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
 
             // Act - Remove half the items concurrently
             var tasks = Enumerable.Range(0, totalItems / 2).Select(i =>
-                Task.Run(() => list.Remove(i)));
+                Task.Run(() => list.Remove(i))).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert
             Assert.Equal(totalItems / 2, list.Count);
@@ -364,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
-        public async Task GivenConcurrentAddAndRemove_WhenExecuted_ThenListShouldMaintainConsistency()
+        public void GivenConcurrentAddAndRemove_WhenExecuted_ThenListShouldMaintainConsistency()
         {
             // Arrange
             var list = new ThreadSafeList<int>();
@@ -377,7 +395,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             var removeTasks = Enumerable.Range(0, operations / 2).Select(i =>
                 Task.Run(() => list.Remove(i)));
 
-            await Task.WhenAll(addTasks.Concat(removeTasks));
+            var allTasks = addTasks.Concat(removeTasks).ToArray();
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(allTasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - At least half the items should remain
             Assert.True(list.Count >= operations / 2);
@@ -385,7 +409,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
-        public async Task GivenConcurrentMixedOperations_WhenExecuted_ThenListShouldRemainThreadSafe()
+        public void GivenConcurrentMixedOperations_WhenExecuted_ThenListShouldRemainThreadSafe()
         {
             // Arrange
             var list = new ThreadSafeList<int>();
@@ -411,9 +435,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             var allTasks = addTasks
                 .Concat(removeTasks)
                 .Concat(containsTasks)
-                .Concat(enumerationTasks);
+                .Concat(enumerationTasks)
+                .ToArray();
 
-            await Task.WhenAll(allTasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(allTasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - No exceptions should be thrown and list should be in valid state
             Assert.True(list.Count >= 0);
@@ -421,10 +450,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
-        public async Task GivenConcurrentClearAndAdd_WhenExecuted_ThenListShouldHandleCorrectly()
+        public void GivenConcurrentClearAndAdd_WhenExecuted_ThenListShouldHandleCorrectly()
         {
             // Arrange
-            var list = new ThreadSafeList<int>();
+            var list = new ThreadSafeHashSet<int>();
             const int iterations = 100;
 
             // Act - One thread clearing, others adding
@@ -437,23 +466,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                 }
             });
 
-            var addTasks = Enumerable.Range(0, 10).Select(threadId =>
-                Task.Run(() =>
+            List<Task> tasks = new List<Task>();
+            for (int i = 0; i < 10; i++)
+            {
+                tasks.Add(Task.Run(() =>
                 {
                     for (int i = 0; i < iterations * 10; i++)
                     {
-                        list.Add((threadId * 1000) + i);
+                        list.Add((i * 1000) + i);
+                    }
+
+                    try
+                    {
+                        foreach (var item in list)
+                        {
+                            // Testing if iterating through the list will raise exceptions like 'Collection was modified; enumeration operation may not execute'.
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Assert.Fail($"Error while iterating through items in the list. Exception: {e.Message}");
                     }
                 }));
+            }
 
-            await Task.WhenAll(addTasks.Concat(new[] { clearTask }));
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
 
-            // Assert - No exceptions and valid state
-            Assert.True(list.Count >= 0);
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks.ToArray(), cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
         }
 
         [Fact]
-        public async Task GivenHighContentionScenario_WhenExecuted_ThenNoDeadlocksShouldOccur()
+        public void GivenHighContentionScenario_WhenExecuted_ThenNoDeadlocksShouldOccur()
         {
             // Multiple threads trying to add elements to the thread-safe list while others are enumerating, simulating a high contention scenario.
             var list = new ThreadSafeList<int>();
@@ -463,31 +508,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             // Act - High contention scenario with many threads
             Task[] tasks = new Task[numberOfThreads];
 
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000))
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+            for (int i = 0; i < numberOfThreads; i++)
             {
-                for (int i = 0; i < numberOfThreads; i++)
+                tasks[i] = Task.Run(
+                () =>
                 {
-                    tasks[i] = Task.Run(
-                    () =>
+                    for (int i = 0; i < operationsPerThread; i++)
                     {
-                        for (int i = 0; i < operationsPerThread; i++)
+                        int threadId = Task.CurrentId ?? 1;
+                        int value = (threadId * operationsPerThread) + i;
+                        list.Add(value);
+                        list.Contains(value);
+                        if (i % 2 == 0)
                         {
-                            int threadId = Task.CurrentId ?? 1;
-                            int value = (threadId * operationsPerThread) + i;
-                            list.Add(value);
-                            list.Contains(value);
-                            if (i % 2 == 0)
-                            {
-                                list.Remove(value);
-                            }
+                            list.Remove(value);
                         }
-                    },
-                    cancellationTokenSource.Token);
-                }
+                    }
+                },
+                cancellationTokenSource.Token);
             }
 
-#pragma warning disable xUnit1031 // Justification: using timeout to detect potential deadlocks.
-            await Task.WhenAll(tasks);
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
 #pragma warning restore xUnit1031
             int totalTasksCompletedSuccessFully = tasks.Count(t => t.IsCompletedSuccessfully);
 

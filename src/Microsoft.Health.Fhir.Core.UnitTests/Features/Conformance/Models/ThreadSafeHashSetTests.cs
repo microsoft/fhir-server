@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
-        public async Task GivenConcurrentAdds_WhenExecuted_ThenAllItemsShouldBeAddedWithoutDataLoss()
+        public void GivenConcurrentAdds_WhenExecuted_ThenAllItemsShouldBeAddedWithoutDataLoss()
         {
             // Arrange
             var hashSet = new ThreadSafeHashSet<int>();
@@ -233,16 +233,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     {
                         hashSet.Add((threadId * itemsPerThread) + i);
                     }
-                }));
+                })).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert
             Assert.Equal(numberOfThreads * itemsPerThread, hashSet.Count);
         }
 
         [Fact]
-        public async Task GivenConcurrentAddsOfSameItems_WhenExecuted_ThenNoDuplicatesShouldExist()
+        public void GivenConcurrentAddsOfSameItems_WhenExecuted_ThenNoDuplicatesShouldExist()
         {
             // Arrange
             var hashSet = new ThreadSafeHashSet<int>();
@@ -257,16 +261,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     {
                         hashSet.Add(i);
                     }
-                }));
+                })).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - Should only have unique items
             Assert.Equal(itemsToAdd, hashSet.Count);
         }
 
         [Fact]
-        public async Task GivenConcurrentRemoves_WhenExecuted_ThenItemsShouldBeRemovedCorrectly()
+        public void GivenConcurrentRemoves_WhenExecuted_ThenItemsShouldBeRemovedCorrectly()
         {
             // Arrange
             var hashSet = new ThreadSafeHashSet<int>();
@@ -279,9 +287,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
 
             // Act - Remove half the items concurrently
             var tasks = Enumerable.Range(0, totalItems / 2).Select(i =>
-                Task.Run(() => hashSet.Remove(i)));
+                Task.Run(() => hashSet.Remove(i))).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert
             Assert.Equal(totalItems / 2, hashSet.Count);
@@ -297,7 +309,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
-        public async Task GivenConcurrentAddAndRemove_WhenExecuted_ThenSetShouldMaintainConsistency()
+        public void GivenConcurrentAddAndRemove_WhenExecuted_ThenSetShouldMaintainConsistency()
         {
             // Arrange
             var hashSet = new ThreadSafeHashSet<int>();
@@ -310,7 +322,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             var removeTasks = Enumerable.Range(0, operations / 2).Select(i =>
                 Task.Run(() => hashSet.Remove(i)));
 
-            await Task.WhenAll(addTasks.Concat(removeTasks));
+            var allTasks = addTasks.Concat(removeTasks).ToArray();
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(allTasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - At least half the items should remain
             Assert.True(hashSet.Count >= operations / 2);
@@ -318,7 +336,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
-        public async Task GivenConcurrentContainsChecks_WhenExecuted_ThenShouldReturnCorrectResults()
+        public void GivenConcurrentContainsChecks_WhenExecuted_ThenShouldReturnCorrectResults()
         {
             // Arrange
             var hashSet = new ThreadSafeHashSet<int>();
@@ -335,16 +353,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                 {
                     bool exists = hashSet.Contains(i);
                     Assert.True(exists);
-                }));
+                })).ToArray();
 
-            await Task.WhenAll(tasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - All checks should have succeeded
             Assert.Equal(itemsToAdd, hashSet.Count);
         }
 
         [Fact]
-        public async Task GivenConcurrentMixedOperations_WhenExecuted_ThenSetShouldRemainThreadSafe()
+        public void GivenConcurrentMixedOperations_WhenExecuted_ThenSetShouldRemainThreadSafe()
         {
             // Arrange
             var hashSet = new ThreadSafeHashSet<int>();
@@ -370,9 +392,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             var allTasks = addTasks
                 .Concat(removeTasks)
                 .Concat(containsTasks)
-                .Concat(enumerationTasks);
+                .Concat(enumerationTasks)
+                .ToArray();
 
-            await Task.WhenAll(allTasks);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(allTasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - No exceptions should be thrown and set should be in valid state
             Assert.True(hashSet.Count >= 0);
@@ -380,7 +407,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
         }
 
         [Fact]
-        public async Task GivenConcurrentClearAndAdd_WhenExecuted_ThenSetShouldHandleCorrectly()
+        public void GivenConcurrentClearAndAdd_WhenExecuted_ThenSetShouldHandleCorrectly()
         {
             // Arrange
             var hashSet = new ThreadSafeHashSet<int>();
@@ -405,14 +432,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
                     }
                 }));
 
-            await Task.WhenAll(addTasks.Concat(new[] { clearTask }));
+            var allTasks = addTasks.Concat(new[] { clearTask }).ToArray();
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(allTasks, cancellationTokenSource.Token);
+#pragma warning restore xUnit1031
 
             // Assert - No exceptions and valid state
             Assert.True(hashSet.Count >= 0);
         }
 
         [Fact]
-        public async Task GivenHighContentionScenario_WhenExecuted_ThenNoDeadlocksShouldOccur()
+        public void GivenHighContentionScenario_WhenExecuted_ThenNoDeadlocksShouldOccur()
         {
             // Multiple threads trying to add elements to the thread-safe hash set while others are enumerating and removing items, simulating a high contention scenario.
 
@@ -423,31 +456,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Models
             // Act - High contention scenario with many threads
             Task[] tasks = new Task[numberOfThreads];
 
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000))
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(30000);
+
+            for (int i = 0; i < numberOfThreads; i++)
             {
-                for (int i = 0; i < numberOfThreads; i++)
+                tasks[i] = Task.Run(
+                () =>
                 {
-                    tasks[i] = Task.Run(
-                    () =>
+                    for (int i = 0; i < operationsPerThread; i++)
                     {
-                        for (int i = 0; i < operationsPerThread; i++)
+                        int threadId = Task.CurrentId ?? 1;
+                        int value = (threadId * operationsPerThread) + i;
+                        hashSet.Add(value);
+                        hashSet.Contains(value);
+                        if (i % 2 == 0)
                         {
-                            int threadId = Task.CurrentId ?? 1;
-                            int value = (threadId * operationsPerThread) + i;
-                            hashSet.Add(value);
-                            hashSet.Contains(value);
-                            if (i % 2 == 0)
-                            {
-                                hashSet.Remove(value);
-                            }
+                            hashSet.Remove(value);
                         }
-                    },
-                    cancellationTokenSource.Token);
-                }
+                    }
+                },
+                cancellationTokenSource.Token);
             }
 
-#pragma warning disable xUnit1031 // Justification: using timeout to detect potential deadlocks.
-            await Task.WhenAll(tasks);
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Task.WaitAll(tasks, cancellationTokenSource.Token);
 #pragma warning restore xUnit1031
             int totalTasksCompletedSuccessFully = tasks.Count(t => t.IsCompletedSuccessfully);
 
