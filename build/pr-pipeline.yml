@@ -83,7 +83,6 @@ stages:
 
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
-  condition: false
   dependsOn:
   - BuildUnitTests
   - BuildArtifacts
@@ -564,7 +563,6 @@ stages:
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
-  condition: false
   dependsOn:
   - BuildUnitTests
   - testStu3Cosmos

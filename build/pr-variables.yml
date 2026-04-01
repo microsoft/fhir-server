@@ -1,8 +1,6 @@
 variables:
     ResourceGroupRegion: 'westus2'
     resourceGroupRoot: 'msh-fhir-pr'
-    # Use PR number when available; otherwise fall back to BuildId for manual/non-PR runs.
-    prName: $[coalesce(variables['System.PullRequest.PullRequestNumber'], variables['Build.BuildId'])]
     ResourceGroupName: '$(resourceGroupRoot)-$(prName)'
     # Unique resource group name with Build.BuildId suffix to avoid waiting for deletion of existing RG
     UniqueResourceGroupName: '$(resourceGroupRoot)-$(prName)-$(Build.BuildId)'
@@ -13,4 +11,5 @@ variables:
     TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'
 
-    # prName can still be overridden as a queue-time pipeline variable when needed.
+    # The following is passed in from a Pipeline variable, this allows it to be overriden if required.
+    # prName: $(system.pullRequest.pullRequestNumber)
