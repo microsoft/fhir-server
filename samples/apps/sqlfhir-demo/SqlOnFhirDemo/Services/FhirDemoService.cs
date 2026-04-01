@@ -49,8 +49,8 @@ public class FhirDemoService
         string name = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() ?? "unknown" : "unknown";
         string resource = doc.RootElement.TryGetProperty("resource", out var r) ? r.GetString() ?? "Unknown" : "Unknown";
 
-        // Deterministic ID: "viewdef-{name}" so PUT always targets the same resource
-        string libraryId = $"viewdef-{name}";
+        // Deterministic ID: replace underscores with hyphens (FHIR IDs only allow [A-Za-z0-9\-\.])
+        string libraryId = $"viewdef-{name.Replace('_', '-')}";
         string base64Content = Convert.ToBase64String(Encoding.UTF8.GetBytes(viewDefinitionJson));
 
         string libraryJson = $$"""
