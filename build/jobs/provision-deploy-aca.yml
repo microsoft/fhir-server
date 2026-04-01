@@ -1,9 +1,6 @@
 parameters:
 - name: version
   type: string
-- name: sql
-  type: boolean
-  default: true
 - name: webAppName
   type: string
 - name: acaEnvironmentName
@@ -21,9 +18,6 @@ parameters:
   default: 'auto'
 - name: sqlServerName
   type: string
-- name: sqlComputeTier
-  type: string
-  default: 'Standard'
 - name: reindexEnabled
   type: boolean
   default: true
@@ -173,7 +167,7 @@ jobs:
         }
 
         $deploymentResult = Invoke-WithRetry -OperationName "ACA Deployment" -ScriptBlock {
-            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/fhir-sql-aca.json -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
+            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/fhir-sql-aca.bicep -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
         }
 
         $managedEnvironment = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/managedEnvironments" -Name $acaEnvironmentName -ApiVersion "2023-05-01" -ExpandProperties

@@ -213,7 +213,7 @@ stages:
           New-AzResourceGroupDeployment `
               -Name "aca-env-$envName" `
               -ResourceGroupName $rgName `
-              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.json `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.bicep `
               -environmentName $envName `
               -location $location `
               -Verbose -ErrorAction Stop
@@ -294,7 +294,6 @@ stages:
   - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: Stu3
-      sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameSql)
@@ -335,7 +334,6 @@ stages:
   - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R4
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4Sql)
@@ -376,7 +374,6 @@ stages:
   - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R4B
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4BSql)
@@ -417,7 +414,6 @@ stages:
   - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R5
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
       acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR5Sql)

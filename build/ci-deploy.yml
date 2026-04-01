@@ -93,7 +93,7 @@ stages:
           New-AzResourceGroupDeployment `
               -Name "aca-env-$envName" `
               -ResourceGroupName $rgName `
-              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.json `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.bicep `
               -environmentName $envName `
               -location $location `
               -Verbose -ErrorAction Stop
