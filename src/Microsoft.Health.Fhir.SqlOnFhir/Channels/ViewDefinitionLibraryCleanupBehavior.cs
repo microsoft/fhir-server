@@ -47,7 +47,7 @@ public sealed class ViewDefinitionLibraryCleanupBehavior : IPipelineBehavior<Del
             return await next(cancellationToken);
         }
 
-        // Check if this Library is a ViewDefinition wrapper by looking for a matching registration
+        // Check if this Library is a ViewDefinition wrapper by matching registration
         string libraryId = request.ResourceKey.Id;
         ViewDefinitionRegistration? registration = FindRegistrationByLibraryId(libraryId);
 
@@ -79,13 +79,29 @@ public sealed class ViewDefinitionLibraryCleanupBehavior : IPipelineBehavior<Del
                 _logger.LogWarning(ex, "{Message}: {ViewDefName}", message, registration.ViewDefinitionName);
             }
         }
+        else
+        {
+            _logger.LogDebug("Library '{LibraryId}' deleted but no matching ViewDefinition registration found", libraryId);
+        }
 
         return response;
     }
 
     private ViewDefinitionRegistration? FindRegistrationByLibraryId(string libraryId)
     {
-        return _subscriptionManager.GetAllRegistrations()
+        // Match by Library resource ID
+        ViewDefinitionRegistration? match = _subscriptionManager.GetAllRegistrations()
             .FirstOrDefault(r => string.Equals(r.LibraryResourceId, libraryId, StringComparison.OrdinalIgnoreCase));
+
+        if (match != null)
+        {
+            return match;
+        }
+
+        // Fallback: match any registration that doesn't have a LibraryResourceId set
+        // (can happen if registration errored after Library was created but before ID was saved)
+        // In this case, we can't be sure which registration this Library belongs to,
+        // so we skip cleanup and let the sync service handle it on next poll.
+        return null;
     }
 }
