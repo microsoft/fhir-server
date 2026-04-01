@@ -62,10 +62,11 @@ public sealed class ViewDefinitionRefreshChannel : ISubscriptionChannel
             return;
         }
 
-        _logger.LogDebug(
-            "ViewDefinitionRefreshChannel processing {ResourceCount} resource(s) for ViewDefinition '{ViewDefName}'",
+        _logger.LogInformation(
+            "ViewDefinitionRefreshChannel: processing {ResourceCount} resource(s) for '{ViewDefName}' from subscription '{SubscriptionId}'",
             resources.Count,
-            viewDefName);
+            viewDefName,
+            subscriptionInfo.ResourceId);
 
         int totalRowsUpserted = 0;
         int failedResources = 0;

@@ -116,8 +116,19 @@ public static class SqlOnFhirServiceCollectionExtensions
     /// <returns>The service provider for chaining.</returns>
     public static IServiceProvider UseSqlOnFhirChannels(this IServiceProvider serviceProvider)
     {
+        var loggerFactory = serviceProvider.GetService<Microsoft.Extensions.Logging.ILoggerFactory>();
+        var logger = loggerFactory?.CreateLogger("Microsoft.Health.Fhir.SqlOnFhir")!;
+
         var factory = serviceProvider.GetService<SubscriptionChannelFactory>();
-        factory?.RegisterExternalChannel(SubscriptionChannelType.ViewDefinitionRefresh, typeof(ViewDefinitionRefreshChannel));
+        if (factory != null)
+        {
+            factory.RegisterExternalChannel(SubscriptionChannelType.ViewDefinitionRefresh, typeof(ViewDefinitionRefreshChannel));
+            Microsoft.Extensions.Logging.LoggerExtensions.LogInformation(logger, "Registered ViewDefinitionRefreshChannel with subscription channel factory");
+        }
+        else
+        {
+            Microsoft.Extensions.Logging.LoggerExtensions.LogWarning(logger, "SubscriptionChannelFactory not found — ViewDefinition refresh channel NOT registered");
+        }
 
         return serviceProvider;
     }
