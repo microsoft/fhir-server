@@ -10,7 +10,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -43,6 +42,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -93,6 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly bool _optimizedQuerySet;
         private readonly bool _isBundleProcessingLogicValid;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         // Total number of requests in the bundle.
         private int _requestCount;
@@ -144,7 +145,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IRouter router,
             IProvideProfilesForValidation profilesResolver,
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
-            ILogger<BundleHandler> logger)
+            ILogger<BundleHandler> logger,
+            IModelInfoProvider modelInfoProvider)
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -165,6 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _profilesResolver = EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             _searchParameterStatusDataStore = EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
@@ -221,6 +224,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
+                    if (bundleProcessingLogic == BundleProcessingLogic.Parallel)
+                    {
+                        CheckConflictsAcrossInputSearchParams(bundleResource);
+                    }
+
                     await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, bundleProcessingLogic, cancellationToken);
 
                     var response = new BundleResponse(
@@ -253,6 +261,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
+                    CheckConflictsAcrossInputSearchParams(bundleResource);
+
                     var responseBundle = new Hl7.Fhir.Model.Bundle
                     {
                         Type = BundleType.TransactionResponse,
@@ -276,6 +286,44 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             finally
             {
                 _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
+            }
+        }
+
+        private void CheckConflictsAcrossInputSearchParams(Hl7.Fhir.Model.Bundle bundle)
+        {
+            var codes = new HashSet<(string Type, string Code)>();
+            var urls = new HashSet<string>();
+            var dupCodes = new HashSet<(string Type, string Code)>();
+            var dupUrls = new HashSet<string>();
+            foreach (var param in bundle.Entry.Select(_ => _.Resource as SearchParameter).Where(_ => _ != null))
+            {
+                if (param.Code != null && param.Base != null)
+                {
+                    var allResourceTypes = SearchParameterDefinitionManager.GetDerivedResourceTypes(_modelInfoProvider, param.Base.Where(_ => _ != null).Select(_ => _.Value.ToString()).ToList());
+                    foreach (var resourceType in allResourceTypes.Where(_ => !codes.Add((_, param.Code))))
+                    {
+                        dupCodes.Add((resourceType, param.Code));
+                    }
+                }
+
+                if (param.Url != null && !urls.Add(param.Url))
+                {
+                    dupUrls.Add(param.Url);
+                }
+            }
+
+            if (dupCodes.Count > 0 || dupUrls.Count > 0)
+            {
+                if (dupCodes.Count == 0)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamUrlsInBundle, string.Join(", ", dupUrls)));
+                }
+                else if (dupUrls.Count == 0)
+                {
+                    throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesInBundle, string.Join(", ", dupCodes)));
+                }
+
+                throw new RequestNotValidException(string.Format(Api.Resources.DuplicateSearchParamCodesAndUrlsInBundle, string.Join(", ", dupCodes), string.Join(", ", dupUrls)));
             }
         }
 
