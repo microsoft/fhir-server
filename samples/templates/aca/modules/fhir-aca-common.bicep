@@ -81,7 +81,7 @@ var imageRepositoryName = contains(registryName, 'mcr.')
   : '${toLower(fhirVersion)}_fhir-server'
 var containerImage = '${registryName}/${imageRepositoryName}:${imageTag}'
 
-var blobStorageUri = isMAG ? '.blob.core.usgovcloudapi.net' : environment().suffixes.storage
+var blobStorageUri = isMAG ? '.blob.core.usgovcloudapi.net' : '.blob.${environment().suffixes.storage}'
 var storageAccountPrefix = substring(replace(normalizedAppName, '-', ''), 0, min(11, length(replace(normalizedAppName, '-', ''))))
 var storageAccountName = '${storageAccountPrefix}${uniqueString(resourceGroup().id, normalizedAppName)}'
 var storageAccountUri = 'https://${storageAccountName}${blobStorageUri}'
