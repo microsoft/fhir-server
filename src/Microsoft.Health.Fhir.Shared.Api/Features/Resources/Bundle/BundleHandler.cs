@@ -911,8 +911,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.GetDisplayUrl(),
                 requestContext.BaseUri.OriginalString,
                 requestContext.CorrelationId,
-                requestHeaders: httpContext.Request.Headers,
-                responseHeaders: httpContext.Response.Headers)
+                requestHeaders: new ConcurrentDictionary<string, StringValues>(httpContext.Request.Headers),
+                responseHeaders: new ConcurrentDictionary<string, StringValues>(httpContext.Response.Headers))
             {
                 Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),

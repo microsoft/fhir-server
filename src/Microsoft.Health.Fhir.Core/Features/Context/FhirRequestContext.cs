@@ -17,10 +17,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     {
         private readonly string _uriString;
         private readonly string _baseUriString;
+        private readonly IDictionary<string, object> _properties;
 
         private Uri _uri;
         private Uri _baseUri;
-        private IDictionary<string, object> _properties;
 
         public FhirRequestContext(
             string method,
@@ -36,9 +36,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             EnsureArg.IsNotNullOrWhiteSpace(correlationId, nameof(correlationId));
             EnsureArg.IsNotNull(responseHeaders, nameof(responseHeaders));
 
-            Method = method;
             _uriString = uriString;
             _baseUriString = baseUriString;
+            _properties = new ConcurrentDictionary<string, object>();
+
+            Method = method;
             CorrelationId = correlationId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
@@ -73,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public bool IsBackgroundTask { get; set; }
 
-        public IDictionary<string, object> Properties => _properties ??= new ConcurrentDictionary<string, object>();
+        public IDictionary<string, object> Properties => _properties;
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
 
