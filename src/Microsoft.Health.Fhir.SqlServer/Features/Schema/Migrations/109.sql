@@ -4623,7 +4623,7 @@ CREATE PROCEDURE dbo.MergeSearchParams
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = switchoffset(sysdatetimeoffset(), '+00:00'), @msg AS VARCHAR (4000), @Rows AS INT, @AffectedRows AS INT = 0, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
+                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = CONVERT (DATETIMEOFFSET (7), sysUTCdatetime()), @msg AS VARCHAR (4000), @Rows AS INT, @AffectedRows AS INT = 0, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
 DECLARE @SearchParamsCopy AS dbo.SearchParamList;
 INSERT INTO @SearchParamsCopy
 SELECT *
