@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
@@ -55,6 +56,12 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     /// Content type for ViewDefinition JSON stored in Library.content.
     /// </summary>
     public const string ViewDefinitionContentType = "application/json+viewdefinition";
+
+    /// <summary>
+    /// Extension URL used to persist the materialization lifecycle status on a Library resource.
+    /// This allows the status (e.g., Populating, Active) to survive server restarts.
+    /// </summary>
+    public const string MaterializationStatusExtensionUrl = "https://sql-on-fhir.org/ig/StructureDefinition/materialization-status";
 
     private readonly ConcurrentDictionary<string, ViewDefinitionRegistration> _registrations = new(StringComparer.OrdinalIgnoreCase);
 
@@ -164,6 +171,10 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
             registration.LibraryResourceId = libraryResourceId;
 
+            // Persist the populating status to the Library resource so it survives restarts.
+            await UpdateLibraryMaterializationStatusAsync(
+                libraryResourceId, ViewDefinitionStatus.Populating, cancellationToken);
+
             // Status stays as Populating — the ViewDefinitionPopulationProcessingJob will
             // publish ViewDefinitionPopulationCompleteNotification when done, which triggers
             // the Handle method above to set status to Active (or Error).
@@ -256,7 +267,8 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     public async Task<ViewDefinitionRegistration> AdoptAsync(
         string viewDefinitionJson,
         string? libraryResourceId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(viewDefinitionJson);
 
@@ -268,7 +280,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             ViewDefinitionName = name,
             ResourceType = resourceType,
             LibraryResourceId = libraryResourceId,
-            Status = ViewDefinitionStatus.Active,
+            Status = initialStatus,
         };
 
         _registrations[name] = registration;
@@ -283,7 +295,10 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 name);
         }
 
-        _logger.LogInformation("Adopted ViewDefinition '{ViewDefName}' into local cache", name);
+        _logger.LogInformation(
+            "Adopted ViewDefinition '{ViewDefName}' into local cache with status '{Status}'",
+            name,
+            initialStatus);
         return registration;
     }
 
@@ -297,9 +312,10 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     }
 
     /// <summary>
-    /// Handles the population complete notification by updating the in-memory registration status.
+    /// Handles the population complete notification by updating the in-memory registration status
+    /// and persisting it to the Library resource.
     /// </summary>
-    public Task Handle(ViewDefinitionPopulationCompleteNotification notification, CancellationToken cancellationToken)
+    public async Task Handle(ViewDefinitionPopulationCompleteNotification notification, CancellationToken cancellationToken)
     {
         if (_registrations.TryGetValue(notification.ViewDefinitionName, out ViewDefinitionRegistration? registration))
         {
@@ -311,9 +327,70 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 notification.ViewDefinitionName,
                 registration.Status,
                 notification.RowsInserted);
-        }
 
-        return Task.CompletedTask;
+            // Persist the final status to the Library resource so it survives restarts.
+            if (!string.IsNullOrEmpty(registration.LibraryResourceId))
+            {
+                await UpdateLibraryMaterializationStatusAsync(
+                    registration.LibraryResourceId,
+                    registration.Status,
+                    cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Persists the materialization status as an extension on the Library resource so it survives
+    /// server restarts and is visible to other nodes. This is best-effort — failures are logged
+    /// but do not affect the in-memory status tracking.
+    /// </summary>
+    private async Task UpdateLibraryMaterializationStatusAsync(
+        string libraryResourceId,
+        ViewDefinitionStatus status,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Read the current Library resource
+            var getResponse = await SendScopedAsync<GetResourceResponse>(
+                new GetResourceRequest("Library", libraryResourceId),
+                cancellationToken);
+
+            string rawJson = getResponse.Resource.RawResource.Data;
+            var parser = new FhirJsonParser();
+            Library library = await parser.ParseAsync<Library>(rawJson);
+
+            // Add or update the materialization-status extension
+            string statusValue = status.ToString().ToLowerInvariant();
+            Extension? existingExt = library.Extension.FirstOrDefault(
+                e => e.Url == MaterializationStatusExtensionUrl);
+
+            if (existingExt != null)
+            {
+                existingExt.Value = new Code(statusValue);
+            }
+            else
+            {
+                library.Extension.Add(new Extension(MaterializationStatusExtensionUrl, new Code(statusValue)));
+            }
+
+            // Upsert the modified Library back through the pipeline
+            var resourceElement = new ResourceElement(library.ToTypedElement());
+            await SendScopedAsync<UpsertResourceResponse>(
+                new UpsertResourceRequest(resourceElement),
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Persisted materialization status '{Status}' on Library '{LibraryId}'",
+                statusValue,
+                libraryResourceId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            const string message = "Failed to persist materialization status '{Status}' on Library '{LibraryId}'. "
+                + "Status is tracked in memory but may be lost on restart";
+            _logger.LogWarning(ex, message, status, libraryResourceId);
+        }
     }
 
     /// <summary>

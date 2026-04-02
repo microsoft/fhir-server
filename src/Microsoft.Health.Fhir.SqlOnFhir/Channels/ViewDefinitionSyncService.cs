@@ -5,6 +5,7 @@
 
 using System.Collections.Concurrent;
 using System.Text;
+using System.Text.Json;
 using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Extensions.Hosting;
@@ -14,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
 
 namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
 
@@ -161,7 +163,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
             result.Results.Count());
 
         // Build set of ViewDefinition names found in persisted Library resources
-        var persistedViewDefs = new Dictionary<string, (string Json, string LibraryId)>(StringComparer.OrdinalIgnoreCase);
+        var persistedViewDefs = new Dictionary<string, (string Json, string LibraryId, ViewDefinitionStatus Status)>(StringComparer.OrdinalIgnoreCase);
 
         foreach (SearchResultEntry entry in result.Results)
         {
@@ -182,7 +184,8 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 string? name = ExtractViewDefinitionName(viewDefinitionJson);
                 if (name != null)
                 {
-                    persistedViewDefs[name] = (viewDefinitionJson, entry.Resource.ResourceId);
+                    ViewDefinitionStatus status = ExtractMaterializationStatus(entry.Resource);
+                    persistedViewDefs[name] = (viewDefinitionJson, entry.Resource.ResourceId, status);
                 }
                 else
                 {
@@ -203,7 +206,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
         // Adopt or update registrations for ViewDefinitions found in storage.
         // This node only updates its in-memory cache — the node that received the client
         // request already handled SQL table creation, population, and subscription setup.
-        foreach ((string name, (string json, string libraryId)) in persistedViewDefs)
+        foreach ((string name, (string json, string libraryId, ViewDefinitionStatus status)) in persistedViewDefs)
         {
             ViewDefinitionRegistration? existing = _subscriptionManager.GetRegistration(name);
 
@@ -219,11 +222,15 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 }
 
                 // Another node registered this — adopt into our local cache
-                _logger.LogInformation("Adopting ViewDefinition '{ViewDefName}' from Library '{LibraryId}'", name, libraryId);
+                _logger.LogInformation(
+                    "Adopting ViewDefinition '{ViewDefName}' from Library '{LibraryId}' with status '{Status}'",
+                    name,
+                    libraryId,
+                    status);
 
                 try
                 {
-                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken);
+                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken, status);
                     _recentlyEvicted.TryRemove(name, out _);
                 }
                 catch (Exception ex)
@@ -239,7 +246,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 try
                 {
                     _subscriptionManager.Evict(name);
-                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken);
+                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken, status);
                 }
                 catch (Exception ex)
                 {
@@ -325,6 +332,46 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Extracts the materialization status from the Library resource's extension.
+    /// Returns <see cref="ViewDefinitionStatus.Active"/> if the extension is not present
+    /// (backward compatibility for Libraries created before status persistence was added).
+    /// </summary>
+    private static ViewDefinitionStatus ExtractMaterializationStatus(ResourceWrapper wrapper)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(wrapper.RawResource.Data);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("extension", out JsonElement extensions))
+            {
+                foreach (JsonElement ext in extensions.EnumerateArray())
+                {
+                    if (ext.TryGetProperty("url", out JsonElement url)
+                        && string.Equals(
+                            url.GetString(),
+                            ViewDefinitionSubscriptionManager.MaterializationStatusExtensionUrl,
+                            StringComparison.OrdinalIgnoreCase)
+                        && ext.TryGetProperty("valueCode", out JsonElement valueCode))
+                    {
+                        string? statusStr = valueCode.GetString();
+                        if (Enum.TryParse<ViewDefinitionStatus>(statusStr, ignoreCase: true, out var status))
+                        {
+                            return status;
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fall through to default
+        }
+
+        return ViewDefinitionStatus.Active;
     }
 
     private static string ComputeHash(string content)

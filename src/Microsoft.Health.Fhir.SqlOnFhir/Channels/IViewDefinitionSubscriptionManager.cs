@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
+
 namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
 
 /// <summary>
@@ -53,8 +55,17 @@ public interface IViewDefinitionSubscriptionManager
     /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
     /// <param name="libraryResourceId">The Library resource ID that persists this ViewDefinition.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="initialStatus">
+    /// The initial status to assign. Defaults to <see cref="ViewDefinitionStatus.Active"/>.
+    /// Pass the status read from the Library resource's materialization-status extension so that
+    /// ViewDefinitions that were still populating before a restart remain in <c>Populating</c> state.
+    /// </param>
     /// <returns>The adopted registration.</returns>
-    Task<ViewDefinitionRegistration> AdoptAsync(string viewDefinitionJson, string? libraryResourceId, CancellationToken cancellationToken);
+    Task<ViewDefinitionRegistration> AdoptAsync(
+        string viewDefinitionJson,
+        string? libraryResourceId,
+        CancellationToken cancellationToken,
+        ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active);
 
     /// <summary>
     /// Removes a ViewDefinition from the in-memory cache without deleting SQL tables, subscriptions,
