@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,8 +37,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
-        private int _activeConsistencyWaiters;
-        private volatile TaskCompletionSource<bool> _refreshSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
@@ -81,135 +80,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             else
             {
                 return _searchParameterDefinitionManager.SearchParameterHashMap.TryGetValue(resourceType, out string hash) ? hash : null;
-            }
-        }
-
-        /// <inheritdoc />
-        public async Task WaitForRefreshCyclesAsync(int cycleCount, CancellationToken cancellationToken)
-        {
-            if (cycleCount <= 0)
-            {
-                return;
-            }
-
-            // Safety net: if the background service is not publishing notifications (e.g. crashed),
-            // fail fast rather than blocking indefinitely. Under normal conditions with a 20-second
-            // refresh interval, even 3 cycles would complete in ~60 seconds.
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-
-            for (int i = 0; i < cycleCount; i++)
-            {
-                linkedCts.Token.ThrowIfCancellationRequested();
-
-                // Capture the current signal before awaiting
-                var currentSignal = _refreshSignal;
-                using var registration = linkedCts.Token.Register(() => currentSignal.TrySetCanceled());
-
-                try
-                {
-                    await currentSignal.Task;
-                }
-                catch (TaskCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                {
-                    throw new TimeoutException(
-                        $"SearchParameterCacheRefreshBackgroundService did not complete {cycleCount} refresh cycle(s) within 5 minutes. The server may be in an unhealthy state.");
-                }
-            }
-        }
-
-        /// <inheritdoc />
-        public async Task WaitForAllInstancesCacheConsistencyAsync(DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
-        {
-            if (!_searchParamLastUpdated.HasValue)
-            {
-                _logger.LogInformation("SearchParamLastUpdated is null — skipping cross-instance cache consistency check.");
-                return;
-            }
-
-            var targetTimestamp = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
-            var waitStart = DateTime.UtcNow;
-
-            Interlocked.Increment(ref _activeConsistencyWaiters);
-
-            try
-            {
-                await TryLogConsistencyWaitEventAsync(
-                    "Warn",
-                    $"Target={targetTimestamp} PollIntervalSeconds=30 TimeoutMinutes=10 SyncStartDate={syncStartDate:O} ActiveHostsSince={activeHostsSince:O}",
-                    null,
-                    cancellationToken);
-
-                // Poll with a timeout — same 10-minute safety net as WaitForRefreshCyclesAsync
-                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-
-                while (!linkedCts.Token.IsCancellationRequested)
-                {
-                    var result = await _searchParameterStatusManager.CheckCacheConsistencyAsync(targetTimestamp, syncStartDate, activeHostsSince, linkedCts.Token);
-
-                    if (result.IsConsistent)
-                    {
-                        var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
-
-                        _logger.LogInformation(
-                            "All {TotalActiveHosts} active host(s) have converged to SearchParamLastUpdated={Target}.",
-                            result.TotalActiveHosts,
-                            targetTimestamp);
-
-                        await TryLogConsistencyWaitEventAsync(
-                            "Warn",
-                            $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}",
-                            waitStart,
-                            cancellationToken);
-
-                        return;
-                    }
-
-                    _logger.LogInformation(
-                        "Cache consistency check: {ConvergedHosts}/{TotalActiveHosts} hosts converged to SearchParamLastUpdated={Target}. Waiting...",
-                        result.ConvergedHosts,
-                        result.TotalActiveHosts,
-                        targetTimestamp);
-
-                    try
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(30), linkedCts.Token);
-                    }
-                    catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                    {
-                        var elapsedMilliseconds = (long)(DateTime.UtcNow - waitStart).TotalMilliseconds;
-                        var timeoutMessage = $"Target={targetTimestamp} TotalActiveHosts={result.TotalActiveHosts} ConvergedHosts={result.ConvergedHosts} ElapsedMs={elapsedMilliseconds}";
-
-                        await TryLogConsistencyWaitEventAsync(
-                            "Error",
-                            timeoutMessage,
-                            waitStart,
-                            CancellationToken.None);
-
-                        throw new TimeoutException(
-                            $"Not all instances converged to SearchParamLastUpdated={targetTimestamp} within 10 minutes. The server may be in an unhealthy state.");
-                    }
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-            finally
-            {
-                Interlocked.Decrement(ref _activeConsistencyWaiters);
-            }
-        }
-
-        private async Task TryLogConsistencyWaitEventAsync(string status, string text, DateTime? startDate, CancellationToken cancellationToken)
-        {
-            try
-            {
-                using IScoped<ISearchService> searchService = _searchServiceFactory();
-                await searchService.Value.TryLogEvent(nameof(WaitForAllInstancesCacheConsistencyAsync), status, text, startDate, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to log WaitForAllInstancesCacheConsistencyAsync event.");
             }
         }
 
@@ -435,8 +305,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             var inCache = ParametersAreInCache(statusesToFetch, cancellationToken);
 
-            DateTimeOffset? searchParamLastUpdatedToLog = null;
-
             // If cache is updated directly and not from the database not all will have corresponding resources.
             // Do not advance or log the timestamp unless the cache contents are conclusive for this cycle.
             if (inCache && allHaveResources)
@@ -445,37 +313,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     _searchParamLastUpdated = results.LastUpdated.Value;
                 }
-
-                searchParamLastUpdatedToLog = _searchParamLastUpdated;
             }
 
-            if (searchParamLastUpdatedToLog.HasValue
-                && (results.LastUpdated.HasValue || Volatile.Read(ref _activeConsistencyWaiters) > 0))
+            if (_searchParamLastUpdated.HasValue)
             {
                 // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
-                // Emit the current cache timestamp for no-op refresh cycles only while a consistency waiter is active.
-                try
-                {
-                    var lastUpdatedText = searchParamLastUpdatedToLog.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
-                    using IScoped<ISearchService> searchService = _searchServiceFactory();
-                    await searchService.Value.TryLogEvent(
-                        "SearchParameterCacheRefresh",
-                        "End",
-                        $"SearchParamLastUpdated={lastUpdatedText}",
-                        null,
-                        cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to log SearchParameterCacheRefresh event. Cross-instance convergence checks may be affected.");
-                }
+                var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
+                await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", $"SearchParamLastUpdated={lastUpdatedText}", null, cancellationToken);
             }
-
-            // Signal waiters that a refresh cycle has completed.
-            // This fires every cycle (even when no changes are found) because
-            // WaitForRefreshCyclesAsync counts completed cycles, not cycles with changes.
-            var previous = Interlocked.Exchange(ref _refreshSignal, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
-            previous.TrySetResult(true);
         }
 
         // This should handle racing condition between saving new parameter on one VM and refreshing cache on the other,

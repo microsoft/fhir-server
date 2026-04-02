@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public delegate ISearchParameterStatusDataStore Resolver();
 
+        public string SearchParamCacheUpdateProcessName => null;
+
         public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
             await Task.CompletedTask; // noop
@@ -98,10 +100,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Do nothing. This is only required for SQL.
         }
 
-        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
-            // File-based registry is single-instance only. Always consistent.
-            return Task.FromResult(new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 1, ConvergedHosts = 1 });
+            throw new NotSupportedException("Cache sync is not supported for file-based storage.");
         }
 
         public async Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken)

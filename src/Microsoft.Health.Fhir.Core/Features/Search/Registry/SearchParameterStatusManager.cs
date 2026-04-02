@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _logger = logger;
         }
 
+        public string SearchParamCacheUpdateProcessName => _searchParameterStatusDataStore.SearchParamCacheUpdateProcessName;
+
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
@@ -265,9 +267,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return tempStatus;
         }
 
-        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
-            return await _searchParameterStatusDataStore.CheckCacheConsistencyAsync(targetSearchParamLastUpdated, syncStartDate, activeHostsSince, cancellationToken);
+            return await _searchParameterStatusDataStore.CheckCacheConsistencyAsync(updateEventsSince, activeHostsSince, cancellationToken);
+        }
+
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _searchParameterStatusDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
         private struct TempStatus

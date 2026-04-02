@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
     internal class SqlServerSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
-        private const string SearchParamLastUpdatedPrefix = "SearchParamLastUpdated=";
+        public const string SearchParamCacheUpdateProcess = "SearchParamCacheUpdate";
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SchemaInformation _schemaInformation;
@@ -58,6 +58,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
         }
+
+        public string SearchParamCacheUpdateProcessName => SearchParamCacheUpdateProcess;
 
         public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
@@ -247,84 +249,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(targetSearchParamLastUpdated, nameof(targetSearchParamLastUpdated));
-
-            if (_schemaInformation.Current < (int)SchemaVersion.V108)
+            if (_schemaInformation.Current < (int)SchemaVersion.V109) // Pre-V109 schemas don't have the sproc; assume inconsistent
             {
-                // Pre-V108 schemas don't have the sproc; assume consistent
-                return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 1, ConvergedHosts = 1 };
+                return new CacheConsistencyResult { IsConsistent = false, ActiveHosts = 0, ConvergedHosts = 0 };
             }
 
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.CheckSearchParamCacheConsistency";
-            cmd.Parameters.AddWithValue("@TargetSearchParamLastUpdated", targetSearchParamLastUpdated);
-            cmd.Parameters.AddWithValue("@SyncStartDate", syncStartDate);
+            cmd.CommandText = "dbo.GetSearchParamCacheUpdateEvents";
+            cmd.Parameters.AddWithValue("@UpdateProcess", SearchParamCacheUpdateProcess);
+            cmd.Parameters.AddWithValue("@UpdateEventsSince", updateEventsSince);
             cmd.Parameters.AddWithValue("@ActiveHostsSince", activeHostsSince);
 
             var results = await cmd.ExecuteReaderAsync(
                 _sqlRetryService,
                 (reader) =>
                 {
-                    var hostName = reader.GetString(0);
-                    var syncEventDate = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
-                    var eventText = reader.IsDBNull(2) ? null : reader.GetString(2);
-                    return (hostName, syncEventDate, eventText);
+                    var eventDate = reader.GetDateTime(0);
+                    var eventText = reader.IsDBNull(1) ? null : reader.GetString(1);
+                    var hostName = reader.GetString(2);
+                    return (eventDate, eventText, hostName);
                 },
                 _logger,
                 cancellationToken);
 
-            if (results.Count == 0)
+            var activeHosts = results.Select(r => r.hostName).ToHashSet();
+            var eventsByHosts = results.Where(_ => !string.IsNullOrEmpty(_.eventText))
+                                       .GroupBy(_ => _.hostName)
+                                       .Select(g => new { g.Key, Value = g.OrderByDescending(_ => _.eventDate).Take(2).ToList() })
+                                       .ToDictionary(_ => _.Key, _ => _.Value);
+            var updatedHosts = new Dictionary<string, string>();
+            foreach (var hostName in activeHosts)
             {
-                // If no results, assume consistent (could be a fresh database)
-                return new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 0, ConvergedHosts = 0 };
-            }
-
-            var activeHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var latestSyncByHost = new Dictionary<string, (DateTime SyncEventDate, string EventText)>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var (hostName, syncEventDate, eventText) in results)
-            {
-                activeHosts.Add(hostName);
-
-                if (syncEventDate.HasValue && !string.IsNullOrEmpty(eventText))
+                var events = eventsByHosts.TryGetValue(hostName, out var value);
+                if (value != null && value.Count == 2 && value[0].eventText == value[1].eventText)
                 {
-                    if (!latestSyncByHost.TryGetValue(hostName, out var existingSync)
-                        || syncEventDate.Value > existingSync.SyncEventDate)
-                    {
-                        latestSyncByHost[hostName] = (syncEventDate.Value, eventText);
-                    }
+                    updatedHosts.Add(hostName, value[0].eventText);
                 }
             }
 
-            int totalActiveHosts = activeHosts.Count;
-            int totalConvergedHosts = activeHosts.Count(hostName =>
-                latestSyncByHost.TryGetValue(hostName, out var latestSync)
-                && TryGetLoggedSearchParamLastUpdated(latestSync.EventText, out string loggedSearchParamLastUpdated)
-                && StringComparer.Ordinal.Compare(loggedSearchParamLastUpdated, targetSearchParamLastUpdated) >= 0);
-
-            return new CacheConsistencyResult
-            {
-                IsConsistent = totalActiveHosts > 0 && totalConvergedHosts >= totalActiveHosts,
-                TotalActiveHosts = totalActiveHosts,
-                ConvergedHosts = totalConvergedHosts,
-            };
-        }
-
-        private static bool TryGetLoggedSearchParamLastUpdated(string eventText, out string loggedSearchParamLastUpdated)
-        {
-            if (!string.IsNullOrEmpty(eventText)
-                && eventText.StartsWith(SearchParamLastUpdatedPrefix, StringComparison.Ordinal)
-                && eventText.Length > SearchParamLastUpdatedPrefix.Length)
-            {
-                loggedSearchParamLastUpdated = eventText.Substring(SearchParamLastUpdatedPrefix.Length);
-                return true;
-            }
-
-            loggedSearchParamLastUpdated = null;
-            return false;
+            var maxEventText = updatedHosts.Values.Max(_ => _); // use event text as-is because date is saved in a sortable format.
+            var convergedHosts = updatedHosts.Where(_ => _.Value == maxEventText).Select(_ => _.Key).ToList();
+            var isConsistent = convergedHosts.Count > 0 && convergedHosts.Count == activeHosts.Count;
+            await TryLogEvent("CheckCacheConsistency", "Warn", $"isConsistent={isConsistent} ActiveHosts={activeHosts.Count} ConvergedHosts={convergedHosts.Count}", null, cancellationToken);
+            return new CacheConsistencyResult { IsConsistent = isConsistent, ActiveHosts = activeHosts.Count, ConvergedHosts = convergedHosts.Count };
         }
     }
 }

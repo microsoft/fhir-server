@@ -1,4 +1,6 @@
 IF object_id('UpsertSearchParamsWithOptimisticConcurrency') IS NOT NULL DROP PROCEDURE UpsertSearchParamsWithOptimisticConcurrency
+IF object_id('AcquireReindexJobs') IS NOT NULL DROP PROCEDURE AcquireReindexJobs
+IF object_id('UpdateReindexJob') IS NOT NULL DROP PROCEDURE UpdateReindexJob
 GO
 ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
            ,@IsResourceChangeCaptureEnabled bit = 0
@@ -24,7 +26,7 @@ set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
-       ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
+       ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
        ,@msg varchar(4000)
        ,@Rows int
        ,@AffectedRows int = 0
@@ -36,7 +38,7 @@ INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
 WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
 BEGIN
   SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
-  SET @msg = 'Uri='+@Uri+' Status='+@Status
+  SET @msg = 'Status='+@Status+' Uri='+@Uri
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
   DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
 END
@@ -106,7 +108,7 @@ BEGIN TRY
         ,S.LastUpdated
     FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
     WHERE C.Operation = 'INSERT'
-  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
+  SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)+' INSERT='+convert(varchar,@@rowcount)
 
   COMMIT TRANSACTION
 
@@ -118,48 +120,22 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'MergeSearchParams')
+INSERT INTO Parameters (Id,Char) SELECT 'MergeSearchParams','LogEvent'
 GO
--- Enable event logging for DequeueJob to allow active host discovery via EventLog.HostName
-INSERT INTO dbo.Parameters (Id, Char) SELECT 'DequeueJob', 'LogEvent' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'DequeueJob')
-GO
--- Enable event logging for cache refresh convergence tracking and diagnostics
-INSERT INTO dbo.Parameters (Id, Char) SELECT 'SearchParameterCacheRefresh', 'LogEvent' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'SearchParameterCacheRefresh')
-GO
-CREATE OR ALTER PROCEDURE dbo.CheckSearchParamCacheConsistency
-    @TargetSearchParamLastUpdated varchar(100)
-   ,@SyncStartDate datetime2(7)
-   ,@ActiveHostsSince datetime2(7)
-   ,@StalenessThresholdMinutes int = 10
+CREATE OR ALTER PROCEDURE dbo.GetSearchParamCacheUpdateEvents @UpdateProcess varchar(100), @UpdateEventsSince datetime, @ActiveHostsSince datetime
 AS
 set nocount on
-SELECT HostName
-    ,CAST(NULL AS datetime2(7)) AS SyncEventDate
-      ,CAST(NULL AS nvarchar(3500)) AS EventText
-  FROM dbo.EventLog
-  WHERE EventDate >= @ActiveHostsSince
-    AND HostName IS NOT NULL
-    AND Process = 'DequeueJob'
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(200) = 'Process='+@UpdateProcess+' EventsSince='+convert(varchar(23),@UpdateEventsSince,126)+' HostsSince='+convert(varchar(23),@ActiveHostsSince,126)
+       ,@st datetime = getUTCdate()
 
-UNION ALL
-
-SELECT HostName
-    ,EventDate
-      ,EventText
+SELECT EventDate
+      ,EventText = CASE WHEN Process = @UpdateProcess AND EventDate > @UpdateEventsSince THEN EventText ELSE NULL END
+      ,HostName
   FROM dbo.EventLog
-  WHERE EventDate >= @SyncStartDate
-    AND HostName IS NOT NULL
-    AND Process = 'SearchParameterCacheRefresh'
-    AND Status = 'End'
+  WHERE EventDate > @ActiveHostsSince
+
+EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Rows=@@rowcount,@Start=@st
 GO
---DECLARE @SearchParams dbo.SearchParamList
---INSERT INTO @SearchParams
---  --SELECT 'http://example.org/fhir/SearchParameter/custom-mixed-base-d9e18fc8', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
---  SELECT 'Test', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
---INSERT INTO @SearchParams
---  SELECT 'Test2', 'Enabled', 0, '2026-01-26 17:15:43.0364438 -08:00'
---SELECT * FROM @SearchParams
---EXECUTE dbo.MergeSearchParams @SearchParams
---SELECT TOP 100 * FROM SearchParam ORDER BY SearchParamId DESC
---DELETE FROM SearchParam WHERE Uri LIKE 'Test%'
---SELECT TOP 10 * FROM EventLog ORDER BY EventDate DESC
+INSERT INTO dbo.Parameters (Id, Char) SELECT 'GetSearchParamCacheUpdateEvents', 'LogEvent'
+GO

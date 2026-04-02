@@ -1017,49 +1017,6 @@ CREATE TABLE dbo.WatchdogLeases (
 
 COMMIT
 GO
-CREATE PROCEDURE dbo.AcquireReindexJobs
-@jobHeartbeatTimeoutThresholdInSeconds BIGINT, @maximumNumberOfConcurrentJobsAllowed INT
-AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-BEGIN TRANSACTION;
-DECLARE @expirationDateTime AS DATETIME2 (7);
-SELECT @expirationDateTime = DATEADD(second, -@jobHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
-DECLARE @numberOfRunningJobs AS INT;
-SELECT @numberOfRunningJobs = COUNT(*)
-FROM   dbo.ReindexJob WITH (TABLOCKX)
-WHERE  Status = 'Running'
-       AND HeartbeatDateTime > @expirationDateTime;
-DECLARE @limit AS INT = @maximumNumberOfConcurrentJobsAllowed - @numberOfRunningJobs;
-IF (@limit > 0)
-    BEGIN
-        DECLARE @availableJobs TABLE (
-            Id         VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-            JobVersion BINARY (8)   NOT NULL);
-        INSERT INTO @availableJobs
-        SELECT   TOP (@limit) Id,
-                              JobVersion
-        FROM     dbo.ReindexJob
-        WHERE    (Status = 'Queued'
-                  OR (Status = 'Running'
-                      AND HeartbeatDateTime <= @expirationDateTime))
-        ORDER BY HeartbeatDateTime;
-        DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-        UPDATE dbo.ReindexJob
-        SET    Status            = 'Running',
-               HeartbeatDateTime = @heartbeatDateTime,
-               RawJobRecord      = JSON_MODIFY(RawJobRecord, '$.status', 'Running')
-        OUTPUT inserted.RawJobRecord, inserted.JobVersion
-        FROM   dbo.ReindexJob AS job
-               INNER JOIN
-               @availableJobs AS availableJob
-               ON job.Id = availableJob.Id
-                  AND job.JobVersion = availableJob.JobVersion;
-    END
-COMMIT TRANSACTION;
-
-GO
 CREATE PROCEDURE dbo.AcquireWatchdogLease
 @Watchdog VARCHAR (100), @Worker VARCHAR (100), @AllowRebalance BIT=1, @ForceAcquire BIT=0, @LeasePeriodSec FLOAT, @WorkerIsRunning BIT=0, @LeaseEndTime DATETIME OUTPUT, @IsAcquired BIT OUTPUT, @CurrentLeaseHolder VARCHAR (100)=NULL OUTPUT
 AS
@@ -1367,43 +1324,6 @@ FROM   dbo.ReindexJob
 WHERE  Status = 'Running'
        OR Status = 'Queued'
        OR Status = 'Paused';
-
-GO
-CREATE OR ALTER PROCEDURE dbo.CheckSearchParamCacheConsistency
-@TargetSearchParamLastUpdated VARCHAR (100), @SyncStartDate DATETIME2 (7), @ActiveHostsSince DATETIME2 (7), @StalenessThresholdMinutes INT=10
-AS
-SET NOCOUNT ON;
-SELECT HostName,
-       CAST (NULL AS DATETIME2 (7)) AS SyncEventDate,
-       CAST (NULL AS NVARCHAR (3500)) AS EventText
-FROM   dbo.EventLog
-WHERE  EventDate >= @ActiveHostsSince
-       AND HostName IS NOT NULL
-       AND Process = 'DequeueJob'
-UNION ALL
-SELECT HostName,
-       EventDate,
-       EventText
-FROM   dbo.EventLog
-WHERE  EventDate >= @SyncStartDate
-       AND HostName IS NOT NULL
-       AND Process = 'SearchParameterCacheRefresh'
-       AND Status = 'End';
-
-
-GO
-INSERT INTO dbo.Parameters (Id, Char)
-SELECT 'DequeueJob',
-       'LogEvent'
-WHERE  NOT EXISTS (SELECT *
-                   FROM   dbo.Parameters
-                   WHERE  Id = 'DequeueJob');
-
-
-GO
-INSERT INTO Parameters (Id, Char)
-SELECT 'SearchParameterCacheRefresh',
-       'LogEvent';
 
 GO
 CREATE PROCEDURE dbo.CleanupEventLog
@@ -3295,6 +3215,26 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.GetSearchParamCacheUpdateEvents
+@UpdateProcess VARCHAR (100), @UpdateEventsSince DATETIME, @ActiveHostsSince DATETIME
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Process=' + @UpdateProcess + ' EventsSince=' + CONVERT (VARCHAR (23), @UpdateEventsSince, 126) + ' HostsSince=' + CONVERT (VARCHAR (23), @ActiveHostsSince, 126), @st AS DATETIME = getUTCdate();
+SELECT EventDate,
+       CASE WHEN Process = @UpdateProcess
+                 AND EventDate > @UpdateEventsSince THEN EventText ELSE NULL END AS EventText,
+       HostName
+FROM   dbo.EventLog
+WHERE  EventDate > @ActiveHostsSince;
+EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Rows = @@rowcount, @Start = @st;
+
+
+GO
+INSERT INTO dbo.Parameters (Id, Char)
+SELECT 'GetSearchParamCacheUpdateEvents',
+       'LogEvent';
+
+GO
 CREATE PROCEDURE dbo.GetSearchParamMaxLastUpdated
 AS
 SET NOCOUNT ON;
@@ -4683,7 +4623,7 @@ CREATE PROCEDURE dbo.MergeSearchParams
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = sysdatetimeoffset(), @msg AS VARCHAR (4000), @Rows AS INT, @AffectedRows AS INT = 0, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
+                                                                                                           FROM   @SearchParams)), @st AS DATETIME = getUTCdate(), @LastUpdated AS DATETIMEOFFSET (7) = switchoffset(sysdatetimeoffset(), '+00:00'), @msg AS VARCHAR (4000), @Rows AS INT, @AffectedRows AS INT = 0, @Uri AS VARCHAR (4000), @Status AS VARCHAR (20);
 DECLARE @SearchParamsCopy AS dbo.SearchParamList;
 INSERT INTO @SearchParamsCopy
 SELECT *
@@ -4694,7 +4634,7 @@ WHILE EXISTS (SELECT *
         SELECT TOP 1 @Uri = Uri,
                      @Status = Status
         FROM   @SearchParamsCopy;
-        SET @msg = 'Uri=' + @Uri + ' Status=' + @Status;
+        SET @msg = 'Status=' + @Status + ' Uri=' + @Uri;
         EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @msg;
         DELETE @SearchParamsCopy
         WHERE  Uri = @Uri;
@@ -4741,7 +4681,7 @@ BEGIN TRY
            @SummaryOfChanges AS C
            ON C.Uri = S.Uri
     WHERE  C.Operation = 'INSERT';
-    SET @msg = 'LastUpdated=' + substring(CONVERT (VARCHAR, @LastUpdated), 1, 23) + ' INSERT=' + CONVERT (VARCHAR, @@rowcount);
+    SET @msg = 'LastUpdated=' + CONVERT (VARCHAR (23), @LastUpdated, 126) + ' INSERT=' + CONVERT (VARCHAR, @@rowcount);
     COMMIT TRANSACTION;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Action = 'Merge', @Rows = @Rows, @Text = @msg;
 END TRY
@@ -5254,34 +5194,6 @@ BEGIN
         INSERT  INTO dbo.EventAgentCheckpoint (CheckpointId, LastProcessedDateTime, LastProcessedIdentifier, UpdatedOn)
         VALUES                               (@CheckpointId, @LastProcessedDateTime, @LastProcessedIdentifier, sysutcdatetime());
 END
-
-GO
-CREATE PROCEDURE dbo.UpdateReindexJob
-@id VARCHAR (64), @status VARCHAR (10), @rawJobRecord VARCHAR (MAX), @jobVersion BINARY (8)
-AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-BEGIN TRANSACTION;
-DECLARE @currentJobVersion AS BINARY (8);
-SELECT @currentJobVersion = JobVersion
-FROM   dbo.ReindexJob WITH (UPDLOCK, HOLDLOCK)
-WHERE  Id = @id;
-IF (@currentJobVersion IS NULL)
-    BEGIN
-        THROW 50404, 'Reindex job record not found', 1;
-    END
-IF (@jobVersion <> @currentJobVersion)
-    BEGIN
-        THROW 50412, 'Precondition failed', 1;
-    END
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-UPDATE dbo.ReindexJob
-SET    Status            = @status,
-       HeartbeatDateTime = @heartbeatDateTime,
-       RawJobRecord      = @rawJobRecord
-WHERE  Id = @id;
-SELECT @@DBTS;
-COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams

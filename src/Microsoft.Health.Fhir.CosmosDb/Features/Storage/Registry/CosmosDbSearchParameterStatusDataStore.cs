@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _queryFactory = queryFactory;
         }
 
+        public string SearchParamCacheUpdateProcessName => null;
+
         public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
             await Task.CompletedTask; // noop
@@ -114,11 +116,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             // Do nothing. This is only required for SQL.
         }
 
-        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(string targetSearchParamLastUpdated, DateTime syncStartDate, DateTime activeHostsSince, CancellationToken cancellationToken)
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
         {
-            // Cosmos DB does not use EventLog-based convergence tracking.
-            // Return immediately as consistent since each instance refreshes from the same Cosmos container.
-            return Task.FromResult(new CacheConsistencyResult { IsConsistent = true, TotalActiveHosts = 1, ConvergedHosts = 1 });
+            throw new NotSupportedException("Cache sync is not supported for Cosmos DB storage.");
         }
 
         public void Dispose()

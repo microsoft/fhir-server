@@ -22,7 +22,7 @@ set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = 'Cnt='+convert(varchar,(SELECT count(*) FROM @SearchParams))
        ,@st datetime = getUTCdate()
-       ,@LastUpdated datetimeoffset(7) = sysdatetimeoffset()
+       ,@LastUpdated datetimeoffset(7) = convert(datetimeoffset(7), sysUTCdatetime())
        ,@msg varchar(4000)
        ,@Rows int
        ,@AffectedRows int = 0
@@ -34,7 +34,7 @@ INSERT INTO @SearchParamsCopy SELECT * FROM @SearchParams
 WHILE EXISTS (SELECT * FROM @SearchParamsCopy)
 BEGIN
   SELECT TOP 1 @Uri = Uri, @Status = Status FROM @SearchParamsCopy
-  SET @msg = 'Uri='+@Uri+' Status='+@Status
+  SET @msg = 'Status='+@Status+' Uri='+@Uri
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
   DELETE FROM @SearchParamsCopy WHERE Uri = @Uri
 END
@@ -104,7 +104,7 @@ BEGIN TRY
         ,S.LastUpdated
     FROM dbo.SearchParam S JOIN @SummaryOfChanges C ON C.Uri = S.Uri
     WHERE C.Operation = 'INSERT'
-  SET @msg = 'LastUpdated='+substring(convert(varchar,@LastUpdated),1,23)+' INSERT='+convert(varchar,@@rowcount)
+  SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)+' INSERT='+convert(varchar,@@rowcount)
 
   COMMIT TRANSACTION
 
