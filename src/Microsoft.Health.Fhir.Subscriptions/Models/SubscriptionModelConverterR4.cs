@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Models
@@ -91,14 +92,20 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
 
         private static void ExtractChannelHeaders(ResourceElement resource, ChannelInfo channelInfo)
         {
-            var headers = resource.Scalar<IEnumerable<string>>("Subscription.channel.header");
-            if (headers == null)
+            var headerElements = resource.Select("Subscription.channel.header");
+            if (headerElements == null)
             {
                 return;
             }
 
-            foreach (var header in headers)
+            foreach (var element in headerElements)
             {
+                string header = element.Value != null ? element.Value.ToString() : null;
+                if (string.IsNullOrEmpty(header))
+                {
+                    continue;
+                }
+
                 int separatorIndex = header.IndexOf(": ", StringComparison.Ordinal);
                 if (separatorIndex > 0)
                 {

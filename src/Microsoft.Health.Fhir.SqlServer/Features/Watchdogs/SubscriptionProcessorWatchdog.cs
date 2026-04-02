@@ -78,7 +78,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 var transactionsToQueue = new List<SubscriptionJobDefinition>();
 
-                foreach (var tran in transactionsToProcess.Where(x => x.VisibleDate.HasValue).OrderBy(x => x.TransactionId))
+                var visibleTransactions = transactionsToProcess.Where(x => x.VisibleDate.HasValue).OrderBy(x => x.TransactionId).ToList();
+                _logger.LogInformation($"{Name}: {transactionsToProcess.Count} transactions total, {visibleTransactions.Count} with VisibleDate.");
+
+                foreach (var tran in visibleTransactions)
                 {
                     var jobDefinition = new SubscriptionJobDefinition(JobType.SubscriptionsOrchestrator)
                     {
@@ -89,7 +92,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     transactionsToQueue.Add(jobDefinition);
                 }
 
-                await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken: cancellationToken, definitions: transactionsToQueue.ToArray());
+                if (transactionsToQueue.Count > 0)
+                {
+                    _logger.LogInformation($"{Name}: enqueuing {transactionsToQueue.Count} subscription job(s).");
+                    await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken: cancellationToken, definitions: transactionsToQueue.ToArray());
+                }
+                else
+                {
+                    _logger.LogInformation($"{Name}: no transactions with VisibleDate to enqueue.");
+                }
             }
 
             await UpdateLastEventProcessedTransactionId(transactionsToProcess.Max(x => x.TransactionId));

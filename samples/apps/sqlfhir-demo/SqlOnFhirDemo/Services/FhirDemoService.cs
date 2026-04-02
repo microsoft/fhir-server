@@ -167,6 +167,74 @@ public class FhirDemoService
     }
 
     /// <summary>
+    /// Queries the list of all registered ViewDefinitions via GET ViewDefinition.
+    /// Parses the FHIR Bundle of Parameters resources.
+    /// </summary>
+    public async Task<List<ViewDefinitionMaterializationStatus>> GetAllViewDefinitionStatusesAsync()
+    {
+        var results = new List<ViewDefinitionMaterializationStatus>();
+
+        try
+        {
+            var response = await _httpClient.GetAsync("ViewDefinition");
+            if (!response.IsSuccessStatusCode)
+            {
+                return results;
+            }
+
+            string json = await response.Content.ReadAsStringAsync();
+            var doc = JsonNode.Parse(json);
+            var entries = doc?["entry"]?.AsArray();
+            if (entries == null)
+            {
+                return results;
+            }
+
+            foreach (var entry in entries)
+            {
+                var resource = entry?["resource"];
+                var parameters = resource?["parameter"]?.AsArray();
+                if (parameters == null)
+                {
+                    continue;
+                }
+
+                var status = new ViewDefinitionMaterializationStatus();
+                foreach (var param in parameters)
+                {
+                    string? name = param?["name"]?.GetValue<string>();
+                    string? value = param?["valueString"]?.GetValue<string>()
+                        ?? param?["valueCode"]?.GetValue<string>()
+                        ?? param?["valueBoolean"]?.GetValue<bool>().ToString()
+                        ?? param?["valueInstant"]?.GetValue<string>();
+
+                    switch (name)
+                    {
+                        case "viewDefinitionName": status.ViewDefinitionName = value ?? ""; break;
+                        case "resourceType": status.ResourceType = value ?? ""; break;
+                        case "status": status.Status = value ?? ""; break;
+                        case "errorMessage": status.ErrorMessage = value; break;
+                        case "tableExists": status.TableExists = bool.TryParse(value, out var b) && b; break;
+                        case "libraryResourceId": status.LibraryResourceId = value; break;
+                        case "subscriptionId": status.SubscriptionIds.Add(value ?? ""); break;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(status.ViewDefinitionName))
+                {
+                    results.Add(status);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch ViewDefinition status list");
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Queries the materialization status of a registered ViewDefinition.
     /// Parses the FHIR Parameters resource returned by GET ViewDefinition/{name}.
     /// </summary>
@@ -658,7 +726,7 @@ public class FhirDemoService
 
                 // Uncontrolled BP observation
                 entries.Append($@",
-                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{id}-bp"", {DemoMetaTagJson}, ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{id}-bp""}}}}");
+                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{id}-bp"", {DemoMetaTagJson}, ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{id}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{id}-bp""}}}}");
             }
 
             string bundle = $@"{{""resourceType"": ""Bundle"", ""type"": ""batch"", ""entry"": [{entries}]}}";
@@ -702,7 +770,7 @@ public class FhirDemoService
                 if (entries.Length > 0) entries.Append(",");
 
                 entries.Append($@"
-                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{obsId}"", {DemoMetaTagJson}, ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{patientId}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{obsId}""}}}}");
+                {{""resource"": {{""resourceType"": ""Observation"", ""id"": ""{obsId}"", {DemoMetaTagJson}, ""status"": ""final"", ""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""85354-9"", ""display"": ""Blood pressure panel""}}]}}, ""subject"": {{""reference"": ""Patient/{patientId}""}}, ""effectiveDateTime"": ""{now}"", ""component"": [{{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8480-6"", ""display"": ""Systolic BP""}}]}}, ""valueQuantity"": {{""value"": {systolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}, {{""code"": {{""coding"": [{{""system"": ""http://loinc.org"", ""code"": ""8462-4"", ""display"": ""Diastolic BP""}}]}}, ""valueQuantity"": {{""value"": {diastolic}, ""unit"": ""mmHg"", ""system"": ""http://unitsofmeasure.org"", ""code"": ""mm[Hg]""}}}}]}}, ""request"": {{""method"": ""PUT"", ""url"": ""Observation/{obsId}""}}}}");
             }
 
             string bundle = $@"{{""resourceType"": ""Bundle"", ""type"": ""batch"", ""entry"": [{entries}]}}";

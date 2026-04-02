@@ -60,13 +60,16 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
     /// <summary>
     /// Called when search parameters are fully initialized, signaling the FHIR server is ready.
     /// This triggers the first ViewDefinition sync and starts the polling timer.
+    /// May be called before or after <see cref="ExecuteAsync"/> — both orderings are handled.
     /// </summary>
     public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Search parameters initialized. Starting ViewDefinition sync service");
         _isInitialized = true;
 
-        // Start the timer: first execution immediately (0 delay), then every RefreshInterval
+        // Start the timer if ExecuteAsync has already created it.
+        // If ExecuteAsync hasn't run yet (race condition during startup),
+        // it will start the timer when it sees _isInitialized == true.
         _refreshTimer?.Change(TimeSpan.Zero, RefreshInterval);
 
         return Task.CompletedTask;
@@ -77,8 +80,17 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
     {
         _stoppingToken = stoppingToken;
 
-        // Create the timer but don't start it — Handle() starts it after search params are ready
-        _refreshTimer = new Timer(OnRefreshTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        // Create the timer. If Handle() already fired (notification arrived before this
+        // hosted service started), start it immediately. Otherwise leave it dormant
+        // until Handle() starts it.
+        TimeSpan dueTime = _isInitialized ? TimeSpan.Zero : Timeout.InfiniteTimeSpan;
+        TimeSpan period = _isInitialized ? RefreshInterval : Timeout.InfiniteTimeSpan;
+        _refreshTimer = new Timer(OnRefreshTimer, null, dueTime, period);
+
+        if (_isInitialized)
+        {
+            _logger.LogInformation("ViewDefinition sync: notification already received, starting timer immediately");
+        }
 
         return Task.CompletedTask;
     }
@@ -95,18 +107,24 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
     {
         if (_stoppingToken.IsCancellationRequested || !_isInitialized)
         {
+            _logger.LogInformation(
+                "ViewDefinition sync timer fired but skipping (cancelled={Cancelled}, initialized={Initialized})",
+                _stoppingToken.IsCancellationRequested,
+                _isInitialized);
             return;
         }
 
         if (!await _refreshSemaphore.WaitAsync(0, _stoppingToken))
         {
-            _logger.LogDebug("ViewDefinition sync already in progress. Skipping");
+            _logger.LogInformation("ViewDefinition sync already in progress. Skipping");
             return;
         }
 
         try
         {
+            _logger.LogInformation("ViewDefinition sync cycle starting");
             await SyncViewDefinitionsAsync(_stoppingToken);
+            _logger.LogInformation("ViewDefinition sync cycle completed");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -137,6 +155,10 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
             "Library",
             queryParameters,
             cancellationToken);
+
+        _logger.LogInformation(
+            "ViewDefinition sync found {Count} Library resource(s) with ViewDefinition profile",
+            result.Results.Count());
 
         // Build set of ViewDefinition names found in persisted Library resources
         var persistedViewDefs = new Dictionary<string, (string Json, string LibraryId)>(StringComparer.OrdinalIgnoreCase);
@@ -173,6 +195,11 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
             }
         }
 
+        _logger.LogInformation(
+            "ViewDefinition sync: {PersistedCount} ViewDefinition(s) parsed from Libraries, {RegisteredCount} currently registered in memory",
+            persistedViewDefs.Count,
+            _subscriptionManager.GetAllRegistrations().Count);
+
         // Adopt or update registrations for ViewDefinitions found in storage.
         // This node only updates its in-memory cache — the node that received the client
         // request already handled SQL table creation, population, and subscription setup.
@@ -187,10 +214,13 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 if (_recentlyEvicted.TryGetValue(name, out DateTimeOffset evictedAt)
                     && DateTimeOffset.UtcNow - evictedAt < TimeSpan.FromSeconds(30))
                 {
+                    _logger.LogInformation("ViewDefinition '{ViewDefName}' recently evicted, skipping adoption", name);
                     continue;
                 }
 
                 // Another node registered this — adopt into our local cache
+                _logger.LogInformation("Adopting ViewDefinition '{ViewDefName}' from Library '{LibraryId}'", name, libraryId);
+
                 try
                 {
                     await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken);

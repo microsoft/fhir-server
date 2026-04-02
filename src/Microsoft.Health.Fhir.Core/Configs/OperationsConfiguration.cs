@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public ViewDefinitionPopulationJobConfiguration ViewDefinitionPopulation { get; set; } = new ViewDefinitionPopulationJobConfiguration();
 
+        public SubscriptionJobConfiguration Subscriptions { get; set; } = new SubscriptionJobConfiguration();
+
         public TerminologyConfiguration Terminology { get; set; } = new TerminologyConfiguration();
     }
 }

@@ -177,6 +177,38 @@ public class ViewDefinitionSyncServiceTests
         await _syncService.StopAsync(CancellationToken.None);
     }
 
+    /// <summary>
+    /// Tests the startup race condition: Handle (notification) fires before ExecuteAsync creates the timer.
+    /// The fix ensures ExecuteAsync detects that initialization already happened and starts the timer.
+    /// </summary>
+    [Fact]
+    public async Task GivenNotificationBeforeExecuteAsync_WhenStarting_ThenViewDefinitionsStillAdopted()
+    {
+        // Arrange
+        Library library = BuildViewDefinitionLibrary(ViewDefinitionJson, "patient_demographics", "Patient");
+        SetupSearchReturnsLibrary(library, "lib-1");
+        _subscriptionManager.GetRegistration("patient_demographics").Returns((ViewDefinitionRegistration?)null);
+        _subscriptionManager.GetAllRegistrations().Returns(new List<ViewDefinitionRegistration>());
+
+        // Act: Handle fires BEFORE StartAsync — simulating the race condition
+        await _syncService.Handle(
+            new Microsoft.Health.Fhir.Core.Messages.Search.SearchParametersInitializedNotification(),
+            CancellationToken.None);
+
+        // Now StartAsync/ExecuteAsync runs — should detect _isInitialized and start timer
+        await _syncService.StartAsync(CancellationToken.None);
+
+        await Task.Delay(TimeSpan.FromSeconds(3));
+
+        // Assert: The ViewDefinition should still be adopted despite the race
+        await _subscriptionManager.Received().AdoptAsync(
+            Arg.Is<string>(json => json.Contains("patient_demographics")),
+            Arg.Is("lib-1"),
+            Arg.Any<CancellationToken>());
+
+        await _syncService.StopAsync(CancellationToken.None);
+    }
+
     private static Library BuildViewDefinitionLibrary(string viewDefJson, string name, string resourceType)
     {
         return new Library

@@ -429,6 +429,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if ViewDefinitions are already registered from a previous session
+        await CheckExistingViewDefinitionsAsync();
+
         await RefreshData();
         _autoRefreshTimer = new Timer(async _ =>
         {
@@ -443,6 +446,71 @@
     public void Dispose()
     {
         _autoRefreshTimer?.Dispose();
+    }
+
+    /// <summary>
+    /// Checks if ViewDefinitions are already registered on the server (e.g., from a previous session).
+    /// If found, populates the UI with their status so the user doesn't need to re-register.
+    /// </summary>
+    private async Task CheckExistingViewDefinitionsAsync()
+    {
+        try
+        {
+            var statuses = await FhirService.GetAllViewDefinitionStatusesAsync();
+            if (statuses.Count == 0)
+            {
+                return;
+            }
+
+            // Load local ViewDefinition JSON files to get column metadata
+            var localViewDefs = new Dictionary<string, (string Json, List<ColumnInfo> Columns, string? WhereClause)>(StringComparer.OrdinalIgnoreCase);
+            if (Directory.Exists(ViewDefinitionsPath))
+            {
+                foreach (string filePath in Directory.GetFiles(ViewDefinitionsPath, "*.json"))
+                {
+                    string json = await File.ReadAllTextAsync(filePath);
+                    var parsed = ParseViewDefinitionMeta(json);
+                    localViewDefs[parsed.Name] = (json, parsed.Columns, parsed.WhereClause);
+                }
+            }
+
+            foreach (var status in statuses)
+            {
+                var regState = new ViewDefRegState
+                {
+                    ViewDefName = status.ViewDefinitionName,
+                    ResourceType = status.ResourceType,
+                    Phase = status.Status switch
+                    {
+                        "Active" => RegPhase.Ready,
+                        "Populating" => RegPhase.Materializing,
+                        "Creating" => RegPhase.Creating,
+                        "Error" => RegPhase.Failed,
+                        _ => RegPhase.Pending,
+                    },
+                    Success = status.Status == "Active",
+                    Response = status.ErrorMessage ?? "",
+                };
+
+                // Enrich with local ViewDefinition JSON and column metadata if available
+                if (localViewDefs.TryGetValue(status.ViewDefinitionName, out var local))
+                {
+                    regState.ViewDefinitionJson = local.Json;
+                    regState.Columns = local.Columns;
+                    regState.WhereClause = local.WhereClause;
+                }
+
+                ViewDefRegistrations.Add(regState);
+            }
+
+            int readyCount = ViewDefRegistrations.Count(r => r.Phase == RegPhase.Ready);
+            RegistrationStatus = $"✓ {readyCount}/{ViewDefRegistrations.Count} ViewDefinition(s) already active from previous session.";
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal — the user can still register manually
+            RegistrationStatus = "";
+        }
     }
 
     private async Task RefreshData()
