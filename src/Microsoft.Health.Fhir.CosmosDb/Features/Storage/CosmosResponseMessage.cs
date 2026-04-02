@@ -3,20 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Diagnostics;
 using System.Net;
 using Microsoft.Azure.Cosmos;
-using Microsoft.CodeAnalysis;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosResponseMessage
     {
-        public CosmosResponseMessage(HttpStatusCode statusCode, bool isSuccessStatusCode, Headers headers, string errorMessage, string continuationToken, CosmosDiagnostics diagnostics)
+        public CosmosResponseMessage(
+            HttpStatusCode statusCode,
+            bool isSuccessStatusCode,
+            CosmosResponseHeaders headers,
+            string errorMessage,
+            string continuationToken,
+            CosmosDiagnostics diagnostics)
         {
             StatusCode = statusCode;
             IsSuccessStatusCode = isSuccessStatusCode;
-            Headers = headers;
+            ResponseHeaders = headers;
             ErrorMessage = errorMessage;
             ContinuationToken = continuationToken;
             Diagnostics = diagnostics;
@@ -26,7 +30,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public bool IsSuccessStatusCode { get; private set; }
 
-        public Headers Headers { get; private set; }
+        public CosmosResponseHeaders ResponseHeaders { get; private set; }
 
         public string ErrorMessage { get; private set; }
 
@@ -36,22 +40,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public static CosmosResponseMessage Create(ResponseMessage response)
         {
-            return new CosmosResponseMessage(response.StatusCode, response.IsSuccessStatusCode, Clone(response.Headers), response.ErrorMessage, response.ContinuationToken, response.Diagnostics);
-        }
-
-        /// <summary>
-        /// Safe way to handle Headers, without failing by parallel updates.
-        /// </summary>
-        public static Headers Clone(Headers origin)
-        {
-            Headers headers = new Headers();
-            string[] array = origin.AllKeys();
-            foreach (string headerName in array)
-            {
-                headers.Add(headerName, origin.Get(headerName));
-            }
-
-            return headers;
+            return new CosmosResponseMessage(
+                response.StatusCode,
+                response.IsSuccessStatusCode,
+                CosmosResponseHeaders.Create(response.Headers),
+                response.ErrorMessage,
+                response.ContinuationToken,
+                response.Diagnostics);
         }
     }
 }

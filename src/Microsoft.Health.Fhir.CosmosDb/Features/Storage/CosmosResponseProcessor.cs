@@ -59,16 +59,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             if (!response.IsSuccessStatusCode)
             {
-                await ProcessErrorResponseAsync(response.StatusCode, response.Headers, response.ErrorMessage, cancellationToken);
+                await ProcessErrorResponseAsync(response.StatusCode, response.ResponseHeaders, response.ErrorMessage, cancellationToken);
             }
         }
 
-        public async Task ProcessErrorResponseAsync(HttpStatusCode statusCode, Headers headers, string errorMessage, CancellationToken cancellationToken)
+        public async Task ProcessErrorResponseAsync(HttpStatusCode statusCode, CosmosResponseHeaders headers, string errorMessage, CancellationToken cancellationToken)
         {
             Exception exception = null;
 
             // Stored procedure statuses will be in the substatuscode
-            if (statusCode == HttpStatusCode.TooManyRequests || headers.GetSubStatusValue() == (int)HttpStatusCode.TooManyRequests)
+            if (statusCode == HttpStatusCode.TooManyRequests || headers.SubStatusValue == (int)HttpStatusCode.TooManyRequests)
             {
                 string retryHeader = headers["x-ms-retry-after-ms"];
                 exception = new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             else if (statusCode == HttpStatusCode.Forbidden)
             {
-                int? subStatusValue = headers.GetSubStatusValue();
+                int? subStatusValue = headers.SubStatusValue;
                 if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                 {
                     exception = new Fhir.Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
@@ -114,24 +114,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cancellationToken">Cancellation token</param>
         public async Task ProcessResponseAsync(CosmosResponseMessage responseMessage, CancellationToken cancellationToken)
         {
-            var responseRequestCharge = responseMessage.Headers.RequestCharge;
+            var responseRequestCharge = responseMessage.ResponseHeaders.RequestCharge;
 
             _queryLogger.LogQueryExecutionResult(
-                responseMessage.Headers.ActivityId,
-                responseMessage.Headers.RequestCharge,
+                responseMessage.ResponseHeaders.ActivityId,
+                responseMessage.ResponseHeaders.RequestCharge,
                 responseMessage.ContinuationToken == null ? null : "<nonempty>",
-                int.TryParse(responseMessage.Headers["x-ms-item-count"], out var count) ? count : 0,
-                double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
-                responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
+                int.TryParse(responseMessage.ResponseHeaders["x-ms-item-count"], out var count) ? count : 0,
+                double.TryParse(responseMessage.ResponseHeaders["x-ms-request-duration-ms"], out var duration) ? duration : 0,
+                responseMessage.ResponseHeaders["x-ms-documentdb-partitionkeyrangeid"]);
 
             if (_cosmosDataStoreConfiguration.LogSdkDiagnostics)
             {
-                _queryLogger.LogQueryDiagnostics(responseMessage.Headers.ActivityId, responseMessage.Diagnostics);
+                _queryLogger.LogQueryDiagnostics(responseMessage.ResponseHeaders.ActivityId, responseMessage.Diagnostics);
             }
 
             if (_cosmosDataStoreConfiguration.LogSdkClientElapsedTime && responseMessage.Diagnostics != null)
             {
-                _queryLogger.LogQueryClientElapsedTime(responseMessage.Headers.ActivityId, responseMessage.Diagnostics.GetClientElapsedTime().ToString());
+                _queryLogger.LogQueryClientElapsedTime(responseMessage.ResponseHeaders.ActivityId, responseMessage.Diagnostics.GetClientElapsedTime().ToString());
             }
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return;
             }
 
-            var sessionToken = responseMessage.Headers.Session;
+            var sessionToken = responseMessage.ResponseHeaders.Session;
 
             if (!string.IsNullOrEmpty(sessionToken))
             {
