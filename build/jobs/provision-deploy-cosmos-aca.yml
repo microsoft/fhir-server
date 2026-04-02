@@ -16,6 +16,9 @@ parameters:
 - name: reindexEnabled
   type: boolean
   default: true
+- name: minReplicas
+  type: number
+  default: 0
 - name: keyVaultName
   type: string
 
@@ -184,7 +187,7 @@ jobs:
             enableImport = $true
             enableConvertData = $true
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
-            minReplicas = 0
+            minReplicas = ${{ parameters.minReplicas }}
             maxReplicas = 8
             acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
             additionalEnvVars = $additionalEnvVars
