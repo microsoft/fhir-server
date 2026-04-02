@@ -96,7 +96,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
         private readonly IOptions<ReindexJobConfiguration> _optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-        private SearchParameterCacheRefreshBackgroundService _cacheRefreshBackgroundService;
         private readonly IOptions<OperationsConfiguration> _operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
@@ -160,15 +159,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 SearchParameterCacheRefreshIntervalSeconds = 1,
             });
-            _cacheRefreshBackgroundService = new SearchParameterCacheRefreshBackgroundService(
-                _searchParameterStatusManager,
-                (SearchParameterOperations)_searchParameterOperations,
-                _coreFeatureConfig,
-                NullLogger<SearchParameterCacheRefreshBackgroundService>.Instance);
-
-            // Start the primary background service and trigger initialization so it begins refreshing immediately.
-            await _cacheRefreshBackgroundService.StartAsync(CancellationToken.None);
-            await _cacheRefreshBackgroundService.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             _createReindexRequestHandler = new CreateReindexRequestHandler(
                                                 _fhirOperationDataStore,
@@ -197,11 +187,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public async Task DisposeAsync()
         {
-            if (_cacheRefreshBackgroundService != null)
-            {
-                await _cacheRefreshBackgroundService.StopAsync(CancellationToken.None);
-            }
-
             // Clean up resources before finishing test class
             await DeleteTestResources();
 
@@ -267,7 +252,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     }
                     else if (typeId == (int)JobType.ReindexProcessing)
                     {
-                        Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
+                        Func<IScoped<IFhirDataStore>> fhirDataStoreScope = () => _scopedDataStore.Value.CreateMockScope();
                         job = new ReindexProcessingJob(
                             () => _searchService,
                             fhirDataStoreScope,
@@ -985,10 +970,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 await WaitForReindexCompletionAsync(response, cancellationTokenSource);
-
-                // CRITICAL: Force the search parameter definition manager to refresh/sync
-                // This is the missing piece - the search service needs to know about status changes
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None, true);
 
                 // Now test the actual search functionality
                 // Rerun the same search as above
