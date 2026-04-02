@@ -36,7 +36,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public static CosmosResponseMessage Create(ResponseMessage response)
         {
-            return new CosmosResponseMessage(response.StatusCode, response.IsSuccessStatusCode, response.Headers, response.ErrorMessage, response.ContinuationToken, response.Diagnostics);
+            return new CosmosResponseMessage(response.StatusCode, response.IsSuccessStatusCode, Clone(response.Headers), response.ErrorMessage, response.ContinuationToken, response.Diagnostics);
+        }
+
+        /// <summary>
+        /// Safe way to handle Headers, without failing by parallel updates.
+        /// </summary>
+        public static Headers Clone(Headers origin)
+        {
+            Headers headers = new Headers();
+            string[] array = origin.AllKeys();
+            foreach (string headerName in array)
+            {
+                headers.Add(headerName, origin.Get(headerName));
+            }
+
+            return headers;
         }
     }
 }

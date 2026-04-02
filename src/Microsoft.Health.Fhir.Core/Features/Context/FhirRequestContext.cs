@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public bool IsBackgroundTask { get; set; }
 
-        public IDictionary<string, object> Properties => _properties ??= new Dictionary<string, object>();
+        public IDictionary<string, object> Properties => _properties ??= new ConcurrentDictionary<string, object>();
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
 
@@ -89,8 +90,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
                 _uriString,
                 _baseUriString,
                 CorrelationId,
-                requestHeaders: new Dictionary<string, StringValues>(requestHeaders),
-                responseHeaders: new Dictionary<string, StringValues>(responseHeaders));
+                requestHeaders: new ConcurrentDictionary<string, StringValues>(requestHeaders),
+                responseHeaders: new ConcurrentDictionary<string, StringValues>(responseHeaders));
 
             clone.RouteName = RouteName;
             clone.AuditEventType = AuditEventType;
