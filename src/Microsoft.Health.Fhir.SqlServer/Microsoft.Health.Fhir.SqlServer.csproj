@@ -82,6 +82,9 @@
     <EmbeddedResource Remove="Features\Operations\Reindex\**" />
     <None Remove="Features\Operations\Reindex\**" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="Features\Schema\Migrations\109.sql" />
+  </ItemGroup>
 
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
