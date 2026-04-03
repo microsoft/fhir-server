@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using var metadataHttpClient = new HttpClient(CreateMessageHandler())
             {
                 BaseAddress = BaseAddress,
-                Timeout = TimeSpan.FromSeconds(120),
+                Timeout = TimeSpan.FromSeconds(180),
             };
 
             string content = await GetMetadataAsync(metadataHttpClient, cancellationToken);
