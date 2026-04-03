@@ -189,6 +189,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private void InitializeJobHosting()
         {
+            var opConf = new OperationsConfiguration();
+            opConf.Reindex.JobsPollingIntervalSec = 1;
+            _operationsConfig.Value.Returns(opConf);
+
+            _coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
+
             // Get the actual queue client from the operation datastore implementation
             var operationDataStoreBase = _fhirOperationDataStore as FhirOperationDataStoreBase;
             if (operationDataStoreBase != null)
@@ -957,10 +963,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 await WaitForReindexCompletionAsync(response, cancellationTokenSource);
-
-                // CRITICAL: Force the search parameter definition manager to refresh/sync
-                // This is the missing piece - the search service needs to know about status changes
-                await _searchParameterOperations.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // Now test the actual search functionality
                 // Rerun the same search as above

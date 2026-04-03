@@ -77,6 +77,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = "5"; // Lower interval for testing purposes.
             configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = "5"; // Lower interval for testing purposes.
 
+            // Reindex operation settings
+            configuration["FhirServer:Operations:Reindex:JobsPollingIntervalSec"] = "1";
+
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
