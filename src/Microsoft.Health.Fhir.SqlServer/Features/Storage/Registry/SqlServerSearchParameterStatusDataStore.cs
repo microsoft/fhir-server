@@ -276,6 +276,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 cancellationToken);
 
             var activeHosts = results.Select(r => r.hostName).ToHashSet();
+
+            // Taking 2 latest events should guarantee that cache completed at least one full update cycle after updateEventsSince.
             var eventsByHosts = results.Where(_ => !string.IsNullOrEmpty(_.eventText))
                                        .GroupBy(_ => _.hostName)
                                        .Select(g => new { g.Key, Value = g.OrderByDescending(_ => _.eventDate).Take(2).ToList() })
@@ -284,13 +286,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             foreach (var hostName in activeHosts)
             {
                 var events = eventsByHosts.TryGetValue(hostName, out var value);
-                if (value != null && value.Count == 2 && value[0].eventText == value[1].eventText)
+                //// use event text as-is because date is saved in a sortable format.
+                if (value != null && value.Count == 2 && value[0].eventText == value[1].eventText) // Extra precaution == latest last updated stayed unchanged, i.e. no actual update happened.
                 {
                     updatedHosts.Add(hostName, value[0].eventText);
                 }
             }
 
-            var maxEventText = updatedHosts.Values.Max(_ => _); // use event text as-is because date is saved in a sortable format.
+            var maxEventText = updatedHosts.Values.Max(_ => _);
             var convergedHosts = updatedHosts.Where(_ => _.Value == maxEventText).Select(_ => _.Key).ToList();
             var isConsistent = convergedHosts.Count > 0 && convergedHosts.Count == activeHosts.Count;
             await TryLogEvent("CheckCacheConsistency", "Warn", $"isConsistent={isConsistent} ActiveHosts={activeHosts.Count} ConvergedHosts={convergedHosts.Count}", null, cancellationToken);
