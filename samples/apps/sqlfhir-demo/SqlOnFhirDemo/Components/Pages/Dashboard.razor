@@ -67,7 +67,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var row in BpRows.Take(50))
+                            @foreach (var row in BpRows.Take(20))
                             {
                                 string systolicStr = row.TryGetValue("sbp_quantity_value", out var sbp) ? sbp?.ToString() ?? "" : "";
                                 string diastolicStr = row.TryGetValue("dbp_quantity_value", out var dbp) ? dbp?.ToString() ?? "" : "";
