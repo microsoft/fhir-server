@@ -334,6 +334,12 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     /// </summary>
     public async Task Handle(ViewDefinitionPopulationCompleteNotification notification, CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "Handle ViewDefinitionPopulationCompleteNotification received for '{ViewDefName}' (success={Success}, rows={Rows})",
+            notification.ViewDefinitionName,
+            notification.Success,
+            notification.RowsInserted);
+
         if (_registrations.TryGetValue(notification.ViewDefinitionName, out ViewDefinitionRegistration? registration))
         {
             registration.Status = notification.Success ? ViewDefinitionStatus.Active : ViewDefinitionStatus.Error;
@@ -353,6 +359,13 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                     registration.Status,
                     cancellationToken);
             }
+        }
+        else
+        {
+            _logger.LogWarning(
+                "ViewDefinition '{ViewDefName}' not found in registrations when handling population complete notification. Registered names: [{Names}]",
+                notification.ViewDefinitionName,
+                string.Join(", ", _registrations.Keys));
         }
     }
 
