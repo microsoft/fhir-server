@@ -67,6 +67,7 @@ public sealed class ViewDefinitionPopulationOrchestratorJob : IJob
         // Step 2: Enqueue the initial processing job (starts with no continuation token)
         var processingDefinition = new ViewDefinitionPopulationProcessingJobDefinition
         {
+            RegistrationId = definition.RegistrationId,
             ViewDefinitionJson = definition.ViewDefinitionJson,
             ViewDefinitionName = definition.ViewDefinitionName,
             ResourceType = definition.ResourceType,

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.JobManagement;
 
@@ -16,6 +17,13 @@ public class ViewDefinitionPopulationProcessingJobDefinition : IJobData
 {
     /// <inheritdoc />
     public int TypeId { get; set; } = (int)JobType.ViewDefinitionPopulationProcessing;
+
+    /// <summary>
+    /// Gets or sets a unique identifier for this registration attempt.
+    /// Propagated from the orchestrator to ensure each processing job also gets
+    /// a unique definition hash, preventing deduplication against previous runs.
+    /// </summary>
+    public string RegistrationId { get; set; } = Guid.NewGuid().ToString("N");
 
     /// <summary>
     /// Gets or sets the ViewDefinition JSON string.

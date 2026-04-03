@@ -148,6 +148,7 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
         {
             var nextDefinition = new ViewDefinitionPopulationProcessingJobDefinition
             {
+                RegistrationId = definition.RegistrationId,
                 ViewDefinitionJson = definition.ViewDefinitionJson,
                 ViewDefinitionName = definition.ViewDefinitionName,
                 ResourceType = definition.ResourceType,
