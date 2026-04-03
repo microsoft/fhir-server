@@ -21,6 +21,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -51,8 +52,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             {
                 BaseUri = new Uri("https://localhost/"),
                 CorrelationId = Guid.NewGuid().ToString(),
-                ResponseHeaders = new HeaderDictionary(),
-                RequestHeaders = new HeaderDictionary(),
+                ResponseHeaders = HeaderDictionaryFactory.Create(),
+                RequestHeaders = HeaderDictionaryFactory.Create(),
             };
         }
 
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     PathBase = new PathString("/"),
                 },
             };
-            var contextualHeaderDictionary = new HeaderDictionary();
+            var contextualHeaderDictionary = HeaderDictionaryFactory.Create();
             httpContext.Request.Headers.Returns(contextualHeaderDictionary);
 
             if (options.MaxParallelism)
@@ -175,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var featureCollection = Substitute.For<IFeatureCollection>();
 
             // Header Dictionary
-            var headerFeature = new HeaderDictionary();
+            var headerFeature = HeaderDictionaryFactory.Create();
             featureCollection.Get<IHeaderDictionary>().Returns(headerFeature);
 
             // Authentication
