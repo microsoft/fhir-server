@@ -131,12 +131,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             "xmlns",
         };
 
-        private static readonly ISet<string> Src = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly ISet<string> AllowedSrcSchemes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "#",
             "data:",
             "http:",
             "https:",
+        };
+
+        private static readonly ISet<string> DangerousHrefSchemes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "javascript:",
+            "vbscript:",
+            "data:",
+            "livescript:",
+            "file:",
+            "blob:",
+            "ftp:",
+            "ms-its:",
+            "mhtml:",
+            "jar:",
         };
 
         // Obvious invalid structural parsing errors to report
@@ -292,7 +306,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 if (string.Equals("src", attr.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!Src.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    if (!AllowedSrcSchemes.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        onInvalidAttr(element, attr);
+                    }
+                }
+
+                if (string.Equals("href", attr.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (DangerousHrefSchemes.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
                     {
                         onInvalidAttr(element, attr);
                     }
