@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [SkippableTheory(Skip="Fix bundle handler first")]
+        [Theory]
         [InlineData(true, false, true, false)]
         [InlineData(true, false, false, false)]
         [InlineData(false, true, true, false)]
@@ -285,14 +285,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
         private async Task DeleteSearchParamsAsync(List<string> ids)
         {
-            var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
-
             foreach (var id in ids)
             {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
                 bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{id}" } });
+                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
             }
-
-            await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
         }
 
         [Fact]
