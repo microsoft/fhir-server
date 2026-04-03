@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Controls the multiplier applied to the SearchParameterCacheRefreshIntervalSeconds
         /// to determine the time interval to retrieve active host names. Relevant for SQL only.
         /// </summary>
-        public int ActiveHostsEventsMultiplier { get; set; } = 7;
+        public int ActiveHostsEventsMultiplier { get; set; } = 9;
 
         /// <summary>
         /// Controls how many surrogate ID ranges are fetched per database call when calculating
