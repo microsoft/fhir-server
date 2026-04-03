@@ -6,6 +6,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -84,7 +85,9 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
 
             if (!string.IsNullOrEmpty(currentContinuationToken))
             {
-                queryParameters.Add(Tuple.Create("ct", currentContinuationToken));
+                queryParameters.Add(Tuple.Create(
+                    KnownQueryParameterNames.ContinuationToken,
+                    ContinuationTokenEncoder.Encode(currentContinuationToken)));
             }
 
             // Search for resources
@@ -96,11 +99,12 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
 
             var results = searchResult.Results.ToList();
 
-            _logger.LogDebug(
-                "Batch {BatchNumber}: Found {Count} {ResourceType} resources to materialize",
+            _logger.LogInformation(
+                "Batch {BatchNumber}: Found {Count} {ResourceType} resources to materialize for '{ViewDefName}'",
                 batchesProcessedInThisJob + 1,
                 results.Count,
-                definition.ResourceType);
+                definition.ResourceType,
+                definition.ViewDefinitionName);
 
             // Materialize each resource
             foreach (SearchResultEntry entry in results)
@@ -170,13 +174,34 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
         else
         {
             // No more resources — population is complete. Notify the subscription manager.
-            await _mediator.Publish(
-                new ViewDefinitionPopulationCompleteNotification(
-                    definition.ViewDefinitionName,
-                    success: totalFailedResources == 0,
-                    rowsInserted: totalRowsInserted,
-                    errorMessage: totalFailedResources > 0 ? $"{totalFailedResources} resources failed" : null),
-                cancellationToken);
+            _logger.LogInformation(
+                "Publishing ViewDefinitionPopulationCompleteNotification for '{ViewDefName}' " +
+                "(success={Success}, rows={Rows})",
+                definition.ViewDefinitionName,
+                totalFailedResources == 0,
+                totalRowsInserted);
+
+            try
+            {
+                await _mediator.Publish(
+                    new ViewDefinitionPopulationCompleteNotification(
+                        definition.ViewDefinitionName,
+                        success: totalFailedResources == 0,
+                        rowsInserted: totalRowsInserted,
+                        errorMessage: totalFailedResources > 0 ? $"{totalFailedResources} resources failed" : null),
+                    cancellationToken);
+
+                _logger.LogInformation(
+                    "ViewDefinitionPopulationCompleteNotification published for '{ViewDefName}'",
+                    definition.ViewDefinitionName);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to publish ViewDefinitionPopulationCompleteNotification for '{ViewDefName}'",
+                    definition.ViewDefinitionName);
+            }
         }
 
         var result = new ViewDefinitionPopulationProcessingJobResult

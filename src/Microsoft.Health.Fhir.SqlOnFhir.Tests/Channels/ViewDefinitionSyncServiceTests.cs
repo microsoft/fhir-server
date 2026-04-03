@@ -94,7 +94,9 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -129,11 +131,15 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("us_core_blood_pressures")),
             Arg.Is("lib-2"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -172,7 +178,9 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.DidNotReceive().AdoptAsync(
             Arg.Any<string>(),
             Arg.Any<string?>(),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -204,7 +212,117 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
+
+        await _syncService.StopAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Tests that a ViewDefinition with "populating" materialization-status extension
+    /// is adopted with Populating status (not Active) on restart.
+    /// </summary>
+    [Fact]
+    public async Task GivenLibraryWithPopulatingStatus_WhenSyncing_ThenAdoptedWithPopulatingStatus()
+    {
+        // Arrange: Build a Library with the materialization-status extension set to "populating"
+        Library library = BuildViewDefinitionLibrary(ViewDefinitionJson, "patient_demographics", "Patient");
+        library.Extension.Add(new Extension(
+            ViewDefinitionSubscriptionManager.MaterializationStatusExtensionUrl,
+            new Code("populating")));
+
+        SetupSearchReturnsLibrary(library, "lib-1");
+        _subscriptionManager.GetRegistration("patient_demographics").Returns((ViewDefinitionRegistration?)null);
+        _subscriptionManager.GetAllRegistrations().Returns(new List<ViewDefinitionRegistration>());
+
+        // Act
+        await _syncService.StartAsync(CancellationToken.None);
+
+        await _syncService.Handle(
+            new Microsoft.Health.Fhir.Core.Messages.Search.SearchParametersInitializedNotification(),
+            CancellationToken.None);
+
+        await Task.Delay(TimeSpan.FromSeconds(3));
+
+        // Assert: AdoptAsync should be called with Populating status
+        await _subscriptionManager.Received().AdoptAsync(
+            Arg.Is<string>(json => json.Contains("patient_demographics")),
+            Arg.Is("lib-1"),
+            Arg.Any<CancellationToken>(),
+            ViewDefinitionStatus.Populating,
+            Arg.Any<IReadOnlyList<string>>());
+
+        await _syncService.StopAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Tests that a ViewDefinition with "active" materialization-status extension
+    /// is adopted with Active status on restart.
+    /// </summary>
+    [Fact]
+    public async Task GivenLibraryWithActiveStatus_WhenSyncing_ThenAdoptedWithActiveStatus()
+    {
+        // Arrange
+        Library library = BuildViewDefinitionLibrary(ViewDefinitionJson, "patient_demographics", "Patient");
+        library.Extension.Add(new Extension(
+            ViewDefinitionSubscriptionManager.MaterializationStatusExtensionUrl,
+            new Code("active")));
+
+        SetupSearchReturnsLibrary(library, "lib-1");
+        _subscriptionManager.GetRegistration("patient_demographics").Returns((ViewDefinitionRegistration?)null);
+        _subscriptionManager.GetAllRegistrations().Returns(new List<ViewDefinitionRegistration>());
+
+        // Act
+        await _syncService.StartAsync(CancellationToken.None);
+
+        await _syncService.Handle(
+            new Microsoft.Health.Fhir.Core.Messages.Search.SearchParametersInitializedNotification(),
+            CancellationToken.None);
+
+        await Task.Delay(TimeSpan.FromSeconds(3));
+
+        // Assert: AdoptAsync should be called with Active status
+        await _subscriptionManager.Received().AdoptAsync(
+            Arg.Is<string>(json => json.Contains("patient_demographics")),
+            Arg.Is("lib-1"),
+            Arg.Any<CancellationToken>(),
+            ViewDefinitionStatus.Active,
+            Arg.Any<IReadOnlyList<string>>());
+
+        await _syncService.StopAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Tests that a Library without the materialization-status extension (backward compatibility)
+    /// defaults to Active status.
+    /// </summary>
+    [Fact]
+    public async Task GivenLibraryWithoutStatusExtension_WhenSyncing_ThenDefaultsToActiveStatus()
+    {
+        // Arrange: Build a Library WITHOUT the materialization-status extension
+        Library library = BuildViewDefinitionLibrary(ViewDefinitionJson, "patient_demographics", "Patient");
+
+        SetupSearchReturnsLibrary(library, "lib-1");
+        _subscriptionManager.GetRegistration("patient_demographics").Returns((ViewDefinitionRegistration?)null);
+        _subscriptionManager.GetAllRegistrations().Returns(new List<ViewDefinitionRegistration>());
+
+        // Act
+        await _syncService.StartAsync(CancellationToken.None);
+
+        await _syncService.Handle(
+            new Microsoft.Health.Fhir.Core.Messages.Search.SearchParametersInitializedNotification(),
+            CancellationToken.None);
+
+        await Task.Delay(TimeSpan.FromSeconds(3));
+
+        // Assert: AdoptAsync should be called with Active status (the default)
+        await _subscriptionManager.Received().AdoptAsync(
+            Arg.Is<string>(json => json.Contains("patient_demographics")),
+            Arg.Is("lib-1"),
+            Arg.Any<CancellationToken>(),
+            ViewDefinitionStatus.Active,
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }

@@ -67,7 +67,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var row in BpRows.Take(50))
+                            @foreach (var row in BpRows.Take(20))
                             {
                                 string systolicStr = row.TryGetValue("sbp_quantity_value", out var sbp) ? sbp?.ToString() ?? "" : "";
                                 string diastolicStr = row.TryGetValue("dbp_quantity_value", out var dbp) ? dbp?.ToString() ?? "" : "";
@@ -306,7 +306,7 @@
                     <input class="form-control form-control-sm" type="number" @bind="MaxSyntheaFiles" />
                 </div>
                 <button class="btn btn-sm btn-success w-100 mb-2" @onclick="LoadSyntheaDataAsync" disabled="@IsLoadingSynthea">
-                    @(IsLoadingSynthea ? $"Loading... {LoadProgress}" : SyntheaFilesLoaded > 0 ? $"📥 Load Next {MaxSyntheaFiles} ({SyntheaFilesLoaded} loaded)" : "📥 Load Synthea Data")
+                    @(IsLoadingSynthea ? $"Loading... {LoadProgress}" : SyntheaFilesLoaded > 0 ? $"🎲 Load {MaxSyntheaFiles} Random ({SyntheaFilesLoaded} loaded)" : "🎲 Load Synthea Data")
                 </button>
                 @if (IsLoadingSynthea && ProgressPercent > 0)
                 {
@@ -396,7 +396,7 @@
     // Data loading
     private string SyntheaPath = @"C:\repos\synthea\output\fhir";
     private int MaxSyntheaFiles = 100;
-    private int SyntheaFilesLoaded = 0;
+    private int SyntheaFilesLoaded = 0; // cumulative count for display
     private int CrisisPatientCount = 500;
     private bool IsLoadingSynthea = false;
     private bool IsLoadingScenario = false;
@@ -577,7 +577,6 @@
             var (filesLoaded, resources, failed) = await FhirService.LoadSyntheaDirectoryAsync(
                 SyntheaPath,
                 MaxSyntheaFiles,
-                skip: SyntheaFilesLoaded,
                 concurrency: 3,
                 onProgress: (loaded, total, res, fail) =>
                 {
