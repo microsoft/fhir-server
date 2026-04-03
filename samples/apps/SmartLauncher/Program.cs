@@ -67,7 +67,12 @@ app.MapPost("/token-proxy", async (HttpRequest request, IConfiguration configura
 
             using var discoveryClient = httpClientFactory.CreateClient();
             var smartConfigUrl = new Uri(fhirServerUri, ".well-known/smart-configuration");
-            var smartResponse = await discoveryClient.GetAsync(smartConfigUrl);
+
+            // CodeQL SSRF suppression: smartConfigUrl is NOT user-tainted. The host originates
+            // from the server-side FhirServerUrl configuration value (validated above as an
+            // absolute HTTP(S) URI) and the path is the hardcoded SMART discovery endpoint.
+            // See https://aka.ms/codeql#guidance-on-suppressions
+            var smartResponse = await discoveryClient.GetAsync(smartConfigUrl); // lgtm[cs/ssrf]
             smartResponse.EnsureSuccessStatusCode();
             var smartJson = await smartResponse.Content.ReadAsStringAsync();
             var smartConfig = System.Text.Json.JsonDocument.Parse(smartJson);
