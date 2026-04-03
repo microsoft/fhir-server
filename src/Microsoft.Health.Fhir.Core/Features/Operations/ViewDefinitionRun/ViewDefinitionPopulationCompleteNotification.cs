@@ -20,16 +20,19 @@ public class ViewDefinitionPopulationCompleteNotification : INotification
     /// <param name="success">Whether the population completed successfully.</param>
     /// <param name="rowsInserted">Total rows inserted.</param>
     /// <param name="errorMessage">Error message if failed.</param>
+    /// <param name="libraryResourceId">The Library resource ID for persisting status across nodes.</param>
     public ViewDefinitionPopulationCompleteNotification(
         string viewDefinitionName,
         bool success,
         long rowsInserted = 0,
-        string errorMessage = null)
+        string errorMessage = null,
+        string libraryResourceId = null)
     {
         ViewDefinitionName = viewDefinitionName;
         Success = success;
         RowsInserted = rowsInserted;
         ErrorMessage = errorMessage;
+        LibraryResourceId = libraryResourceId;
     }
 
     /// <summary>
@@ -51,4 +54,10 @@ public class ViewDefinitionPopulationCompleteNotification : INotification
     /// Gets the error message if population failed.
     /// </summary>
     public string ErrorMessage { get; }
+
+    /// <summary>
+    /// Gets the Library resource ID so the handler can persist status even on nodes
+    /// that did not originate the registration.
+    /// </summary>
+    public string LibraryResourceId { get; }
 }

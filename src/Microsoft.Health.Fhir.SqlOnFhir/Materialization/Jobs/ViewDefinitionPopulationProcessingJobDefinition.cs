@@ -50,4 +50,11 @@ public class ViewDefinitionPopulationProcessingJobDefinition : IJobData
     /// Null for the first batch.
     /// </summary>
     public string? ContinuationToken { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Library resource ID that contains this ViewDefinition.
+    /// Propagated from the orchestrator so the processing job can persist status
+    /// back to the Library resource, enabling cross-node status updates.
+    /// </summary>
+    public string? LibraryResourceId { get; set; }
 }

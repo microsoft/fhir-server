@@ -44,4 +44,11 @@ public class ViewDefinitionPopulationOrchestratorJobDefinition : IJobData
     /// Gets or sets the maximum number of resources to process per batch.
     /// </summary>
     public int BatchSize { get; set; } = 100;
+
+    /// <summary>
+    /// Gets or sets the Library resource ID that contains this ViewDefinition.
+    /// Propagated through the job chain so the processing job can persist status
+    /// back to the Library resource, enabling cross-node status updates.
+    /// </summary>
+    public string? LibraryResourceId { get; set; }
 }

@@ -152,6 +152,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                     ViewDefinitionName = name,
                     ResourceType = resourceType,
                     BatchSize = 100,
+                    LibraryResourceId = libraryResourceId,
                 };
 
                 await _queueClient.EnqueueAsync(
@@ -340,7 +341,45 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             notification.Success,
             notification.RowsInserted);
 
-        if (_registrations.TryGetValue(notification.ViewDefinitionName, out ViewDefinitionRegistration? registration))
+        if (!_registrations.TryGetValue(notification.ViewDefinitionName, out ViewDefinitionRegistration? registration))
+        {
+            // This node didn't originate the registration (multi-node scenario).
+            // Adopt the ViewDefinition into our local cache before updating status.
+            _logger.LogInformation(
+                "ViewDefinition '{ViewDefName}' not in local cache. Adopting from Library '{LibraryId}' (multi-node scenario)",
+                notification.ViewDefinitionName,
+                notification.LibraryResourceId);
+
+            if (!string.IsNullOrEmpty(notification.LibraryResourceId))
+            {
+                try
+                {
+                    var getResponse = await SendScopedAsync<GetResourceResponse>(
+                        new GetResourceRequest("Library", notification.LibraryResourceId),
+                        cancellationToken);
+
+                    string? viewDefJson = ExtractViewDefinitionJsonFromRawResource(getResponse.Resource);
+                    if (viewDefJson != null)
+                    {
+                        registration = await AdoptAsync(
+                            viewDefJson,
+                            notification.LibraryResourceId,
+                            cancellationToken,
+                            initialStatus: ViewDefinitionStatus.Populating);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to adopt ViewDefinition '{ViewDefName}' from Library '{LibraryId}' during population complete handling",
+                        notification.ViewDefinitionName,
+                        notification.LibraryResourceId);
+                }
+            }
+        }
+
+        if (registration != null)
         {
             registration.Status = notification.Success ? ViewDefinitionStatus.Active : ViewDefinitionStatus.Error;
             registration.ErrorMessage = notification.ErrorMessage;
@@ -351,11 +390,13 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 registration.Status,
                 notification.RowsInserted);
 
-            // Persist the final status to the Library resource so it survives restarts.
-            if (!string.IsNullOrEmpty(registration.LibraryResourceId))
+            // Persist the final status to the Library resource so it survives restarts
+            // and is visible to other nodes via the SyncService.
+            string libraryId = registration.LibraryResourceId ?? notification.LibraryResourceId;
+            if (!string.IsNullOrEmpty(libraryId))
             {
                 await UpdateLibraryMaterializationStatusAsync(
-                    registration.LibraryResourceId,
+                    libraryId,
                     registration.Status,
                     cancellationToken);
             }
@@ -363,10 +404,10 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         else
         {
             _logger.LogWarning(
-                "ViewDefinition '{ViewDefName}' not found in registrations when handling population complete notification. Registered names: [{Names}]",
-                notification.ViewDefinitionName,
-                string.Join(", ", _registrations.Keys));
+                "ViewDefinition '{ViewDefName}' could not be resolved from local cache or database. Status will not be updated",
+                notification.ViewDefinitionName);
         }
+    }
     }
 
     /// <summary>
@@ -615,6 +656,37 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         using IServiceScope scope = _scopeFactory.CreateScope();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
         return await mediator.Send(request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Extracts the ViewDefinition JSON from a raw Library resource wrapper.
+    /// Used when adopting a ViewDefinition from the database on a node that didn't
+    /// originate the registration (multi-node scenario).
+    /// </summary>
+    private string? ExtractViewDefinitionJsonFromRawResource(ResourceWrapper resource)
+    {
+        try
+        {
+            string rawJson = resource.RawResource.Data;
+            var parser = new FhirJsonParser();
+            Library library = parser.Parse<Library>(rawJson);
+
+            Attachment? content = library.Content.FirstOrDefault(
+                c => string.Equals(c.ContentType, ViewDefinitionContentType, StringComparison.OrdinalIgnoreCase));
+
+            if (content?.Data == null || content.Data.Length == 0)
+            {
+                _logger.LogWarning("Library '{LibraryId}' has no ViewDefinition content attachment", resource.ResourceId);
+                return null;
+            }
+
+            return System.Text.Encoding.UTF8.GetString(content.Data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to extract ViewDefinition JSON from Library '{LibraryId}'", resource.ResourceId);
+            return null;
+        }
     }
 
     private static (string Name, string ResourceType) ExtractViewDefinitionMetadata(string viewDefinitionJson)

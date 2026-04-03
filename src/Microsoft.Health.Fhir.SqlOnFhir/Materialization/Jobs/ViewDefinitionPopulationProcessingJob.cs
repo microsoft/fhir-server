@@ -158,6 +158,7 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
                 ResourceType = definition.ResourceType,
                 BatchSize = definition.BatchSize,
                 ContinuationToken = currentContinuationToken,
+                LibraryResourceId = definition.LibraryResourceId,
             };
 
             await _queueClient.EnqueueAsync(
@@ -188,7 +189,8 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
                         definition.ViewDefinitionName,
                         success: totalFailedResources == 0,
                         rowsInserted: totalRowsInserted,
-                        errorMessage: totalFailedResources > 0 ? $"{totalFailedResources} resources failed" : null),
+                        errorMessage: totalFailedResources > 0 ? $"{totalFailedResources} resources failed" : null,
+                        libraryResourceId: definition.LibraryResourceId),
                     cancellationToken);
 
                 _logger.LogInformation(
