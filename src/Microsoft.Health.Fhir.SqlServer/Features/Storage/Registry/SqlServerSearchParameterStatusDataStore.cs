@@ -285,9 +285,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             var updatedHosts = new Dictionary<string, string>();
             foreach (var hostName in activeHosts)
             {
-                var events = eventsByHosts.TryGetValue(hostName, out var value);
-                //// use event text as-is because date is saved in a sortable format.
-                if (value != null && value.Count == 2 && value[0].eventText == value[1].eventText) // Extra precaution == latest last updated stayed unchanged, i.e. no actual update happened.
+                // Use event text as-is because date is saved in a sortable format.
+                // Extra precaution => latest last updated stayed unchanged, i.e. no actual update happened.
+                if (eventsByHosts.TryGetValue(hostName, out var value) && value != null && value.Count == 2 && value[0].eventText == value[1].eventText)
                 {
                     updatedHosts.Add(hostName, value[0].eventText);
                 }
