@@ -307,12 +307,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             // If cache is updated directly and not from the database not all will have corresponding resources.
             // Do not advance or log the timestamp unless the cache contents are conclusive for this cycle.
-            if (inCache && allHaveResources)
+            if (inCache && allHaveResources && results.LastUpdated.HasValue)
             {
-                if (results.LastUpdated.HasValue) // this should be the only place in the code to assign last updated
-                {
-                    _searchParamLastUpdated = results.LastUpdated.Value;
-                }
+                _searchParamLastUpdated = results.LastUpdated.Value; // this should be the only place in the code to assign last updated
             }
 
             if (_searchParamLastUpdated.HasValue)
