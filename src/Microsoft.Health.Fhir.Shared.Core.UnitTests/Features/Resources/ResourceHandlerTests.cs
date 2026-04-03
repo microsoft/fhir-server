@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using Microsoft.Health.Test.Utilities;
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.
-            _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
+            _rawResourceFactory = Substitute.For<RawResourceFactory>(new IgnixaJsonSerializer(), new FhirJsonSerializer());
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
                 .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
@@ -150,10 +151,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();
             var conditionalDeleteLogger = Substitute.For<ILogger<ConditionalDeleteResourceHandler>>();
+            var schemaContext = Substitute.For<IIgnixaSchemaContext>();
 
             collection.Add(x => _mediator).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, contextAccessor, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService, schemaContext)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, contextAccessor, _authorizationService, ModelInfoProvider.Instance, schemaContext)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, conditionalCreateLogger)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, conditionalUpsertLogger)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, deleter, contextAccessor, new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration), conditionalDeleteLogger)).Singleton().AsSelf().AsImplementedInterfaces();
@@ -501,7 +503,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Create);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
 
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
+            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>());
             var request = new UpsertResourceRequest(resource, bundleContext);
 
             var result = await handler.Handle(request, CancellationToken.None);
@@ -520,7 +522,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(returnedDataActions);
 
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
+            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>());
             var request = new UpsertResourceRequest(resource, bundleContext);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
@@ -537,7 +539,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Update);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
 
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
+            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>());
             var request = new UpsertResourceRequest(resource, bundleContext);
 
             var result = await handler.Handle(request, CancellationToken.None);
@@ -556,7 +558,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(returnedDataAction);
 
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
+            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>());
             var request = new UpsertResourceRequest(resource, bundleContext);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
@@ -572,7 +574,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Create);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
 
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
+            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>());
             var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
 
             var result = await handler.Handle(request, CancellationToken.None);
@@ -589,7 +591,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Create);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
 
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
+            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>());
             var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
 
             var result = await handler.Handle(request, CancellationToken.None);
@@ -606,7 +608,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Update);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
 
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
+            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance, Substitute.For<IIgnixaSchemaContext>());
             var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
 
             var result = await handler.Handle(request, CancellationToken.None);

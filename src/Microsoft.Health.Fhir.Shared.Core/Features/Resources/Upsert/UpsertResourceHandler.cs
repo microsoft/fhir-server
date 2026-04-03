@@ -11,7 +11,10 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Ignixa.Serialization.SourceNodes;
 using MediatR;
+using Microsoft.Health.Core;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -23,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 {
@@ -35,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly IIgnixaSchemaContext _schemaContext;
 
         public UpsertResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -44,16 +49,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             ResourceReferenceResolver referenceResolver,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IAuthorizationService<DataActions> authorizationService,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            IIgnixaSchemaContext schemaContext)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(schemaContext, nameof(schemaContext));
 
             _referenceResolver = referenceResolver;
             _modelInfoProvider = modelInfoProvider;
             _contextAccessor = contextAccessor;
+            _schemaContext = schemaContext;
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
@@ -108,7 +116,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.TypeName, cancellationToken);
 
-            ResourceWrapper resourceWrapper = ResourceWrapperFactory.CreateResourceWrapper(resource, ResourceIdProvider, deleted: false, keepMeta: allowCreate);
+            // Generate ID and metadata
+            if (string.IsNullOrEmpty(resource.Id))
+            {
+                resource.Id = ResourceIdProvider.Create();
+            }
+
+            if (resource.Meta == null)
+            {
+                resource.Meta = new Meta();
+            }
+
+            // Store with millisecond precision
+            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
+
+            // Check if we have an Ignixa ResourceJsonNode - if so, update it in place for efficient serialization
+            ResourceElement resourceElement;
+            var resourceJsonNode = request.Resource.GetIgnixaNode();
+            if (resourceJsonNode != null)
+            {
+                // Update the ResourceJsonNode with the new ID and metadata
+                resourceJsonNode.Id = resource.Id;
+                resourceJsonNode.Meta.LastUpdated = resource.Meta.LastUpdated.Value;
+
+                // Create IgnixaResourceElement and pass it as ResourceInstance for direct property access
+                var ignixaElement = new IgnixaResourceElement(resourceJsonNode, _schemaContext.Schema);
+                resourceElement = new ResourceElement(ignixaElement.ToTypedElement(), ignixaElement);
+            }
+            else
+            {
+                // Fallback to POCO path for non-Ignixa resources
+                resourceElement = resource.ToResourceElement();
+            }
+
+            ResourceWrapper resourceWrapper = ResourceWrapperFactory.Create(resourceElement, deleted: false, keepMeta: allowCreate);
 
             UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, allowCreate, keepHistory, request.WeakETag, requireETagOnUpdate, false, request.BundleResourceContext, request.MetaHistory), cancellationToken);
 

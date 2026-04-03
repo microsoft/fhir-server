@@ -47,6 +47,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
                 _logger.LogWarning(ex, "Failed to retrieve access token");
                 throw new AccessTokenProviderException(string.Format(CultureInfo.InvariantCulture, Core.Resources.CannotGetAccessToken, resourceUri));
             }
+            catch (AuthenticationFailedException ex)
+            {
+                _logger.LogWarning(ex, "Failed to retrieve access token");
+                throw new AccessTokenProviderException(string.Format(CultureInfo.InvariantCulture, Core.Resources.CannotGetAccessToken, resourceUri));
+            }
 
             if (string.IsNullOrEmpty(accessToken.Token))
             {
