@@ -1915,12 +1915,6 @@ BEGIN CATCH
     THROW;
 END CATCH
 
-
-GO
-INSERT INTO Parameters (Id, Char)
-SELECT 'DequeueJob',
-       'LogEvent';
-
 GO
 CREATE PROCEDURE dbo.DisableIndex
 @tableName NVARCHAR (128), @indexName NVARCHAR (128)

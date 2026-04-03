@@ -155,5 +155,4 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-INSERT INTO Parameters (Id,Char) SELECT 'DequeueJob','LogEvent'
-GO
+
