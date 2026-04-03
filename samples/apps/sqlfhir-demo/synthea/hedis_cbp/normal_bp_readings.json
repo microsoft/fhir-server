@@ -1,9 +1,19 @@
 {
   "name": "Normal BP Readings Submodule",
-  "remarks": ["Generates blood pressure readings for healthy patients (no hypertension, normal BP values)"],
+  "remarks": [
+    "Generates a single blood pressure reading for healthy patients (no hypertension, normal BP values).",
+    "The reading occurs in its own ambulatory encounter."
+  ],
   "states": {
     "Initial": {
       "type": "Initial",
+      "direct_transition": "Encounter_1"
+    },
+
+    "Encounter_1": {
+      "type": "Encounter",
+      "encounter_class": "ambulatory",
+      "codes": [{ "system": "SNOMED-CT", "code": "390906007", "display": "Follow-up encounter" }],
       "direct_transition": "BP_Reading_1"
     },
     "BP_Reading_1": {
@@ -24,8 +34,13 @@
           "range": { "low": 60, "high": 80 }
         }
       ],
+      "direct_transition": "End_Encounter_1"
+    },
+    "End_Encounter_1": {
+      "type": "EncounterEnd",
       "direct_transition": "Terminal"
     },
+
     "Terminal": { "type": "Terminal" }
   }
 }

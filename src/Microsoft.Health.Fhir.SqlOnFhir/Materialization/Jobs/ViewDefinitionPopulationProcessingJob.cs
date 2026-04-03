@@ -6,6 +6,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -84,7 +85,9 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
 
             if (!string.IsNullOrEmpty(currentContinuationToken))
             {
-                queryParameters.Add(Tuple.Create("ct", currentContinuationToken));
+                queryParameters.Add(Tuple.Create(
+                    KnownQueryParameterNames.ContinuationToken,
+                    ContinuationTokenEncoder.Encode(currentContinuationToken)));
             }
 
             // Search for resources

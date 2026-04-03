@@ -1,9 +1,20 @@
 {
   "name": "Uncontrolled BP Readings Submodule",
-  "remarks": ["Generates blood pressure readings with uncontrolled values (systolic >=140 or diastolic >=90)"],
+  "remarks": [
+    "Generates 2 blood pressure readings with uncontrolled values (systolic >=140 or diastolic >=90).",
+    "Each reading occurs in its own ambulatory encounter."
+  ],
   "states": {
     "Initial": {
       "type": "Initial",
+      "direct_transition": "Encounter_1"
+    },
+
+    "Encounter_1": {
+      "type": "Encounter",
+      "encounter_class": "ambulatory",
+      "reason": "hedis_hypertension_dx",
+      "codes": [{ "system": "SNOMED-CT", "code": "390906007", "display": "Follow-up encounter" }],
       "direct_transition": "BP_Reading_1"
     },
     "BP_Reading_1": {
@@ -24,11 +35,24 @@
           "range": { "low": 88, "high": 110 }
         }
       ],
+      "direct_transition": "End_Encounter_1"
+    },
+    "End_Encounter_1": {
+      "type": "EncounterEnd",
       "direct_transition": "Wait_1"
     },
+
     "Wait_1": {
       "type": "Delay",
       "range": { "low": 30, "high": 90, "unit": "days" },
+      "direct_transition": "Encounter_2"
+    },
+
+    "Encounter_2": {
+      "type": "Encounter",
+      "encounter_class": "ambulatory",
+      "reason": "hedis_hypertension_dx",
+      "codes": [{ "system": "SNOMED-CT", "code": "390906007", "display": "Follow-up encounter" }],
       "direct_transition": "BP_Reading_2"
     },
     "BP_Reading_2": {
@@ -49,8 +73,13 @@
           "range": { "low": 92, "high": 105 }
         }
       ],
+      "direct_transition": "End_Encounter_2"
+    },
+    "End_Encounter_2": {
+      "type": "EncounterEnd",
       "direct_transition": "Terminal"
     },
+
     "Terminal": { "type": "Terminal" }
   }
 }

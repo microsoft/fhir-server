@@ -392,7 +392,7 @@ public class FhirDemoService
     /// <param name="concurrency">Number of parallel upload threads.</param>
     /// <param name="onProgress">Callback reporting (filesLoaded, totalFiles, resourcesLoaded, failedFiles).</param>
     public async Task<(int FilesLoaded, int ResourcesLoaded, int Failed)> LoadSyntheaDirectoryAsync(
-        string directory, int maxFiles = 0, int skip = 0, int concurrency = 3,
+        string directory, int maxFiles = 0, int concurrency = 3,
         Action<int, int, int, int>? onProgress = null)
     {
         // Step 1: Load prerequisite bundles first (practitioners, hospitals/organizations).
@@ -416,13 +416,19 @@ public class FhirDemoService
             }
         }
 
-        // Step 2: Load patient bundles (skip previously loaded files)
+        // Step 2: Load patient bundles (randomly selected)
         var files = Directory.GetFiles(directory, "*.json")
             .Where(f => !Path.GetFileName(f).StartsWith("practitioner", StringComparison.OrdinalIgnoreCase)
                      && !Path.GetFileName(f).StartsWith("hospital", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(f => f)
-            .Skip(skip)
             .ToList();
+
+        // Shuffle using Fisher-Yates and take the requested count
+        var rng = Random.Shared;
+        for (int i = files.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (files[i], files[j]) = (files[j], files[i]);
+        }
 
         if (maxFiles > 0) files = files.Take(maxFiles).ToList();
 
