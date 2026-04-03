@@ -358,7 +358,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                         new GetResourceRequest("Library", notification.LibraryResourceId),
                         cancellationToken);
 
-                    string? viewDefJson = ExtractViewDefinitionJsonFromRawResource(getResponse.Resource);
+                    string? viewDefJson = ExtractViewDefinitionJsonFromLibrary(getResponse.Resource.RawResource.Data);
                     if (viewDefJson != null)
                     {
                         registration = await AdoptAsync(
@@ -407,7 +407,6 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 "ViewDefinition '{ViewDefName}' could not be resolved from local cache or database. Status will not be updated",
                 notification.ViewDefinitionName);
         }
-    }
     }
 
     /// <summary>
@@ -659,24 +658,23 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     }
 
     /// <summary>
-    /// Extracts the ViewDefinition JSON from a raw Library resource wrapper.
+    /// Extracts the ViewDefinition JSON from a raw Library resource JSON string.
     /// Used when adopting a ViewDefinition from the database on a node that didn't
     /// originate the registration (multi-node scenario).
     /// </summary>
-    private string? ExtractViewDefinitionJsonFromRawResource(ResourceWrapper resource)
+    private string? ExtractViewDefinitionJsonFromLibrary(string libraryJson)
     {
         try
         {
-            string rawJson = resource.RawResource.Data;
             var parser = new FhirJsonParser();
-            Library library = parser.Parse<Library>(rawJson);
+            Library library = parser.Parse<Library>(libraryJson);
 
             Attachment? content = library.Content.FirstOrDefault(
                 c => string.Equals(c.ContentType, ViewDefinitionContentType, StringComparison.OrdinalIgnoreCase));
 
             if (content?.Data == null || content.Data.Length == 0)
             {
-                _logger.LogWarning("Library '{LibraryId}' has no ViewDefinition content attachment", resource.ResourceId);
+                _logger.LogWarning("Library resource has no ViewDefinition content attachment");
                 return null;
             }
 
@@ -684,7 +682,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to extract ViewDefinition JSON from Library '{LibraryId}'", resource.ResourceId);
+            _logger.LogWarning(ex, "Failed to extract ViewDefinition JSON from Library resource");
             return null;
         }
     }
