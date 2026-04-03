@@ -1,0 +1,297 @@
+parameters:
+- name: version
+  type: string
+- name: webAppName
+  type: string
+- name: acaEnvironmentName
+  type: string
+- name: subscription
+  type: string
+- name: resourceGroup
+  type: string
+- name: testEnvironmentUrl
+  type: string
+- name: imageTag
+  type: string
+- name: schemaAutomaticUpdatesEnabled
+  type: string
+  default: 'auto'
+- name: sqlServerName
+  type: string
+- name: reindexEnabled
+  type: boolean
+  default: true
+- name: minReplicas
+  type: number
+  default: 0
+- name: keyVaultName
+  type: string
+
+jobs:
+- job: provisionEnvironment
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+    inputs:
+      azureSubscription: ${{ parameters.subscription }}
+      KeyVaultName: 'resolute-oss-tenant-info'
+
+  - task: AzurePowerShell@5
+    name: SetAcaOutputs
+    displayName: 'Deploy ACA for SQL and emit test URL'
+    retryCountOnTaskFailure: 1
+    inputs:
+      azureSubscription: ${{ parameters.subscription }}
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        Add-Type -AssemblyName System.Web
+
+        # Import retry helper for transient error handling
+        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
+
+        $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
+
+        $testConfig = ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json")
+        $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
+
+        $additionalProperties = $flattenedTestConfig
+        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
+        $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
+        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = 2
+        $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
+
+        $staticEnvNames = @(
+            "ASPNETCORE_FORWARDEDHEADERS_ENABLED",
+            "KeyVault__Endpoint",
+            "FhirServer__Security__Enabled",
+            "FhirServer__Security__EnableAadSmartOnFhirProxy",
+            "FhirServer__Security__Authentication__Authority",
+            "FhirServer__Security__Authentication__Audience",
+            "DataStore",
+            "SqlServer__Initialize",
+            "SqlServer__SchemaOptions__AutomaticUpdatesEnabled",
+            "SqlServer__DeleteAllDataOnStartup",
+            "SqlServer__AllowDatabaseCreation",
+            "TaskHosting__Enabled",
+            "TaskHosting__PollingFrequencyInSeconds",
+            "TaskHosting__MaxRunningTaskCount",
+            "FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds",
+            "FhirServer__Operations__Export__Enabled",
+            "FhirServer__Operations__Export__StorageAccountUri",
+            "FhirServer__Operations__Import__Enabled",
+            "FhirServer__Operations__IntegrationDataStore__StorageAccountUri",
+            "FhirServer__Operations__ConvertData__Enabled",
+            "FhirServer__Operations__ConvertData__ContainerRegistryServers__0",
+            "FhirServer__Operations__Reindex__Enabled"
+        )
+
+        $additionalEnvVars = @()
+        foreach ($entry in $additionalProperties.GetEnumerator()) {
+            if ($staticEnvNames -contains $entry.Key) {
+                continue
+            }
+
+            if ($null -eq $entry.Value) {
+                continue
+            }
+
+            $value = if ($entry.Value -is [bool]) { $entry.Value.ToString().ToLowerInvariant() } else { [string]$entry.Value }
+            if ([string]::IsNullOrWhiteSpace($value)) {
+                continue
+            }
+
+            $additionalEnvVars += @{
+                name = [string]$entry.Key
+                value = $value
+            }
+        }
+
+        $webAppName = "${{ parameters.webAppName }}".ToLowerInvariant()
+        $acaEnvironmentName = "${{ parameters.acaEnvironmentName }}".ToLowerInvariant()
+
+        if ($acaEnvironmentName.Length -gt 32) {
+            $acaEnvironmentName = $acaEnvironmentName.Substring(0, 32).TrimEnd('-')
+        }
+
+        if ($acaEnvironmentName.Length -lt 2) {
+            $acaEnvironmentName = "ca-$acaEnvironmentName"
+        }
+
+        $templateParameters = @{
+            containerAppName = $webAppName
+            containerAppsEnvironmentName = $acaEnvironmentName
+            keyVaultName = "${{ parameters.keyVaultName }}".ToLowerInvariant()
+            fhirVersion = "${{ parameters.version }}"
+            registryName = '$(azureContainerRegistry)'
+            imageTag = "${{ parameters.imageTag }}"
+            sqlServerName = "${{ parameters.sqlServerName }}".ToLowerInvariant()
+            sqlSchemaAutomaticUpdatesEnabled = "${{ parameters.schemaAutomaticUpdatesEnabled }}"
+            securityAuthenticationAuthority = "https://sts.windows.net/$(tenant-id-guid)"
+            securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
+            enableExport = $true
+            enableImport = $true
+            enableConvertData = $true
+            enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
+            minReplicas = ${{ parameters.minReplicas }}
+            maxReplicas = 8
+            acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
+            additionalEnvVars = $additionalEnvVars
+        }
+
+        $deploymentName = "$webAppName"
+        $resourceGroupName = "${{ parameters.resourceGroup }}"
+        $sqlServerName = "${{ parameters.sqlServerName }}".ToLowerInvariant()
+
+        Write-Host "Provisioning ACA resources"
+        Write-Host "ResourceGroupName: $resourceGroupName"
+        Write-Host "ContainerAppName: $webAppName"
+        Write-Host "ContainerAppsEnvironmentName: $acaEnvironmentName"
+
+        # Ensure the SQL database exists before deploying the container.
+        # The deploySqlServer stage creates the SQL server but NOT the database.
+        # Azure SQL returns error 18456 (not 4060) when a AAD token targets a
+        # non-existent database, preventing the FHIR app from self-creating it.
+        $sqlDatabaseName = "FHIR${{ parameters.version }}"
+        $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
+        if ($null -eq $existingDb) {
+          Write-Host "Database '$sqlDatabaseName' does not exist on server '$sqlServerName'. Creating..."
+          Invoke-WithRetry -OperationName "Create SQL Database" -ScriptBlock {
+            New-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -Edition "GeneralPurpose" -RequestedServiceObjectiveName "GP_Gen5_4" -CollationName "SQL_Latin1_General_CP1_CI_AS" -ErrorAction Stop
+          }
+          Write-Host "Database '$sqlDatabaseName' created successfully."
+        } else {
+          Write-Host "Database '$sqlDatabaseName' already exists on server '$sqlServerName'."
+        }
+
+        $deploymentResult = Invoke-WithRetry -OperationName "ACA Deployment" -ScriptBlock {
+            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/fhir-sql-aca.bicep -TemplateParameterObject $templateParameters -Verbose -ErrorAction Stop
+        }
+
+        $managedEnvironment = Get-AzResource -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.App/managedEnvironments" -Name $acaEnvironmentName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $managedEnvironment) {
+          throw "Container Apps environment '$acaEnvironmentName' was not found in resource group '$resourceGroupName'."
+        }
+
+        $managedEnvironmentData = $managedEnvironment | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $outboundIps = @()
+
+        if ($null -ne $managedEnvironmentData.Properties.outboundIpAddresses) {
+          if ($managedEnvironmentData.Properties.outboundIpAddresses -is [string]) {
+            $outboundIps += ($managedEnvironmentData.Properties.outboundIpAddresses -split ',')
+          }
+          else {
+            foreach ($ip in $managedEnvironmentData.Properties.outboundIpAddresses) {
+              $outboundIps += [string]$ip
+            }
+          }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace([string]$managedEnvironmentData.Properties.staticIp)) {
+          $outboundIps += [string]$managedEnvironmentData.Properties.staticIp
+        }
+
+        $outboundIps = $outboundIps | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+
+        # Ensure Azure services firewall access is enabled for SQL. ACA egress IPs can change,
+        # and this avoids startup failures when outbound IP discovery is incomplete.
+        $allowAzureServicesRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -ErrorAction SilentlyContinue
+        if ($null -ne $allowAzureServicesRule) {
+          if ($allowAzureServicesRule.StartIpAddress -eq "0.0.0.0" -and $allowAzureServicesRule.EndIpAddress -eq "0.0.0.0") {
+            Write-Host "SQL firewall rule 'AllowAzureServices' already exists with expected address range."
+          }
+          else {
+            Invoke-WithRetry -OperationName "SQL Firewall Rule Update AllowAzureServices" -ScriptBlock {
+              Set-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -StartIpAddress "0.0.0.0" -EndIpAddress "0.0.0.0" -ErrorAction Stop
+            }
+          }
+        }
+        else {
+          Invoke-WithRetry -OperationName "SQL Firewall Rule Create AllowAzureServices" -ScriptBlock {
+            New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName "AllowAzureServices" -StartIPAddress "0.0.0.0" -EndIPAddress "0.0.0.0" -ErrorAction Stop
+          }
+        }
+
+        if ($outboundIps.Count -eq 0) {
+          Write-Warning "ACA outbound IP addresses were not found. Continuing with AllowAzureServices firewall rule only."
+        }
+        else {
+          $ruleIndex = 0
+          foreach ($ip in $outboundIps) {
+            $ruleIndex++
+            $ruleName = "AcaOutbound-$ruleIndex"
+            $existingRule = Get-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName $ruleName -ErrorAction SilentlyContinue
+            if ($null -ne $existingRule -and $existingRule.StartIpAddress -eq $ip -and $existingRule.EndIpAddress -eq $ip) {
+              Write-Host "SQL firewall rule '$ruleName' already exists for $ip."
+              continue
+            }
+
+            if ($null -ne $existingRule) {
+              Invoke-WithRetry -OperationName "SQL Firewall Rule Update $ruleName" -ScriptBlock {
+                Set-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName $ruleName -StartIpAddress $ip -EndIpAddress $ip -ErrorAction Stop
+              }
+            }
+            else {
+              Invoke-WithRetry -OperationName "SQL Firewall Rule Create $ruleName" -ScriptBlock {
+                New-AzSqlServerFirewallRule -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -FirewallRuleName $ruleName -StartIPAddress $ip -EndIPAddress $ip -ErrorAction Stop
+              }
+            }
+          }
+        }
+
+        $containerAppUrl = $deploymentResult.Outputs.containerAppUrl.Value
+        if ([string]::IsNullOrWhiteSpace($containerAppUrl)) {
+            throw "ACA deployment output did not contain containerAppUrl"
+        }
+
+        $containerAppUrl = $containerAppUrl.TrimEnd('/')
+        $healthCheckUrl = "$containerAppUrl/health/check"
+
+        $timeoutMinutes = 7
+        $consecutiveSuccessRequired = 5
+        $consecutiveSuccessCount = 0
+        $startTime = Get-Date
+        $timeoutTime = $startTime.AddMinutes($timeoutMinutes)
+
+        Write-Host "Starting health check for $healthCheckUrl"
+        Write-Host "Timeout: $timeoutMinutes minutes, consecutive successes required: $consecutiveSuccessRequired"
+
+        Do {
+          Start-Sleep -s 5
+          Write-Host "Checking: $healthCheckUrl (consecutive successes: $consecutiveSuccessCount/$consecutiveSuccessRequired)"
+          try {
+            $response = Invoke-WebRequest -Uri $healthCheckUrl -UseBasicParsing
+            if ($response.StatusCode -eq 200) {
+              $consecutiveSuccessCount++
+              Write-Host "Success ($consecutiveSuccessCount/$consecutiveSuccessRequired)"
+            }
+            else {
+              Write-Host "Non-200 response ($($response.StatusCode)), resetting count"
+              $consecutiveSuccessCount = 0
+            }
+          }
+          catch {
+            Write-Host $_.Exception.Message
+            $consecutiveSuccessCount = 0
+          }
+          finally {
+            $Error.Clear()
+          }
+
+          if ((Get-Date) -gt $timeoutTime) {
+            $elapsed = [math]::Round(((Get-Date) - $startTime).TotalMinutes, 2)
+            Write-Error "Health check timed out after $elapsed minutes ($consecutiveSuccessCount/$consecutiveSuccessRequired consecutive successes)"
+            throw "ACA health check timed out"
+          }
+        } While ($consecutiveSuccessCount -lt $consecutiveSuccessRequired)
+
+        $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)
+        Write-Host "ACA health check passed with $consecutiveSuccessRequired consecutive successes after $elapsed seconds"
+
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }}_Sql;isOutput=true]$containerAppUrl"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql;isOutput=true]$containerAppUrl"

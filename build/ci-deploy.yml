@@ -56,6 +56,49 @@ stages:
         azureSubscription: $(ConnectedServiceName)
         resourceGroupName: $(ResourceGroupName)
 
+- stage: createAcaEnvironment
+  displayName: 'Create ACA Managed Environment'
+  dependsOn:
+  - provisionEnvironment
+  jobs:
+  - job: createAcaEnvironment
+    displayName: 'Create ACA Managed Environment'
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Create ACA Managed Environment'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        pwsh: true
+        ScriptType: inlineScript
+        Inline: |
+          $envName = '$(AcaEnvironmentName)'.ToLowerInvariant()
+          $rgName = '$(ResourceGroupName)'
+          $location = '$(ResourceGroupRegion)'
+
+          if ($envName.Length -gt 32) {
+              $envName = $envName.Substring(0, 32).TrimEnd('-')
+          }
+
+          $existing = Get-AzResource -ResourceGroupName $rgName -ResourceType 'Microsoft.App/managedEnvironments' -Name $envName -ErrorAction SilentlyContinue
+          if ($null -ne $existing) {
+              Write-Host "ACA managed environment '$envName' already exists."
+              return
+          }
+
+          Write-Host "Creating ACA managed environment '$envName' in '$rgName'..."
+          New-AzResourceGroupDeployment `
+              -Name "aca-env-$envName" `
+              -ResourceGroupName $rgName `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.bicep `
+              -environmentName $envName `
+              -location $location `
+              -Verbose -ErrorAction Stop
+          Write-Host "ACA managed environment '$envName' created successfully."
+
 - stage: createNsp
   displayName: 'Create Network Security Perimeter'
   dependsOn:
@@ -113,15 +156,16 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - createNsp
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-cosmos-aca.yml
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -132,16 +176,17 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: Stu3
       sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameSql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -155,15 +200,16 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - createNsp
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-cosmos-aca.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -174,16 +220,17 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R4
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4Sql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
@@ -197,15 +244,16 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - createNsp
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-cosmos-aca.yml
     parameters: 
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4B)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -216,21 +264,23 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R4B
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR4BSql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Hyperscale'
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerName: $(DeploymentEnvironmentName)
+      sqlComputeTier: 'Hyperscale'
+      reindexEnabled: true
 
 - stage: deployR5
   displayName: 'Deploy R5 CosmosDB Site'
@@ -238,15 +288,16 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - createNsp
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-cosmos-aca.yml
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR5)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
@@ -257,16 +308,17 @@ stages:
   - aadTestEnvironment
   - DockerBuild
   - deploySqlServer
+  - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/provision-deploy-aca.yml
     parameters: 
       version: R5
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      acaEnvironmentName: $(AcaEnvironmentName)
+      keyVaultName: $(KeyVaultNameR5Sql)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'

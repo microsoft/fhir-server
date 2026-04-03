@@ -3,13 +3,11 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
-- name: appServiceName
-  type: string
-- name: integrationSqlServerName
+- name: containerAppName
   type: string
 jobs:
 
-- job: "SqlIntegrationTests"
+- job: "CosmosIntegrationTests"
   timeoutInMinutes: 75
   pool:
     name: '$(SharedLinuxPool)'
@@ -27,10 +25,10 @@ jobs:
       version: ${{ parameters.version }}
 
   - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '${{ parameters.keyVaultName }}-sql'
+      KeyVaultName: '${{ parameters.keyVaultName }}'
 
   - task: AzurePowerShell@5
     displayName: 'Set Workload Identity Variables'
@@ -44,6 +42,19 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
+        $containerAppName = '${{ parameters.containerAppName }}'
+        $containerApp = Get-AzResource -ResourceGroupName $(UniqueResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' was not found in resource group '$(UniqueResourceGroupName)'"
+        }
+
+        $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $envSettings = $containerAppData.Properties.template.containers[0].env
+
+        $dataStoreResourceId = ($envSettings | Where-Object { $_.name -eq "FhirServer__ResourceManager__DataStoreResourceId" } | Select-Object -First 1).value
+        Write-Host "$dataStoreResourceId"
+        Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
+
   - task: DotNetCoreCLI@2
     displayName: 'Build Integration Test Projects'
     inputs:
@@ -52,14 +63,16 @@ jobs:
       arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
 
   - task: DotNetCoreCLI@2
-    displayName: 'Run SQL Integration Tests with coverage'
+    displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
       command: test
       projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~CosmosDb" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~SqlServer" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
+      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
     env:
-      'SqlServer:ConnectionString': 'Server=tcp:${{ parameters.integrationSqlServerName }}.database.windows.net,1433;Initial Catalog=master;Persist Security Info=False;Authentication=ActiveDirectoryWorkloadIdentity;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;User Id=$(AZURESUBSCRIPTION_CLIENT_ID);'
+      'CosmosDb__Host': $(CosmosDb--Host)
+      'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
+      'CosmosDb__UseManagedIdentity': true
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
       'AZURESUBSCRIPTION_CLIENT_ID': '$(AZURESUBSCRIPTION_CLIENT_ID)'
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
@@ -72,13 +85,13 @@ jobs:
       testResultsFormat: 'VSTest'
       testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
       mergeTestResults: true
-      testRunTitle: '${{ parameters.version }} SQL Integration Tests'
+      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
       # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
       failTaskOnFailedTests: false
     condition: succeededOrFailed()
 
   - task: reportgenerator@5
-    displayName: 'Aggregate SQL integration test coverage'
+    displayName: 'Aggregate Cosmos integration test coverage'
     condition: succeededOrFailed()
     inputs:
       reports: '$(Agent.TempDirectory)/coverage/**/*.cobertura.xml'
@@ -86,13 +99,13 @@ jobs:
       targetdir: '$(Agent.TempDirectory)/coverage-aggregated'
 
   - task: PublishBuildArtifacts@1
-    displayName: 'Publish SQL integration test coverage'
+    displayName: 'Publish Cosmos integration test coverage'
     inputs:
       pathToPublish: '$(Agent.TempDirectory)/coverage-aggregated'
-      artifactName: 'Coverage_IntegrationTests_Sql_${{ parameters.version }}'
+      artifactName: 'Coverage_IntegrationTests_Cosmos_${{ parameters.version }}'
       artifactType: 'container'
 
-- job: 'sqlE2eTests'
+- job: 'cosmosE2eTests'
   timeoutInMinutes: 75
   dependsOn: []
   pool:
@@ -100,14 +113,14 @@ jobs:
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
-  - template: e2e-tests.yml
+  - template: e2e-tests-aca.yml
     parameters:
       version: ${{ parameters.version }}
-      appServiceName: '${{ parameters.appServiceName }}-sql'
-      appServiceType: 'SqlServer'
-      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex&Category!=BulkUpdate'
+      containerAppName: '${{ parameters.containerAppName }}'
+      appServiceType: 'CosmosDb'
+      categoryFilter: 'Category!=ExportLongRunning&Category!=IndexAndReindex'
 
-- job: 'sqlE2eTests_Reindex'
+- job: 'cosmosE2eTests_Reindex'
   timeoutInMinutes: 75
   dependsOn: []
   pool:
@@ -115,26 +128,10 @@ jobs:
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
-  - template: e2e-tests.yml
+  - template: e2e-tests-aca.yml
     parameters:
       version: ${{ parameters.version }}
-      appServiceName: '${{ parameters.appServiceName }}-sql'
-      appServiceType: 'SqlServer'
+      containerAppName: '${{ parameters.containerAppName }}'
+      appServiceType: 'CosmosDb'
       categoryFilter: 'Category=IndexAndReindex'
       testRunTitleSuffix: ' Reindex'
-
-- job: 'sqlE2eTests_BulkUpdate'
-  timeoutInMinutes: 75
-  dependsOn: []
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
-    parameters:
-      version: ${{ parameters.version }}
-      appServiceName: '${{ parameters.appServiceName }}-sql'
-      appServiceType: 'SqlServer'
-      categoryFilter: 'Category=BulkUpdate'
-      testRunTitleSuffix: ' BulkUpdate'

@@ -1,7 +1,7 @@
 parameters:
 - name: version
   type: string
-- name: appServiceName
+- name: containerAppName
   type: string
 - name: appServiceType
   type: string
@@ -17,9 +17,11 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
-  - template: ../tasks/e2e-set-variables.yml
+  - template: ../tasks/e2e-set-variables-aca.yml
     parameters:
-      appServiceName: ${{ parameters.appServiceName }}
+      containerAppName: ${{ parameters.containerAppName }}
+      version: ${{ parameters.version }}
+      appServiceType: ${{ parameters.appServiceType }}
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
