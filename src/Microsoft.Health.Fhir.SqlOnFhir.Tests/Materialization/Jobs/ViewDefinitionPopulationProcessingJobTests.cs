@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlOnFhir.Channels;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
 using Microsoft.Health.Fhir.SqlOnFhir.Materialization.Jobs;
 using Microsoft.Health.JobManagement;
@@ -27,6 +29,7 @@ public class ViewDefinitionPopulationProcessingJobTests
     private readonly IResourceDeserializer _resourceDeserializer;
     private readonly IViewDefinitionMaterializer _materializer;
     private readonly IQueueClient _queueClient;
+    private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
     private readonly ViewDefinitionPopulationProcessingJob _job;
 
     private const string ViewDefinitionJson = """
@@ -45,15 +48,23 @@ public class ViewDefinitionPopulationProcessingJobTests
         _resourceDeserializer = Substitute.For<IResourceDeserializer>();
         _materializer = Substitute.For<IViewDefinitionMaterializer>();
         _queueClient = Substitute.For<IQueueClient>();
+        _subscriptionManager = Substitute.For<IViewDefinitionSubscriptionManager>();
 
         var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
         scopedSearchService.Value.Returns(_searchService);
         Func<IScoped<ISearchService>> searchServiceFactory = () => scopedSearchService;
 
+        var config = Options.Create(new SqlOnFhirMaterializationConfiguration { DefaultTarget = MaterializationTarget.SqlServer });
+        var factory = new MaterializerFactory(
+            _materializer,
+            config,
+            NullLogger<MaterializerFactory>.Instance);
+
         _job = new ViewDefinitionPopulationProcessingJob(
             searchServiceFactory,
             _resourceDeserializer,
-            _materializer,
+            factory,
+            _subscriptionManager,
             _queueClient,
             Substitute.For<MediatR.IMediator>(),
             NullLogger<ViewDefinitionPopulationProcessingJob>.Instance);

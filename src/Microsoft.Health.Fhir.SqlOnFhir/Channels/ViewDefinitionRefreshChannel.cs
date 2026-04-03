@@ -15,26 +15,32 @@ namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
 /// Subscription channel that materializes ViewDefinition rows when FHIR resources change.
 /// When a subscription fires, this channel re-evaluates the associated ViewDefinition(s) against
 /// the changed resources and performs incremental upserts into the materialized SQL tables.
+/// Uses the <see cref="MaterializerFactory"/> to route to the correct materializer(s) based on
+/// the per-ViewDefinition <see cref="MaterializationTarget"/>.
 /// </summary>
 [ChannelType(SubscriptionChannelType.ViewDefinitionRefresh)]
 public sealed class ViewDefinitionRefreshChannel : ISubscriptionChannel
 {
-    private readonly IViewDefinitionMaterializer _materializer;
+    private readonly MaterializerFactory _materializerFactory;
+    private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
     private readonly IResourceDeserializer _resourceDeserializer;
     private readonly ILogger<ViewDefinitionRefreshChannel> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ViewDefinitionRefreshChannel"/> class.
     /// </summary>
-    /// <param name="materializer">The materializer for upserting rows into SQL tables.</param>
+    /// <param name="materializerFactory">The factory for resolving materializer(s) based on target.</param>
+    /// <param name="subscriptionManager">The subscription manager for looking up per-ViewDefinition targets.</param>
     /// <param name="resourceDeserializer">Deserializer for converting ResourceWrapper to ResourceElement.</param>
     /// <param name="logger">The logger instance.</param>
     public ViewDefinitionRefreshChannel(
-        IViewDefinitionMaterializer materializer,
+        MaterializerFactory materializerFactory,
+        IViewDefinitionSubscriptionManager subscriptionManager,
         IResourceDeserializer resourceDeserializer,
         ILogger<ViewDefinitionRefreshChannel> logger)
     {
-        _materializer = materializer;
+        _materializerFactory = materializerFactory;
+        _subscriptionManager = subscriptionManager;
         _resourceDeserializer = resourceDeserializer;
         _logger = logger;
     }
@@ -68,6 +74,10 @@ public sealed class ViewDefinitionRefreshChannel : ISubscriptionChannel
             viewDefName,
             subscriptionInfo.ResourceId);
 
+        // Resolve the materialization target for this ViewDefinition
+        ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(viewDefName!);
+        MaterializationTarget target = registration?.Target ?? _materializerFactory.DefaultTarget;
+
         int totalRowsUpserted = 0;
         int failedResources = 0;
 
@@ -84,7 +94,7 @@ public sealed class ViewDefinitionRefreshChannel : ISubscriptionChannel
 
                 if (wrapper.IsDeleted)
                 {
-                    await _materializer.DeleteResourceAsync(viewDefName!, resourceKey, cancellationToken);
+                    await _materializerFactory.DeleteResourceAsync(target, viewDefName!, resourceKey, cancellationToken);
 
                     _logger.LogDebug(
                         "Deleted rows for deleted resource '{ResourceKey}' from '{ViewDefName}'",
@@ -95,7 +105,8 @@ public sealed class ViewDefinitionRefreshChannel : ISubscriptionChannel
                 {
                     var resourceElement = _resourceDeserializer.Deserialize(wrapper);
 
-                    int rowsInserted = await _materializer.UpsertResourceAsync(
+                    int rowsInserted = await _materializerFactory.UpsertResourceAsync(
+                        target,
                         viewDefJson!,
                         viewDefName!,
                         resourceElement,

@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlOnFhir.Channels;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -20,15 +21,16 @@ namespace Microsoft.Health.Fhir.SqlOnFhir.Materialization.Jobs;
 /// <summary>
 /// Processing job for populating a materialized ViewDefinition table.
 /// Searches for resources in batches using continuation tokens and materializes
-/// each resource's ViewDefinition rows into the SQL table. Enqueues follow-up jobs
-/// when more resources remain.
+/// each resource's ViewDefinition rows into the target(s) determined by the registration.
+/// Enqueues follow-up jobs when more resources remain.
 /// </summary>
 [JobTypeId((int)JobType.ViewDefinitionPopulationProcessing)]
 public sealed class ViewDefinitionPopulationProcessingJob : IJob
 {
     private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
     private readonly IResourceDeserializer _resourceDeserializer;
-    private readonly IViewDefinitionMaterializer _materializer;
+    private readonly MaterializerFactory _materializerFactory;
+    private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
     private readonly IQueueClient _queueClient;
     private readonly IMediator _mediator;
     private readonly ILogger<ViewDefinitionPopulationProcessingJob> _logger;
@@ -39,14 +41,16 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
     public ViewDefinitionPopulationProcessingJob(
         Func<IScoped<ISearchService>> searchServiceFactory,
         IResourceDeserializer resourceDeserializer,
-        IViewDefinitionMaterializer materializer,
+        MaterializerFactory materializerFactory,
+        IViewDefinitionSubscriptionManager subscriptionManager,
         IQueueClient queueClient,
         IMediator mediator,
         ILogger<ViewDefinitionPopulationProcessingJob> logger)
     {
         _searchServiceFactory = searchServiceFactory;
         _resourceDeserializer = resourceDeserializer;
-        _materializer = materializer;
+        _materializerFactory = materializerFactory;
+        _subscriptionManager = subscriptionManager;
         _queueClient = queueClient;
         _mediator = mediator;
         _logger = logger;
@@ -57,10 +61,15 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
     {
         var definition = jobInfo.DeserializeDefinition<ViewDefinitionPopulationProcessingJobDefinition>();
 
+        // Resolve the materialization target from the in-memory registration, falling back to the factory default
+        ViewDefinitionRegistration? registration = _subscriptionManager.GetRegistration(definition.ViewDefinitionName);
+        MaterializationTarget target = registration?.Target ?? _materializerFactory.DefaultTarget;
+
         _logger.LogInformation(
-            "Starting ViewDefinition population processing for '{ViewDefName}' (resource type: {ResourceType})",
+            "Starting ViewDefinition population processing for '{ViewDefName}' (resource type: {ResourceType}, target: {Target})",
             definition.ViewDefinitionName,
-            definition.ResourceType);
+            definition.ResourceType,
+            target);
 
         long totalResourcesProcessed = 0;
         long totalRowsInserted = 0;
@@ -119,7 +128,8 @@ public sealed class ViewDefinitionPopulationProcessingJob : IJob
                     ResourceElement resourceElement = _resourceDeserializer.Deserialize(entry.Resource);
                     string resourceKey = $"{entry.Resource.ResourceTypeName}/{entry.Resource.ResourceId}";
 
-                    int rowsInserted = await _materializer.UpsertResourceAsync(
+                    int rowsInserted = await _materializerFactory.UpsertResourceAsync(
+                        target,
                         definition.ViewDefinitionJson,
                         definition.ViewDefinitionName,
                         resourceElement,

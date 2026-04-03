@@ -9,6 +9,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlOnFhir.Channels;
@@ -95,8 +96,16 @@ public class EndToEndFlowTests
             _sqlRetryService,
             NullLogger<SqlServerViewDefinitionMaterializer>.Instance);
 
-        _channel = new ViewDefinitionRefreshChannel(
+        var config = Options.Create(new SqlOnFhirMaterializationConfiguration { DefaultTarget = MaterializationTarget.SqlServer });
+        var factory = new MaterializerFactory(
             _materializer,
+            config,
+            NullLogger<MaterializerFactory>.Instance);
+        var subscriptionManager = Substitute.For<IViewDefinitionSubscriptionManager>();
+
+        _channel = new ViewDefinitionRefreshChannel(
+            factory,
+            subscriptionManager,
             _resourceDeserializer,
             NullLogger<ViewDefinitionRefreshChannel>.Instance);
 

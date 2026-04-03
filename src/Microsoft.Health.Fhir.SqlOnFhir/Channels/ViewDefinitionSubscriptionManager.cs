@@ -11,6 +11,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
@@ -64,11 +65,19 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     /// </summary>
     public const string MaterializationStatusExtensionUrl = "https://sql-on-fhir.org/ig/StructureDefinition/materialization-status";
 
+    /// <summary>
+    /// Extension URL used to persist the materialization target on a Library resource.
+    /// This allows per-ViewDefinition targeting (e.g., SqlServer, Parquet, Fabric) to survive
+    /// server restarts and be discovered by other nodes during sync.
+    /// </summary>
+    public const string MaterializationTargetExtensionUrl = "https://sql-on-fhir.org/ig/StructureDefinition/materialization-target";
+
     private readonly ConcurrentDictionary<string, ViewDefinitionRegistration> _registrations = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IViewDefinitionSchemaManager _schemaManager;
     private readonly IQueueClient _queueClient;
+    private readonly SqlOnFhirMaterializationConfiguration _materializationConfig;
     private readonly ILogger<ViewDefinitionSubscriptionManager> _logger;
 
     /// <summary>
@@ -78,11 +87,13 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         IServiceScopeFactory scopeFactory,
         IViewDefinitionSchemaManager schemaManager,
         IQueueClient queueClient,
+        IOptions<SqlOnFhirMaterializationConfiguration> materializationConfig,
         ILogger<ViewDefinitionSubscriptionManager> logger)
     {
         _scopeFactory = scopeFactory;
         _schemaManager = schemaManager;
         _queueClient = queueClient;
+        _materializationConfig = materializationConfig.Value;
         _logger = logger;
     }
 
@@ -90,10 +101,13 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     public async Task<ViewDefinitionRegistration> RegisterAsync(
         string viewDefinitionJson,
         string libraryResourceId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        MaterializationTarget? target = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(viewDefinitionJson);
         ArgumentException.ThrowIfNullOrWhiteSpace(libraryResourceId);
+
+        MaterializationTarget resolvedTarget = target ?? _materializationConfig.DefaultTarget;
 
         (string name, string resourceType) = ExtractViewDefinitionMetadata(viewDefinitionJson);
 
@@ -117,9 +131,10 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         }
 
         _logger.LogInformation(
-            "Registering ViewDefinition '{ViewDefName}' for materialization (resource type: {ResourceType})",
+            "Registering ViewDefinition '{ViewDefName}' for materialization (resource type: {ResourceType}, target: {Target})",
             name,
-            resourceType);
+            resourceType,
+            resolvedTarget);
 
         // Step 1: Create the materialized SQL table
         var registration = new ViewDefinitionRegistration
@@ -127,6 +142,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             ViewDefinitionJson = viewDefinitionJson,
             ViewDefinitionName = name,
             ResourceType = resourceType,
+            Target = resolvedTarget,
             Status = ViewDefinitionStatus.Creating,
         };
 
@@ -173,9 +189,9 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
             registration.LibraryResourceId = libraryResourceId;
 
-            // Persist the populating status and subscription reference to the Library resource.
+            // Persist the populating status, target, and subscription reference to the Library resource.
             await UpdateLibraryMaterializationStatusAsync(
-                libraryResourceId, ViewDefinitionStatus.Populating, cancellationToken, registration.SubscriptionIds);
+                libraryResourceId, ViewDefinitionStatus.Populating, cancellationToken, registration.SubscriptionIds, resolvedTarget);
 
             // Status stays as Populating — the ViewDefinitionPopulationProcessingJob will
             // publish ViewDefinitionPopulationCompleteNotification when done, which triggers
@@ -278,9 +294,12 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         string? libraryResourceId,
         CancellationToken cancellationToken,
         ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active,
-        IReadOnlyList<string>? subscriptionIds = null)
+        IReadOnlyList<string>? subscriptionIds = null,
+        MaterializationTarget? target = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(viewDefinitionJson);
+
+        MaterializationTarget resolvedTarget = target ?? _materializationConfig.DefaultTarget;
 
         (string name, string resourceType) = ExtractViewDefinitionMetadata(viewDefinitionJson);
 
@@ -290,6 +309,7 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             ViewDefinitionName = name,
             ResourceType = resourceType,
             LibraryResourceId = libraryResourceId,
+            Target = resolvedTarget,
             Status = initialStatus,
         };
 
@@ -314,9 +334,10 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         }
 
         _logger.LogInformation(
-            "Adopted ViewDefinition '{ViewDefName}' into local cache with status '{Status}'",
+            "Adopted ViewDefinition '{ViewDefName}' into local cache with status '{Status}' and target '{Target}'",
             name,
-            initialStatus);
+            initialStatus,
+            resolvedTarget);
         return registration;
     }
 
@@ -419,7 +440,8 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         string libraryResourceId,
         ViewDefinitionStatus status,
         CancellationToken cancellationToken,
-        IEnumerable<string>? subscriptionIds = null)
+        IEnumerable<string>? subscriptionIds = null,
+        MaterializationTarget? target = null)
     {
         try
         {
@@ -444,6 +466,23 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             else
             {
                 library.Extension.Add(new Extension(MaterializationStatusExtensionUrl, new Code(statusValue)));
+            }
+
+            // Add or update the materialization-target extension
+            if (target.HasValue)
+            {
+                string targetValue = target.Value.ToString();
+                Extension? existingTargetExt = library.Extension.FirstOrDefault(
+                    e => e.Url == MaterializationTargetExtensionUrl);
+
+                if (existingTargetExt != null)
+                {
+                    existingTargetExt.Value = new Code(targetValue);
+                }
+                else
+                {
+                    library.Extension.Add(new Extension(MaterializationTargetExtensionUrl, new Code(targetValue)));
+                }
             }
 
             // Persist subscription IDs as relatedArtifact entries (type=depends-on)
@@ -473,9 +512,10 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 cancellationToken);
 
             _logger.LogInformation(
-                "Persisted materialization metadata on Library '{LibraryId}' (status={Status}, subscriptions={SubCount})",
+                "Persisted materialization metadata on Library '{LibraryId}' (status={Status}, target={Target}, subscriptions={SubCount})",
                 libraryResourceId,
                 statusValue,
+                target?.ToString() ?? "default",
                 subscriptionIds?.Count() ?? 0);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

@@ -21,8 +21,12 @@ public interface IViewDefinitionSubscriptionManager
     /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
     /// <param name="libraryResourceId">The ID of the Library resource that persists this ViewDefinition.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="target">
+    /// The materialization target for this ViewDefinition. If <c>null</c>, uses the server-wide
+    /// <see cref="SqlOnFhirMaterializationConfiguration.DefaultTarget"/> from configuration.
+    /// </param>
     /// <returns>The registration details including auto-created Subscription IDs.</returns>
-    Task<ViewDefinitionRegistration> RegisterAsync(string viewDefinitionJson, string libraryResourceId, CancellationToken cancellationToken);
+    Task<ViewDefinitionRegistration> RegisterAsync(string viewDefinitionJson, string libraryResourceId, CancellationToken cancellationToken, MaterializationTarget? target = null);
 
     /// <summary>
     /// Unregisters a ViewDefinition: deletes the auto-created Subscription resource(s) and
@@ -64,13 +68,18 @@ public interface IViewDefinitionSubscriptionManager
     /// Subscription resource IDs read from the Library's <c>relatedArtifact</c> entries.
     /// These are needed for cleanup when the ViewDefinition is later deleted.
     /// </param>
+    /// <param name="target">
+    /// The materialization target read from the Library resource's materialization-target extension.
+    /// If <c>null</c>, defaults to <see cref="MaterializationTarget.SqlServer"/>.
+    /// </param>
     /// <returns>The adopted registration.</returns>
     Task<ViewDefinitionRegistration> AdoptAsync(
         string viewDefinitionJson,
         string? libraryResourceId,
         CancellationToken cancellationToken,
         ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active,
-        IReadOnlyList<string>? subscriptionIds = null);
+        IReadOnlyList<string>? subscriptionIds = null,
+        MaterializationTarget? target = null);
 
     /// <summary>
     /// Removes a ViewDefinition from the in-memory cache without deleting SQL tables, subscriptions,

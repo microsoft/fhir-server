@@ -163,7 +163,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
             result.Results.Count());
 
         // Build set of ViewDefinition names found in persisted Library resources
-        var persistedViewDefs = new Dictionary<string, (string Json, string LibraryId, ViewDefinitionStatus Status, IReadOnlyList<string> SubscriptionIds)>(StringComparer.OrdinalIgnoreCase);
+        var persistedViewDefs = new Dictionary<string, (string Json, string LibraryId, ViewDefinitionStatus Status, IReadOnlyList<string> SubscriptionIds, MaterializationTarget? Target)>(StringComparer.OrdinalIgnoreCase);
 
         foreach (SearchResultEntry entry in result.Results)
         {
@@ -186,7 +186,8 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 {
                     ViewDefinitionStatus status = ExtractMaterializationStatus(entry.Resource);
                     IReadOnlyList<string> subscriptionIds = ExtractSubscriptionIds(entry.Resource);
-                    persistedViewDefs[name] = (viewDefinitionJson, entry.Resource.ResourceId, status, subscriptionIds);
+                    MaterializationTarget? target = ExtractMaterializationTarget(entry.Resource);
+                    persistedViewDefs[name] = (viewDefinitionJson, entry.Resource.ResourceId, status, subscriptionIds, target);
                 }
                 else
                 {
@@ -207,7 +208,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
         // Adopt or update registrations for ViewDefinitions found in storage.
         // This node only updates its in-memory cache — the node that received the client
         // request already handled SQL table creation, population, and subscription setup.
-        foreach ((string name, (string json, string libraryId, ViewDefinitionStatus status, IReadOnlyList<string> subscriptionIds)) in persistedViewDefs)
+        foreach ((string name, (string json, string libraryId, ViewDefinitionStatus status, IReadOnlyList<string> subscriptionIds, MaterializationTarget? target)) in persistedViewDefs)
         {
             ViewDefinitionRegistration? existing = _subscriptionManager.GetRegistration(name);
 
@@ -224,14 +225,15 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
 
                 // Another node registered this — adopt into our local cache
                 _logger.LogInformation(
-                    "Adopting ViewDefinition '{ViewDefName}' from Library '{LibraryId}' with status '{Status}'",
+                    "Adopting ViewDefinition '{ViewDefName}' from Library '{LibraryId}' with status '{Status}' and target '{Target}'",
                     name,
                     libraryId,
-                    status);
+                    status,
+                    target?.ToString() ?? "default");
 
                 try
                 {
-                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken, status, subscriptionIds);
+                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken, status, subscriptionIds, target);
                     _recentlyEvicted.TryRemove(name, out _);
                 }
                 catch (Exception ex)
@@ -247,7 +249,7 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
                 try
                 {
                     _subscriptionManager.Evict(name);
-                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken, status, subscriptionIds);
+                    await _subscriptionManager.AdoptAsync(json, libraryId, cancellationToken, status, subscriptionIds, target);
                 }
                 catch (Exception ex)
                 {
@@ -373,6 +375,46 @@ public sealed class ViewDefinitionSyncService : BackgroundService,
         }
 
         return ViewDefinitionStatus.Active;
+    }
+
+    /// <summary>
+    /// Extracts the materialization target from a Library resource's extension.
+    /// Returns <c>null</c> if not specified, which lets the caller fall back to the
+    /// server-wide <see cref="SqlOnFhirMaterializationConfiguration.DefaultTarget"/>.
+    /// </summary>
+    private static MaterializationTarget? ExtractMaterializationTarget(ResourceWrapper wrapper)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(wrapper.RawResource.Data);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("extension", out JsonElement extensions))
+            {
+                foreach (JsonElement ext in extensions.EnumerateArray())
+                {
+                    if (ext.TryGetProperty("url", out JsonElement url)
+                        && string.Equals(
+                            url.GetString(),
+                            ViewDefinitionSubscriptionManager.MaterializationTargetExtensionUrl,
+                            StringComparison.OrdinalIgnoreCase)
+                        && ext.TryGetProperty("valueCode", out JsonElement valueCode))
+                    {
+                        string? targetStr = valueCode.GetString();
+                        if (Enum.TryParse<MaterializationTarget>(targetStr, ignoreCase: true, out var target))
+                        {
+                            return target;
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fall through to default
+        }
+
+        return null;
     }
 
     /// <summary>

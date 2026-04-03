@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlOnFhir.Channels;
@@ -22,6 +23,7 @@ public class ViewDefinitionRefreshChannelTests
 {
     private readonly IViewDefinitionMaterializer _materializer;
     private readonly IResourceDeserializer _resourceDeserializer;
+    private readonly IViewDefinitionSubscriptionManager _subscriptionManager;
     private readonly ViewDefinitionRefreshChannel _channel;
 
     private const string ViewDefinitionJson = """
@@ -36,9 +38,17 @@ public class ViewDefinitionRefreshChannelTests
     {
         _materializer = Substitute.For<IViewDefinitionMaterializer>();
         _resourceDeserializer = Substitute.For<IResourceDeserializer>();
+        _subscriptionManager = Substitute.For<IViewDefinitionSubscriptionManager>();
+
+        var config = Options.Create(new SqlOnFhirMaterializationConfiguration { DefaultTarget = MaterializationTarget.SqlServer });
+        var factory = new MaterializerFactory(
+            _materializer,
+            config,
+            NullLogger<MaterializerFactory>.Instance);
 
         _channel = new ViewDefinitionRefreshChannel(
-            _materializer,
+            factory,
+            _subscriptionManager,
             _resourceDeserializer,
             NullLogger<ViewDefinitionRefreshChannel>.Instance);
     }

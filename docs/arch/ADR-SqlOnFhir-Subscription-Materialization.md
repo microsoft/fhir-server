@@ -7,13 +7,9 @@ Accepted
 2026-03-29
 
 ## Context
-Healthcare analytics pipelines typically rely on batch ETL processes to transform FHIR data into
-tabular formats for reporting, dashboards, and analytics tools. This introduces 24+ hour data
-staleness, custom pipeline complexity per report, and high compute costs from full re-extraction.
-
 The SQL on FHIR v2 specification defines ViewDefinitions — portable JSON structures that project
 FHIR resources into tabular schemas using FHIRPath expressions. Combined with the FHIR Subscriptions
-framework, we can create event-driven materialized views that update in real-time as clinical data
+framework, we can create event-driven materialized views that update in near real-time as clinical data
 changes, eliminating batch ETL entirely.
 
 ## Decision

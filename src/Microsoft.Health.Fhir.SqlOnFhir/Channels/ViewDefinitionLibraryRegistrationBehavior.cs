@@ -9,6 +9,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.SqlOnFhir.Materialization;
 
 namespace Microsoft.Health.Fhir.SqlOnFhir.Channels;
 
@@ -64,14 +65,16 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior :
         }
 
         string libraryId = response.Outcome.RawResourceElement.Id;
+        MaterializationTarget? target = ExtractMaterializationTarget(request.Resource.Instance);
 
         _logger.LogInformation(
-            "Library resource '{LibraryId}' contains a ViewDefinition. Triggering materialization registration",
-            libraryId);
+            "Library resource '{LibraryId}' contains a ViewDefinition. Triggering materialization registration (target: {Target})",
+            libraryId,
+            target?.ToString() ?? "default");
 
         try
         {
-            await _subscriptionManager.RegisterAsync(viewDefinitionJson, libraryId, cancellationToken);
+            await _subscriptionManager.RegisterAsync(viewDefinitionJson, libraryId, cancellationToken, target);
         }
         catch (Exception ex)
         {
@@ -103,14 +106,16 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior :
         }
 
         string libraryId = response.Outcome.RawResourceElement.Id;
+        MaterializationTarget? target = ExtractMaterializationTarget(request.Resource.Instance);
 
         _logger.LogInformation(
-            "Library resource '{LibraryId}' upserted with ViewDefinition. Triggering materialization registration",
-            libraryId);
+            "Library resource '{LibraryId}' upserted with ViewDefinition. Triggering materialization registration (target: {Target})",
+            libraryId,
+            target?.ToString() ?? "default");
 
         try
         {
-            await _subscriptionManager.RegisterAsync(viewDefinitionJson, libraryId, cancellationToken);
+            await _subscriptionManager.RegisterAsync(viewDefinitionJson, libraryId, cancellationToken, target);
         }
         catch (Exception ex)
         {
@@ -170,5 +175,33 @@ public sealed class ViewDefinitionLibraryRegistrationBehavior :
         }
 
         return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+    }
+
+    /// <summary>
+    /// Extracts the materialization target from the Library resource's extension, if present.
+    /// Returns <c>null</c> if not specified, which lets the registration fall back to the
+    /// server-wide <see cref="SqlOnFhirMaterializationConfiguration.DefaultTarget"/>.
+    /// </summary>
+    private static MaterializationTarget? ExtractMaterializationTarget(ITypedElement resource)
+    {
+        ITypedElement? extensionElement = resource.Children("extension")
+            .FirstOrDefault(ext =>
+                string.Equals(
+                    ext.Children("url").FirstOrDefault()?.Value?.ToString(),
+                    ViewDefinitionSubscriptionManager.MaterializationTargetExtensionUrl,
+                    StringComparison.OrdinalIgnoreCase));
+
+        if (extensionElement == null)
+        {
+            return null;
+        }
+
+        string? targetValue = extensionElement.Children("valueCode").FirstOrDefault()?.Value?.ToString();
+        if (targetValue != null && Enum.TryParse<MaterializationTarget>(targetValue, ignoreCase: true, out var target))
+        {
+            return target;
+        }
+
+        return null;
     }
 }
