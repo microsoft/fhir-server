@@ -236,5 +236,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
             }
         }
+
+        [Theory]
+        [InlineData("ap9500-01-01")] // Approximate search with future date that causes overflow
+        [InlineData("ap0001-01-01")] // Approximate search with very old date
+        [InlineData("ap9999-12-31")] // Approximate search near max date
+        public async Task GivenAnApproximateDateSearchParamWithExtremeDate_WhenSearched_ThenServerShouldNotCrash(string queryValue)
+        {
+            try
+            {
+                // The server should handle extreme dates gracefully and return a successful response
+                // even if no results are found (empty bundle is OK)
+                Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}");
+
+                // If we get here, the server handled it correctly - either with results or an empty bundle
+                Assert.NotNull(bundle);
+                Assert.Equal(Bundle.BundleType.Searchset, bundle.Type);
+            }
+            catch (FhirClientException fce)
+            {
+                // The server should NOT return 500 Internal Server Error for valid approximate date searches
+                // It's acceptable to return BadRequest if the server decides the date is out of reasonable bounds
+                Assert.True(
+                    fce.StatusCode != HttpStatusCode.InternalServerError,
+                    $"Server returned '{HttpStatusCode.InternalServerError}' for a valid approximate date search. This indicates an unhandled exception (overflow) in the date calculation logic. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"An unexpected '{e.GetType()}' was raised. The server should handle extreme approximate dates gracefully. Url: {Client.HttpClient.BaseAddress}. Error: {e.Message}");
+            }
+        }
     }
 }
