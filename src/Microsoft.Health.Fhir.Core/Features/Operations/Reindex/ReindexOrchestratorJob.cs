@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
             _operationsConfiguration = operationsConfiguration.Value;
-            _searchParameterCacheRefreshIntervalSeconds = Math.Max(1, coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds);
+            _searchParameterCacheRefreshIntervalSeconds = coreFeatureConfiguration.Value.SearchParameterCacheRefreshIntervalSeconds;
 
             // Determine support for surrogate ID ranging once
             // This is to ensure Gen1 Reindex still works as expected but we still maintain perf on job inseration to SQL
