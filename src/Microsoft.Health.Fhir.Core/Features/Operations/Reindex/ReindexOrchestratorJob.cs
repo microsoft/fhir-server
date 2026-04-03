@@ -214,7 +214,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await Task.Delay(delayMs, _cancellationToken);
             }
 
-            // Update the reindex job record with the latest hash map
             var currentDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
             _searchParamLastUpdated = currentDate;
 
@@ -224,7 +223,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             async Task<bool> WaitForAllInstancesCacheSyncAsync(DateTime updateEventsSince, CancellationToken cancellationToken)
             {
                 var start = Stopwatch.StartNew();
-
                 var maxWaitTime = TimeSpan.FromSeconds(_operationsConfiguration.Reindex.CacheUpdateMaxWaitMultiplier * _searchParameterCacheRefreshIntervalSeconds);
                 var waitInterval = TimeSpan.FromSeconds(_searchParameterCacheRefreshIntervalSeconds);
                 var activeHostsSince = DateTime.UtcNow.AddSeconds((-1) * _operationsConfiguration.Reindex.ActiveHostsEventsMultiplier * _searchParameterCacheRefreshIntervalSeconds);
@@ -235,11 +233,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     if (result.IsConsistent)
                     {
-                        ////_logger.LogInformation("Cache sync check: All {ActiveHosts} active host(s) have converged to SearchParamLastUpdated={CurrentDate}.", result.ActiveHosts, currentDate);
+                        var logDate = _searchParameterOperations.SearchParamLastUpdated.HasValue ? _searchParameterOperations.SearchParamLastUpdated.Value : DateTimeOffset.MinValue;
+                        _logger.LogJobInformation(_jobInfo, $"Cache sync check: All {result.ActiveHosts} active host(s) have converged to SearchParamLastUpdated={logDate.ToString("yyyy-MM-dd HH:mm:ss.fff")}.");
                         break;
                     }
 
-                    ////_logger.LogInformation($"Cache sync check: {result.ConvergedHosts}/{result.ActiveHosts} hosts synced. Waiting...");
+                    _logger.LogJobInformation(_jobInfo, $"Cache sync check: {result.ConvergedHosts}/{result.ActiveHosts} hosts synced. Waiting...");
                     await Task.Delay(waitInterval, cancellationToken);
                 }
 
