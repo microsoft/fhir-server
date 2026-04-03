@@ -139,7 +139,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _mediator,
                 _router,
                 _profilesResolver,
-                NullLogger<BundleHandler>.Instance);
+                NullLogger<BundleHandler>.Instance,
+                Substitute.For<IModelInfoProvider>());
         }
 
         [Fact]

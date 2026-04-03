@@ -201,7 +201,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult<IReadOnlyList<JobInfo>>(result);
         }
 
-        public Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+        public Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long? groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
         {
             var response = new List<JobInfo>();
 
@@ -216,7 +216,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 {
                     Definition = definition,
                     Id = largestId,
-                    GroupId = groupId,
+                    GroupId = groupId.HasValue ? groupId.Value : largestId,
                     Status = jobStatus,
                     HeartbeatDateTime = DateTime.UtcNow,
                     QueueType = queueType,
