@@ -60,12 +60,17 @@ public interface IViewDefinitionSubscriptionManager
     /// Pass the status read from the Library resource's materialization-status extension so that
     /// ViewDefinitions that were still populating before a restart remain in <c>Populating</c> state.
     /// </param>
+    /// <param name="subscriptionIds">
+    /// Subscription resource IDs read from the Library's <c>relatedArtifact</c> entries.
+    /// These are needed for cleanup when the ViewDefinition is later deleted.
+    /// </param>
     /// <returns>The adopted registration.</returns>
     Task<ViewDefinitionRegistration> AdoptAsync(
         string viewDefinitionJson,
         string? libraryResourceId,
         CancellationToken cancellationToken,
-        ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active);
+        ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active,
+        IReadOnlyList<string>? subscriptionIds = null);
 
     /// <summary>
     /// Removes a ViewDefinition from the in-memory cache without deleting SQL tables, subscriptions,

@@ -94,7 +94,9 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -129,11 +131,15 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("us_core_blood_pressures")),
             Arg.Is("lib-2"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -172,7 +178,9 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.DidNotReceive().AdoptAsync(
             Arg.Any<string>(),
             Arg.Any<string?>(),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -204,7 +212,9 @@ public class ViewDefinitionSyncServiceTests
         await _subscriptionManager.Received().AdoptAsync(
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
-            Arg.Any<CancellationToken>());
+            Arg.Any<CancellationToken>(),
+            Arg.Any<ViewDefinitionStatus>(),
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -240,7 +250,8 @@ public class ViewDefinitionSyncServiceTests
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
             Arg.Any<CancellationToken>(),
-            ViewDefinitionStatus.Populating);
+            ViewDefinitionStatus.Populating,
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -276,7 +287,8 @@ public class ViewDefinitionSyncServiceTests
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
             Arg.Any<CancellationToken>(),
-            ViewDefinitionStatus.Active);
+            ViewDefinitionStatus.Active,
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }
@@ -309,7 +321,8 @@ public class ViewDefinitionSyncServiceTests
             Arg.Is<string>(json => json.Contains("patient_demographics")),
             Arg.Is("lib-1"),
             Arg.Any<CancellationToken>(),
-            ViewDefinitionStatus.Active);
+            ViewDefinitionStatus.Active,
+            Arg.Any<IReadOnlyList<string>>());
 
         await _syncService.StopAsync(CancellationToken.None);
     }

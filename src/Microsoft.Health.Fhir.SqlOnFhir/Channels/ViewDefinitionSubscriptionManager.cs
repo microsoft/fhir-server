@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ViewDefinitionRun;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -171,9 +172,9 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
 
             registration.LibraryResourceId = libraryResourceId;
 
-            // Persist the populating status to the Library resource so it survives restarts.
+            // Persist the populating status and subscription reference to the Library resource.
             await UpdateLibraryMaterializationStatusAsync(
-                libraryResourceId, ViewDefinitionStatus.Populating, cancellationToken);
+                libraryResourceId, ViewDefinitionStatus.Populating, cancellationToken, registration.SubscriptionIds);
 
             // Status stays as Populating — the ViewDefinitionPopulationProcessingJob will
             // publish ViewDefinitionPopulationCompleteNotification when done, which triggers
@@ -207,8 +208,15 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             return;
         }
 
-        // Delete auto-created Subscription resources
-        foreach (string subscriptionId in registration.SubscriptionIds)
+        // Delete auto-created Subscription resources.
+        // First try the in-memory IDs; if empty (e.g., after restart/adoption), search by endpoint.
+        IEnumerable<string> subscriptionIds = registration.SubscriptionIds;
+        if (!subscriptionIds.Any())
+        {
+            subscriptionIds = await FindSubscriptionIdsByEndpointAsync(viewDefinitionName, cancellationToken);
+        }
+
+        foreach (string subscriptionId in subscriptionIds)
         {
             try
             {
@@ -268,7 +276,8 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
         string viewDefinitionJson,
         string? libraryResourceId,
         CancellationToken cancellationToken,
-        ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active)
+        ViewDefinitionStatus initialStatus = ViewDefinitionStatus.Active,
+        IReadOnlyList<string>? subscriptionIds = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(viewDefinitionJson);
 
@@ -282,6 +291,14 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
             LibraryResourceId = libraryResourceId,
             Status = initialStatus,
         };
+
+        if (subscriptionIds != null)
+        {
+            foreach (string subId in subscriptionIds)
+            {
+                registration.SubscriptionIds.Add(subId);
+            }
+        }
 
         _registrations[name] = registration;
 
@@ -340,14 +357,16 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
     }
 
     /// <summary>
-    /// Persists the materialization status as an extension on the Library resource so it survives
-    /// server restarts and is visible to other nodes. This is best-effort — failures are logged
-    /// but do not affect the in-memory status tracking.
+    /// Persists the materialization metadata (status and subscription references) on the Library
+    /// resource so it survives server restarts and is visible to other nodes. Subscription IDs
+    /// are stored as <c>relatedArtifact</c> entries with type <c>depends-on</c>.
+    /// This is best-effort — failures are logged but do not affect in-memory tracking.
     /// </summary>
     private async Task UpdateLibraryMaterializationStatusAsync(
         string libraryResourceId,
         ViewDefinitionStatus status,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IEnumerable<string>? subscriptionIds = null)
     {
         try
         {
@@ -374,6 +393,26 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 library.Extension.Add(new Extension(MaterializationStatusExtensionUrl, new Code(statusValue)));
             }
 
+            // Persist subscription IDs as relatedArtifact entries (type=depends-on)
+            if (subscriptionIds != null)
+            {
+                // Remove existing auto-created subscription references
+                library.RelatedArtifact.RemoveAll(
+                    ra => ra.Type == RelatedArtifact.RelatedArtifactType.DependsOn
+                        && ra.Resource != null
+                        && ra.Resource.StartsWith("Subscription/", StringComparison.OrdinalIgnoreCase));
+
+                foreach (string subId in subscriptionIds)
+                {
+                    library.RelatedArtifact.Add(new RelatedArtifact
+                    {
+                        Type = RelatedArtifact.RelatedArtifactType.DependsOn,
+                        Resource = $"Subscription/{subId}",
+                        Display = "Auto-created materialization subscription",
+                    });
+                }
+            }
+
             // Upsert the modified Library back through the pipeline
             var resourceElement = new ResourceElement(library.ToTypedElement());
             await SendScopedAsync<UpsertResourceResponse>(
@@ -381,15 +420,82 @@ public sealed class ViewDefinitionSubscriptionManager : IViewDefinitionSubscript
                 cancellationToken);
 
             _logger.LogInformation(
-                "Persisted materialization status '{Status}' on Library '{LibraryId}'",
+                "Persisted materialization metadata on Library '{LibraryId}' (status={Status}, subscriptions={SubCount})",
+                libraryResourceId,
                 statusValue,
-                libraryResourceId);
+                subscriptionIds?.Count() ?? 0);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            const string message = "Failed to persist materialization status '{Status}' on Library '{LibraryId}'. "
-                + "Status is tracked in memory but may be lost on restart";
-            _logger.LogWarning(ex, message, status, libraryResourceId);
+            const string message = "Failed to persist materialization metadata on Library '{LibraryId}'. "
+                + "State is tracked in memory but may be lost on restart";
+            _logger.LogWarning(ex, message, libraryResourceId);
+        }
+    }
+
+    /// <summary>
+    /// Searches for auto-created Subscription resources by matching the criteria topic URL
+    /// and channel endpoint pattern. Used during cleanup when in-memory subscription IDs are
+    /// not available (e.g., after restart or adoption from another node).
+    /// </summary>
+    private async Task<IReadOnlyList<string>> FindSubscriptionIdsByEndpointAsync(
+        string viewDefinitionName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            string expectedEndpoint = $"internal://sqlfhir/{viewDefinitionName}";
+
+            using IServiceScope scope = _scopeFactory.CreateScope();
+            var searchService = scope.ServiceProvider.GetRequiredService<ISearchService>();
+
+            // Search for subscriptions with our transaction topic criteria.
+            // Then filter client-side by channel endpoint, since endpoint is not a search parameter in R4.
+            var queryParameters = new List<Tuple<string, string>>
+            {
+                Tuple.Create("criteria", TransactionTopicUrl),
+                Tuple.Create("_count", "100"),
+            };
+
+            SearchResult result = await searchService.SearchAsync(
+                "Subscription",
+                queryParameters,
+                cancellationToken);
+
+            var ids = new List<string>();
+            var resourceDeserializer = scope.ServiceProvider.GetRequiredService<IResourceDeserializer>();
+
+            foreach (SearchResultEntry entry in result.Results)
+            {
+                ResourceElement element = resourceDeserializer.Deserialize(entry.Resource);
+                string? endpoint = element.Instance
+                    .Children("channel").FirstOrDefault()
+                    ?.Children("endpoint").FirstOrDefault()
+                    ?.Value?.ToString();
+
+                if (string.Equals(endpoint, expectedEndpoint, StringComparison.OrdinalIgnoreCase))
+                {
+                    ids.Add(entry.Resource.ResourceId);
+                }
+            }
+
+            if (ids.Count > 0)
+            {
+                _logger.LogInformation(
+                    "Found {Count} auto-created Subscription(s) for ViewDefinition '{ViewDefName}' by endpoint search",
+                    ids.Count,
+                    viewDefinitionName);
+            }
+
+            return ids;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to search for auto-created Subscriptions for ViewDefinition '{ViewDefName}'",
+                viewDefinitionName);
+            return Array.Empty<string>();
         }
     }
 
