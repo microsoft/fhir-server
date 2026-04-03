@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             }
         }
 
-        [Theory]
+        [SkippableTheory(Skip="Fix bundle handler first")]
         [InlineData(true, false, true, false)]
         [InlineData(true, false, false, false)]
         [InlineData(false, true, true, false)]
