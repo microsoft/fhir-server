@@ -98,6 +98,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Sort = nameof(Sort);
 
+        public const string Subscriptions = nameof(Subscriptions);
+
+        public const string Transaction = nameof(Transaction);
+
         public const string Throttling = nameof(Throttling);
 
         public const string Validate = nameof(Validate);

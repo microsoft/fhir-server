@@ -1,0 +1,87 @@
+{
+  "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
+  "id": "UsCoreBloodPressures",
+  "name": "us_core_blood_pressures",
+  "status": "draft",
+  "resource": "Observation",
+  "constant": [
+    {
+      "name": "systolic_bp",
+      "valueCode": "8480-6"
+    },
+    {
+      "name": "diastolic_bp",
+      "valueCode": "8462-4"
+    },
+    {
+      "name": "bp_code",
+      "valueCode": "85354-9"
+    }
+  ],
+  "select": [
+    {
+      "column": [
+        {
+          "path": "getResourceKey()",
+          "name": "id"
+        },
+        {
+          "path": "subject.getReferenceKey(Patient)",
+          "name": "patient_id",
+          "description": "Can be used to join to patient tables created by other views."
+        },
+        {
+          "path": "effective.ofType(dateTime)",
+          "name": "effective_date_time"
+        }
+      ]
+    },
+    {
+      "column": [
+        {
+          "path": "value.ofType(Quantity).system",
+          "name": "sbp_quantity_system"
+        },
+        {
+          "path": "value.ofType(Quantity).code",
+          "name": "sbp_quantity_code"
+        },
+        {
+          "path": "value.ofType(Quantity).unit",
+          "name": "sbp_quantity_unit"
+        },
+        {
+          "path": "value.ofType(Quantity).value",
+          "name": "sbp_quantity_value"
+        }
+      ],
+      "forEach": "component.where(code.coding.exists(system='http://loinc.org' and code=%systolic_bp)).first()"
+    },
+    {
+      "column": [
+        {
+          "path": "value.ofType(Quantity).system",
+          "name": "dbp_quantity_system"
+        },
+        {
+          "path": "value.ofType(Quantity).code",
+          "name": "dbp_quantity_code"
+        },
+        {
+          "path": "value.ofType(Quantity).unit",
+          "name": "dbp_quantity_unit"
+        },
+        {
+          "path": "value.ofType(Quantity).value",
+          "name": "dbp_quantity_value"
+        }
+      ],
+      "forEach": "component.where(code.coding.exists(system='http://loinc.org' and code=%diastolic_bp)).first()"
+    }
+  ],
+  "where": [
+    {
+      "path": "code.coding.exists(system='http://loinc.org' and code=%bp_code)"
+    }
+  ]
+}

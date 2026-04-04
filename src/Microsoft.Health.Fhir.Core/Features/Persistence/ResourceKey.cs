@@ -7,6 +7,7 @@ using System;
 using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -23,11 +24,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceType = resourceType;
         }
 
-        public string Id { get; }
+        [JsonConstructor]
+        protected ResourceKey()
+        {
+        }
 
-        public string VersionId { get; }
+        [JsonProperty("id")]
+        public string Id { get; protected set; }
 
-        public string ResourceType { get; }
+        [JsonProperty("versionId")]
+        public string VersionId { get; protected set; }
+
+        [JsonProperty("resourceType")]
+        public string ResourceType { get; protected set; }
 
         public bool Equals(ResourceKey other)
         {

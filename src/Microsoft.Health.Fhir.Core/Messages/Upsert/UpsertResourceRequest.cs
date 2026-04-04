@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
             MetaHistory = metaHistory;
         }
 
-        public ResourceElement Resource { get; }
+        public ResourceElement Resource { get; set; }
 
         public WeakETag WeakETag { get; }
 

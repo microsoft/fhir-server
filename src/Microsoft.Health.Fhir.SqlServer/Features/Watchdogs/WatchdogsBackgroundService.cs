@@ -25,9 +25,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private bool _storageReady = false;
         private readonly DefragWatchdog _defragWatchdog;
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
-        private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
+        private readonly IScopeProvider<TransactionWatchdog> _transactionWatchdogProvider;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
         private readonly ExpiredResourceCleanupWatchdog _expiredResourceCleanupWatchdog;
+        private readonly Lazy<SubscriptionProcessorWatchdog> _subscriptionProcessorWatchdog;
         private readonly GeoReplicationLagWatchdog _geoReplicationLagWatchdog;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly WatchdogConfiguration _watchdogConfiguration;
@@ -38,15 +39,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
             ExpiredResourceCleanupWatchdog expiredResourceCleanupWatchdog,
+            Lazy<SubscriptionProcessorWatchdog> subscriptionProcessorWatchdog,
             GeoReplicationLagWatchdog geoReplicationLagWatchdog,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IOptions<WatchdogConfiguration> watchdogConfiguration)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
-            _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke();
+            _transactionWatchdogProvider = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog));
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
             _expiredResourceCleanupWatchdog = EnsureArg.IsNotNull(expiredResourceCleanupWatchdog, nameof(expiredResourceCleanupWatchdog));
+            _subscriptionProcessorWatchdog = EnsureArg.IsNotNull(subscriptionProcessorWatchdog, nameof(subscriptionProcessorWatchdog));
             _geoReplicationLagWatchdog = geoReplicationLagWatchdog; // Can be null when feature is disabled
             _coreFeatureConfiguration = EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             _watchdogConfiguration = EnsureArg.IsNotNull(watchdogConfiguration?.Value, nameof(watchdogConfiguration));
@@ -61,14 +64,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
 
             using var continuationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            using IScoped<TransactionWatchdog> transactionWatchdog = _transactionWatchdogProvider.Invoke();
 
             var tasks = new List<Task>
             {
                 _defragWatchdog.ExecuteAsync(continuationTokenSource.Token),
                 _cleanupEventLogWatchdog.ExecuteAsync(continuationTokenSource.Token),
-                _transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
+                transactionWatchdog.Value.ExecuteAsync(continuationTokenSource.Token),
                 _invisibleHistoryCleanupWatchdog.ExecuteAsync(continuationTokenSource.Token),
             };
+
+            if (_coreFeatureConfiguration.SupportsSubscriptions)
+            {
+                tasks.Add(_subscriptionProcessorWatchdog.Value.ExecuteAsync(continuationTokenSource.Token));
+            }
 
             // Only add GeoReplicationLagWatchdog if the feature is enabled
             if (_coreFeatureConfiguration.EnableGeoRedundancy)
@@ -96,12 +105,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _storageReady = true;
             return Task.CompletedTask;
-        }
-
-        public override void Dispose()
-        {
-            _transactionWatchdog.Dispose();
-            base.Dispose();
         }
     }
 }

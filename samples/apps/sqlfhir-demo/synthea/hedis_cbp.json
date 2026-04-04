@@ -1,0 +1,116 @@
+{
+  "name": "HEDIS Controlling Blood Pressure (CBP)",
+  "remarks": [
+    "Custom Synthea module for HEDIS CBP measure demo.",
+    "Generates recurring annual BP readings for all adults aged 18+.",
+    "Hypertension (75%): diagnosed once, then annual BP readings loop via submodules.",
+    "Normal (25%): annual wellness BP reading loop via submodule.",
+    "Loops run until the patient dies or the simulation ends."
+  ],
+  "states": {
+    "Initial": {
+      "type": "Initial",
+      "direct_transition": "Age_Guard"
+    },
+
+    "Age_Guard": {
+      "type": "Guard",
+      "allow": {
+        "condition_type": "Age",
+        "operator": ">=",
+        "quantity": 18,
+        "unit": "years"
+      },
+      "direct_transition": "Choose_Patient_Type"
+    },
+
+    "Choose_Patient_Type": {
+      "type": "Simple",
+      "distributed_transition": [
+        { "transition": "Set_Controlled_BP", "distribution": 0.40 },
+        { "transition": "Set_Uncontrolled_BP", "distribution": 0.35 },
+        { "transition": "Set_Normal_BP", "distribution": 0.25 }
+      ]
+    },
+
+    "Set_Controlled_BP": {
+      "type": "SetAttribute",
+      "attribute": "hedis_bp_type",
+      "value": "controlled",
+      "direct_transition": "Onset_Hypertension"
+    },
+
+    "Set_Uncontrolled_BP": {
+      "type": "SetAttribute",
+      "attribute": "hedis_bp_type",
+      "value": "uncontrolled",
+      "direct_transition": "Onset_Hypertension"
+    },
+
+    "Onset_Hypertension": {
+      "type": "ConditionOnset",
+      "assign_to_attribute": "hedis_hypertension_dx",
+      "codes": [
+        { "system": "SNOMED-CT", "code": "59621000", "display": "Essential hypertension" }
+      ],
+      "conditional_transition": [
+        {
+          "condition": {
+            "condition_type": "Attribute",
+            "attribute": "hedis_bp_type",
+            "operator": "==",
+            "value": "controlled"
+          },
+          "transition": "Controlled_Readings"
+        },
+        {
+          "transition": "Uncontrolled_Readings"
+        }
+      ]
+    },
+
+    "Set_Normal_BP": {
+      "type": "SetAttribute",
+      "attribute": "hedis_bp_type",
+      "value": "normal",
+      "direct_transition": "Normal_Readings"
+    },
+
+    "Controlled_Readings": {
+      "type": "CallSubmodule",
+      "submodule": "hedis_cbp/controlled_bp_readings",
+      "direct_transition": "Annual_Wait_Controlled"
+    },
+    "Annual_Wait_Controlled": {
+      "type": "Delay",
+      "range": { "low": 9, "high": 15, "unit": "months" },
+      "direct_transition": "Controlled_Readings"
+    },
+
+    "Uncontrolled_Readings": {
+      "type": "CallSubmodule",
+      "submodule": "hedis_cbp/uncontrolled_bp_readings",
+      "direct_transition": "Annual_Wait_Uncontrolled"
+    },
+    "Annual_Wait_Uncontrolled": {
+      "type": "Delay",
+      "range": { "low": 9, "high": 15, "unit": "months" },
+      "direct_transition": "Uncontrolled_Readings"
+    },
+
+    "Normal_Readings": {
+      "type": "CallSubmodule",
+      "submodule": "hedis_cbp/normal_bp_readings",
+      "direct_transition": "Annual_Wait_Normal"
+    },
+    "Annual_Wait_Normal": {
+      "type": "Delay",
+      "range": { "low": 9, "high": 15, "unit": "months" },
+      "direct_transition": "Normal_Readings"
+    },
+
+    "Terminal": {
+      "type": "Terminal"
+    }
+  }
+}

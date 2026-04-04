@@ -18,5 +18,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         BulkUpdateOrchestrator = 8,
         ReindexOrchestrator = 9,
         ReindexProcessing = 10,
+        SubscriptionsProcessing = 11,
+        SubscriptionsOrchestrator = 12,
+        ViewDefinitionPopulationOrchestrator = 13,
+        ViewDefinitionPopulationProcessing = 14,
     }
 }

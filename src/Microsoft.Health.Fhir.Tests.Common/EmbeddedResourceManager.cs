@@ -11,13 +11,13 @@ namespace Microsoft.Health.Fhir.Tests.Common
 {
     public static class EmbeddedResourceManager
     {
-        public static string GetStringContent(string embeddedResourceSubNamespace, string fileName, string extension)
+        public static string GetStringContent(string embeddedResourceSubNamespace, string fileName, string extension, FhirSpecification version)
         {
-            string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{ModelInfoProvider.Version}.{fileName}.{extension}";
+            string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{version}.{fileName}.{extension}";
 
             var resourceInfo = Assembly.GetExecutingAssembly().GetManifestResourceInfo(resourceName);
 
-            if (resourceInfo == null && ModelInfoProvider.Version == FhirSpecification.R4B)
+            if (resourceInfo == null && version == FhirSpecification.R4B)
             {
                 // Try R4 version
                 resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.R4.{fileName}.{extension}";
@@ -37,6 +37,11 @@ namespace Microsoft.Health.Fhir.Tests.Common
                     return reader.ReadToEnd();
                 }
             }
+        }
+
+        public static string GetStringContent(string embeddedResourceSubNamespace, string fileName, string extension)
+        {
+            return GetStringContent(embeddedResourceSubNamespace, fileName, extension, ModelInfoProvider.Version);
         }
     }
 }

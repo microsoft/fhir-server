@@ -25,6 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public BulkUpdateJobConfiguration BulkUpdate { get; set; } = new BulkUpdateJobConfiguration();
 
+        public ViewDefinitionPopulationJobConfiguration ViewDefinitionPopulation { get; set; } = new ViewDefinitionPopulationJobConfiguration();
+
+        public SubscriptionJobConfiguration Subscriptions { get; set; } = new SubscriptionJobConfiguration();
+
         public TerminologyConfiguration Terminology { get; set; } = new TerminologyConfiguration();
     }
 }
