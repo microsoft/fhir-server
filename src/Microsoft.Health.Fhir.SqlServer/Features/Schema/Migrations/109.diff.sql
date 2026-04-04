@@ -2,6 +2,7 @@ IF object_id('UpsertSearchParamsWithOptimisticConcurrency') IS NOT NULL DROP PRO
 IF object_id('AcquireReindexJobs') IS NOT NULL DROP PROCEDURE AcquireReindexJobs
 IF object_id('UpdateReindexJob') IS NOT NULL DROP PROCEDURE UpdateReindexJob
 IF object_id('GetSearchParamMaxLastUpdated') IS NOT NULL DROP PROCEDURE GetSearchParamMaxLastUpdated
+IF object_id('ReindexJob') IS NOT NULL DROP TABLE ReindexJob
 GO
 ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY
            ,@IsResourceChangeCaptureEnabled bit = 0
