@@ -43,7 +43,13 @@ public class FhirDemoService
     /// Uses PUT with a deterministic ID derived from the ViewDefinition name, so re-registering
     /// updates the existing Library instead of creating duplicates.
     /// </summary>
-    public async Task<string> RegisterViewDefinitionAsync(string viewDefinitionJson)
+    /// <param name="viewDefinitionJson">The ViewDefinition JSON string.</param>
+    /// <param name="target">
+    /// The materialization target. If <c>null</c>, no target extension is added and the
+    /// server-wide default from <c>SqlOnFhirMaterialization:DefaultTarget</c> is used.
+    /// Valid values: <c>"SqlServer"</c>, <c>"Parquet"</c>, <c>"Fabric"</c>.
+    /// </param>
+    public async Task<string> RegisterViewDefinitionAsync(string viewDefinitionJson, string? target = null)
     {
         using var doc = System.Text.Json.JsonDocument.Parse(viewDefinitionJson);
         string name = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() ?? "unknown" : "unknown";
@@ -53,6 +59,16 @@ public class FhirDemoService
         string libraryId = $"viewdef-{name.Replace('_', '-')}";
         string base64Content = Convert.ToBase64String(Encoding.UTF8.GetBytes(viewDefinitionJson));
 
+        // Build the optional materialization-target extension
+        string extensionJson = string.IsNullOrEmpty(target)
+            ? string.Empty
+            : $$"""
+                "extension": [{
+                    "url": "{{MaterializationTargetExtensionUrl}}",
+                    "valueCode": "{{target}}"
+                }],
+            """;
+
         string libraryJson = $$"""
             {
                 "resourceType": "Library",
@@ -61,13 +77,14 @@ public class FhirDemoService
                     "profile": ["{{ViewDefinitionLibraryProfile}}"],
                     "tag": [{"system": "{{DemoTagSystem}}", "code": "{{DemoTag}}"}]
                 },
+                {{extensionJson}}
                 "name": "{{name}}",
                 "title": "ViewDefinition: {{name}}",
                 "status": "active",
                 "type": {
                     "coding": [{"system": "http://terminology.hl7.org/CodeSystem/library-type", "code": "logic-library"}]
                 },
-                "description": "SQL on FHIR v2 ViewDefinition for {{resource}} resources.",
+                "description": "SQL on FHIR v2 ViewDefinition for {{resource}} resources (target: {{target ?? "default"}}).",
                 "content": [{
                     "contentType": "application/json+viewdefinition",
                     "data": "{{base64Content}}"
@@ -672,6 +689,11 @@ public class FhirDemoService
     /// Profile URL for ViewDefinition Library resources (used in reset search).
     /// </summary>
     private const string ViewDefinitionLibraryProfile = "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition";
+
+    /// <summary>
+    /// Extension URL for specifying the materialization target per ViewDefinition.
+    /// </summary>
+    private const string MaterializationTargetExtensionUrl = "https://sql-on-fhir.org/ig/StructureDefinition/materialization-target";
 
     /// <summary>
     /// Gets the FHIR server metadata.

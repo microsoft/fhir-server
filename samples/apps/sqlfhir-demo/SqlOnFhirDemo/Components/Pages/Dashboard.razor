@@ -100,9 +100,17 @@
         <div class="card mt-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">📋 ViewDefinition Registration</h5>
-                <button class="btn btn-sm btn-primary" @onclick="RegisterViewDefinitionsAsync" disabled="@IsRegistering">
-                    @(IsRegistering ? "Registering..." : "🚀 Register All ViewDefinitions")
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 small text-muted">Target:</label>
+                    <select class="form-select form-select-sm" style="width: auto;" @bind="DefaultMaterializationTarget" disabled="@IsRegistering">
+                        <option value="SqlServer">🗄️ SQL Server</option>
+                        <option value="Parquet">📦 Parquet (Blob)</option>
+                        <option value="Fabric">🔷 Fabric (Delta Lake)</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" @onclick="RegisterViewDefinitionsAsync" disabled="@IsRegistering">
+                        @(IsRegistering ? "Registering..." : "🚀 Register All ViewDefinitions")
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 @if (ViewDefRegistrations.Count == 0 && !IsRegistering)
@@ -115,9 +123,30 @@
                     {
                         <div class="card mb-2 @(reg.Success ? "border-success" : reg.Phase == RegPhase.Failed ? "border-danger" : "")">
                             <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                                <div>
+                                <div class="d-flex align-items-center gap-2">
                                     <strong>@reg.ViewDefName</strong>
-                                    <span class="badge bg-secondary ms-2">@reg.ResourceType</span>
+                                    <span class="badge bg-secondary">@reg.ResourceType</span>
+                                    @switch (reg.Target)
+                                    {
+                                        case "SqlServer":
+                                            <span class="badge bg-dark" title="Materialization target">🗄️ SQL</span>
+                                            break;
+                                        case "Parquet":
+                                            <span class="badge bg-info text-dark" title="Materialization target">📦 Parquet</span>
+                                            break;
+                                        case "Fabric":
+                                            <span class="badge bg-primary" title="Materialization target">🔷 Fabric</span>
+                                            break;
+                                    }
+                                    @if (reg.Phase == RegPhase.Pending)
+                                    {
+                                        <select class="form-select form-select-sm py-0" style="width: auto; font-size: 0.75rem;"
+                                                @bind="reg.Target">
+                                            <option value="SqlServer">🗄️ SQL Server</option>
+                                            <option value="Parquet">📦 Parquet</option>
+                                            <option value="Fabric">🔷 Fabric</option>
+                                        </select>
+                                    }
                                 </div>
                                 <div class="d-flex align-items-center gap-2">
                                     @* Status progression *@
@@ -408,6 +437,7 @@
     // ViewDefinition registration
     private List<ViewDefRegState> ViewDefRegistrations = new();
     private bool IsRegistering = false;
+    private string DefaultMaterializationTarget = "SqlServer";
 
     // Reset demo
     private bool IsResetting = false;
@@ -764,6 +794,7 @@
                     ViewDefinitionJson = json,
                     Columns = parsed.Columns,
                     WhereClause = parsed.WhereClause,
+                    Target = DefaultMaterializationTarget,
                 });
             }
             StateHasChanged();
@@ -776,7 +807,7 @@
 
                 try
                 {
-                    string response = await FhirService.RegisterViewDefinitionAsync(reg.ViewDefinitionJson);
+                    string response = await FhirService.RegisterViewDefinitionAsync(reg.ViewDefinitionJson, reg.Target);
                     bool success = !response.Contains("\"severity\":\"error\"", StringComparison.OrdinalIgnoreCase);
 
                     if (success)
@@ -936,6 +967,7 @@
         public string ViewDefinitionJson { get; set; } = "";
         public List<ColumnInfo> Columns { get; set; } = new();
         public string? WhereClause { get; set; }
+        public string Target { get; set; } = "SqlServer";
     }
 
     private class ColumnInfo
