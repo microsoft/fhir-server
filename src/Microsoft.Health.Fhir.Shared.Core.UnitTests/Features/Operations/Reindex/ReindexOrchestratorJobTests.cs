@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterDefinitionManager _searchDefinitionManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
-        private IQueueClient _queueClient;
+        private readonly IQueueClient _queueClient;
         private readonly CancellationToken _cancellationToken;
 
         public ReindexOrchestratorJobTests()
@@ -78,15 +78,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationTokenSource?.Dispose();
         }
 
-        private ReindexOrchestratorJob CreateReindexOrchestratorJob(IFhirRuntimeConfiguration runtimeConfig = null)
+        private ReindexOrchestratorJob CreateReindexOrchestratorJob()
         {
-            runtimeConfig ??= new AzureHealthDataServicesRuntimeConfiguration();
+            var runtimeConfig = new AzureHealthDataServicesRuntimeConfiguration();
 
             var coreFeatureConfig = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration());
+            coreFeatureConfig.Value.Returns(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 });
 
             var operationsConfig = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfig.Value.Returns(new OperationsConfiguration());
+            operationsConfig.Value.Returns(new OperationsConfiguration { Reindex = new ReindexJobConfiguration { CacheUpdateMaxWaitMultiplier = 1 } });
 
             return new ReindexOrchestratorJob(
                 _queueClient,
@@ -256,6 +256,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Return whatever jobs we have after timeout
             var finalJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, groupId, true, _cancellationToken);
             return finalJobs.Where(j => j.Id != groupId).ToList();
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenCacheIsNotSynced_ReturnsErrorResult()
+        {
+            _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+                .Returns(new CacheConsistencyResult { IsConsistent = false, ActiveHosts = 1, ConvergedHosts = 1 });
+
+            var jobInfo = await CreateReindexJobRecord();
+            var orchestrator = CreateReindexOrchestratorJob();
+
+            // Act
+            var result = await orchestrator.ExecuteAsync(jobInfo, CancellationToken.None);
+            var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(result);
+
+            // Assert
+            Assert.NotNull(jobResult);
+            Assert.NotNull(jobResult.Error);
+            Assert.Contains(jobResult.Error, e => e.Diagnostics.Contains("Unable to sync search parameter cache"));
+
+            _searchParameterStatusManager.CheckCacheConsistencyAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+                .Returns(new CacheConsistencyResult { IsConsistent = true, ActiveHosts = 1, ConvergedHosts = 1 });
         }
 
         [Fact]
@@ -713,7 +735,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 });
 
             var jobInfo = await CreateReindexJobRecord();
-            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act: Fire off execute asynchronously without awaiting
             var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
@@ -1697,7 +1719,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 });
 
             var jobInfo = await CreateReindexJobRecord(targetResourceTypes: targetResourceTypes);
-            var orchestrator = CreateReindexOrchestratorJob(new AzureHealthDataServicesRuntimeConfiguration());
+            var orchestrator = CreateReindexOrchestratorJob();
 
             // Act
             _ = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);

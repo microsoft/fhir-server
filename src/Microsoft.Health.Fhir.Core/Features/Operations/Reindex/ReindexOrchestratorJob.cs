@@ -203,7 +203,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // orchestrator from creating reindex ranges while other instances still have
                 // stale search parameter caches and would write resources with wrong hashes.
                 var updateEventsSince = isReindexStart ? _jobInfo.StartDate.Value : DateTime.UtcNow;
-                await WaitForAllInstancesCacheSyncAsync(updateEventsSince, _cancellationToken);
+                var isConsistent = await WaitForAllInstancesCacheSyncAsync(updateEventsSince, _cancellationToken);
+                if (!isConsistent)
+                {
+                    var msg = "Unable to sync search parameter cache. Please resubmit reindex. If issue persists please contact your administrator.";
+                    _logger.LogJobError(_jobInfo, msg);
+                    await TryLogEvent($"ReindexOrchestratorJob={_jobInfo.Id}.ExecuteAsync.{suffix}", "Error", msg, null, _cancellationToken);
+                    throw new JobExecutionException(msg, false);
+                }
             }
             else
             {
