@@ -330,7 +330,7 @@ END
             var wrapper = factory.Create(patient.ToResourceElement(), false, true);
             wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
-            await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
+            await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, null, cts.Token);
             var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
             ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
 
@@ -397,7 +397,7 @@ RAISERROR('Test',18,127)
             try
             {
                 // no eventual consistency
-                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, true, [mergeWrapper], false, 0, cts.Token);
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, true, [mergeWrapper], false, 0, null, cts.Token);
             }
             catch (SqlException e)
             {
@@ -409,7 +409,7 @@ RAISERROR('Test',18,127)
             try
             {
                 // eventual consistency
-                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, null, cts.Token);
             }
             catch (SqlException e)
             {
