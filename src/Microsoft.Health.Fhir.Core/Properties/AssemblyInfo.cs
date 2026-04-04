@@ -21,6 +21,7 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Ignixa")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api")]
@@ -50,5 +51,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.E2E")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.ResourceParser")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Benchmarks")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.SqlServer.UnitTests")]

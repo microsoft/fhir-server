@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Microsoft.Health.Fhir.Ignixa.xml</DocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Project references for FHIR server integration -->
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ignixa FHIR SDK NuGet packages -->
+    <PackageReference Include="Ignixa.Abstractions" />
+    <PackageReference Include="Ignixa.Serialization" />
+    <PackageReference Include="Ignixa.Extensions.FirelySdk5" />
+    <PackageReference Include="Ignixa.Specification" />
+    <PackageReference Include="Ignixa.FhirPath" />
+    <PackageReference Include="Ignixa.Validation" />
+
+    <!-- Common utilities -->
+    <PackageReference Include="Ensure.That" />
+  </ItemGroup>
+</Project>

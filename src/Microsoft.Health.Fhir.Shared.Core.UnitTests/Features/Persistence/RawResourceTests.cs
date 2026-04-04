@@ -9,6 +9,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -22,8 +23,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenAResource_WhenCreateARawResourceWithKeepMetaFalse_ThenTheObjectPassedInIsModified()
         {
+            var ignixaSerializer = new IgnixaJsonSerializer();
             var serializer = new FhirJsonSerializer();
-            var rawResourceFactory = new RawResourceFactory(serializer);
+            var rawResourceFactory = new RawResourceFactory(ignixaSerializer, serializer);
 
             string versionId = Guid.NewGuid().ToString();
             var observation = Samples.GetDefaultObservation()

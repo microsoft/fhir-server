@@ -6,6 +6,10 @@
     <DefineConstants>R5</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <!-- ASP.NET Core for formatters -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <None Remove="Features\Definition\unsupported-search-parameters.json" />
   </ItemGroup>
 

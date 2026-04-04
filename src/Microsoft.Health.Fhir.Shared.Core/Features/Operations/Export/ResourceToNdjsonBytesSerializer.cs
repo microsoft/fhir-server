@@ -5,10 +5,12 @@
 
 using System.Text;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -17,12 +19,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ResourceToNdjsonBytesSerializer : IResourceToByteArraySerializer
     {
+        private readonly IIgnixaJsonSerializer _ignixaSerializer;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ResourceToNdjsonBytesSerializer"/> class.
+        /// </summary>
+        /// <param name="ignixaSerializer">The Ignixa JSON serializer for FHIR resources.</param>
+        public ResourceToNdjsonBytesSerializer(IIgnixaJsonSerializer ignixaSerializer)
+        {
+            EnsureArg.IsNotNull(ignixaSerializer, nameof(ignixaSerializer));
+
+            _ignixaSerializer = ignixaSerializer;
+        }
+
         /// <inheritdoc />
         public byte[] Serialize(ResourceElement resourceElement)
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            string resourceData = resourceElement.Instance.ToJson();
+            string resourceData = SerializeToJson(resourceElement);
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
 
@@ -35,9 +50,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (addSoftDeletedExtension)
             {
-                resourceElement.TryAddSoftDeletedExtension();
+                resourceElement = resourceElement.TryAddSoftDeletedExtension();
             }
 
+            return SerializeToJson(resourceElement);
+        }
+
+        private string SerializeToJson(ResourceElement resourceElement)
+        {
+            // OPTIMIZED: Direct Ignixa serialization (no round-trip through Firely)
+            // This is now safe after PR #165 fixed Ignixa ↔ Firely compatibility
+            var ignixaNode = resourceElement.GetIgnixaNode();
+            if (ignixaNode != null)
+            {
+                // Fast path: Direct serialization from Ignixa node (most common case)
+                return _ignixaSerializer.Serialize(ignixaNode, pretty: false);
+            }
+
+            // Legacy fallback: For Firely-based ResourceElements (shouldn't happen post-migration)
+            // Return Firely JSON directly without attempting to parse/reserialize through Ignixa
             return resourceElement.Instance.ToJson();
         }
     }

@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -49,9 +50,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var typedElementToSearchValueConverterManager = GetTypeConverterAsync().Result;
             var referenceToElementResolver = Substitute.For<IReferenceToElementResolver>();
             var modelInfoProvider = ModelInfoProvider.Instance;
+            var fhirPathProvider = new FirelyFhirPathProvider();
             var logger = Substitute.For<ILogger<TypedElementSearchIndexer>>();
 
-            _searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, typedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, logger);
+            _searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, typedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, fhirPathProvider, logger);
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
             List<string> targetResourceTypes = new List<string>() { "Coverage", "Observation", "Claim", "Patient" };

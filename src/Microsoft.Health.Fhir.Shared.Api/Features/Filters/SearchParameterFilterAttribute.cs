@@ -7,6 +7,7 @@ using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
@@ -45,11 +46,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         private static SearchParameter ExtractSearchParameter(ActionExecutingContext context)
         {
-            // Check for direct SearchParameter resource
-            if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel) &&
-                parsedModel is SearchParameter searchParameter)
+            if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                return searchParameter;
+                // Check for direct SearchParameter resource (Firely POCO binding)
+                if (parsedModel is SearchParameter searchParameter)
+                {
+                    return searchParameter;
+                }
+
+                // Check for ResourceElement wrapping a SearchParameter (Ignixa binding)
+                if (parsedModel is ResourceElement resourceElement &&
+                    string.Equals(resourceElement.InstanceType, KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+                {
+                    return resourceElement.ToPoco<SearchParameter>();
+                }
             }
 
             // Check for delete scenario with SearchParameter resource type
