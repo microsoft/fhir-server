@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // Log to EventLog for cross-instance convergence tracking (SQL only; Cosmos/File are no-ops).
                 var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
-                await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", $"SearchParamLastUpdated={lastUpdatedText}", null, cancellationToken);
+                await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
             }
         }
 

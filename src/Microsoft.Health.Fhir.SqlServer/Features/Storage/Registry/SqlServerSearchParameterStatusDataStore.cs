@@ -268,9 +268,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 (reader) =>
                 {
                     var eventDate = reader.GetDateTime(0);
-                    var eventText = reader.IsDBNull(1) ? null : reader.GetString(1);
+                    var lastUpdated = reader.IsDBNull(1) ? null : reader.GetString(1); // Use event text as-is because date is saved in a sortable format.
                     var hostName = reader.GetString(2);
-                    return (eventDate, eventText, hostName);
+                    return (eventDate, lastUpdated, hostName);
                 },
                 _logger,
                 cancellationToken);
@@ -278,23 +278,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             var activeHosts = results.Select(r => r.hostName).ToHashSet();
 
             // Taking 2 latest events should guarantee that cache completed at least one full update cycle after updateEventsSince.
-            var eventsByHosts = results.Where(_ => !string.IsNullOrEmpty(_.eventText))
+            var eventsByHosts = results.Where(_ => !string.IsNullOrEmpty(_.lastUpdated))
                                        .GroupBy(_ => _.hostName)
                                        .Select(g => new { g.Key, Value = g.OrderByDescending(_ => _.eventDate).Take(2).ToList() })
                                        .ToDictionary(_ => _.Key, _ => _.Value);
             var updatedHosts = new Dictionary<string, string>();
             foreach (var hostName in activeHosts)
             {
-                // Use event text as-is because date is saved in a sortable format.
                 // Extra precaution => latest last updated stayed unchanged, i.e. no actual update happened.
-                if (eventsByHosts.TryGetValue(hostName, out var value) && value != null && value.Count == 2 && value[0].eventText == value[1].eventText)
+                if (eventsByHosts.TryGetValue(hostName, out var value) && value.Count == 2 && value[0].lastUpdated == value[1].lastUpdated)
                 {
-                    updatedHosts.Add(hostName, value[0].eventText);
+                    updatedHosts.Add(hostName, value[0].lastUpdated);
                 }
             }
 
-            var maxEventText = updatedHosts.Values.Max(_ => _);
-            var convergedHosts = updatedHosts.Where(_ => _.Value == maxEventText).Select(_ => _.Key).ToList();
+            var maxLastUpdated = updatedHosts.Values.Max(_ => _);
+            var convergedHosts = updatedHosts.Where(_ => _.Value == maxLastUpdated).Select(_ => _.Key).ToList();
             var isConsistent = convergedHosts.Count > 0 && convergedHosts.Count == activeHosts.Count;
             await TryLogEvent("CheckCacheConsistency", "Warn", $"isConsistent={isConsistent} ActiveHosts={activeHosts.Count} ConvergedHosts={convergedHosts.Count}", null, cancellationToken);
             return new CacheConsistencyResult { IsConsistent = isConsistent, ActiveHosts = activeHosts.Count, ConvergedHosts = convergedHosts.Count };
